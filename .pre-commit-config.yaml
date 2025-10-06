@@ -1,0 +1,31 @@
+# Pre-commit configuration for AssetFlow
+# See https://pre-commit.com for more information
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-case-conflict
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: pretty-format-json
+        args: ["--autofix", "--indent=2", "--no-sort-keys"]
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+  - repo: local
+    hooks:
+      - id: swift-format
+        name: swift-format
+        entry: swift-format format --in-place --recursive --parallel
+        language: system
+        types: [swift]
+        require_serial: true
+      - id: swift-format-lint
+        name: swift-format-lint
+        entry: swift-format lint --strict --recursive --parallel
+        language: system
+        types: [swift]
+        require_serial: true
