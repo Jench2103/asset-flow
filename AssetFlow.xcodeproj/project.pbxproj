@@ -6,8 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		FFF30E402E93986400AB7EBD /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = FFF30E3F2E93986000AB7EBD /* .gitignore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		FFF30E2C2E93982F00AB7EBD /* AssetFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AssetFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFF30E3F2E93986000AB7EBD /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -45,6 +50,7 @@
 		FFF30E232E93982F00AB7EBD = {
 			isa = PBXGroup;
 			children = (
+				FFF30E3F2E93986000AB7EBD /* .gitignore */,
 				FFF30E2E2E93982F00AB7EBD /* AssetFlow */,
 				FFF30E2D2E93982F00AB7EBD /* Products */,
 			);
@@ -122,6 +128,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FFF30E402E93986400AB7EBD /* .gitignore in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
