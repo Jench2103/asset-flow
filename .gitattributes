@@ -1,0 +1,40 @@
+# Handle line endings automatically for files detected as text
+# and leave all files detected as binary untouched.
+* text=auto
+
+# Swift files
+*.swift text diff=swift
+
+# Xcode files
+*.pbxproj binary merge=union
+*.xcworkspacedata binary merge=union
+*.xcscheme binary merge=union
+
+# Documentation
+*.md text
+*.txt text
+README text
+
+# Serialization
+*.json text
+*.yaml text
+*.yml text
+*.xml text
+*.plist text
+
+# Archives
+*.zip binary
+*.tar binary
+*.gz binary
+*.rar binary
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+
+# Fonts
+*.ttf binary
+*.otf binary

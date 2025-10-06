@@ -1,0 +1,96 @@
+# SwiftLint Configuration for AssetFlow
+
+# Disabled Rules
+disabled_rules:
+  - trailing_whitespace
+  - todo
+
+# Opt-in Rules
+opt_in_rules:
+  - empty_count
+  - empty_string
+  - explicit_init
+  - file_header
+  - force_unwrapping
+  - implicit_return
+  - sorted_imports
+  - vertical_whitespace_between_cases
+
+# Included/Excluded Paths
+included:
+  - AssetFlow
+
+excluded:
+  - Pods
+  - .build
+  - DerivedData
+
+# Rule Configurations
+line_length:
+  warning: 120
+  error: 150
+  ignores_comments: true
+  ignores_urls: true
+
+file_length:
+  warning: 500
+  error: 800
+
+type_body_length:
+  warning: 300
+  error: 500
+
+function_body_length:
+  warning: 60
+  error: 100
+
+function_parameter_count:
+  warning: 5
+  error: 8
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - id
+    - x
+    - y
+    - z
+
+# Force Unwrapping
+force_unwrapping:
+  severity: warning
+
+# Cyclomatic Complexity
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+
+# Nesting
+nesting:
+  type_level:
+    warning: 2
+  statement_level:
+    warning: 5
+
+# File Header
+file_header:
+  required_pattern: |
+                    \/\/
+                    \/\/  .*?\.swift
+                    \/\/  AssetFlow
+                    \/\/
+                    \/\/  Created by .* on \d{4}\/\d{1,2}\/\d{1,2}\.
+                    \/\/
+
+# Custom Rules
+custom_rules:
+  no_print:
+    name: "Print Usage"
+    regex: "print\\("
+    message: "Use proper logging instead of print()"
+    severity: warning

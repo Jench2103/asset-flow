@@ -12,7 +12,10 @@ import SwiftData
 struct AssetFlowApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Asset.self,
+            Portfolio.self,
+            Transaction.self,
+            InvestmentPlan.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

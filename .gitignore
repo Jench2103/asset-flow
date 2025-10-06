@@ -119,3 +119,21 @@ fastlane/test_output
 iOSInjectionProject/
 
 # End of https://www.toptal.com/developers/gitignore/api/swift,macos
+
+# Custom additions for AssetFlow
+*.swp
+*.swo
+*~
+.env
+.env.local
+
+# IDE specific
+.vscode/
+.idea/
+
+# Build artifacts
+*.framework
+*.a
+
+# Documentation
+docs/build/
