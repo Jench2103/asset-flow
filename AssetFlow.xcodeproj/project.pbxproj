@@ -9,8 +9,6 @@
 /* Begin PBXFileReference section */
 		FFF30E2C2E93982F00AB7EBD /* AssetFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AssetFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFF30E3F2E93986000AB7EBD /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
-		FFF30E7B2E93BDCD00AB7EBD /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		FFF30EBB2E93C71300AB7EBD /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -49,8 +47,6 @@
 		FFF30E232E93982F00AB7EBD = {
 			isa = PBXGroup;
 			children = (
-				FFF30EBB2E93C71300AB7EBD /* CLAUDE.md */,
-				FFF30E7B2E93BDCD00AB7EBD /* README.md */,
 				FFF30E3F2E93986000AB7EBD /* .gitignore */,
 				FFF30E2E2E93982F00AB7EBD /* AssetFlow */,
 				FFF30E2D2E93982F00AB7EBD /* Products */,

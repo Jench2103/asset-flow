@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 AssetFlow is a multi-platform personal asset allocation and investment tracking application. Platform priority: macOS (primary) → iOS → iPadOS.
 
 **Tech Stack:**
+
 - Swift with SwiftUI
 - SwiftData for persistence
 - Minimum targets: macOS 14.0+, iOS 17.0+, iPadOS 17.0+
@@ -30,12 +31,14 @@ swift-format lint --strict --recursive --parallel .
 ## Architecture
 
 **MVVM Pattern:**
+
 - Models: SwiftData models with relationships
 - Views: SwiftUI components
 - ViewModels: Business logic (to be implemented)
 - Services: Data operations (to be implemented)
 
 **Data Model Relationships:**
+
 ```
 Portfolio (1:Many) Asset (1:Many) Transaction
 InvestmentPlan (currently standalone)
@@ -43,8 +46,8 @@ InvestmentPlan (currently standalone)
 
 All models are registered in `AssetFlowApp.swift` in the `sharedModelContainer` Schema. When adding new models, update both the Schema and `Models/README.md`.
 
-**Xcode Configuration:**
-When adding new files, features, or dependencies, remember to update Xcode project configuration as needed:
+**Xcode Configuration:** When adding new files, features, or dependencies, remember to update Xcode project configuration as needed:
+
 - Add new source files to appropriate targets
 - Update `Info.plist` for permissions, capabilities, or app metadata
 - Configure build settings for new frameworks or libraries
@@ -52,23 +55,61 @@ When adding new files, features, or dependencies, remember to update Xcode proje
 - Add new resources to bundle targets
 - Configure entitlements for platform-specific features
 
-**Documentation Updates:**
-When making changes to the project, keep documentation current:
-- Update `Models/README.md` when adding/modifying SwiftData models
-- Update this `CLAUDE.md` for architectural changes or new conventions
+**Documentation Updates:** When making changes to the project, keep documentation current. **IMPORTANT: Always check and update relevant design documents.**
+
+Design documents are located in `Documentation/`:
+
+- `Architecture.md` - System design, MVVM pattern, layer responsibilities, data flow
+- `DataModel.md` - Complete model reference, relationships, SwiftData configuration
+- `DevelopmentGuide.md` - Setup, workflows, platform-specific development
+- `CodeStyle.md` - Coding standards, conventions, formatting rules
+- `TestingStrategy.md` - Testing approach, patterns, coverage goals
+
+**Update checklist by change type:**
+
+| Change Type                 | Update These Documents                                               |
+| --------------------------- | -------------------------------------------------------------------- |
+| Add/modify SwiftData model  | `Models/README.md` (quick ref), `Documentation/DataModel.md` (full)  |
+| Change architecture pattern | `Documentation/Architecture.md`, this file                           |
+| Add new layer/service       | `Documentation/Architecture.md`                                      |
+| New build command/tool      | `Documentation/DevelopmentGuide.md`, this file                       |
+| Coding convention change    | `Documentation/CodeStyle.md`                                         |
+| Testing approach change     | `Documentation/TestingStrategy.md`                                   |
+| New platform support        | `Documentation/Architecture.md`, `Documentation/DevelopmentGuide.md` |
+| Dependency added            | `Documentation/Architecture.md`, `Documentation/DevelopmentGuide.md` |
+
+**Before completing any task:**
+
+1. Review which documentation files are affected by your changes
+1. Update the relevant documentation files
+1. Ensure cross-references between documents remain accurate
+1. Update code examples in documentation if APIs changed
+
+**General documentation rules:**
+
 - Add inline code documentation for public APIs and complex logic
-- Update build instructions if new dependencies or tools are added
 - Document platform-specific implementations and requirements
-- Keep model relationships diagram current in this file
+- Keep model relationships diagrams current
+- Update README.md for user-facing changes
+
+**Code Quality and Formatting:**
+
+- **Pre-commit hooks** are configured but run **automatically only when committing**
+- Developers can run formatting/linting manually: `pre-commit run --all-files`
+- **Do NOT** run pre-commit automatically during development workflow
+- Pre-commit hooks will auto-format and check code when `git commit` is executed
+- If hooks fail, fix issues and commit again
 
 ## Critical Conventions
 
 **Financial Data:**
+
 - Always use `Decimal` for monetary values (never Float/Double)
 - Default currency: "USD"
 - Extensions in `Utilities/Extensions.swift` provide `.formatted(currency:)` and `.formattedPercentage()`
 
 **File Headers (SwiftLint enforced):**
+
 ```swift
 //
 //  FileName.swift
@@ -79,6 +120,7 @@ When making changes to the project, keep documentation current:
 ```
 
 **Platform-Specific Code:**
+
 ```swift
 #if os(macOS)
     // macOS-specific code
@@ -100,13 +142,16 @@ When making changes to the project, keep documentation current:
 ## Core Models
 
 **Asset** - Individual investments (stocks, bonds, crypto, real estate, etc.)
+
 - Links to Portfolio (optional) and Transactions (many)
 
 **Portfolio** - Asset collections with target allocation
+
 - `totalValue` computed property aggregates asset values
 - `targetAllocation: [String: Decimal]?` stores percentages by asset type
 
 **Transaction** - Financial operations (buy/sell/dividend/interest/etc.)
+
 - Links to specific Asset
 
 **InvestmentPlan** - Strategic goals with risk tolerance and status tracking

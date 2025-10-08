@@ -5,6 +5,7 @@ A comprehensive personal asset allocation monitoring and investment planning app
 ## Overview
 
 AssetFlow helps you:
+
 - Monitor personal asset allocation across different investment vehicles
 - Record and manage investment planning strategies
 - Track investment effectiveness and performance over time
@@ -49,21 +50,24 @@ AssetFlow/
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone git@github.com:Jench2103/asset-flow-swift.git AssetFlow
    cd AssetFlow
    ```
 
-2. Open the project in Xcode:
+1. Open the project in Xcode:
+
    ```bash
    open AssetFlow.xcodeproj
    ```
 
-3. Build and run the project (⌘+R)
+1. Build and run the project (⌘+R)
 
 ### SwiftLint Setup
 
 Install SwiftLint using Homebrew:
+
 ```bash
 brew install swiftlint
 ```
@@ -79,6 +83,7 @@ This project follows Swift best practices and uses SwiftLint for code style enfo
 ### Architecture
 
 The application follows the MVVM (Model-View-ViewModel) architecture pattern:
+
 - **Models**: Define data structures and SwiftData schemas
 - **Views**: SwiftUI components for UI presentation
 - **ViewModels**: Business logic and state management

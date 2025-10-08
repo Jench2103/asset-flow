@@ -1,161 +1,149 @@
-# Data Models
+# Data Models - Quick Reference
 
-This directory contains the core data models for AssetFlow, implemented using SwiftData for persistence across macOS, iOS, and iPadOS platforms.
+This directory contains the core SwiftData models for AssetFlow.
 
-## Overview
+📖 **For comprehensive documentation, see [Documentation/DataModel.md](../../Documentation/DataModel.md)**
 
-The data model is designed to track:
-- Individual assets and their current values
-- Portfolio organization and allocation strategies
-- Transaction history for each asset
-- Investment plans and goals
-
-## Models
+## Models Overview
 
 ### Asset
 
-Represents an individual investment or asset in a portfolio.
+Individual investment or asset in a portfolio.
 
-**Properties:**
+**Key Properties:**
 
-- `id: UUID` - Unique identifier for the asset
-- `name: String` - Display name of the asset (e.g., "Apple Inc.", "Bitcoin", "My Home")
-- `assetType: AssetType` - Category of the asset (Stock, Bond, Crypto, Real Estate, etc.)
-- `currentValue: Decimal` - Current market value of the total holdings
-- `purchaseDate: Date` - Date when the asset was initially acquired
-- `purchasePrice: Decimal?` - Original purchase price per unit (optional)
-- `quantity: Decimal` - Number of units held (e.g., shares, coins, properties)
-- `currency: String` - Currency code for values (default: "USD")
-- `notes: String?` - Optional user notes or comments about the asset
-- `lastUpdated: Date` - Timestamp of the last update to this asset
+- `name` - Display name
+- `assetType` - Category (stock, bond, crypto, etc.)
+- `currentValue` - Current market value
+- `quantity` - Number of units held
+- `currency` - Currency code (default: "USD")
 
 **Relationships:**
 
-- `portfolio: Portfolio?` - The portfolio this asset belongs to
-- `transactions: [Transaction]?` - All transactions associated with this asset
-
-**Asset Types:**
-
-- `stock` - Publicly traded stocks
-- `bond` - Government or corporate bonds
-- `crypto` - Cryptocurrencies
-- `realEstate` - Real estate properties
-- `commodity` - Gold, silver, oil, etc.
-- `cash` - Cash holdings and savings
-- `mutualFund` - Mutual fund investments
-- `etf` - Exchange-traded funds
-- `other` - Other asset types
+- Portfolio (optional parent)
+- Transactions (many children)
 
 ### Portfolio
 
-Represents a collection of assets grouped together for organizational or strategic purposes.
+Collection of assets grouped for organizational/strategic purposes.
 
-**Properties:**
+**Key Properties:**
 
-- `id: UUID` - Unique identifier for the portfolio
-- `name: String` - Display name (e.g., "Retirement Portfolio", "Emergency Fund")
-- `portfolioDescription: String?` - Optional detailed description of the portfolio's purpose
-- `createdDate: Date` - When this portfolio was created
-- `targetAllocation: [String: Decimal]?` - Desired percentage allocation by asset type (e.g., {"Stock": 60, "Bond": 40})
-- `isActive: Bool` - Whether this portfolio is currently active
+- `name` - Display name
+- `targetAllocation` - Target percentages by asset type
+- `isActive` - Active status
+
+**Computed:**
+
+- `totalValue` - Sum of all asset values
 
 **Relationships:**
 
-- `assets: [Asset]?` - All assets contained in this portfolio
-
-**Computed Properties:**
-
-- `totalValue: Decimal` - Sum of all asset current values in the portfolio
+- Assets (many children)
 
 ### Transaction
 
-Represents a single financial transaction related to an asset.
+Single financial transaction related to an asset.
 
-**Properties:**
+**Key Properties:**
 
-- `id: UUID` - Unique identifier for the transaction
-- `transactionType: TransactionType` - Type of transaction (Buy, Sell, Dividend, etc.)
-- `transactionDate: Date` - When the transaction occurred
-- `quantity: Decimal` - Number of units involved in the transaction
-- `pricePerUnit: Decimal` - Price per unit at transaction time
-- `totalAmount: Decimal` - Total transaction amount (quantity × pricePerUnit ± fees)
-- `currency: String` - Currency code for the transaction (default: "USD")
-- `fees: Decimal?` - Transaction fees or commissions (optional)
-- `notes: String?` - Optional notes about the transaction
+- `transactionType` - Type (buy, sell, dividend, etc.)
+- `transactionDate` - When it occurred
+- `quantity` - Units involved
+- `pricePerUnit` - Price per unit
+- `totalAmount` - Total transaction value
 
 **Relationships:**
 
-- `asset: Asset?` - The asset this transaction is associated with
-
-**Transaction Types:**
-
-- `buy` - Purchase of an asset
-- `sell` - Sale of an asset
-- `dividend` - Dividend payment received
-- `interest` - Interest payment received
-- `deposit` - Cash deposit
-- `withdrawal` - Cash withdrawal
-- `transfer` - Transfer between accounts
+- Asset (optional parent)
 
 ### InvestmentPlan
 
-Represents an investment strategy or goal with defined parameters.
+Investment strategy or goal with defined parameters.
 
-**Properties:**
+**Key Properties:**
 
-- `id: UUID` - Unique identifier for the plan
-- `name: String` - Display name (e.g., "Retirement by 2050", "House Down Payment")
-- `planDescription: String?` - Detailed description of the plan's objectives
-- `startDate: Date` - When the plan begins
-- `endDate: Date?` - Target completion date (optional)
-- `targetAmount: Decimal?` - Goal amount to reach (optional)
-- `monthlyContribution: Decimal?` - Planned monthly investment amount (optional)
-- `riskTolerance: RiskLevel` - Acceptable level of risk (Very Low to Very High)
-- `status: PlanStatus` - Current status of the plan (Active, Paused, Completed, Cancelled)
-- `notes: String?` - Additional notes or strategy details
-- `createdDate: Date` - When this plan was created
-- `lastUpdated: Date` - Last modification timestamp
+- `name` - Plan name
+- `targetAmount` - Goal amount
+- `monthlyContribution` - Planned monthly investment
+- `riskTolerance` - Risk level (veryLow to veryHigh)
+- `status` - Current status (active, paused, completed, cancelled)
 
-**Risk Levels:**
+**Relationships:**
 
-- `veryLow` - Minimal risk tolerance (conservative)
-- `low` - Low risk tolerance
-- `moderate` - Balanced risk tolerance
-- `high` - High risk tolerance
-- `veryHigh` - Maximum risk tolerance (aggressive)
-
-**Plan Status:**
-
-- `active` - Currently being followed
-- `paused` - Temporarily suspended
-- `completed` - Goal achieved
-- `cancelled` - No longer pursuing
+- Currently standalone (no relationships)
 
 ## Relationships
 
 ```
-Portfolio (1) ──< (Many) Asset (1) ──< (Many) Transaction
+Portfolio (1:Many) → Asset (1:Many) → Transaction
 ```
 
-- A Portfolio can contain many Assets
-- An Asset belongs to one Portfolio (or none)
-- An Asset can have many Transactions
-- A Transaction belongs to one Asset
+Delete Rules:
 
-InvestmentPlan is currently independent but can be extended to link with Portfolios in future iterations.
+- Portfolio → Assets: `.nullify` (assets remain when portfolio deleted)
+- Asset → Transactions: `.cascade` (transactions deleted with asset)
 
-## Data Precision
+## Critical Conventions
 
-All monetary values use `Decimal` type to ensure precision in financial calculations, avoiding floating-point rounding errors.
+### Financial Data
 
-## Future Enhancements
+⚠️ **Always use `Decimal` for monetary values** (never Float/Double)
 
-Potential additions to the data model:
+```swift
+var currentValue: Decimal  // ✅ Correct
+var currentValue: Double   // ❌ Never do this
+```
 
-- Performance metrics and analytics
-- Historical value tracking (snapshots over time)
-- Multi-currency portfolio support with exchange rates
-- Asset categorization tags
-- Benchmark comparisons
-- Tax lot tracking for capital gains
-- Integration with external data sources
+### Schema Registration
+
+All models must be registered in `AssetFlowApp.swift`:
+
+```swift
+let schema = Schema([
+    Asset.self,
+    Portfolio.self,
+    Transaction.self,
+    InvestmentPlan.self
+])
+```
+
+### When Adding/Modifying Models
+
+1. Update the model file
+1. Register in `AssetFlowApp.swift` Schema (if new)
+1. Update this README
+1. Update [Documentation/DataModel.md](../../Documentation/DataModel.md)
+1. Consider migration strategy if changing existing models
+
+## Quick Links
+
+- 📐 [Architecture Documentation](../../Documentation/Architecture.md)
+- 🗄️ [Complete Data Model Documentation](../../Documentation/DataModel.md)
+- 🛠️ [Development Guide](../../Documentation/DevelopmentGuide.md)
+- 🎨 [Code Style Guide](../../Documentation/CodeStyle.md)
+
+## File Organization
+
+```
+Models/
+├── README.md (this file)
+├── Asset.swift
+├── Portfolio.swift
+├── Transaction.swift
+└── InvestmentPlan.swift
+```
+
+______________________________________________________________________
+
+For detailed information on:
+
+- Complete property tables
+- Enumerations (AssetType, TransactionType, RiskLevel, etc.)
+- Computed properties
+- Validation rules
+- SwiftData configuration
+- Migration strategies
+- Usage examples
+
+See the comprehensive [DataModel.md](../../Documentation/DataModel.md) documentation.
