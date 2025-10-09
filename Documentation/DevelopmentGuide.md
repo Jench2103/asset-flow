@@ -110,21 +110,21 @@ git checkout -b feature/your-feature-name
 
 **Development Cycle**
 
-```bash
-# 1. Make code changes
-
-# 2. Run pre-commit checks (formatting, linting, etc.)
-pre-commit run --all-files
-
-# 3. Build
-xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow build
-
-# 4. Run tests (when available)
-xcodebuild test -project AssetFlow.xcodeproj -scheme AssetFlow
-
-# 5. Run the app
-# Use Xcode or xcodebuild run
-```
+1. Make code changes
+1. Run pre-commit checks (formatting, linting, etc.)
+   ```bash
+   pre-commit run --all-files
+   ```
+1. Build
+   ```bash
+   xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow build
+   ```
+1. Run tests (when available)
+   ```bash
+   xcodebuild test -project AssetFlow.xcodeproj -scheme AssetFlow
+   ```
+1. Run the app
+   - Use Xcode or xcodebuild run
 
 **Manual tool usage** (if needed):
 

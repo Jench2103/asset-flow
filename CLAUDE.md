@@ -59,24 +59,38 @@ All models are registered in `AssetFlowApp.swift` in the `sharedModelContainer` 
 
 Design documents are located in `Documentation/`:
 
+**Core Documentation:**
+
 - `Architecture.md` - System design, MVVM pattern, layer responsibilities, data flow
 - `DataModel.md` - Complete model reference, relationships, SwiftData configuration
 - `DevelopmentGuide.md` - Setup, workflows, platform-specific development
 - `CodeStyle.md` - Coding standards, conventions, formatting rules
 - `TestingStrategy.md` - Testing approach, patterns, coverage goals
 
+**Design Documentation:**
+
+- `UserInterfaceDesign.md` - UI layouts, navigation, visual design, component patterns
+- `BusinessLogic.md` - Business rules, calculations, workflows, validation logic
+- `SecurityAndPrivacy.md` - Security measures, privacy principles, threat model
+- `APIDesign.md` - External integrations, internal API patterns, import/export
+
 **Update checklist by change type:**
 
-| Change Type                 | Update These Documents                                               |
-| --------------------------- | -------------------------------------------------------------------- |
-| Add/modify SwiftData model  | `Models/README.md` (quick ref), `Documentation/DataModel.md` (full)  |
-| Change architecture pattern | `Documentation/Architecture.md`, this file                           |
-| Add new layer/service       | `Documentation/Architecture.md`                                      |
-| New build command/tool      | `Documentation/DevelopmentGuide.md`, this file                       |
-| Coding convention change    | `Documentation/CodeStyle.md`                                         |
-| Testing approach change     | `Documentation/TestingStrategy.md`                                   |
-| New platform support        | `Documentation/Architecture.md`, `Documentation/DevelopmentGuide.md` |
-| Dependency added            | `Documentation/Architecture.md`, `Documentation/DevelopmentGuide.md` |
+| Change Type                 | Update These Documents                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------------------- |
+| Add/modify SwiftData model  | `Models/README.md` (quick ref), `Documentation/DataModel.md` (full)                          |
+| Change architecture pattern | `Documentation/Architecture.md`, this file                                                   |
+| Add new layer/service       | `Documentation/Architecture.md`, `Documentation/APIDesign.md`                                |
+| New build command/tool      | `Documentation/DevelopmentGuide.md`, this file                                               |
+| Coding convention change    | `Documentation/CodeStyle.md`                                                                 |
+| Testing approach change     | `Documentation/TestingStrategy.md`                                                           |
+| New platform support        | `Documentation/Architecture.md`, `Documentation/DevelopmentGuide.md`                         |
+| Dependency added            | `Documentation/Architecture.md`, `Documentation/DevelopmentGuide.md`                         |
+| Design new screen/UI        | `Documentation/UserInterfaceDesign.md`                                                       |
+| Add business rule/calc      | `Documentation/BusinessLogic.md`                                                             |
+| Security/privacy change     | `Documentation/SecurityAndPrivacy.md`                                                        |
+| API/integration added       | `Documentation/APIDesign.md`, `Documentation/SecurityAndPrivacy.md` (if data transmitted)    |
+| Major feature (full design) | Multiple: `UserInterfaceDesign.md`, `BusinessLogic.md`, `DataModel.md`, `APIDesign.md`, etc. |
 
 **Before completing any task:**
 
