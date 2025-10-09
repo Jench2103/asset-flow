@@ -106,6 +106,16 @@ Design documents are located in `Documentation/`:
 - Keep model relationships diagrams current
 - Update README.md for user-facing changes
 
+**Markdown Formatting Conventions:**
+
+- **Numbered Lists**: Always use `1.` for all items in ordered lists. Markdown renderers automatically number them correctly. This makes version control diffs cleaner when reordering items.
+  ```markdown
+  1. First item
+  1. Second item
+  1. Third item
+  ```
+- **Tables**: Do NOT manually adjust column widths or alignment. The `mdformat` pre-commit hook handles table formatting automatically. Focus on content, not spacing.
+
 **Code Quality and Formatting:**
 
 - **Pre-commit hooks** are configured but run **automatically only when committing**
