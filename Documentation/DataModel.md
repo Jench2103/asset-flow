@@ -34,24 +34,19 @@ This document provides comprehensive documentation for all data models, includin
 
 ### Asset
 
-Represents an individual investment or asset in a portfolio.
+Represents an individual investment or asset in a portfolio. An Asset is defined by its transactions and price history; it holds very little state itself.
 
 **File**: `AssetFlow/Models/Asset.swift`
 
 #### Properties
 
-| Property        | Type        | Description                            | Required |
-| --------------- | ----------- | -------------------------------------- | -------- |
-| `id`            | `UUID`      | Unique identifier                      | ✓        |
-| `name`          | `String`    | Display name (e.g., "Apple Inc.")      | ✓        |
-| `assetType`     | `AssetType` | Asset category                         | ✓        |
-| `currentValue`  | `Decimal`   | Current market value of total holdings | ✓        |
-| `purchaseDate`  | `Date`      | Initial acquisition date               | ✓        |
-| `purchasePrice` | `Decimal?`  | Original purchase price per unit       | ✗        |
-| `quantity`      | `Decimal`   | Number of units held                   | ✓        |
-| `currency`      | `String`    | Currency code (default: "USD")         | ✓        |
-| `notes`         | `String?`   | User notes/comments                    | ✗        |
-| `lastUpdated`   | `Date`      | Last update timestamp                  | ✓        |
+| Property    | Type        | Description                       | Required |
+| ----------- | ----------- | --------------------------------- | -------- |
+| `id`        | `UUID`      | Unique identifier                 | ✓        |
+| `name`      | `String`    | Display name (e.g., "Apple Inc.") | ✓        |
+| `assetType` | `AssetType` | Asset category                    | ✓        |
+| `currency`  | `String`    | Currency code (default: "USD")    | ✓        |
+| `notes`     | `String?`   | User notes/comments               | ✗        |
 
 #### Relationships
 
@@ -61,10 +56,14 @@ var portfolio: Portfolio?
 
 @Relationship(deleteRule: .cascade, inverse: \Transaction.asset)
 var transactions: [Transaction]?
+
+@Relationship(deleteRule: .cascade, inverse: \PriceHistory.asset)
+var priceHistory: [PriceHistory]?
 ```
 
-- **Portfolio**: Optional parent (`.nullify` on delete)
-- **Transactions**: Child records (`.cascade` on delete)
+- **Portfolio**: Optional parent (`.nullify` on delete).
+- **Transactions**: Child records of all quantity changes (`.cascade` on delete).
+- **PriceHistory**: Child records of all price changes (`.cascade` on delete).
 
 #### Asset Types
 
@@ -85,19 +84,31 @@ enum AssetType: String, Codable {
 #### Computed Properties
 
 ```swift
-// Total cost basis
-var totalCost: Decimal {
-    (purchasePrice ?? 0) * quantity
+// Current quantity held, calculated from transactions
+var quantity: Decimal {
+    transactions?.reduce(0) { $0 + $1.quantityImpact } ?? 0
 }
 
-// Gain/loss calculation
-var gainLoss: Decimal {
-    currentValue - totalCost
+// The most recent price from price history
+var currentPrice: Decimal {
+    priceHistory?.sorted(by: { $0.date > $1.date }).first?.price ?? 0
 }
 
-// Percentage return
-var returnPercentage: Decimal {
-    totalCost > 0 ? (gainLoss / totalCost) * 100 : 0
+// Current total value of the asset
+var currentValue: Decimal {
+    quantity * currentPrice
+}
+
+// Average cost per unit, calculated from buy transactions
+var averageCost: Decimal {
+    let totalCost = transactions?.filter { $0.transactionType == .buy }.reduce(0) { $0 + $1.totalAmount } ?? 0
+    let totalQuantity = transactions?.filter { $0.transactionType == .buy }.reduce(0) { $0 + $1.quantity } ?? 0
+    return totalQuantity > 0 ? totalCost / totalQuantity : 0
+}
+
+// Total cost basis for current holdings
+var costBasis: Decimal {
+    averageCost * quantity
 }
 ```
 
@@ -107,13 +118,34 @@ var returnPercentage: Decimal {
 let asset = Asset(
     name: "Apple Inc.",
     assetType: .stock,
-    currentValue: 15000.00,
-    purchaseDate: Date(),
-    purchasePrice: 150.00,
-    quantity: 100,
     currency: "USD"
 )
 ```
+
+______________________________________________________________________
+
+### PriceHistory
+
+Represents the price of an asset at a specific point in time.
+
+**File**: `AssetFlow/Models/PriceHistory.swift`
+
+#### Properties
+
+| Property | Type      | Description                        | Required |
+| -------- | --------- | ---------------------------------- | -------- |
+| `id`     | `UUID`    | Unique identifier                  | ✓        |
+| `date`   | `Date`    | The date the price was recorded    | ✓        |
+| `price`  | `Decimal` | The price of one unit of the asset | ✓        |
+
+#### Relationships
+
+```swift
+@Relationship(deleteRule: .nullify)
+var asset: Asset?
+```
+
+- **Asset**: The parent asset this price point belongs to.
 
 ______________________________________________________________________
 
@@ -217,35 +249,43 @@ Represents a single financial transaction related to an asset.
 ```swift
 @Relationship(deleteRule: .nullify, inverse: \Asset.transactions)
 var asset: Asset?
+
+// For dividends or interest, this specifies which asset generated the income.
+var sourceAsset: Asset?
+
+// For linking two sides of a swap transaction.
+var relatedTransaction: Transaction?
 ```
 
-- **Asset**: Parent asset (`.nullify` on delete)
+- **asset**: The asset whose quantity is directly changing.
+- **sourceAsset**: The asset that generated the income (for `dividend` or `interest` types).
+- **relatedTransaction**: The other transaction that is part of the same logical swap.
 
 #### Transaction Types
 
 ```swift
 enum TransactionType: String, Codable {
-    case buy            // Purchase of asset
-    case sell           // Sale of asset
-    case dividend       // Dividend payment received
-    case interest       // Interest payment received
-    case deposit        // Cash deposit
-    case withdrawal     // Cash withdrawal
-    case transfer       // Transfer between accounts
+    case buy
+    case sell
+    case transferIn
+    case transferOut
+    case adjustment
+    case dividend
+    case interest
 }
 ```
 
 #### Computed Properties
 
 ```swift
-// Net amount after fees
-var netAmount: Decimal {
-    transactionType == .buy ? -(totalAmount + (fees ?? 0)) : (totalAmount - (fees ?? 0))
-}
-
-// Impact on quantity
+// The impact on asset quantity. Sells and transfers out decrease quantity.
 var quantityImpact: Decimal {
-    transactionType == .sell ? -quantity : quantity
+    switch transactionType {
+    case .sell, .transferOut:
+        return -quantity
+    case .buy, .transferIn, .adjustment, .dividend, .interest:
+        return quantity
+    }
 }
 ```
 
@@ -347,6 +387,90 @@ let plan = InvestmentPlan(
 
 ______________________________________________________________________
 
+### RegularSavingPlan
+
+Represents a recurring investment plan to automate or remind users of regular savings.
+
+**File**: `AssetFlow/Models/RegularSavingPlan.swift` (to be created)
+
+#### Properties
+
+| Property          | Type                        | Description                                         | Required |
+| ----------------- | --------------------------- | --------------------------------------------------- | -------- |
+| `id`              | `UUID`                      | Unique identifier                                   | ✓        |
+| `name`            | `String`                    | Display name for the plan                           | ✓        |
+| `amount`          | `Decimal`                   | The amount to invest on each occasion               | ✓        |
+| `frequency`       | `SavingPlanFrequency`       | How often the investment occurs                     | ✓        |
+| `startDate`       | `Date`                      | The date the plan begins                            | ✓        |
+| `nextDueDate`     | `Date`                      | The next date the investment is scheduled for       | ✓        |
+| `executionMethod` | `SavingPlanExecutionMethod` | Whether to execute automatically or send a reminder | ✓        |
+| `isActive`        | `Bool`                      | Whether the plan is currently active                | ✓        |
+
+#### Relationships
+
+```swift
+// The asset to purchase
+@Relationship(deleteRule: .nullify)
+var asset: Asset?
+
+// The asset to sell/withdraw from (e.g., Cash)
+@Relationship(deleteRule: .nullify)
+var sourceAsset: Asset?
+```
+
+- **asset**: The asset to be purchased as part of the plan. If the asset is deleted, the plan is not deleted.
+- **sourceAsset**: The asset from which funds are drawn. If `nil`, the transaction is treated as a `transferIn` from an external source.
+
+#### Enums
+
+**SavingPlanFrequency**
+
+```swift
+enum SavingPlanFrequency: String, Codable {
+    case daily
+    case weekly
+    case biweekly
+    case monthly
+}
+```
+
+**SavingPlanExecutionMethod**
+
+```swift
+enum SavingPlanExecutionMethod: String, Codable {
+    case automatic
+    case manual
+}
+```
+
+#### Usage Example
+
+```swift
+// With a source asset (a swap)
+let savingPlanWithSource = RegularSavingPlan(
+    name: "Weekly Bitcoin Buy",
+    amount: 50.00,
+    frequency: .weekly,
+    startDate: Date(),
+    executionMethod: .automatic,
+    asset: bitcoinAsset,
+    sourceAsset: cashAsset
+)
+
+// Without a source asset (a deposit/transfer)
+let savingPlanWithoutSource = RegularSavingPlan(
+    name: "Monthly Deposit to Brokerage",
+    amount: 500.00,
+    frequency: .monthly,
+    startDate: Date(),
+    executionMethod: .automatic,
+    asset: cashAsset,
+    sourceAsset: nil
+)
+```
+
+______________________________________________________________________
+
 ## Entity Relationships
 
 ### Relationship Diagram
@@ -354,56 +478,53 @@ ______________________________________________________________________
 ```
 ┌──────────────┐
 │  Portfolio   │
-│              │
-│ - name       │
-│ - isActive   │
 └──────┬───────┘
        │ 1:Many
-       │ (deleteRule: .nullify)
        ↓
-┌──────────────┐
-│    Asset     │
-│              │
-│ - name       │
-│ - assetType  │
-│ - value      │
-└──────┬───────┘
+┌──────────────┐   1:Many   ┌──────────────┐
+│    Asset     ├───────────>│ PriceHistory │
+└──────┬───────┘            └──────────────┘
        │ 1:Many
-       │ (deleteRule: .cascade)
        ↓
 ┌──────────────┐
-│ Transaction  │
-│              │
-│ - type       │
-│ - amount     │
-│ - date       │
-└──────────────┘
+│ Transaction  │───> sourceAsset (Asset)
+└──────┬───────┘
+       │ 1:1 (optional)
+       └─────────> relatedTransaction (self)
 
 ┌──────────────┐
 │InvestmentPlan│  (Currently independent)
-│              │
-│ - name       │
-│ - target     │
-│ - risk       │
 └──────────────┘
+
+┌───────────────────┐
+│ RegularSavingPlan │
+└─────────┬─────────┘
+          │
+          └────> Asset (1:1)
+          └────> sourceAsset (1:1)
 ```
 
 ### Delete Rules
 
-| Relationship         | Delete Rule | Behavior                                    |
-| -------------------- | ----------- | ------------------------------------------- |
-| Portfolio → Assets   | `.nullify`  | Assets remain, `portfolio` set to `nil`     |
-| Asset → Transactions | `.cascade`  | Deleting asset deletes all its transactions |
-| Asset → Portfolio    | `.nullify`  | Deleting asset doesn't affect portfolio     |
-| Transaction → Asset  | `.nullify`  | Deleting transaction doesn't affect asset   |
+| Relationship              | Delete Rule | Behavior                                             |
+| ------------------------- | ----------- | ---------------------------------------------------- |
+| Portfolio → Assets        | `.nullify`  | Assets remain, `portfolio` set to `nil`              |
+| Asset → Transactions      | `.cascade`  | Deleting asset deletes all its transactions          |
+| Asset → PriceHistory      | `.cascade`  | Deleting asset deletes all its price history records |
+| Transaction → Asset       | `.nullify`  | Deleting transaction doesn't affect asset            |
+| RegularSavingPlan → Asset | `.nullify`  | Deleting a saving plan does not delete the asset.    |
 
 ### Relationship Constraints
 
-- An Asset can belong to **0 or 1** Portfolio
-- A Portfolio can contain **0 to many** Assets
-- An Asset can have **0 to many** Transactions
-- A Transaction must relate to **0 or 1** Asset
-- InvestmentPlan is currently **standalone** (future: link to Portfolio)
+- An Asset can belong to **0 or 1** Portfolio.
+- A Portfolio can contain **0 to many** Assets.
+- An Asset can have **0 to many** Transactions.
+- An Asset can have **0 to many** PriceHistory records.
+- A Transaction must relate to **0 or 1** Asset (the asset being modified).
+- A Transaction can optionally relate to **0 or 1** source Asset (for dividends/interest).
+- A Transaction can optionally relate to **1 other** Transaction (for swaps).
+- A RegularSavingPlan relates to **1** Asset (the destination) and **0 or 1** source Asset.
+- InvestmentPlan is currently **standalone** (future: link to Portfolio).
 
 ______________________________________________________________________
 
@@ -419,7 +540,9 @@ var sharedModelContainer: ModelContainer = {
         Asset.self,
         Portfolio.self,
         Transaction.self,
-        InvestmentPlan.self
+        InvestmentPlan.self,
+        PriceHistory.self,
+        RegularSavingPlan.self
     ])
 
     let modelConfiguration = ModelConfiguration(

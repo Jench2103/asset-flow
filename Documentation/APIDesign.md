@@ -367,8 +367,10 @@ class AssetService: AssetServiceProtocol {
 
     func refreshAssetPrice(_ asset: Asset) async throws {
         let price = try await priceAPI.fetchPrice(symbol: asset.symbol)
-        asset.currentValue = price
-        // SwiftData auto-saves
+        // Create a new price history entry instead of mutating the asset
+        let newPriceRecord = PriceHistory(date: Date(), price: price, asset: asset)
+        modelContext.insert(newPriceRecord)
+        // SwiftData will auto-save the new record
     }
 }
 ```
@@ -679,19 +681,19 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-### Caching for Performance
+### Caching Strategy
 
-**Benefits**
+Fetched prices are not cached temporarily; they are persisted as a permanent record of the asset's value at a point in time.
 
-- Reduce API calls (lower costs, faster response)
-- Offline capability (use cached data)
-- Better user experience (no waiting for network)
+**Storage**
 
-**Cache Invalidation**
+- When a price is fetched from an external API, a new `PriceHistory` record is created and stored in SwiftData.
+- This creates a complete, auditable log of all price data, whether entered manually or fetched automatically.
 
-- Time-based: Expire after X minutes
-- Manual: User-triggered refresh
-- Event-based: Market close, new transaction recorded
+**Staleness**
+
+- The "current" price is simply the latest entry in the `PriceHistory` for a given asset.
+- The app can decide whether to fetch a new price based on the timestamp of the latest `PriceHistory` record (e.g., if it's more than 15 minutes old).
 
 ______________________________________________________________________
 

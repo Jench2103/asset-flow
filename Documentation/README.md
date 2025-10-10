@@ -28,7 +28,7 @@ ______________________________________________________________________
 
 Covers:
 
-- Core entities: Asset, Portfolio, Transaction, InvestmentPlan
+- Core entities: Asset, Portfolio, Transaction, PriceHistory, InvestmentPlan
 - Property definitions and types
 - Relationships and delete rules
 - SwiftData configuration
@@ -170,6 +170,74 @@ Describes:
 - Privacy considerations for external APIs
 
 **Who should read**: Developers working on integrations, API consumers, backend integration
+
+______________________________________________________________________
+
+## Development Roadmap
+
+This section provides a high-level overview of the planned features for each development phase. For more detailed information, please refer to the specific design documents linked below.
+
+### Phase 1: Core Asset Tracking (MVP)
+
+**Goal**: Establish the foundation for manual asset and transaction management.
+
+- **Features**:
+  - Create, edit, and delete portfolios.
+  - Manually add assets to portfolios.
+  - Record transactions (`buy`, `sell`, `transfer`, `adjustment`) to manage asset quantities.
+  - Manually update the price of each asset.
+- **Calculations**:
+  - Basic asset value (`quantity * price`).
+  - Average cost basis from transactions.
+  - Unrealized gain/loss.
+- **Primary Documents**: [BusinessLogic.md](BusinessLogic.md), [UserInterfaceDesign.md](UserInterfaceDesign.md)
+
+### Phase 2: Portfolio Organization & Analysis
+
+**Goal**: Provide users with insights into their portfolio composition.
+
+- **Features**:
+  - Aggregate asset values to the portfolio and global level.
+  - Visualize portfolio allocation by asset type.
+  - Compare actual allocation against user-defined targets.
+- **UI/UX**:
+  - Dashboard screen for a global overview.
+  - Portfolio detail screens with allocation charts (e.g., pie or donut charts).
+- **Primary Documents**: [BusinessLogic.md](BusinessLogic.md), [UserInterfaceDesign.md](UserInterfaceDesign.md)
+
+### Phase 3: Planning & Advanced Metrics
+
+**Goal**: Introduce investment planning and true performance measurement.
+
+- **Features**:
+  - Create and track investment plans with specific goals.
+  - Create and track regular saving plans, with options for automatic transaction creation or manual reminders.
+- **Calculations**:
+  - Implement Time-Weighted Rate of Return (TWR) for accurate performance analysis.
+  - Project goal achievement based on contributions and returns.
+- **Primary Documents**: [BusinessLogic.md](BusinessLogic.md), [APIDesign.md](APIDesign.md)
+
+### Phase 4: Live Data Integration
+
+**Goal**: Automate asset pricing with live data.
+
+- **Features**:
+  - Integrate with external APIs to fetch live asset prices automatically.
+- **Primary Documents**: [APIDesign.md](APIDesign.md)
+
+### Phase 5: Polish & Advanced Integrations
+
+**Goal**: Refine the user experience and add powerful automation features.
+
+- **Features**:
+  - Provide rebalancing suggestions to align with targets.
+  - Implement multi-device data synchronization via iCloud.
+  - Explore integrations with financial institutions (read-only).
+  - Implement robust data import/export (CSV, JSON).
+- **UI/UX**:
+  - Full accessibility review and implementation.
+  - Dark Mode optimization.
+- **Primary Documents**: [APIDesign.md](APIDesign.md), [SecurityAndPrivacy.md](SecurityAndPrivacy.md)
 
 ______________________________________________________________________
 

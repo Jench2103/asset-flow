@@ -257,24 +257,21 @@ class PortfolioViewModel: ObservableObject {
 **Computed properties** when appropriate:
 
 ```swift
-struct Asset {
-    var currentValue: Decimal
-    var purchasePrice: Decimal
-    var quantity: Decimal
+// Example of a computed property on the Asset model
+// (See DataModel.md for the full list)
 
-    // Computed property
-    var totalCost: Decimal {
-        purchasePrice * quantity
-    }
+// The most recent price from price history
+var currentPrice: Decimal {
+    priceHistory?.sorted(by: { $0.date > $1.date }).first?.price ?? 0
 }
 ```
 
 **Property observers**:
 
 ```swift
-var currentValue: Decimal {
+var name: String {
     didSet {
-        lastUpdated = Date()
+        print("Asset name changed to \(name) from \(oldValue)")
     }
 }
 ```
@@ -617,32 +614,34 @@ import Foundation
 
 @Model
 final class Asset {
-    // 1. ID
+    // 1. Stored Properties (identifiers and user content)
     var id: UUID
-
-    // 2. Required properties
     var name: String
     var assetType: AssetType
-    var currentValue: Decimal
-
-    // 3. Optional properties
+    var currency: String
     var notes: String?
 
-    // 4. Relationships
+    // 2. Relationships
     @Relationship(deleteRule: .nullify, inverse: \Portfolio.assets)
     var portfolio: Portfolio?
 
-    // 5. Initializer
-    init(name: String, assetType: AssetType, currentValue: Decimal) {
+    @Relationship(deleteRule: .cascade, inverse: \Transaction.asset)
+    var transactions: [Transaction]?
+
+    @Relationship(deleteRule: .cascade, inverse: \PriceHistory.asset)
+    var priceHistory: [PriceHistory]?
+
+    // 3. Initializer
+    init(name: String, assetType: AssetType, currency: String) {
         self.id = UUID()
         self.name = name
         self.assetType = assetType
-        self.currentValue = currentValue
+        self.currency = currency
     }
 
-    // 6. Computed properties
-    var displayName: String {
-        name.isEmpty ? "Unnamed Asset" : name
+    // 4. Computed Properties (state is derived, not stored)
+    var quantity: Decimal {
+        transactions?.reduce(0) { $0 + $1.quantityImpact } ?? 0
     }
 }
 ```

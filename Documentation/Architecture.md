@@ -96,6 +96,7 @@ class PortfolioViewModel: ObservableObject {
 - `Asset` - Individual investments
 - `Portfolio` - Asset collections
 - `Transaction` - Financial operations
+- `PriceHistory` - Historical price points for assets
 - `InvestmentPlan` - Strategic goals
 
 See [DataModel.md](DataModel.md) for detailed model documentation.
@@ -157,6 +158,7 @@ struct AssetFlowApp: App {
             Asset.self,
             Portfolio.self,
             Transaction.self,
+            PriceHistory.self,
             InvestmentPlan.self
         ])
         // Container configuration
@@ -280,21 +282,36 @@ enum DataError: LocalizedError {
 - Local-first architecture
 - Optional cloud sync with user consent
 
-## Performance Optimization
+## Performance and Scalability
 
-### Strategies
+### Calculation Strategy: Real-Time vs. Snapshotting
 
-- Lazy loading of data
-- Pagination for large datasets
-- Background processing for heavy operations
-- Efficient SwiftData queries with predicates
-- View hierarchy optimization
+A critical architectural decision is how to compute an asset's state (e.g., quantity, cost basis) from its history. This involves a trade-off between immediate data integrity and long-term performance.
+
+**Phase 1 (MVP): Real-Time Calculation**
+
+- **Strategy**: For the initial release, all asset states will be calculated on-the-fly from the full history of `Transaction` and `PriceHistory` records.
+- **Benefit**: This approach guarantees 100% data accuracy and is simpler to implement, making it ideal for the MVP.
+- **Drawback**: Performance will degrade as a user accumulates many years of data.
+
+**Phase 2 and Beyond: Snapshotting for Performance**
+
+- **Strategy**: To ensure the application remains fast for long-term users, a **snapshotting** mechanism will be introduced. A background process will periodically calculate and store the state of an asset in a separate `AssetSnapshot` model.
+- **Benefit**: When displaying an asset, the app will only need to load the latest snapshot and the few transactions that have occurred since. This provides near-instant access to both current and historical data, which is essential for timeline charts.
+
+This phased approach allows for rapid initial development while establishing a clear, robust plan for future scalability.
+
+### General Optimization Strategies
+
+- **Lazy Loading**: SwiftData automatically lazy loads relationships, preventing large object graphs from being loaded into memory at once.
+- **Efficient Queries**: Use specific, filtered predicates in `@Query` to fetch only the necessary data.
+- **Background Processing**: For intensive operations like generating snapshots, use background tasks to avoid blocking the main thread.
 
 ### Memory Management
 
-- ARC (Automatic Reference Counting)
-- Weak references to avoid retain cycles
-- Lazy initialization of heavy resources
+- **ARC**: Swift's Automatic Reference Counting is the primary mechanism.
+- **Weak References**: Use `weak` references in custom classes where necessary to prevent retain cycles (e.g., delegates).
+- **SwiftUI**: SwiftUI's struct-based views help minimize memory footprint.
 
 ## Testing Strategy
 

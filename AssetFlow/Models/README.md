@@ -73,10 +73,29 @@ Investment strategy or goal with defined parameters.
 
 - Currently standalone (no relationships)
 
+### RegularSavingPlan
+
+Represents a recurring investment plan.
+
+**Key Properties:**
+
+- `name` - Plan name
+- `amount` - Investment amount
+- `frequency` - How often to invest
+- `executionMethod` - Automatic or manual
+- `isActive` - Active status
+
+**Relationships:**
+
+- `asset` (optional parent, the asset to buy)
+- `sourceAsset` (optional parent, the asset to sell from)
+
 ## Relationships
 
 ```
 Portfolio (1:Many) → Asset (1:Many) → Transaction
+RegularSavingPlan (1:1) → asset (Asset)
+RegularSavingPlan (1:1) → sourceAsset (Asset)
 ```
 
 Delete Rules:
@@ -104,7 +123,8 @@ let schema = Schema([
     Asset.self,
     Portfolio.self,
     Transaction.self,
-    InvestmentPlan.self
+    InvestmentPlan.self,
+    RegularSavingPlan.self
 ])
 ```
 
@@ -131,7 +151,8 @@ Models/
 ├── Asset.swift
 ├── Portfolio.swift
 ├── Transaction.swift
-└── InvestmentPlan.swift
+├── InvestmentPlan.swift
+└── RegularSavingPlan.swift
 ```
 
 ______________________________________________________________________

@@ -90,7 +90,7 @@ ______________________________________________________________________
 **Models**:
 
 - Initialization
-- Computed properties
+- **Computed properties** (this is critical, as most state is computed)
 - Validation logic
 - Business rules
 - Decimal calculations (financial precision)
@@ -110,64 +110,68 @@ ______________________________________________________________________
 - Error scenarios
 - Edge cases
 
-### Example: Model Testing
+### Example: Model Testing (Computed Properties)
+
+Testing a model like `Asset` now requires setting up its dependencies (`Transaction` and `PriceHistory`) to test its computed properties.
 
 ```swift
 import Testing
 import Foundation
 @testable import AssetFlow
 
-@Test("Asset calculates total cost correctly")
-func assetCalculatesTotalCost() {
+@Test("Asset computes quantity correctly from transactions")
+func assetComputesQuantity() {
     // Arrange
-    let asset = Asset(
-        name: "Test Stock",
-        assetType: .stock,
-        currentValue: 15000.00,
-        purchaseDate: Date(),
-        purchasePrice: 100.00,
-        quantity: 100,
-        currency: "USD"
-    )
+    let asset = Asset(name: "Test Stock", assetType: .stock, currency: "USD")
+
+    let t1 = Transaction(transactionType: .buy, transactionDate: Date(), quantity: 10, pricePerUnit: 100, asset: asset)
+    let t2 = Transaction(transactionType: .buy, transactionDate: Date(), quantity: 5, pricePerUnit: 110, asset: asset)
+    let t3 = Transaction(transactionType: .sell, transactionDate: Date(), quantity: 8, pricePerUnit: 120, asset: asset)
+
+    asset.transactions = [t1, t2, t3]
 
     // Act
-    let totalCost = asset.totalCost
+    let currentQuantity = asset.quantity
 
     // Assert
-    #expect(totalCost == 10000.00)
+    #expect(currentQuantity == 7) // 10 + 5 - 8 = 7
 }
 
-@Test("Asset calculates gain/loss correctly")
-func assetCalculatesGainLoss() {
-    let asset = Asset(
-        name: "Test Stock",
-        assetType: .stock,
-        currentValue: 15000.00,
-        purchaseDate: Date(),
-        purchasePrice: 100.00,
-        quantity: 100,
-        currency: "USD"
-    )
+@Test("Asset computes currentValue from quantity and latest price")
+func assetComputesValue() {
+    // Arrange
+    let asset = Asset(name: "Test Stock", assetType: .stock, currency: "USD")
 
-    let gainLoss = asset.gainLoss
-    #expect(gainLoss == 5000.00)
+    // Transactions to establish quantity
+    let t1 = Transaction(transactionType: .buy, transactionDate: Date(), quantity: 10, pricePerUnit: 100, asset: asset)
+    asset.transactions = [t1]
+
+    // Price history
+    let p1 = PriceHistory(date: Date().addingTimeInterval(-100), price: 100, asset: asset)
+    let p2 = PriceHistory(date: Date(), price: 125, asset: asset) // Latest price
+    asset.priceHistory = [p1, p2]
+
+    // Act
+    let currentValue = asset.currentValue
+
+    // Assert
+    #expect(currentValue == 1250) // 10 shares * $125/share
 }
 
-@Test("Asset validates required fields", arguments: [
-    ("", false),           // Empty name
-    ("Valid Name", true)   // Valid name
-])
-func assetValidation(name: String, expectedValid: Bool) {
-    let asset = Asset(
-        name: name,
-        assetType: .stock,
-        currentValue: 100,
-        purchaseDate: Date(),
-        quantity: 1,
-        currency: "USD"
-    )
+@Test("Asset computes average cost correctly")
+func assetComputesAverageCost() {
+    // Arrange
+    let asset = Asset(name: "Test Stock", assetType: .stock, currency: "USD")
 
-    #expect(asset.isValid == expectedValid)
+    let t1 = Transaction(transactionType: .buy, transactionDate: Date(), quantity: 10, pricePerUnit: 100, totalAmount: 1000, asset: asset)
+    let t2 = Transaction(transactionType: .buy, transactionDate: Date(), quantity: 10, pricePerUnit: 120, totalAmount: 1200, asset: asset)
+    asset.transactions = [t1, t2]
+
+    // Act
+    let averageCost = asset.averageCost
+
+    // Assert
+    #expect(averageCost == 110) // ($1000 + $1200) / (10 + 10) = $110
 }
 ```
 
@@ -209,42 +213,6 @@ func portfolioViewModelHandlesErrors() async {
 }
 ```
 
-### Decimal Testing
-
-**Critical**: Test financial calculations with `Decimal`:
-
-```swift
-@Test("Transaction calculates net amount with fees")
-func transactionCalculatesNetAmount() {
-    let transaction = Transaction(
-        transactionType: .buy,
-        transactionDate: Date(),
-        quantity: 10,
-        pricePerUnit: 150.00,
-        totalAmount: 1500.00,
-        currency: "USD",
-        fees: 4.95
-    )
-
-    let netAmount = transaction.netAmount
-
-    // Verify precision (should be exactly -1504.95)
-    #expect(netAmount == -1504.95)
-}
-
-@Test("Portfolio allocation percentages sum to 100")
-func portfolioAllocationSumsToHundred() {
-    let allocation: [String: Decimal] = [
-        "Stock": 60.00,
-        "Bond": 30.00,
-        "Cash": 10.00
-    ]
-
-    let sum = allocation.values.reduce(0, +)
-    #expect(sum == 100.00)
-}
-```
-
 ______________________________________________________________________
 
 ## Integration Testing
@@ -254,7 +222,7 @@ ______________________________________________________________________
 **SwiftData Integration**:
 
 - CRUD operations
-- Relationships (cascade, nullify)
+- Relationships (cascade, nullify, etc.)
 - Queries with predicates
 - Transaction rollback
 - Schema migrations (future)
@@ -281,7 +249,9 @@ struct SwiftDataTestContainer {
         let schema = Schema([
             Asset.self,
             Portfolio.self,
-            Transaction.self
+            Transaction.self,
+            PriceHistory.self,
+            InvestmentPlan.self
         ])
 
         let configuration = ModelConfiguration(
@@ -297,115 +267,33 @@ struct SwiftDataTestContainer {
 }
 ```
 
-**Example Tests**:
+**Example Test**:
 
 ```swift
-@Test("Portfolio persists assets relationship")
-func portfolioRelationship() async throws {
+@Test("Deleting asset cascades to transactions and price history")
+func deleteAssetCascades() async throws {
     // Arrange
     let testContainer = SwiftDataTestContainer()
     let context = ModelContext(testContainer.container)
 
-    let portfolio = Portfolio(
-        name: "Test Portfolio",
-        createdDate: Date(),
-        isActive: true
-    )
+    let asset = Asset(name: "Test", assetType: .stock, currency: "USD")
+    let transaction = Transaction(transactionType: .buy, transactionDate: Date(), quantity: 1, pricePerUnit: 100, asset: asset)
+    let price = PriceHistory(date: Date(), price: 100, asset: asset)
 
-    let asset = Asset(
-        name: "Test Asset",
-        assetType: .stock,
-        currentValue: 1000,
-        purchaseDate: Date(),
-        quantity: 10,
-        currency: "USD"
-    )
-
-    // Act
-    asset.portfolio = portfolio
-    context.insert(portfolio)
-    context.insert(asset)
-    try context.save()
-
-    // Fetch and verify
-    let descriptor = FetchDescriptor<Portfolio>()
-    let portfolios = try context.fetch(descriptor)
-
-    // Assert
-    #expect(portfolios.count == 1)
-    #expect(portfolios.first?.assets?.count == 1)
-    #expect(portfolios.first?.assets?.first?.name == "Test Asset")
-}
-
-@Test("Deleting portfolio nullifies asset relationship")
-func deletePortfolioNullifies() async throws {
-    let testContainer = SwiftDataTestContainer()
-    let context = ModelContext(testContainer.container)
-
-    let portfolio = Portfolio(name: "Test", createdDate: Date(), isActive: true)
-    let asset = Asset(
-        name: "Test",
-        assetType: .stock,
-        currentValue: 100,
-        purchaseDate: Date(),
-        quantity: 1,
-        currency: "USD"
-    )
-
-    asset.portfolio = portfolio
-    context.insert(portfolio)
-    context.insert(asset)
-    try context.save()
-
-    // Delete portfolio
-    context.delete(portfolio)
-    try context.save()
-
-    // Verify asset still exists but portfolio is nil
-    let assetDescriptor = FetchDescriptor<Asset>()
-    let assets = try context.fetch(assetDescriptor)
-
-    #expect(assets.count == 1)
-    #expect(assets.first?.portfolio == nil)
-}
-
-@Test("Deleting asset cascades to transactions")
-func deleteAssetCascades() async throws {
-    let testContainer = SwiftDataTestContainer()
-    let context = ModelContext(testContainer.container)
-
-    let asset = Asset(
-        name: "Test",
-        assetType: .stock,
-        currentValue: 100,
-        purchaseDate: Date(),
-        quantity: 1,
-        currency: "USD"
-    )
-
-    let transaction = Transaction(
-        transactionType: .buy,
-        transactionDate: Date(),
-        quantity: 1,
-        pricePerUnit: 100,
-        totalAmount: 100,
-        currency: "USD"
-    )
-
-    transaction.asset = asset
     context.insert(asset)
     context.insert(transaction)
+    context.insert(price)
     try context.save()
 
-    // Delete asset
+    // Act
     context.delete(asset)
     try context.save()
 
-    // Verify transaction was also deleted (cascade)
-    let transactionDescriptor = FetchDescriptor<Transaction>()
-    let transactions = try context.fetch(transactionDescriptor)
-
-    #expect(transactions.isEmpty)
+    // Assert
+    let tDescriptor = FetchDescriptor<Transaction>()
+    let pDescriptor = FetchDescriptor<PriceHistory>()
+    #expect(try context.fetch(tDescriptor).isEmpty)
+    #expect(try context.fetch(pDescriptor).isEmpty)
 }
 ```
 
@@ -475,28 +363,6 @@ final class PortfolioFlowUITests: XCTestCase {
         // Verify portfolio appears in list
         XCTAssertTrue(app.staticTexts["Test Portfolio"].exists)
     }
-
-    func testAddAssetToPortfolio() {
-        // Navigate to portfolio
-        app.buttons["TestPortfolio"].tap()
-
-        // Add asset
-        app.buttons["AddAssetButton"].tap()
-
-        // Fill asset details
-        app.textFields["AssetNameField"].tap()
-        app.textFields["AssetNameField"].typeText("Apple Inc.")
-
-        app.buttons["AssetTypeStock"].tap()
-
-        app.textFields["CurrentValueField"].tap()
-        app.textFields["CurrentValueField"].typeText("10000")
-
-        app.buttons["SaveAssetButton"].tap()
-
-        // Verify
-        XCTAssertTrue(app.staticTexts["Apple Inc."].exists)
-    }
 }
 ```
 
@@ -540,10 +406,6 @@ extension Portfolio {
         Portfolio(
             name: "Test Portfolio",
             createdDate: Date(),
-            targetAllocation: [
-                "Stock": 60.0,
-                "Bond": 40.0
-            ],
             isActive: true
         )
     }
@@ -551,15 +413,7 @@ extension Portfolio {
 
 extension Asset {
     static var testAsset: Asset {
-        Asset(
-            name: "Test Asset",
-            assetType: .stock,
-            currentValue: 1000.00,
-            purchaseDate: Date(),
-            purchasePrice: 100.00,
-            quantity: 10,
-            currency: "USD"
-        )
+        Asset(name: "Test Asset", assetType: .stock, currency: "USD")
     }
 }
 ```
@@ -598,14 +452,7 @@ func portfolioCalculationPerformance() async {
 
     // Add many assets
     for i in 0..<1000 {
-        let asset = Asset(
-            name: "Asset \(i)",
-            assetType: .stock,
-            currentValue: Decimal(i * 100),
-            purchaseDate: Date(),
-            quantity: 10,
-            currency: "USD"
-        )
+        let asset = Asset(name: "Asset \(i)", assetType: .stock, currency: "USD")
         portfolio.assets?.append(asset)
     }
 
@@ -772,14 +619,7 @@ struct TestDataGenerator {
         )
 
         for i in 0..<assetCount {
-            let asset = Asset(
-                name: "Asset \(i)",
-                assetType: .stock,
-                currentValue: Decimal(Double.random(in: 100...10000)),
-                purchaseDate: Date(),
-                quantity: Decimal(Int.random(in: 1...100)),
-                currency: "USD"
-            )
+            let asset = Asset(name: "Asset \(i)", assetType: .stock, currency: "USD")
             asset.portfolio = portfolio
         }
 
@@ -793,7 +633,7 @@ struct TestDataGenerator {
 ```swift
 @MainActor
 let previewContainerWithData: ModelContainer = {
-    let schema = Schema([Portfolio.self, Asset.self, Transaction.self])
+    let schema = Schema([Portfolio.self, Asset.self, Transaction.self, PriceHistory.self])
     let container = try! ModelContainer(
         for: schema,
         configurations: ModelConfiguration(isStoredInMemoryOnly: true)
