@@ -1,0 +1,28 @@
+name: Build and Test (XCTest & Swift Testing)
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    # Use macos-26 runner for Xcode 26 environment
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build project
+        run: |
+          xcodebuild build \
+            -project AssetFlow.xcodeproj \
+            -scheme AssetFlow \
+            -destination 'platform=macOS'
+
+      - name: Run tests
+        run: |
+          xcodebuild test \
+            -project AssetFlow.xcodeproj \
+            -scheme AssetFlow \
+            -destination 'platform=macOS'
