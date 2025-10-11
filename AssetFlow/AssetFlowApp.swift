@@ -28,7 +28,15 @@ struct AssetFlowApp: App {
 
   var body: some Scene {
     WindowGroup {
-      ContentView()
+      // Check if running in UI test mode
+      if CommandLine.arguments.contains("UI-Testing") {
+        // Show PortfolioListView for testing
+        PortfolioListView()
+      } else {
+        // Normal app flow - for now, show PortfolioListView as main screen
+        // TODO: Replace with proper navigation structure when implementing full app
+        PortfolioListView()
+      }
     }
     .modelContainer(sharedModelContainer)
   }

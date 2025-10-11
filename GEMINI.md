@@ -189,3 +189,9 @@ See `AssetFlow/Models/README.md` for comprehensive model documentation.
 - Single shared `ModelContainer` injected at app root
 - No manual save() calls needed - SwiftData handles persistence automatically
 - `Item.swift` is legacy from template - remove after updating ContentView
+
+## Commit Message Guidelines
+
+When writing commit messages, please adhere to the following guidelines:
+
+1. **Comprehensive Scope:** Ensure the commit message reflects the full scope of the staged changes. If the changes implement a feature, the message should describe the feature, not just the final bug fixes or corrections made during development.

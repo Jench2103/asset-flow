@@ -6,7 +6,26 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		FF5D35BD2E9A9CE800C50B81 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FFF30E242E93982F00AB7EBD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FFF30E2B2E93982F00AB7EBD;
+			remoteInfo = AssetFlow;
+		};
+		FF5D35CC2E9A9D1700C50B81 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FFF30E242E93982F00AB7EBD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FFF30E2B2E93982F00AB7EBD;
+			remoteInfo = AssetFlow;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		FF5D35B92E9A9CE800C50B81 /* AssetFlowTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AssetFlowTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FF5D35C62E9A9D1700C50B81 /* AssetFlowUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AssetFlowUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFF30E2C2E93982F00AB7EBD /* AssetFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AssetFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFF30E3F2E93986000AB7EBD /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -23,6 +42,16 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		FF5D35BA2E9A9CE800C50B81 /* AssetFlowTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AssetFlowTests;
+			sourceTree = "<group>";
+		};
+		FF5D35C72E9A9D1700C50B81 /* AssetFlowUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AssetFlowUITests;
+			sourceTree = "<group>";
+		};
 		FFF30E2E2E93982F00AB7EBD /* AssetFlow */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -34,6 +63,20 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		FF5D35B62E9A9CE800C50B81 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FF5D35C32E9A9D1700C50B81 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FFF30E292E93982F00AB7EBD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -49,6 +92,8 @@
 			children = (
 				FFF30E3F2E93986000AB7EBD /* .gitignore */,
 				FFF30E2E2E93982F00AB7EBD /* AssetFlow */,
+				FF5D35BA2E9A9CE800C50B81 /* AssetFlowTests */,
+				FF5D35C72E9A9D1700C50B81 /* AssetFlowUITests */,
 				FFF30E2D2E93982F00AB7EBD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -57,6 +102,8 @@
 			isa = PBXGroup;
 			children = (
 				FFF30E2C2E93982F00AB7EBD /* AssetFlow.app */,
+				FF5D35B92E9A9CE800C50B81 /* AssetFlowTests.xctest */,
+				FF5D35C62E9A9D1700C50B81 /* AssetFlowUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -64,6 +111,52 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		FF5D35B82E9A9CE800C50B81 /* AssetFlowTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FF5D35C12E9A9CE800C50B81 /* Build configuration list for PBXNativeTarget "AssetFlowTests" */;
+			buildPhases = (
+				FF5D35B52E9A9CE800C50B81 /* Sources */,
+				FF5D35B62E9A9CE800C50B81 /* Frameworks */,
+				FF5D35B72E9A9CE800C50B81 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FF5D35BE2E9A9CE800C50B81 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FF5D35BA2E9A9CE800C50B81 /* AssetFlowTests */,
+			);
+			name = AssetFlowTests;
+			packageProductDependencies = (
+			);
+			productName = AssetFlowTests;
+			productReference = FF5D35B92E9A9CE800C50B81 /* AssetFlowTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		FF5D35C52E9A9D1700C50B81 /* AssetFlowUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FF5D35CE2E9A9D1700C50B81 /* Build configuration list for PBXNativeTarget "AssetFlowUITests" */;
+			buildPhases = (
+				FF5D35C22E9A9D1700C50B81 /* Sources */,
+				FF5D35C32E9A9D1700C50B81 /* Frameworks */,
+				FF5D35C42E9A9D1700C50B81 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FF5D35CD2E9A9D1700C50B81 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FF5D35C72E9A9D1700C50B81 /* AssetFlowUITests */,
+			);
+			name = AssetFlowUITests;
+			packageProductDependencies = (
+			);
+			productName = AssetFlowUITests;
+			productReference = FF5D35C62E9A9D1700C50B81 /* AssetFlowUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		FFF30E2B2E93982F00AB7EBD /* AssetFlow */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FFF30E3A2E93983200AB7EBD /* Build configuration list for PBXNativeTarget "AssetFlow" */;
@@ -96,6 +189,14 @@
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
+					FF5D35B82E9A9CE800C50B81 = {
+						CreatedOnToolsVersion = 26.0.1;
+						TestTargetID = FFF30E2B2E93982F00AB7EBD;
+					};
+					FF5D35C52E9A9D1700C50B81 = {
+						CreatedOnToolsVersion = 26.0.1;
+						TestTargetID = FFF30E2B2E93982F00AB7EBD;
+					};
 					FFF30E2B2E93982F00AB7EBD = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
@@ -116,11 +217,27 @@
 			projectRoot = "";
 			targets = (
 				FFF30E2B2E93982F00AB7EBD /* AssetFlow */,
+				FF5D35B82E9A9CE800C50B81 /* AssetFlowTests */,
+				FF5D35C52E9A9D1700C50B81 /* AssetFlowUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		FF5D35B72E9A9CE800C50B81 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FF5D35C42E9A9D1700C50B81 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FFF30E2A2E93982F00AB7EBD /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -131,6 +248,20 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		FF5D35B52E9A9CE800C50B81 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FF5D35C22E9A9D1700C50B81 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FFF30E282E93982F00AB7EBD /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -140,7 +271,118 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		FF5D35BE2E9A9CE800C50B81 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FFF30E2B2E93982F00AB7EBD /* AssetFlow */;
+			targetProxy = FF5D35BD2E9A9CE800C50B81 /* PBXContainerItemProxy */;
+		};
+		FF5D35CD2E9A9D1700C50B81 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FFF30E2B2E93982F00AB7EBD /* AssetFlow */;
+			targetProxy = FF5D35CC2E9A9D1700C50B81 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		FF5D35BF2E9A9CE800C50B81 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = JCChang.AssetFlowTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AssetFlow.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AssetFlow";
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		FF5D35C02E9A9CE800C50B81 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = JCChang.AssetFlowTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AssetFlow.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AssetFlow";
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+		FF5D35CF2E9A9D1700C50B81 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = JCChang.AssetFlowUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = AssetFlow;
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		FF5D35D02E9A9D1700C50B81 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = JCChang.AssetFlowUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = AssetFlow;
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
 		FFF30E3B2E93983200AB7EBD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -348,6 +590,24 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		FF5D35C12E9A9CE800C50B81 /* Build configuration list for PBXNativeTarget "AssetFlowTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FF5D35BF2E9A9CE800C50B81 /* Debug */,
+				FF5D35C02E9A9CE800C50B81 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FF5D35CE2E9A9D1700C50B81 /* Build configuration list for PBXNativeTarget "AssetFlowUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FF5D35CF2E9A9D1700C50B81 /* Debug */,
+				FF5D35D02E9A9D1700C50B81 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FFF30E272E93982F00AB7EBD /* Build configuration list for PBXProject "AssetFlow" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
