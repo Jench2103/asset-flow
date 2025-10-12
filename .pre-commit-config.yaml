@@ -36,3 +36,9 @@ repos:
         language: system
         types: [swift]
         require_serial: true
+      - id: swiftlint
+        name: swiftlint
+        entry: swiftlint --fix --quiet
+        language: system
+        types: [swift]
+        require_serial: true

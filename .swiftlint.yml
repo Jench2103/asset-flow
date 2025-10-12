@@ -13,7 +13,6 @@ opt_in_rules:
   - file_header
   - force_unwrapping
   - implicit_return
-  - sorted_imports
   - vertical_whitespace_between_cases
 
 # Included/Excluded Paths
@@ -27,8 +26,8 @@ excluded:
 
 # Rule Configurations
 line_length:
-  warning: 120
-  error: 150
+  warning: 100
+  error: 100
   ignores_comments: true
   ignores_urls: true
 
@@ -74,8 +73,12 @@ cyclomatic_complexity:
 nesting:
   type_level:
     warning: 2
-  statement_level:
+  function_level:
     warning: 5
+
+# Trailing Commas in Arrays and Dictionaries
+trailing_comma:
+  mandatory_comma: true
 
 # File Header
 file_header:

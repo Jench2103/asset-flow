@@ -28,6 +28,9 @@ swift-format format --in-place --recursive --parallel .
 
 # Lint code with swift-format
 swift-format lint --strict --recursive --parallel .
+
+# Lint code with SwiftLint
+swiftlint --strict
 ```
 
 ## Architecture
@@ -120,11 +123,11 @@ Design documents are located in `Documentation/`:
 
 **Code Quality and Formatting:**
 
-- **Pre-commit hooks** are configured but run **automatically only when committing**
-- Developers can run formatting/linting manually: `pre-commit run --all-files`
-- **Do NOT** run pre-commit automatically during development workflow
-- Pre-commit hooks will auto-format and check code when `git commit` is executed
-- If hooks fail, fix issues and commit again
+This project uses `swift-format` for code formatting and `SwiftLint` for linting.
+
+- **Pre-commit hooks** are configured to run both tools automatically when committing.
+- To run manually: `pre-commit run --all-files`
+- If hooks fail, fix the issues and commit again.
 
 ## Critical Conventions
 
@@ -157,13 +160,15 @@ Design documents are located in `Documentation/`:
 #endif
 ```
 
-## SwiftLint Key Rules
+## Code Quality and Linting
 
-- Line length: 120 warning, 150 error
-- Function body: 60 warning, 100 error
-- **Custom rule: No `print()` statements** - use proper logging
-- Force unwrapping generates warnings
-- Sorted imports required
+### swift-format
+
+This tool automatically formats Swift code to ensure a consistent style. Configuration is in `.swift-format`.
+
+### SwiftLint
+
+This tool lints the code to enforce stylistic and convention-based rules. Configuration is in `.swiftlint.yml`.
 
 ## Core Models
 

@@ -8,8 +8,8 @@ This document defines the code style standards for the AssetFlow project. Consis
 
 Code style is enforced through:
 
-- **swift-format**: Automated formatting (`.swift-format` config)
-- **SwiftLint**: Style and convention linting (`.swiftlint.yml` config)
+- **`swift-format`**: Used for automated code formatting to ensure a consistent layout and structure. Its configuration is in the `.swift-format` file.
+- **`SwiftLint`**: Used as a static analysis tool to enforce a wide range of stylistic and convention-based rules that go beyond simple formatting. Its configuration is in the `.swiftlint.yml` file.
 - **EditorConfig**: Editor settings (`.editorconfig`)
 - **Pre-commit hooks**: Automated checks before commits (`.pre-commit-config.yaml`)
 

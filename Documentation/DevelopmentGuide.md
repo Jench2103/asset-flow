@@ -11,10 +11,10 @@ Before you begin development, ensure you have the following installed:
 - **Git** (for version control)
 - **Homebrew** (recommended for tool installation)
 
-### Optional Tools
+### Required Tools
 
-- **SwiftLint** - Code style enforcement
 - **swift-format** - Code formatting
+- **SwiftLint** - Code style enforcement
 - **pre-commit** - Git hooks for automation
 
 ### Initial Setup
@@ -35,13 +35,11 @@ Before you begin development, ensure you have the following installed:
 1. **Install Development Tools**
 
    ```bash
-   # Install SwiftLint
+   # Install formatting and linting tools
+   brew install swift-format
    brew install swiftlint
 
-   # Install swift-format
-   brew install swift-format
-
-   # Install pre-commit (optional)
+   # Install pre-commit to automate checks
    brew install pre-commit
    pre-commit install
    ```
@@ -367,51 +365,41 @@ xcodebuild test -project AssetFlow.xcodeproj \
 
 ______________________________________________________________________
 
-## Code Formatting
+## Code Formatting and Linting
 
-### swift-format
+This project uses two primary tools to ensure code quality, both of which are managed by pre-commit hooks.
 
-**Format Files**:
+### swift-format (for Formatting)
+
+`swift-format` is used to automatically format all Swift code to a consistent style.
+
+**Manual Commands**:
 
 ```bash
-# Format all files
+# Format all files in place
 swift-format format --in-place --recursive --parallel .
 
-# Format specific file
-swift-format format --in-place AssetFlow/Models/Asset.swift
-
-# Check formatting without changes
+# Check for formatting issues without making changes
 swift-format lint --strict --recursive --parallel .
 ```
 
-**Configuration**: `.swift-format`
+**Configuration**: The rules (indentation, line length, etc.) are defined in the `.swift-format` file.
 
-- Indent: 4 spaces
-- Line length: 100 characters
-- See file for full configuration
+### SwiftLint (for Linting)
 
-### SwiftLint
+`SwiftLint` is used to enforce a wide range of stylistic and convention-based rules that go beyond simple formatting. This includes rules for naming, complexity, and potential bugs.
 
-**Run Linting**:
+**Manual Commands**:
 
 ```bash
-# Lint all files
+# Lint all files and show warnings/errors
 swiftlint
 
-# Lint specific directory
-swiftlint lint --path AssetFlow/Models
-
-# Auto-fix issues (use carefully)
+# Automatically correct lint violations where possible
 swiftlint --fix
 ```
 
-**Configuration**: `.swiftlint.yml`
-
-- Line length: 120 warning, 150 error
-- Function body length: 60 warning, 100 error
-- Custom rules (e.g., no `print()` statements)
-
-**Key Rules**:
+**Configuration**: The rules are defined in the `.swiftlint.yml` file. Key rules include:
 
 - Sorted imports
 - No force unwrapping (generates warning)

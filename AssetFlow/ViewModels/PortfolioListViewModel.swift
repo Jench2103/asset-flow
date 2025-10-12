@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import os.log
 
 /// ViewModel for managing portfolio list data
 ///
@@ -15,6 +16,9 @@ import SwiftData
 class PortfolioListViewModel {
   var portfolios: [Portfolio] = []
   private var modelContext: ModelContext
+  private let logger = Logger(
+    subsystem: "com.jench2103.AssetFlow",
+    category: "PortfolioListViewModel")
 
   /// Initializes the ViewModel with a model context.
   ///
@@ -29,8 +33,8 @@ class PortfolioListViewModel {
       let descriptor = FetchDescriptor<Portfolio>(sortBy: [SortDescriptor(\Portfolio.name)])
       self.portfolios = try modelContext.fetch(descriptor)
     } catch {
-      // For now, just print the error. In a real app, handle this more gracefully.
-      print("Fetch failed: \(error)")
+      // For now, just log the error. In a real app, handle this more gracefully.
+      logger.error("Failed to fetch portfolios: \(error.localizedDescription)")
     }
   }
 }

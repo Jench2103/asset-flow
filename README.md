@@ -45,7 +45,8 @@ AssetFlow/
 
 - Xcode 26.0 or later
 - macOS 26.0 or later
-- SwiftLint (optional, recommended)
+- [swift-format](https://github.com/swiftlang/swift-format/tree/main)
+- [SwiftLint](https://github.com/realm/SwiftLint/tree/main)
 
 ### Installation
 
@@ -64,21 +65,27 @@ AssetFlow/
 
 1. Build and run the project (⌘+R)
 
-### SwiftLint Setup
+### Tooling Setup
 
-Install SwiftLint using Homebrew:
+Install the required code quality tools using Homebrew:
 
 ```bash
+brew install swift-format
 brew install swiftlint
 ```
 
-SwiftLint will automatically run during builds if installed.
+These tools are managed by pre-commit hooks, which will automatically format and lint your code before you commit.
 
 ## Development
 
 ### Code Style
 
-This project follows Swift best practices and uses SwiftLint for code style enforcement. Configuration can be found in `.swiftlint.yml`.
+This project uses a combination of `swift-format` and `SwiftLint` to ensure high code quality and a consistent style.
+
+- **`swift-format`**: Used for automated code formatting.
+- **`SwiftLint`**: Used to enforce stylistic conventions and catch common errors.
+
+Configurations for these tools can be found in `.swift-format` and `.swiftlint.yml` respectively. Both are run automatically before each commit via pre-commit hooks.
 
 ### Architecture
 
