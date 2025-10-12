@@ -6,8 +6,11 @@ on:
 
 jobs:
   pre-commit:
-    runs-on: macos-latest
+    runs-on: ubuntu-24.04
     steps:
+    - name: Set up Homebrew
+      id: set-up-homebrew
+      uses: Homebrew/actions/setup-homebrew@main
     - uses: actions/checkout@v5
     - name: Install swift-format
       run: brew install swift-format
