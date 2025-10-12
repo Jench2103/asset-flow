@@ -17,10 +17,36 @@ struct AssetFlowApp: App {
       Transaction.self,
       InvestmentPlan.self,
     ])
-    let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+
+    var modelConfiguration: ModelConfiguration
+    // Check for UI testing launch argument
+    if CommandLine.arguments.contains("UI-Testing") {
+      // Use in-memory store for UI tests
+      modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+    } else {
+      // Default configuration for production
+      modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    }
 
     do {
-      return try ModelContainer(for: schema, configurations: [modelConfiguration])
+      let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+
+      // If testing, pre-populate data
+      if CommandLine.arguments.contains("UI-Testing") {
+        // Avoid populating if testing the empty state
+        if !CommandLine.arguments.contains("EmptyPortfolios") {
+          let context = container.mainContext
+          // Add mock data for UI tests
+          context.insert(
+            Portfolio(name: "Tech Stocks", portfolioDescription: "High-growth tech portfolio"))
+          context.insert(
+            Portfolio(name: "Real Estate", portfolioDescription: "Residential properties"))
+          context.insert(
+            Portfolio(name: "Retirement Fund", portfolioDescription: "Long-term investments"))
+        }
+      }
+
+      return container
     } catch {
       fatalError("Could not create ModelContainer: \(error)")
     }
@@ -28,15 +54,8 @@ struct AssetFlowApp: App {
 
   var body: some Scene {
     WindowGroup {
-      // Check if running in UI test mode
-      if CommandLine.arguments.contains("UI-Testing") {
-        // Show PortfolioListView for testing
-        PortfolioListView()
-      } else {
-        // Normal app flow - for now, show PortfolioListView as main screen
-        // TODO: Replace with proper navigation structure when implementing full app
-        PortfolioListView()
-      }
+      let viewModel = PortfolioListViewModel(modelContext: sharedModelContainer.mainContext)
+      PortfolioListView(viewModel: viewModel)
     }
     .modelContainer(sharedModelContainer)
   }

@@ -5,6 +5,7 @@
 //  Created by Gemini on 2025/10/10.
 //
 
+import SwiftData
 import SwiftUI
 
 /// Portfolio List View - Displays all portfolios
@@ -14,7 +15,7 @@ import SwiftUI
 /// It includes an empty state for when no portfolios exist, and a toolbar button
 /// to add new portfolios.
 struct PortfolioListView: View {
-  @State private var viewModel = PortfolioListViewModel()
+  @State var viewModel: PortfolioListViewModel
   @State private var showingAddPortfolio = false
 
   var body: some View {
@@ -37,6 +38,9 @@ struct PortfolioListView: View {
       }
       .navigationDestination(isPresented: $showingAddPortfolio) {
         AddPortfolioView()
+      }
+      .onAppear {
+        viewModel.fetchPortfolios()
       }
     }
   }
@@ -149,9 +153,23 @@ private struct AddPortfolioView: View {
 // MARK: - Previews
 
 #Preview("With Portfolios") {
-  PortfolioListView()
+  let container = PreviewContainer.container
+  let context = container.mainContext
+
+  // Add mock data for preview
+  context.insert(Portfolio(name: "Tech Stocks", portfolioDescription: "High-growth tech portfolio"))
+  context.insert(Portfolio(name: "Real Estate", portfolioDescription: "Residential properties"))
+
+  let viewModel = PortfolioListViewModel(modelContext: context)
+
+  return PortfolioListView(viewModel: viewModel)
+    .modelContainer(container)
 }
 
 #Preview("Empty State") {
-  PortfolioListView()
+  let container = PreviewContainer.container
+  let viewModel = PortfolioListViewModel(modelContext: container.mainContext)
+
+  return PortfolioListView(viewModel: viewModel)
+    .modelContainer(container)
 }

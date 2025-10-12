@@ -2,9 +2,9 @@
 
 ## Overview
 
-This document outlines the testing strategy for AssetFlow, covering unit testing, integration testing, UI testing, and manual testing approaches for a SwiftUI + SwiftData application.
+This document outlines the testing strategy for AssetFlow, covering unit testing, integration testing, and UI testing for a SwiftUI + SwiftData application.
 
-**Current Status**: Testing infrastructure is planned but not yet implemented. This document serves as a blueprint for future development.
+**Current Status**: The foundational infrastructure for isolated, in-memory testing for both unit and UI tests is implemented.
 
 ______________________________________________________________________
 
@@ -12,12 +12,11 @@ ______________________________________________________________________
 
 ### Core Principles
 
-1. **Test-Driven Development (TDD)**: Write tests before or alongside implementation when practical
-1. **Pyramid Structure**: More unit tests, fewer integration tests, minimal UI tests
-1. **Fast Feedback**: Tests should run quickly and provide clear failure messages
-1. **Isolation**: Tests should not depend on each other or external state
-1. **Maintainability**: Tests are code too—keep them clean and well-organized
-1. **Coverage**: Aim for high coverage on business logic, moderate on UI
+1. **Test-Driven Development (TDD)**: Write tests before or alongside implementation when practical.
+1. **Pyramid Structure**: More unit tests, fewer integration tests, minimal UI tests.
+1. **Fast Feedback**: Tests should run quickly and provide clear failure messages.
+1. **Isolation**: Each test must run in a completely isolated environment and not depend on the state of others.
+1. **Maintainability**: Tests are code and must be kept clean and well-organized.
 
 ### Testing Pyramid
 
@@ -34,266 +33,102 @@ ______________________________________________________________________
         └─────────────┘
 ```
 
-**Target Distribution**:
+______________________________________________________________________
 
-- **70%** Unit Tests
-- **20%** Integration Tests
-- **10%** UI/E2E Tests
+## Testing Frameworks
+
+This project uses a hybrid approach to testing, leveraging the best framework for each type of test.
+
+### Unit & Integration Tests: Swift Testing
+
+For all unit and integration tests, we use the modern **Swift Testing** framework. Its clean macro-based syntax (`@Test`, `@Suite`, `#expect`) is preferred for all logic, model, and data layer testing.
+
+### UI Tests: XCTest
+
+For UI tests, we use Apple's traditional **XCTest** framework, as it provides the necessary `XCUIApplication` APIs for interacting with the application's user interface from a separate process.
 
 ______________________________________________________________________
 
-## Testing Framework
+## Unit & Integration Testing with SwiftData
 
-### Primary Framework: Swift Testing (Recommended)
+To ensure robust and reliable tests, every single test function (`@Test`) that requires a database must create its own dedicated, in-memory `ModelContainer`. This provides perfect isolation.
 
-**Why Swift Testing**:
+### Test Data Manager
 
-- Modern, Swift-native testing framework
-- Better SwiftUI/SwiftData integration
-- Cleaner syntax with macros
-- Improved async/await support
-- Built-in parameterized testing
-
-**Alternative**: XCTest (traditional, well-established)
-
-### Setup
-
-Add Swift Testing to your project:
+We use a simple factory pattern in `TestDataManager.swift` to create these containers.
 
 ```swift
-// In Xcode: File → Add Package Dependencies
-// URL: https://github.com/apple/swift-testing
-```
-
-**Test Target Structure**:
-
-```
-AssetFlowTests/
-├── UnitTests/
-│   ├── Models/
-│   ├── ViewModels/
-│   └── Services/
-├── IntegrationTests/
-│   └── SwiftData/
-├── UITests/
-│   └── Flows/
-└── Helpers/
-    └── TestUtilities.swift
-```
-
-______________________________________________________________________
-
-## Unit Testing
-
-### What to Test
-
-**Models**:
-
-- Initialization
-- **Computed properties** (this is critical, as most state is computed)
-- Validation logic
-- Business rules
-- Decimal calculations (financial precision)
-
-**ViewModels**:
-
-- State changes
-- Business logic
-- Data transformations
-- Error handling
-- Async operations
-
-**Services**:
-
-- Data operations
-- API interactions (mocked)
-- Error scenarios
-- Edge cases
-
-### Example: Model Testing (Computed Properties)
-
-Testing a model like `Asset` now requires setting up its dependencies (`Transaction` and `PriceHistory`) to test its computed properties.
-
-```swift
-import Testing
-import Foundation
-@testable import AssetFlow
-
-@Test("Asset computes quantity correctly from transactions")
-func assetComputesQuantity() {
-    // Arrange
-    let asset = Asset(name: "Test Stock", assetType: .stock, currency: "USD")
-
-    let t1 = Transaction(transactionType: .buy, transactionDate: Date(), quantity: 10, pricePerUnit: 100, asset: asset)
-    let t2 = Transaction(transactionType: .buy, transactionDate: Date(), quantity: 5, pricePerUnit: 110, asset: asset)
-    let t3 = Transaction(transactionType: .sell, transactionDate: Date(), quantity: 8, pricePerUnit: 120, asset: asset)
-
-    asset.transactions = [t1, t2, t3]
-
-    // Act
-    let currentQuantity = asset.quantity
-
-    // Assert
-    #expect(currentQuantity == 7) // 10 + 5 - 8 = 7
-}
-
-@Test("Asset computes currentValue from quantity and latest price")
-func assetComputesValue() {
-    // Arrange
-    let asset = Asset(name: "Test Stock", assetType: .stock, currency: "USD")
-
-    // Transactions to establish quantity
-    let t1 = Transaction(transactionType: .buy, transactionDate: Date(), quantity: 10, pricePerUnit: 100, asset: asset)
-    asset.transactions = [t1]
-
-    // Price history
-    let p1 = PriceHistory(date: Date().addingTimeInterval(-100), price: 100, asset: asset)
-    let p2 = PriceHistory(date: Date(), price: 125, asset: asset) // Latest price
-    asset.priceHistory = [p1, p2]
-
-    // Act
-    let currentValue = asset.currentValue
-
-    // Assert
-    #expect(currentValue == 1250) // 10 shares * $125/share
-}
-
-@Test("Asset computes average cost correctly")
-func assetComputesAverageCost() {
-    // Arrange
-    let asset = Asset(name: "Test Stock", assetType: .stock, currency: "USD")
-
-    let t1 = Transaction(transactionType: .buy, transactionDate: Date(), quantity: 10, pricePerUnit: 100, totalAmount: 1000, asset: asset)
-    let t2 = Transaction(transactionType: .buy, transactionDate: Date(), quantity: 10, pricePerUnit: 120, totalAmount: 1200, asset: asset)
-    asset.transactions = [t1, t2]
-
-    // Act
-    let averageCost = asset.averageCost
-
-    // Assert
-    #expect(averageCost == 110) // ($1000 + $1200) / (10 + 10) = $110
-}
-```
-
-### Example: ViewModel Testing
-
-```swift
-import Testing
-import Foundation
-@testable import AssetFlow
-
+// In AssetFlowTests/TestDataManager.swift
 @MainActor
-@Test("PortfolioViewModel loads portfolios")
-func portfolioViewModelLoadsData() async {
-    // Arrange
-    let mockService = MockDataService()
-    let viewModel = PortfolioViewModel(dataService: mockService)
-
-    // Act
-    await viewModel.loadPortfolios()
-
-    // Assert
-    #expect(viewModel.portfolios.count > 0)
-    #expect(viewModel.isLoading == false)
-}
-
-@MainActor
-@Test("PortfolioViewModel handles errors")
-func portfolioViewModelHandlesErrors() async {
-    // Arrange
-    let mockService = MockDataService(shouldFail: true)
-    let viewModel = PortfolioViewModel(dataService: mockService)
-
-    // Act
-    await viewModel.loadPortfolios()
-
-    // Assert
-    #expect(viewModel.error != nil)
-    #expect(viewModel.portfolios.isEmpty)
-}
-```
-
-______________________________________________________________________
-
-## Integration Testing
-
-### What to Test
-
-**SwiftData Integration**:
-
-- CRUD operations
-- Relationships (cascade, nullify, etc.)
-- Queries with predicates
-- Transaction rollback
-- Schema migrations (future)
-
-**Service Integration**:
-
-- ViewModel + Service interaction
-- Data flow between layers
-- State synchronization
-
-### SwiftData Testing
-
-**Setup**: Use in-memory container for tests
-
-```swift
-import Testing
-import SwiftData
-@testable import AssetFlow
-
-struct SwiftDataTestContainer {
-    let container: ModelContainer
-
-    init() {
+class TestDataManager {
+    static func createInMemoryContainer() -> ModelContainer {
         let schema = Schema([
-            Asset.self,
-            Portfolio.self,
-            Transaction.self,
-            PriceHistory.self,
-            InvestmentPlan.self
+            Portfolio.self, Asset.self, Transaction.self, InvestmentPlan.self
         ])
-
-        let configuration = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: true  // ← In-memory for tests
-        )
-
-        container = try! ModelContainer(
-            for: schema,
-            configurations: [configuration]
-        )
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try! ModelContainer(for: schema, configurations: [configuration])
+        return container
     }
 }
 ```
 
-**Example Test**:
+### Example: Model Test
+
+This example shows a test for a model's computed property. The test creates its own container, populates it with the necessary data, and asserts the outcome.
 
 ```swift
-@Test("Deleting asset cascades to transactions and price history")
-func deleteAssetCascades() async throws {
-    // Arrange
-    let testContainer = SwiftDataTestContainer()
-    let context = ModelContext(testContainer.container)
+@Suite("Portfolio Model Tests")
+@MainActor
+struct PortfolioModelTests {
+    @Test("totalValue sums the currentValue of its assets")
+    func totalValue_SumsCurrentValueOfAssets() throws {
+        // 1. Create a dedicated container for this test
+        let container = TestDataManager.createInMemoryContainer()
+        let context = container.mainContext
 
-    let asset = Asset(name: "Test", assetType: .stock, currency: "USD")
-    let transaction = Transaction(transactionType: .buy, transactionDate: Date(), quantity: 1, pricePerUnit: 100, asset: asset)
-    let price = PriceHistory(date: Date(), price: 100, asset: asset)
+        // 2. Arrange: Create and insert models
+        let portfolio = Portfolio(name: "Test Portfolio")
+        let asset1 = Asset(name: "Stock A", assetType: .stock, currentValue: 1250.50, purchaseDate: Date())
+        let asset2 = Asset(name: "Stock B", assetType: .stock, currentValue: 3000.25, purchaseDate: Date())
+        portfolio.assets = [asset1, asset2]
+        context.insert(portfolio)
+        context.insert(asset1)
+        context.insert(asset2)
 
-    context.insert(asset)
-    context.insert(transaction)
-    context.insert(price)
-    try context.save()
+        // 3. Act: Access the computed property
+        let totalValue = portfolio.totalValue
 
-    // Act
-    context.delete(asset)
-    try context.save()
+        // 4. Assert: Check the result
+        #expect(totalValue == 4250.75)
+    }
+}
+```
 
-    // Assert
-    let tDescriptor = FetchDescriptor<Transaction>()
-    let pDescriptor = FetchDescriptor<PriceHistory>()
-    #expect(try context.fetch(tDescriptor).isEmpty)
-    #expect(try context.fetch(pDescriptor).isEmpty)
+### Example: ViewModel Test
+
+ViewModels that use SwiftData should accept a `ModelContext` in their initializer. This allows us to inject the context from our in-memory container during testing.
+
+```swift
+@Suite("PortfolioListViewModel Tests")
+@MainActor
+struct PortfolioListViewModelTests {
+    @Test("fetchPortfolios returns all items from the store")
+    func fetchPortfolios_WhenStoreHasData_ReturnsPortfolios() throws {
+        // 1. Create a dedicated container and context
+        let container = TestDataManager.createInMemoryContainer()
+        let context = container.mainContext
+
+        // 2. Arrange: Insert data and initialize the ViewModel
+        context.insert(Portfolio(name: "Portfolio 1"))
+        context.insert(Portfolio(name: "Portfolio 2"))
+        let viewModel = PortfolioListViewModel(modelContext: context)
+
+        // 3. Act: Call the method to be tested
+        viewModel.fetchPortfolios()
+
+        // 4. Assert: Check the ViewModel's state
+        #expect(viewModel.portfolios.count == 2)
+    }
 }
 ```
 
@@ -301,167 +136,105 @@ ______________________________________________________________________
 
 ## UI Testing
 
-### What to Test
+UI tests run in a separate process and cannot directly access the application's code or inject a `ModelContainer`. Instead, we use **launch arguments** to instruct the app on how to configure itself for a test run.
 
-**Critical User Flows**:
+### Launch Argument Strategy
 
-- Portfolio creation and management
-- Asset addition and editing
-- Transaction recording
-- Navigation flows
-- Data persistence across app launches
+1. **The Test Sets Arguments:** Before launching the app, the UI test adds strings to `app.launchArguments`.
+1. **The App Responds:** The `AssetFlowApp` checks for these strings on startup and configures its `ModelContainer` accordingly.
 
-**Accessibility**:
+This ensures every UI test starts with a fresh, clean in-memory database.
 
-- VoiceOver support
-- Dynamic Type scaling
-- Keyboard navigation (macOS)
+### Example: UI Test Setup
 
-### SwiftUI Testing Approaches
-
-**Preview Testing** (Manual):
+The UI test class uses a helper method to launch the app with specific arguments for each test, guaranteeing isolation.
 
 ```swift
-#Preview("Portfolio List - Empty") {
-    PortfolioListView()
-        .modelContainer(previewContainer)
-}
-
-#Preview("Portfolio List - Populated") {
-    PortfolioListView()
-        .modelContainer(previewContainerWithData)
-}
-```
-
-**UI Tests** (Automated):
-
-```swift
-import XCTest
-
-final class PortfolioFlowUITests: XCTestCase {
+// In a UI test file like PortfolioListViewUITests.swift
+final class PortfolioListViewUITests: XCTestCase {
     var app: XCUIApplication!
 
-    override func setUp() {
-        super.setUp()
+    override func setUpWithError() throws {
+        continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["UI-Testing"]  // Configure for testing
+    }
+
+    override func tearDownWithError() throws {
+        app.terminate()
+        app = nil
+    }
+
+    private func launch(with arguments: [String] = ["UI-Testing"]) {
+        app.launchArguments = arguments
         app.launch()
     }
 
-    func testCreateNewPortfolio() {
-        // Tap "New Portfolio" button
-        app.buttons["NewPortfolioButton"].tap()
+    func testPortfolioListRendersWithMockData() throws {
+        // Launches the app with a pre-populated in-memory database
+        launch()
+        XCTAssertTrue(app.staticTexts["Tech Stocks"].exists)
+    }
 
-        // Enter portfolio name
-        let nameField = app.textFields["PortfolioNameField"]
-        nameField.tap()
-        nameField.typeText("Test Portfolio")
-
-        // Save
-        app.buttons["SaveButton"].tap()
-
-        // Verify portfolio appears in list
-        XCTAssertTrue(app.staticTexts["Test Portfolio"].exists)
+    func testPortfolioListDisplaysEmptyState() throws {
+        // Launches the app with an empty in-memory database
+        launch(with: ["UI-Testing", "EmptyPortfolios"])
+        XCTAssertTrue(app.staticTexts["No portfolios yet"].exists)
     }
 }
+```
+
+### Example: App Response
+
+The `AssetFlowApp` contains logic to handle these arguments.
+
+```swift
+// In AssetFlowApp.swift
+var sharedModelContainer: ModelContainer = {
+    let schema = Schema([...])
+    var modelConfiguration: ModelConfiguration
+
+    if CommandLine.arguments.contains("UI-Testing") {
+        modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+    } else {
+        modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    }
+
+    let container = try! ModelContainer(for: schema, configurations: [modelConfiguration])
+
+    // Pre-populate data for the default UI test case
+    if CommandLine.arguments.contains("UI-Testing")
+        && !CommandLine.arguments.contains("EmptyPortfolios") {
+        // ... code to insert mock portfolios ...
+    }
+
+    return container
+}()
 ```
 
 ______________________________________________________________________
 
-## Mocking and Test Doubles
+## Test Data and Previews
 
-### Mock Data Services
+### Test Utilities
 
-```swift
-protocol DataService {
-    func fetchPortfolios() async throws -> [Portfolio]
-    func save(_ portfolio: Portfolio) async throws
-}
-
-class MockDataService: DataService {
-    var shouldFail = false
-    var mockPortfolios: [Portfolio] = []
-
-    func fetchPortfolios() async throws -> [Portfolio] {
-        if shouldFail {
-            throw DataError.fetchFailed
-        }
-        return mockPortfolios
-    }
-
-    func save(_ portfolio: Portfolio) async throws {
-        if shouldFail {
-            throw DataError.saveFailed
-        }
-        mockPortfolios.append(portfolio)
-    }
-}
-```
+- **Unit/Integration Tests:** Use `TestDataManager.createInMemoryContainer()` to create a clean database for each test.
+- **SwiftUI Previews:** Use the `PreviewContainer` utility to provide a dedicated in-memory container for Xcode Previews. This keeps preview data separate from test data.
 
 ### Test Fixtures
 
+For creating complex model instances, use test fixtures defined in extensions.
+
 ```swift
+// Example for future use
 extension Portfolio {
-    static var testPortfolio: Portfolio {
-        Portfolio(
-            name: "Test Portfolio",
-            createdDate: Date(),
-            isActive: true
-        )
+    static func withAssets(_ count: Int, in context: ModelContext) -> Portfolio {
+        let portfolio = Portfolio(name: "Test Portfolio")
+        for i in 0..<count {
+            let asset = Asset(name: "Asset \(i)", ..., portfolio: portfolio)
+            context.insert(asset)
+        }
+        return portfolio
     }
-}
-
-extension Asset {
-    static var testAsset: Asset {
-        Asset(name: "Test Asset", assetType: .stock, currency: "USD")
-    }
-}
-```
-
-______________________________________________________________________
-
-## Snapshot Testing (Optional)
-
-### Visual Regression Testing
-
-Use **swift-snapshot-testing** for UI consistency:
-
-```swift
-import SnapshotTesting
-import SwiftUI
-
-@Test("PortfolioCard renders correctly")
-func portfolioCardSnapshot() {
-    let portfolio = Portfolio.testPortfolio
-    let view = PortfolioCard(portfolio: portfolio)
-
-    assertSnapshot(matching: view, as: .image)
-}
-```
-
-______________________________________________________________________
-
-## Performance Testing
-
-### Measure Performance
-
-```swift
-@Test(.timeLimit(.minutes(1)))
-func portfolioCalculationPerformance() async {
-    let portfolio = Portfolio.testPortfolio
-
-    // Add many assets
-    for i in 0..<1000 {
-        let asset = Asset(name: "Asset \(i)", assetType: .stock, currency: "USD")
-        portfolio.assets?.append(asset)
-    }
-
-    // Measure
-    let startTime = Date()
-    _ = portfolio.totalValue
-    let duration = Date().timeIntervalSince(startTime)
-
-    #expect(duration < 0.1)  // Should complete in <100ms
 }
 ```
 
@@ -479,302 +252,19 @@ ______________________________________________________________________
 | Views      | 50%+ (critical paths) |
 | Overall    | 75%+                  |
 
-### Enable Coverage in Xcode
+### Enabling Coverage
 
 1. Edit Scheme → Test
-1. Options → Code Coverage → ✓ Gather coverage for some targets
-1. Select AssetFlow target
-1. Run tests
-1. View coverage: Report Navigator → Coverage tab
-
-### Command Line Coverage
-
-```bash
-xcodebuild test \
-  -project AssetFlow.xcodeproj \
-  -scheme AssetFlow \
-  -enableCodeCoverage YES \
-  -resultBundlePath TestResults.xcresult
-```
-
-______________________________________________________________________
-
-## Continuous Integration
-
-### GitHub Actions (Planned)
-
-```yaml
-name: Tests
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_15.0.app
-
-      - name: Run Unit Tests
-        run: |
-          xcodebuild test \
-            -project AssetFlow.xcodeproj \
-            -scheme AssetFlow \
-            -destination 'platform=macOS' \
-            -enableCodeCoverage YES
-
-      - name: Run iOS Tests
-        run: |
-          xcodebuild test \
-            -project AssetFlow.xcodeproj \
-            -scheme AssetFlow \
-            -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
-            -enableCodeCoverage YES
-
-      - name: Upload Coverage
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage.xml
-```
-
-______________________________________________________________________
-
-## Manual Testing
-
-### Testing Checklist
-
-**Before Each Release**:
-
-#### Functional Testing
-
-- [ ] Create, edit, delete portfolios
-- [ ] Add, update, remove assets
-- [ ] Record transactions (all types)
-- [ ] Verify financial calculations (totals, gains/losses)
-- [ ] Test target allocation tracking
-- [ ] Investment plan CRUD operations
-
-#### Data Persistence
-
-- [ ] Data survives app restart
-- [ ] Relationships maintained after save/load
-- [ ] No data loss on background/foreground
-
-#### Platform Testing
-
-**macOS**:
-
-- [ ] Window resizing
-- [ ] Keyboard shortcuts
-- [ ] Menu bar items
-- [ ] Multi-window support (future)
-
-**iOS**:
-
-- [ ] Portrait/landscape orientation
-- [ ] Safe area handling
-- [ ] Keyboard avoidance
-- [ ] Pull-to-refresh
-
-**iPadOS**:
-
-- [ ] Split view
-- [ ] Drag and drop (future)
-- [ ] Keyboard shortcuts
-- [ ] Pointer support
-
-#### Edge Cases
-
-- [ ] Empty states (no portfolios, no assets)
-- [ ] Large datasets (100+ assets)
-- [ ] Very long asset names
-- [ ] Zero/negative values
-- [ ] Future/past dates
-- [ ] Decimal precision (9+ decimal places)
-
-#### Accessibility
-
-- [ ] VoiceOver navigation
-- [ ] Dynamic Type scaling (Smallest to Largest)
-- [ ] Reduce Motion support
-- [ ] High Contrast mode
-- [ ] Keyboard-only navigation (macOS)
-
-______________________________________________________________________
-
-## Test Data Management
-
-### Development Data
-
-**Create Test Data Helper**:
-
-```swift
-struct TestDataGenerator {
-    static func generatePortfolio(assetCount: Int = 5) -> Portfolio {
-        let portfolio = Portfolio(
-            name: "Generated Portfolio",
-            createdDate: Date(),
-            isActive: true
-        )
-
-        for i in 0..<assetCount {
-            let asset = Asset(name: "Asset \(i)", assetType: .stock, currency: "USD")
-            asset.portfolio = portfolio
-        }
-
-        return portfolio
-    }
-}
-```
-
-**Preview Container with Data**:
-
-```swift
-@MainActor
-let previewContainerWithData: ModelContainer = {
-    let schema = Schema([Portfolio.self, Asset.self, Transaction.self, PriceHistory.self])
-    let container = try! ModelContainer(
-        for: schema,
-        configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-    )
-
-    let context = container.mainContext
-
-    // Generate test data
-    for i in 1...3 {
-        let portfolio = TestDataGenerator.generatePortfolio(assetCount: 5)
-        context.insert(portfolio)
-    }
-
-    return container
-}()
-```
-
-______________________________________________________________________
-
-## Debugging Tests
-
-### Test Failure Strategies
-
-1. **Read the failure message carefully**
-1. **Check test data and setup**
-1. **Add breakpoints in test**
-1. **Print intermediate values** (in tests, `print()` is OK)
-1. **Isolate the failing code**
-1. **Simplify the test**
-
-### Xcode Test Debugging
-
-- Set breakpoints in tests
-- Run single test: Click diamond in gutter
-- Test navigator: `⌘6` → Right-click → Debug Test
-- View test logs: Report Navigator → Test
-
-### Common Test Issues
-
-**Async/await timing**:
-
-```swift
-// Bad: Doesn't wait for async
-@Test func testAsync() {
-    viewModel.loadData()
-    #expect(viewModel.data.count > 0)  // ❌ Might not be loaded yet
-}
-
-// Good: Properly awaits
-@Test func testAsync() async {
-    await viewModel.loadData()
-    #expect(viewModel.data.count > 0)  // ✅ Data loaded
-}
-```
-
-**SwiftData context issues**:
-
-```swift
-// Ensure context is saved
-try context.save()
-
-// Ensure fetching from same context
-let descriptor = FetchDescriptor<Portfolio>()
-let results = try context.fetch(descriptor)
-```
+1. Options → Code Coverage → ✓ Gather coverage for `AssetFlow` target.
+1. Run tests and view results in the Report Navigator (`⌘9`).
 
 ______________________________________________________________________
 
 ## Best Practices
 
-### General Guidelines
-
-1. **Test behavior, not implementation**
-1. **One assertion per test** (when practical)
-1. **Descriptive test names** (`testWhat_When_Then` format)
-1. **Arrange-Act-Assert** pattern
-1. **Independent tests** (no shared state)
-1. **Fast tests** (< 100ms for unit tests)
-1. **Avoid testing framework code** (SwiftUI, SwiftData internals)
-1. **Test edge cases** (nil, empty, large values)
-
-### What NOT to Test
-
-- SwiftUI framework behavior
-- SwiftData persistence mechanics
-- Third-party library internals
-- Trivial getters/setters
-- Auto-generated code
-
-### When to Write Tests
-
-- **Before coding** (TDD approach)
-- **While coding** (verify as you build)
-- **After coding** (cover edge cases)
-- **When fixing bugs** (regression tests)
-
-______________________________________________________________________
-
-## Future Enhancements
-
-### Planned Testing Features
-
-1. **Automated UI testing** in CI/CD
-1. **Snapshot testing** for consistent UI
-1. **Performance benchmarking** suite
-1. **Accessibility auditing** tools
-1. **Load testing** for large datasets
-1. **Security testing** for data protection
-1. **Multi-platform test coverage** reports
-
-______________________________________________________________________
-
-## Resources
-
-### Documentation
-
-- [Swift Testing Guide](https://developer.apple.com/documentation/testing)
-- [XCTest Documentation](https://developer.apple.com/documentation/xctest)
-- [SwiftData Testing](https://developer.apple.com/documentation/swiftdata)
-
-### Tools
-
-- [swift-testing](https://github.com/apple/swift-testing)
-- [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing)
-
-### Best Practices
-
-- [Testing Tips](https://www.swiftbysundell.com/basics/unit-testing/)
-- [TDD in Swift](https://www.vadimbulavin.com/tdd-in-swift/)
-
-______________________________________________________________________
-
-## Summary
-
-This testing strategy provides a comprehensive framework for ensuring AssetFlow's quality, reliability, and maintainability. Implement tests incrementally, focusing on critical business logic first, then expanding coverage over time.
-
-**Next Steps**:
-
-1. Set up test targets in Xcode
-1. Add Swift Testing dependency
-1. Create test helpers and fixtures
-1. Write tests for existing models
-1. Implement ViewModel tests as ViewModels are created
-1. Integrate testing into CI/CD pipeline
+- **Test Behavior, Not Implementation:** Focus on what the code *does*, not how it does it.
+- **One Assertion Per Test:** Ideal for clarity, but group related assertions when necessary.
+- **Arrange-Act-Assert:** Structure tests clearly.
+- **Independence:** Tests must not rely on each other.
+- **Avoid Testing Frameworks:** Don't test SwiftData or SwiftUI internals.
+- **Write Regression Tests:** When fixing a bug, write a test that fails before the fix and passes after.

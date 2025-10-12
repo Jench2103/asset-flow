@@ -6,136 +6,87 @@
 //
 
 import Foundation
+import SwiftData
 import Testing
 
 @testable import AssetFlow
 
 /// Tests for PortfolioListViewModel
 ///
-/// These tests verify that the ViewModel correctly manages portfolio data
-/// and provides the necessary data for the PortfolioListView.
+/// These tests verify that the ViewModel correctly fetches and manages portfolio data
+/// from a SwiftData ModelContext.
 @Suite("PortfolioListViewModel Tests")
+@MainActor
 struct PortfolioListViewModelTests {
 
-  // MARK: - Initialization Tests
+  @Test("ViewModel initializes with an empty portfolio list")
+  func viewModelInitializesEmpty() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
 
-  /// Test that the ViewModel initializes with mock portfolio data
-  ///
-  /// Corresponds to ticket objective:
-  /// "Unit Test: The PortfolioListViewModel correctly fetches and provides a list of mock portfolios to the view."
-  @Test("ViewModel initializes with mock portfolios")
-  func viewModelInitializesWithMockPortfolios() {
-    // Arrange & Act
-    let viewModel = PortfolioListViewModel()
-
-    // Assert
-    #expect(viewModel.portfolios.count == 3, "ViewModel should initialize with 3 mock portfolios")
-    #expect(!viewModel.portfolios.isEmpty, "Portfolios array should not be empty")
-  }
-
-  @Test("Mock portfolios have expected names")
-  func mockPortfoliosHaveExpectedNames() {
-    // Arrange & Act
-    let viewModel = PortfolioListViewModel()
+    // Act
+    let viewModel = PortfolioListViewModel(modelContext: context)
 
     // Assert
     #expect(
-      viewModel.portfolios[0].name == "Tech Stocks", "First portfolio should be 'Tech Stocks'")
-    #expect(
-      viewModel.portfolios[1].name == "Real Estate", "Second portfolio should be 'Real Estate'")
-    #expect(
-      viewModel.portfolios[2].name == "Retirement Fund",
-      "Third portfolio should be 'Retirement Fund'"
-    )
+      viewModel.portfolios.isEmpty, "ViewModel should initialize with an empty portfolios array")
   }
 
-  @Test("Mock portfolios have descriptions")
-  func mockPortfoliosHaveDescriptions() {
-    // Arrange & Act
-    let viewModel = PortfolioListViewModel()
+  @Test("fetchPortfolios returns empty array when store is empty")
+  func fetchPortfolios_WhenStoreIsEmpty_ReturnsEmptyArray() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = PortfolioListViewModel(modelContext: context)
+
+    // Act
+    viewModel.fetchPortfolios()
 
     // Assert
-    #expect(
-      viewModel.portfolios[0].portfolioDescription == "High-growth tech portfolio",
-      "First portfolio should have correct description"
-    )
-    #expect(
-      viewModel.portfolios[1].portfolioDescription == "Residential properties",
-      "Second portfolio should have correct description"
-    )
-    #expect(
-      viewModel.portfolios[2].portfolioDescription == "Long-term investments",
-      "Third portfolio should have correct description"
-    )
+    #expect(viewModel.portfolios.isEmpty, "Portfolios array should be empty")
   }
 
-  // MARK: - Portfolio Properties Tests
+  @Test("fetchPortfolios returns all items from the store")
+  func fetchPortfolios_WhenStoreHasData_ReturnsPortfolios() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = PortfolioListViewModel(modelContext: context)
 
-  @Test("Mock portfolios are active by default")
-  func mockPortfoliosAreActiveByDefault() {
-    // Arrange & Act
-    let viewModel = PortfolioListViewModel()
+    let portfolio1 = Portfolio(name: "First Portfolio", portfolioDescription: "")
+    let portfolio2 = Portfolio(name: "Second Portfolio", portfolioDescription: "")
+    context.insert(portfolio1)
+    context.insert(portfolio2)
+
+    // Act
+    viewModel.fetchPortfolios()
 
     // Assert
-    for portfolio in viewModel.portfolios {
-      #expect(portfolio.isActive == true, "All mock portfolios should be active")
-    }
+    #expect(viewModel.portfolios.count == 2, "ViewModel should fetch all 2 portfolios")
   }
 
-  @Test("Mock portfolios have creation dates")
-  func mockPortfoliosHaveCreationDates() {
-    // Arrange & Act
-    let viewModel = PortfolioListViewModel()
+  @Test("fetchPortfolios returns items sorted by name")
+  func fetchPortfolios_ReturnsItemsSortedByName() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = PortfolioListViewModel(modelContext: context)
+
+    let portfolioC = Portfolio(name: "C Portfolio", portfolioDescription: "")
+    let portfolioA = Portfolio(name: "A Portfolio", portfolioDescription: "")
+    let portfolioB = Portfolio(name: "B Portfolio", portfolioDescription: "")
+    context.insert(portfolioC)
+    context.insert(portfolioA)
+    context.insert(portfolioB)
+
+    // Act
+    viewModel.fetchPortfolios()
 
     // Assert
-    let now = Date()
-    for portfolio in viewModel.portfolios {
-      #expect(
-        portfolio.createdDate <= now,
-        "Portfolio creation date should not be in the future"
-      )
-    }
-  }
-
-  @Test("Mock portfolios have unique IDs")
-  func mockPortfoliosHaveUniqueIDs() {
-    // Arrange & Act
-    let viewModel = PortfolioListViewModel()
-
-    // Assert
-    let ids = Set(viewModel.portfolios.map { $0.id })
-    #expect(
-      ids.count == viewModel.portfolios.count,
-      "Each portfolio should have a unique ID"
-    )
-  }
-
-  // MARK: - Portfolio Computed Properties Tests
-
-  @Test("Mock portfolios return zero total value when no assets")
-  func mockPortfoliosReturnZeroTotalValueWhenNoAssets() {
-    // Arrange & Act
-    let viewModel = PortfolioListViewModel()
-
-    // Assert
-    for portfolio in viewModel.portfolios {
-      #expect(
-        portfolio.totalValue == 0,
-        "Portfolio with no assets should have zero total value"
-      )
-    }
-  }
-
-  // MARK: - Observable Tests
-
-  @Test("ViewModel is observable")
-  func viewModelIsObservable() {
-    // Arrange & Act
-    let viewModel = PortfolioListViewModel()
-
-    // Assert
-    // The @Observable macro makes the class observable
-    // This test verifies the class is instantiable and the portfolios property is accessible
     #expect(viewModel.portfolios.count == 3)
+    #expect(viewModel.portfolios[0].name == "A Portfolio", "First item should be A")
+    #expect(viewModel.portfolios[1].name == "B Portfolio", "Second item should be B")
+    #expect(viewModel.portfolios[2].name == "C Portfolio", "Third item should be C")
   }
 }
