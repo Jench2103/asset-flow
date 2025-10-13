@@ -16,12 +16,15 @@ import SwiftUI
 /// to add new portfolios.
 struct PortfolioListView: View {
   @State var viewModel: PortfolioListViewModel
-  @State private var showingAddPortfolio = false
+  @Environment(\.modelContext) private var modelContext
+  @State private var showingAddPortfolioSheet = false
+
+  @Query(sort: \Portfolio.name) private var portfolios: [Portfolio]
 
   var body: some View {
     NavigationStack {
       Group {
-        if viewModel.portfolios.isEmpty {
+        if portfolios.isEmpty {
           emptyStateView
         } else {
           portfolioListContent
@@ -31,16 +34,16 @@ struct PortfolioListView: View {
       .toolbar {
         ToolbarItem(placement: .primaryAction) {
           Button("Add Portfolio") {
-            showingAddPortfolio = true
+            showingAddPortfolioSheet = true
           }
           .accessibilityIdentifier("Add Portfolio")
         }
       }
-      .navigationDestination(isPresented: $showingAddPortfolio) {
-        AddPortfolioView()
-      }
-      .onAppear {
-        viewModel.fetchPortfolios()
+      .sheet(isPresented: $showingAddPortfolioSheet) {
+        NavigationStack {
+          let formViewModel = PortfolioFormViewModel(modelContext: modelContext)
+          PortfolioFormView(viewModel: formViewModel)
+        }
       }
     }
   }
@@ -49,10 +52,16 @@ struct PortfolioListView: View {
 
   private var portfolioListContent: some View {
     List {
-      ForEach(viewModel.portfolios, id: \.id) { portfolio in
-        PortfolioRowView(portfolio: portfolio)
-          .accessibilityIdentifier("Portfolio-\(portfolio.name)")
+      ForEach(portfolios) { portfolio in
+        NavigationLink(value: portfolio) {
+          PortfolioRowView(portfolio: portfolio)
+            .accessibilityIdentifier("Portfolio-\(portfolio.name)")
+        }
       }
+    }
+    .navigationDestination(for: Portfolio.self) { portfolio in
+      let formViewModel = PortfolioFormViewModel(modelContext: modelContext, portfolio: portfolio)
+      PortfolioFormView(viewModel: formViewModel)
     }
     .accessibilityIdentifier("Portfolio List")
   }
@@ -79,7 +88,7 @@ struct PortfolioListView: View {
       }
 
       Button {
-        showingAddPortfolio = true
+        showingAddPortfolioSheet = true
       } label: {
         Label("Add Portfolio", systemImage: "plus")
       }
@@ -111,42 +120,6 @@ private struct PortfolioRowView: View {
       }
     }
     .padding(.vertical, 4)
-  }
-}
-
-// MARK: - Add Portfolio View (Placeholder)
-
-/// Placeholder view for adding a new portfolio
-///
-/// This is a temporary implementation to satisfy navigation tests.
-/// Full implementation will be in Issue #02.
-private struct AddPortfolioView: View {
-  @Environment(\.dismiss) private var dismiss
-
-  var body: some View {
-    Form {
-      Section {
-        Text("Portfolio form will be implemented in Issue #02")
-          .foregroundStyle(.secondary)
-      }
-    }
-    .navigationTitle("Add Portfolio")
-    .toolbar {
-      ToolbarItem(placement: .cancellationAction) {
-        Button("Cancel") {
-          dismiss()
-        }
-        .accessibilityIdentifier("Cancel")
-      }
-
-      ToolbarItem(placement: .confirmationAction) {
-        Button("Save") {
-          // TODO: Implement save logic in Issue #02
-          dismiss()
-        }
-        .accessibilityIdentifier("Save")
-      }
-    }
   }
 }
 

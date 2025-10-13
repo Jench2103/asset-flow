@@ -11,11 +11,12 @@ import os.log
 
 /// ViewModel for managing portfolio list data
 ///
-/// This ViewModel fetches and manages portfolio data from SwiftData.
+/// This ViewModel can be used to contain business logic for the portfolio list,
+/// such as deletion or filtering logic.
 @Observable
+@MainActor
 class PortfolioListViewModel {
-  var portfolios: [Portfolio] = []
-  private var modelContext: ModelContext
+  var modelContext: ModelContext
   private let logger = Logger(
     subsystem: "com.jench2103.AssetFlow",
     category: "PortfolioListViewModel")
@@ -27,14 +28,6 @@ class PortfolioListViewModel {
     self.modelContext = modelContext
   }
 
-  /// Fetches all portfolios from the SwiftData store.
-  func fetchPortfolios() {
-    do {
-      let descriptor = FetchDescriptor<Portfolio>(sortBy: [SortDescriptor(\Portfolio.name)])
-      self.portfolios = try modelContext.fetch(descriptor)
-    } catch {
-      // For now, just log the error. In a real app, handle this more gracefully.
-      logger.error("Failed to fetch portfolios: \(error.localizedDescription)")
-    }
-  }
+  // Note: The responsibility for fetching portfolios has been moved to the View
+  // using the @Query property wrapper for automatic updates.
 }
