@@ -191,4 +191,90 @@ struct PortfolioFormViewModelTests {
     #expect(viewModel.isSaveDisabled == true)
     #expect(viewModel.nameValidationMessage == "A portfolio with this name already exists.")
   }
+
+  // MARK: - User Interaction Tests
+
+  @Test("Initial state for new portfolio has validation message but no interaction")
+  func testInitialState_NewPortfolio_HasValidationMessageButNoInteraction() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    // Act
+    let viewModel = PortfolioFormViewModel(modelContext: context)
+
+    // Assert
+    #expect(viewModel.hasUserInteracted == false, "hasUserInteracted should be false on init")
+    #expect(
+      viewModel.nameValidationMessage != nil, "Validation message should exist for empty name")
+    #expect(viewModel.isSaveDisabled == true, "Save should be disabled for a new portfolio")
+  }
+
+  @Test("Initial state for editing portfolio has no validation and no interaction")
+  func testInitialState_EditingPortfolio_NoValidationMessageAndNoInteraction() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "My Portfolio")
+    context.insert(portfolio)
+
+    // Act
+    let viewModel = PortfolioFormViewModel(modelContext: context, portfolio: portfolio)
+
+    // Assert
+    #expect(viewModel.hasUserInteracted == false, "hasUserInteracted should be false on init")
+    #expect(
+      viewModel.nameValidationMessage == nil,
+      "A valid existing portfolio should have no validation errors")
+  }
+
+  @Test("Interaction with new portfolio name sets flag and clears validation")
+  func testInteraction_NewPortfolio_SetsInteractionFlagAndClearsValidation() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = PortfolioFormViewModel(modelContext: context)
+
+    // Act
+    viewModel.name = "A valid name"
+
+    // Assert
+    #expect(viewModel.hasUserInteracted == true)
+    #expect(viewModel.nameValidationMessage == nil)
+    #expect(viewModel.isSaveDisabled == false)
+  }
+
+  @Test("Interaction with existing portfolio name sets flag and adds validation")
+  func testInteraction_EditingPortfolio_SetsInteractionFlagAndAddsValidation() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "My Portfolio")
+    context.insert(portfolio)
+    let viewModel = PortfolioFormViewModel(modelContext: context, portfolio: portfolio)
+
+    // Act
+    viewModel.name = ""  // Invalid name
+
+    // Assert
+    #expect(viewModel.hasUserInteracted == true)
+    #expect(viewModel.nameValidationMessage != nil)
+    #expect(viewModel.isSaveDisabled == true)
+  }
+
+  @Test("No interaction is flagged when name is set to the same value")
+  func testNoInteraction_WhenNameSetToSameValue() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "My Portfolio")
+    context.insert(portfolio)
+    let viewModel = PortfolioFormViewModel(modelContext: context, portfolio: portfolio)
+
+    // Act
+    viewModel.name = "My Portfolio"  // Set to same value
+
+    // Assert
+    #expect(viewModel.hasUserInteracted == false, "hasUserInteracted should remain false")
+  }
 }

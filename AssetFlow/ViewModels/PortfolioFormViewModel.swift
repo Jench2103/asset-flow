@@ -19,17 +19,24 @@ class PortfolioFormViewModel {
   // MARK: - Form Properties
 
   /// The name of the portfolio. This property is validated in real-time.
-  var name: String = "" {
+  var name: String {
     didSet {
+      // Only trigger updates if the value actually changed.
+      guard name != oldValue else { return }
+      hasUserInteracted = true
       validateName()
     }
   }
 
   /// The optional description for the portfolio.
-  var portfolioDescription: String = ""
+  var portfolioDescription: String
 
   /// A message describing a validation error for the `name` property. A `nil` value indicates the name is valid.
   var nameValidationMessage: String?
+  /// A message describing a non-critical warning for the `name` property.
+  var nameWarningMessage: String?
+  /// Tracks if the user has modified the name field, to delay validation messages.
+  var hasUserInteracted: Bool = false
 
   // MARK: - Private State
 
@@ -45,7 +52,7 @@ class PortfolioFormViewModel {
 
   /// Returns `true` if the form is in an invalid state and should not be saved.
   var isSaveDisabled: Bool {
-    // The save button is disabled if there is any validation message.
+    // The save button is disabled if there is any validation error message.
     nameValidationMessage != nil
   }
 
@@ -60,12 +67,12 @@ class PortfolioFormViewModel {
     self.modelContext = modelContext
     self.portfolio = portfolio
 
-    if let portfolio = portfolio {
-      self.name = portfolio.name
-      self.portfolioDescription = portfolio.portfolioDescription ?? ""
-    }
+    // Initialize properties.
+    self.name = portfolio?.name ?? ""
+    self.portfolioDescription = portfolio?.portfolioDescription ?? ""
 
-    // Perform initial validation.
+    // Perform initial validation to set the initial state of `isSaveDisabled`.
+    // This may be redundant if property observers fire, but it ensures correctness.
     validateName()
   }
 
@@ -95,6 +102,14 @@ class PortfolioFormViewModel {
   private func validateName() {
     let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
 
+    // 1. Check for and set whitespace warning
+    if !trimmedName.isEmpty && name != trimmedName {
+      nameWarningMessage = "Leading and trailing spaces will be automatically trimmed."
+    } else {
+      nameWarningMessage = nil
+    }
+
+    // 2. Check for validation errors (which override warnings)
     if trimmedName.isEmpty {
       nameValidationMessage = "Portfolio name cannot be empty."
       return

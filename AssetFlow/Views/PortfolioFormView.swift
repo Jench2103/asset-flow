@@ -23,10 +23,17 @@ struct PortfolioFormView: View {
       Section(header: Text("Portfolio Details")) {
         TextField("Name", text: $viewModel.name)
 
-        if let validationMessage = viewModel.nameValidationMessage {
-          Text(validationMessage)
-            .font(.caption)
-            .foregroundStyle(.red)
+        // Only show validation messages after the user has interacted with the form.
+        if viewModel.hasUserInteracted {
+          if let validationMessage = viewModel.nameValidationMessage {
+            Text(validationMessage)
+              .font(.caption)
+              .foregroundStyle(.red)
+          } else if let warningMessage = viewModel.nameWarningMessage {
+            Text(warningMessage)
+              .font(.caption)
+              .foregroundStyle(.orange)
+          }
         }
 
         TextField("Description", text: $viewModel.portfolioDescription, axis: .vertical)
