@@ -2,9 +2,11 @@
 
 ## Overview
 
-This document outlines the testing strategy for AssetFlow, covering unit testing, integration testing, and UI testing for a SwiftUI + SwiftData application.
+This document outlines the testing strategy for AssetFlow, which prioritizes **Unit and ViewModel testing** to ensure logical correctness and maintain a fast, reliable test suite.
 
-**Current Status**: The foundational infrastructure for isolated, in-memory testing for both unit and UI tests is implemented.
+After careful consideration, the project has opted to **forgo UI testing**. The rationale is that a comprehensive suite of tests at the ViewModel layer provides sufficient confidence in the application's behavior, while avoiding the brittleness and maintenance overhead associated with UI tests.
+
+**Current Status**: The foundational infrastructure for isolated, in-memory unit and ViewModel testing is implemented using the Swift Testing framework.
 
 ______________________________________________________________________
 
@@ -13,43 +15,37 @@ ______________________________________________________________________
 ### Core Principles
 
 1. **Test-Driven Development (TDD)**: Write tests before or alongside implementation when practical.
-1. **Pyramid Structure**: More unit tests, fewer integration tests, minimal UI tests.
-1. **Fast Feedback**: Tests should run quickly and provide clear failure messages.
+1. **Focused Testing**: Concentrate efforts on the lower, more stable layers of the testing pyramid (Unit and Integration/ViewModel tests).
+1. **Fast Feedback**: Tests must run quickly and provide clear failure messages.
 1. **Isolation**: Each test must run in a completely isolated environment and not depend on the state of others.
 1. **Maintainability**: Tests are code and must be kept clean and well-organized.
 
-### Testing Pyramid
+### The Testing Pyramid (Our Approach)
+
+While the traditional pyramid includes UI tests, we are intentionally focusing on the bottom two layers. By thoroughly testing the ViewModel, we verify the application's state and logic. We accept the trade-off of not testing the View layer's bindings directly, in exchange for a much faster and more stable test suite.
 
 ```
-        ┌─────────────┐
-        │  UI Tests   │  ← Fewer (slow, brittle)
-        │   (E2E)     │
-        ├─────────────┤
-        │ Integration │  ← Some (moderate speed)
-        │   Tests     │
-        ├─────────────┤
-        │    Unit     │  ← Many (fast, reliable)
-        │   Tests     │
-        └─────────────┘
+        ┌─────────────────┐
+        │    UI Layer     │  ← Not tested automatically
+        │     (Views)     │
+        ├─────────────────┤
+        │   ViewModel &   │  ← Primary focus: Test app
+        │ Integration Tests │    logic and state here
+        ├─────────────────┤
+        │    Unit Tests   │  ← Foundation: Test models
+        │ (Models, Utils) │    and business logic
+        └─────────────────┘
 ```
 
 ______________________________________________________________________
 
 ## Testing Frameworks
 
-This project uses a hybrid approach to testing, leveraging the best framework for each type of test.
-
-### Unit & Integration Tests: Swift Testing
-
-For all unit and integration tests, we use the modern **Swift Testing** framework. Its clean macro-based syntax (`@Test`, `@Suite`, `#expect`) is preferred for all logic, model, and data layer testing.
-
-### UI Tests: XCTest
-
-For UI tests, we use Apple's traditional **XCTest** framework, as it provides the necessary `XCUIApplication` APIs for interacting with the application's user interface from a separate process.
+This project uses the modern **Swift Testing** framework for all unit and integration tests. Its clean macro-based syntax (`@Test`, `@Suite`, `#expect`) is used for all logic, model, and ViewModel testing.
 
 ______________________________________________________________________
 
-## Unit & Integration Testing with SwiftData
+## Unit & ViewModel Testing with SwiftData
 
 To ensure robust and reliable tests, every single test function (`@Test`) that requires a database must create its own dedicated, in-memory `ModelContainer`. This provides perfect isolation.
 
@@ -106,7 +102,7 @@ struct PortfolioModelTests {
 
 ### Example: ViewModel Test
 
-ViewModels that use SwiftData should accept a `ModelContext` in their initializer. This allows us to inject the context from our in-memory container during testing.
+ViewModels that use SwiftData should accept a `ModelContext` in their initializer. This allows us to inject the context from our in-memory container during testing, giving us full control over the ViewModel's environment.
 
 ```swift
 @Suite("PortfolioListViewModel Tests")
@@ -134,90 +130,11 @@ struct PortfolioListViewModelTests {
 
 ______________________________________________________________________
 
-## UI Testing
-
-UI tests run in a separate process and cannot directly access the application's code or inject a `ModelContainer`. Instead, we use **launch arguments** to instruct the app on how to configure itself for a test run.
-
-### Launch Argument Strategy
-
-1. **The Test Sets Arguments:** Before launching the app, the UI test adds strings to `app.launchArguments`.
-1. **The App Responds:** The `AssetFlowApp` checks for these strings on startup and configures its `ModelContainer` accordingly.
-
-This ensures every UI test starts with a fresh, clean in-memory database.
-
-### Example: UI Test Setup
-
-The UI test class uses a helper method to launch the app with specific arguments for each test, guaranteeing isolation.
-
-```swift
-// In a UI test file like PortfolioListViewUITests.swift
-final class PortfolioListViewUITests: XCTestCase {
-    var app: XCUIApplication!
-
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-        app = XCUIApplication()
-    }
-
-    override func tearDownWithError() throws {
-        app.terminate()
-        app = nil
-    }
-
-    private func launch(with arguments: [String] = ["UI-Testing"]) {
-        app.launchArguments = arguments
-        app.launch()
-    }
-
-    func testPortfolioListRendersWithMockData() throws {
-        // Launches the app with a pre-populated in-memory database
-        launch()
-        XCTAssertTrue(app.staticTexts["Tech Stocks"].exists)
-    }
-
-    func testPortfolioListDisplaysEmptyState() throws {
-        // Launches the app with an empty in-memory database
-        launch(with: ["UI-Testing", "EmptyPortfolios"])
-        XCTAssertTrue(app.staticTexts["No portfolios yet"].exists)
-    }
-}
-```
-
-### Example: App Response
-
-The `AssetFlowApp` contains logic to handle these arguments.
-
-```swift
-// In AssetFlowApp.swift
-var sharedModelContainer: ModelContainer = {
-    let schema = Schema([...])
-    var modelConfiguration: ModelConfiguration
-
-    if CommandLine.arguments.contains("UI-Testing") {
-        modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    } else {
-        modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-    }
-
-    let container = try! ModelContainer(for: schema, configurations: [modelConfiguration])
-
-    // Pre-populate data for the default UI test case
-    if CommandLine.arguments.contains("UI-Testing")
-        && !CommandLine.arguments.contains("EmptyPortfolios") {
-        // ... code to insert mock portfolios ...
-    }
-
-    return container
-}()
-```
-
-______________________________________________________________________
-
 ## Test Data and Previews
 
 ### Test Utilities
 
-- **Unit/Integration Tests:** Use `TestDataManager.createInMemoryContainer()` to create a clean database for each test.
+- **Unit/ViewModel Tests:** Use `TestDataManager.createInMemoryContainer()` to create a clean database for each test.
 - **SwiftUI Previews:** Use the `PreviewContainer` utility to provide a dedicated in-memory container for Xcode Previews. This keeps preview data separate from test data.
 
 ### Test Fixtures
@@ -244,13 +161,14 @@ ______________________________________________________________________
 
 ### Coverage Goals
 
-| Layer      | Target Coverage       |
-| ---------- | --------------------- |
-| Models     | 90%+                  |
-| ViewModels | 80%+                  |
-| Services   | 85%+                  |
-| Views      | 50%+ (critical paths) |
-| Overall    | 75%+                  |
+Our testing strategy emphasizes full coverage of the application's logic and data layers. The View layer is tested manually during development.
+
+| Layer      | Target Coverage |
+| ---------- | --------------- |
+| Models     | 90%+            |
+| ViewModels | 85%+            |
+| Services   | 85%+            |
+| Overall    | 80%+            |
 
 ### Enabling Coverage
 
