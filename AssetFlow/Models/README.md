@@ -8,20 +8,28 @@ This directory contains the core SwiftData models for AssetFlow.
 
 ### Asset
 
-Individual investment or asset in a portfolio.
+Individual investment or asset in a portfolio. Defined by its transactions and price history; holds minimal state.
 
 **Key Properties:**
 
 - `name` - Display name
 - `assetType` - Category (stock, bond, crypto, etc.)
-- `currentValue` - Current market value
-- `quantity` - Number of units held
 - `currency` - Currency code (default: "USD")
+- `notes` - Optional user notes
+
+**Computed Properties:**
+
+- `quantity` - Calculated from transactions
+- `currentPrice` - Most recent price from price history
+- `currentValue` - Quantity × current price
+- `averageCost` - Average cost per unit from buy transactions
+- `costBasis` - Total cost basis for current holdings
 
 **Relationships:**
 
-- Portfolio (optional parent)
-- Transactions (many children)
+- Portfolio (optional parent, `.nullify`)
+- Transactions (many children, `.cascade`)
+- PriceHistory (many children, `.cascade`)
 
 ### Portfolio
 
@@ -47,15 +55,23 @@ Single financial transaction related to an asset.
 
 **Key Properties:**
 
-- `transactionType` - Type (buy, sell, dividend, etc.)
+- `transactionType` - Type (buy, sell, transferIn, transferOut, adjustment, dividend, interest)
 - `transactionDate` - When it occurred
 - `quantity` - Units involved
 - `pricePerUnit` - Price per unit
 - `totalAmount` - Total transaction value
+- `currency` - Currency code
+- `fees` - Optional transaction fees
+
+**Computed Properties:**
+
+- `quantityImpact` - Impact on asset quantity (negative for sell/transferOut)
 
 **Relationships:**
 
-- Asset (optional parent)
+- `asset` - The asset whose quantity is changing (`.nullify`)
+- `sourceAsset` - Asset generating income (for dividends/interest)
+- `relatedTransaction` - Linked transaction for swaps
 
 ### InvestmentPlan
 
@@ -73,35 +89,57 @@ Investment strategy or goal with defined parameters.
 
 - Currently standalone (no relationships)
 
+### PriceHistory
+
+Represents the price of an asset at a specific point in time.
+
+**Key Properties:**
+
+- `date` - When the price was recorded
+- `price` - The price of one unit of the asset
+
+**Relationships:**
+
+- `asset` - The parent asset (`.nullify`)
+
 ### RegularSavingPlan
 
-Represents a recurring investment plan.
+Represents a recurring investment plan for automated or reminder-based savings.
 
 **Key Properties:**
 
 - `name` - Plan name
-- `amount` - Investment amount
-- `frequency` - How often to invest
-- `executionMethod` - Automatic or manual
+- `amount` - Investment amount per occurrence
+- `frequency` - How often to invest (daily, weekly, biweekly, monthly)
+- `startDate` - When the plan begins
+- `nextDueDate` - Next scheduled investment date
+- `executionMethod` - Automatic or manual execution
 - `isActive` - Active status
 
 **Relationships:**
 
-- `asset` (optional parent, the asset to buy)
-- `sourceAsset` (optional parent, the asset to sell from)
+- `asset` - The asset to purchase (`.nullify`)
+- `sourceAsset` - The asset to withdraw from (`.nullify`, optional)
 
 ## Relationships
 
 ```
 Portfolio (1:Many) → Asset (1:Many) → Transaction
+                     Asset (1:Many) → PriceHistory
+                     Transaction → sourceAsset (Asset)
+                     Transaction → relatedTransaction (self)
 RegularSavingPlan (1:1) → asset (Asset)
 RegularSavingPlan (1:1) → sourceAsset (Asset)
+InvestmentPlan (standalone)
 ```
 
 Delete Rules:
 
-- Portfolio → Assets: `.nullify` (assets remain when portfolio deleted)
+- Portfolio → Assets: `.nullify` (assets remain, portfolio ref set to nil; **business logic must prevent deletion of non-empty portfolios**)
 - Asset → Transactions: `.cascade` (transactions deleted with asset)
+- Asset → PriceHistory: `.cascade` (price history deleted with asset)
+- Transaction → Asset: (no delete rule, default behavior)
+- RegularSavingPlan → Asset: `.nullify` (asset reference set to nil when asset deleted)
 
 ## Critical Conventions
 
@@ -124,7 +162,8 @@ let schema = Schema([
     Portfolio.self,
     Transaction.self,
     InvestmentPlan.self,
-    RegularSavingPlan.self
+    PriceHistory.self,
+    RegularSavingPlan.self,
 ])
 ```
 
@@ -152,6 +191,7 @@ Models/
 ├── Portfolio.swift
 ├── Transaction.swift
 ├── InvestmentPlan.swift
+├── PriceHistory.swift
 └── RegularSavingPlan.swift
 ```
 

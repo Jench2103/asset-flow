@@ -169,11 +169,11 @@ Represents a collection of assets grouped for organizational or strategic purpos
 #### Relationships
 
 ```swift
-@Relationship(deleteRule: .nullify, inverse: \Asset.portfolio)
+@Relationship(deleteRule: .deny, inverse: \Asset.portfolio)
 var assets: [Asset]?
 ```
 
-- **Assets**: Child assets (`.nullify` on delete - assets persist independently)
+- **Assets**: Child assets (`.deny` on delete - prevents portfolio deletion if it contains assets)
 
 #### Target Allocation
 
@@ -506,13 +506,32 @@ ______________________________________________________________________
 
 ### Delete Rules
 
-| Relationship              | Delete Rule | Behavior                                             |
-| ------------------------- | ----------- | ---------------------------------------------------- |
-| Portfolio → Assets        | `.nullify`  | Assets remain, `portfolio` set to `nil`              |
-| Asset → Transactions      | `.cascade`  | Deleting asset deletes all its transactions          |
-| Asset → PriceHistory      | `.cascade`  | Deleting asset deletes all its price history records |
-| Transaction → Asset       | `.nullify`  | Deleting transaction doesn't affect asset            |
-| RegularSavingPlan → Asset | `.nullify`  | Deleting a saving plan does not delete the asset.    |
+| Relationship              | Delete Rule | Behavior                                                   |
+| ------------------------- | ----------- | ---------------------------------------------------------- |
+| Portfolio → Assets        | `.nullify`  | Assets remain, `portfolio` reference set to `nil`          |
+| Asset → Transactions      | `.cascade`  | Deleting asset deletes all its transactions                |
+| Asset → PriceHistory      | `.cascade`  | Deleting asset deletes all its price history records       |
+| Transaction → Asset       | (default)   | Deleting transaction doesn't affect asset                  |
+| RegularSavingPlan → Asset | `.nullify`  | Asset deletion sets saving plan's asset reference to `nil` |
+
+**Important: Portfolio Deletion Protection**
+
+SwiftData's `.deny` delete rule has known bugs and does not work reliably (as of 2024-2025). Therefore, Portfolio uses `.nullify` instead. **Business logic MUST enforce deletion prevention** by checking `portfolio.isEmpty` before allowing deletion:
+
+```swift
+// In ViewModel/Service layer
+func deletePortfolio(_ portfolio: Portfolio) throws {
+    guard portfolio.isEmpty else {
+        throw PortfolioError.cannotDeleteNonEmptyPortfolio
+    }
+    modelContext.delete(portfolio)
+}
+```
+
+Use the helper properties provided by Portfolio:
+
+- `portfolio.isEmpty` - Returns `true` if portfolio has no assets (safe to delete)
+- `portfolio.assetCount` - Number of assets in portfolio
 
 ### Relationship Constraints
 

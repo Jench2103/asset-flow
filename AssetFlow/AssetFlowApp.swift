@@ -18,6 +18,8 @@ struct AssetFlowApp: App {
       Portfolio.self,
       Transaction.self,
       InvestmentPlan.self,
+      PriceHistory.self,
+      RegularSavingPlan.self,
     ])
 
     // Always use the default, persistent database configuration.

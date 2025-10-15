@@ -18,6 +18,9 @@ final class Portfolio {
   var isActive: Bool
 
   // Relationships
+  // Note: .deny delete rule has known bugs in SwiftData and doesn't work reliably.
+  // Using .nullify instead. Business logic MUST check isEmpty before allowing deletion.
+  @Relationship(deleteRule: .nullify, inverse: \Asset.portfolio)
   var assets: [Asset]?
 
   init(
@@ -35,7 +38,19 @@ final class Portfolio {
     self.isActive = isActive
   }
 
+  // Computed Properties
+
   var totalValue: Decimal {
     assets?.reduce(0) { $0 + $1.currentValue } ?? 0
+  }
+
+  /// Number of assets in this portfolio
+  var assetCount: Int {
+    assets?.count ?? 0
+  }
+
+  /// Returns true if the portfolio has no assets and can be deleted
+  var isEmpty: Bool {
+    assets?.isEmpty ?? true
   }
 }

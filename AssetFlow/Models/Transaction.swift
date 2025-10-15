@@ -21,7 +21,13 @@ final class Transaction {
   var notes: String?
 
   // Relationships
+  @Relationship
   var asset: Asset?
+
+  var sourceAsset: Asset?
+
+  // For swap transactions: bidirectional link to the paired transaction.
+  var relatedTransaction: Transaction?
 
   init(
     id: UUID = UUID(),
@@ -33,7 +39,9 @@ final class Transaction {
     currency: String = "USD",
     fees: Decimal? = nil,
     notes: String? = nil,
-    asset: Asset? = nil
+    asset: Asset? = nil,
+    sourceAsset: Asset? = nil,
+    relatedTransaction: Transaction? = nil
   ) {
     self.id = id
     self.transactionType = transactionType
@@ -45,15 +53,30 @@ final class Transaction {
     self.fees = fees
     self.notes = notes
     self.asset = asset
+    self.sourceAsset = sourceAsset
+    self.relatedTransaction = relatedTransaction
+  }
+
+  // Computed Properties
+
+  /// The impact on asset quantity. Sells and transfers out decrease quantity.
+  var quantityImpact: Decimal {
+    switch transactionType {
+    case .sell, .transferOut:
+      return -quantity
+
+    case .buy, .transferIn, .adjustment, .dividend, .interest:
+      return quantity
+    }
   }
 }
 
 enum TransactionType: String, Codable, CaseIterable {
   case buy = "Buy"
   case sell = "Sell"
+  case transferIn = "Transfer In"
+  case transferOut = "Transfer Out"
+  case adjustment = "Adjustment"
   case dividend = "Dividend"
   case interest = "Interest"
-  case deposit = "Deposit"
-  case withdrawal = "Withdrawal"
-  case transfer = "Transfer"
 }

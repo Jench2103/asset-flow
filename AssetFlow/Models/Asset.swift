@@ -13,26 +13,23 @@ final class Asset {
   var id: UUID
   var name: String
   var assetType: AssetType
-  var currentValue: Decimal
-  var purchaseDate: Date
-  var purchasePrice: Decimal?
-  var quantity: Decimal
   var currency: String
   var notes: String?
-  var lastUpdated: Date
 
   // Relationships
+  @Relationship
   var portfolio: Portfolio?
+
+  @Relationship(deleteRule: .cascade, inverse: \Transaction.asset)
   var transactions: [Transaction]?
+
+  @Relationship(deleteRule: .cascade, inverse: \PriceHistory.asset)
+  var priceHistory: [PriceHistory]?
 
   init(
     id: UUID = UUID(),
     name: String,
     assetType: AssetType,
-    currentValue: Decimal,
-    purchaseDate: Date,
-    purchasePrice: Decimal? = nil,
-    quantity: Decimal = 1.0,
     currency: String = "USD",
     notes: String? = nil,
     portfolio: Portfolio? = nil
@@ -40,14 +37,40 @@ final class Asset {
     self.id = id
     self.name = name
     self.assetType = assetType
-    self.currentValue = currentValue
-    self.purchaseDate = purchaseDate
-    self.purchasePrice = purchasePrice
-    self.quantity = quantity
     self.currency = currency
     self.notes = notes
-    self.lastUpdated = Date()
     self.portfolio = portfolio
+  }
+
+  // Computed Properties
+
+  /// Current quantity held, calculated from transactions
+  var quantity: Decimal {
+    transactions?.reduce(0) { $0 + $1.quantityImpact } ?? 0
+  }
+
+  /// The most recent price from price history
+  var currentPrice: Decimal {
+    priceHistory?.sorted(by: { $0.date > $1.date }).first?.price ?? 0
+  }
+
+  /// Current total value of the asset
+  var currentValue: Decimal {
+    quantity * currentPrice
+  }
+
+  /// Average cost per unit, calculated from buy transactions
+  var averageCost: Decimal {
+    let totalCost =
+      transactions?.filter { $0.transactionType == .buy }.reduce(0) { $0 + $1.totalAmount } ?? 0
+    let totalQuantity =
+      transactions?.filter { $0.transactionType == .buy }.reduce(0) { $0 + $1.quantity } ?? 0
+    return totalQuantity > 0 ? totalCost / totalQuantity : 0
+  }
+
+  /// Total cost basis for current holdings
+  var costBasis: Decimal {
+    averageCost * quantity
   }
 }
 
