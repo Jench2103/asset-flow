@@ -16,6 +16,7 @@ class TestDataManager {
       Asset.self,
       Transaction.self,
       InvestmentPlan.self,
+      PriceHistory.self,
     ])
     let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
 

@@ -261,6 +261,71 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+### Portfolio List Screen
+
+**Primary Purpose**: Browse and manage all portfolios
+
+**Visual Layout**
+
+```
+┌──────────────────────────────────────────────────┐
+│  Portfolios                        [+ Add]       │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  Tech Stocks                                     │
+│  High-growth technology portfolio                │
+│                                                  │
+│  Real Estate                                     │
+│  Residential properties                          │
+│                                                  │
+│  Retirement                                      │
+│  Long-term retirement savings                    │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**Interactions**
+
+- Tap/click portfolio row → Navigate to portfolio detail/edit
+- Tap "Add" button → Show portfolio creation form
+- Right-click portfolio (macOS) → Context menu with delete option
+
+**Delete Interaction** (macOS):
+
+1. Right-click on portfolio row
+1. Context menu appears with "Delete Portfolio" option (trash icon, destructive style)
+1. User selects "Delete Portfolio"
+1. System validates portfolio is empty
+1. **If valid (empty portfolio)**:
+   - Confirmation alert appears
+   - Title: "Delete Portfolio?"
+   - Message: "Are you sure you want to delete '[Portfolio Name]'? This action cannot be undone."
+   - Buttons: "Cancel" (default) and "Delete" (destructive)
+   - User clicks "Delete" → Portfolio removed from system
+1. **If invalid (has assets)**:
+   - Error alert appears
+   - Title: "Cannot Delete Portfolio"
+   - Message: "Cannot delete portfolio"
+   - Recovery: "This portfolio contains N asset(s). Remove all assets before deleting the portfolio."
+   - Button: "OK"
+   - Portfolio remains intact
+
+**Delete Validation**:
+
+- Empty portfolios: Show confirmation dialog
+- Non-empty portfolios: Show error with asset count
+- Error message includes recovery suggestion (remove assets first)
+- Re-validation occurs before final deletion (edge case: state changes during confirmation)
+
+**Empty State**
+
+- Icon: Folder with plus badge (large, centered)
+- Message: "No portfolios yet"
+- Subtext: "Add your first portfolio to get started"
+- Action: "Add Portfolio" button (prominent style)
+
+______________________________________________________________________
+
 ### Portfolio Detail Screen
 
 **Primary Purpose**: View portfolio composition and allocation

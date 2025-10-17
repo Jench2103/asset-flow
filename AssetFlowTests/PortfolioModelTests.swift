@@ -68,4 +68,57 @@ struct PortfolioModelTests {
     let expected = Decimal(string: "4250.75")!
     #expect(totalValue == expected)
   }
+
+  // MARK: - Deletion Support Tests
+
+  @Test("isEmpty returns true for portfolio with no assets")
+  func isEmpty_NoAssets_ReturnsTrue() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Empty Portfolio")
+    context.insert(portfolio)
+
+    // Act & Assert
+    #expect(portfolio.isEmpty == true)
+    #expect(portfolio.assetCount == 0)
+  }
+
+  @Test("isEmpty returns false for portfolio with assets")
+  func isEmpty_WithAssets_ReturnsFalse() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let portfolio = Portfolio(name: "Tech Portfolio")
+    let asset = Asset(name: "Apple", assetType: .stock, currency: "USD", portfolio: portfolio)
+
+    context.insert(portfolio)
+    context.insert(asset)
+
+    // Act & Assert
+    #expect(portfolio.isEmpty == false)
+    #expect(portfolio.assetCount == 1)
+  }
+
+  @Test("assetCount returns correct count for multiple assets")
+  func assetCount_MultipleAssets_ReturnsCorrectCount() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let portfolio = Portfolio(name: "Diversified Portfolio")
+    let asset1 = Asset(name: "Apple", assetType: .stock, portfolio: portfolio)
+    let asset2 = Asset(name: "Microsoft", assetType: .stock, portfolio: portfolio)
+    let asset3 = Asset(name: "Bitcoin", assetType: .crypto, portfolio: portfolio)
+
+    context.insert(portfolio)
+    context.insert(asset1)
+    context.insert(asset2)
+    context.insert(asset3)
+
+    // Act & Assert
+    #expect(portfolio.assetCount == 3)
+    #expect(portfolio.isEmpty == false)
+  }
 }

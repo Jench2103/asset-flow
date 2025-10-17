@@ -231,6 +231,47 @@ Allocation % = (Sum of asset values of type / Portfolio total value) × 100
 - Sum values per type.
 - Calculate percentage of total.
 
+### Portfolio Deletion
+
+**Business Rule**: Only empty portfolios (no assets) can be deleted.
+
+**Validation Logic**:
+
+1. Check `portfolio.isEmpty` computed property
+1. If `true`, allow deletion
+1. If `false`, prevent deletion and show error with asset count
+
+**Deletion Workflow**:
+
+1. User initiates deletion (context menu on macOS)
+1. ViewModel validates portfolio is empty using `validateDeletion(of:)`
+1. If valid, show confirmation dialog with portfolio name
+1. If invalid, show error alert with asset count and recovery suggestion
+1. On user confirmation, re-validate (edge case: state might have changed)
+1. Execute deletion via `modelContext.delete(portfolio)`
+1. SwiftData automatically removes portfolio (`.nullify` rule keeps assets intact)
+
+**Error Scenarios**:
+
+| Scenario                                   | Detection Point                          | User Feedback                        | Recovery Action                             |
+| ------------------------------------------ | ---------------------------------------- | ------------------------------------ | ------------------------------------------- |
+| Portfolio has assets                       | Initial validation in `initiateDelete()` | Error alert with asset count         | Remove all assets before deleting portfolio |
+| Portfolio gains assets during confirmation | Re-validation in `confirmDelete()`       | Error alert with updated asset count | Cancel and remove assets                    |
+| SwiftData deletion fails                   | Exception in `confirmDelete()`           | Error alert with system message      | Retry or restart application                |
+
+**Implementation Details**:
+
+- **File**: `AssetFlow/ViewModels/PortfolioListViewModel.swift`
+- **Validation Method**: `validateDeletion(of:) -> Result<Void, PortfolioDeletionError>`
+- **Initiation Method**: `initiateDelete(portfolio:)` - validates and sets UI state
+- **Execution Method**: `confirmDelete()` - re-validates and deletes
+- **Cancellation Method**: `cancelDelete()` - resets state without deletion
+- **Error Type**: `PortfolioDeletionError` enum with localized messages
+
+**Why `.nullify` Instead of `.deny`**:
+
+SwiftData's `.deny` delete rule has known bugs (as of 2024-2025) and does not work reliably. Portfolio uses `.nullify` on the `assets` relationship, and business logic enforces deletion prevention by checking `portfolio.isEmpty` before allowing deletion.
+
 ______________________________________________________________________
 
 ## Investment Planning Logic

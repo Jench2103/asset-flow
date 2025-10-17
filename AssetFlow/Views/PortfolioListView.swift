@@ -45,6 +45,38 @@ struct PortfolioListView: View {
           PortfolioFormView(viewModel: formViewModel)
         }
       }
+      .alert(
+        "Delete Portfolio?",
+        isPresented: $viewModel.showingDeleteConfirmation,
+        presenting: viewModel.portfolioToDelete
+      ) { _ in
+        Button("Cancel", role: .cancel) {
+          viewModel.cancelDelete()
+        }
+        Button("Delete", role: .destructive) {
+          viewModel.confirmDelete()
+        }
+      } message: { portfolio in
+        Text("Are you sure you want to delete '\(portfolio.name)'? This action cannot be undone.")
+      }
+      .alert(
+        "Cannot Delete Portfolio",
+        isPresented: $viewModel.showingDeletionError,
+        presenting: viewModel.deletionError
+      ) { _ in
+        Button("OK", role: .cancel) {
+          viewModel.deletionError = nil
+        }
+      } message: { error in
+        VStack {
+          if let description = error.errorDescription {
+            Text(description)
+          }
+          if let suggestion = error.recoverySuggestion {
+            Text("\n\(suggestion)")
+          }
+        }
+      }
     }
   }
 
@@ -56,6 +88,14 @@ struct PortfolioListView: View {
         NavigationLink(value: portfolio) {
           PortfolioRowView(portfolio: portfolio)
             .accessibilityIdentifier("Portfolio-\(portfolio.name)")
+        }
+        .contextMenu {
+          Button(role: .destructive) {
+            viewModel.initiateDelete(portfolio: portfolio)
+          } label: {
+            Label("Delete Portfolio", systemImage: "trash")
+          }
+          .accessibilityIdentifier("Delete Portfolio Context Menu")
         }
       }
     }
