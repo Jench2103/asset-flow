@@ -286,11 +286,22 @@ ______________________________________________________________________
 
 **Interactions**
 
-- Tap/click portfolio row → Navigate to portfolio detail/edit
-- Tap "Add" button → Show portfolio creation form
-- Right-click portfolio (macOS) → Context menu with delete option
+- Tap/click portfolio row → Navigate to Portfolio Detail screen (future: shows assets, allocation, performance)
+- Tap "Add" button → Show portfolio creation form in popup/sheet
+- Right-click portfolio (macOS) → Context menu with "Edit Portfolio" and "Delete Portfolio" options
 
-**Delete Interaction** (macOS):
+**Context Menu Actions** (macOS):
+
+**Edit Portfolio:**
+
+1. Right-click on portfolio row
+1. Context menu appears with "Edit Portfolio" option (pencil icon)
+1. User selects "Edit Portfolio"
+1. Edit form appears in a popup/sheet
+1. User can modify portfolio name and description
+1. Save or Cancel to dismiss
+
+**Delete Portfolio:**
 
 1. Right-click on portfolio row
 1. Context menu appears with "Delete Portfolio" option (trash icon, destructive style)
@@ -328,7 +339,9 @@ ______________________________________________________________________
 
 ### Portfolio Detail Screen
 
-**Primary Purpose**: View portfolio composition and allocation
+**Primary Purpose**: View portfolio composition, allocation, and manage assets
+
+**Note**: The Portfolio List shows portfolio names and descriptions with an edit popup. The Portfolio Detail screen (accessed via navigation) displays the full portfolio content including assets, allocation charts, and portfolio performance.
 
 **Visual Layout**
 

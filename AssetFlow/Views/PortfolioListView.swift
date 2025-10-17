@@ -18,6 +18,7 @@ struct PortfolioListView: View {
   @State var viewModel: PortfolioListViewModel
   @Environment(\.modelContext) private var modelContext
   @State private var showingAddPortfolioSheet = false
+  @State private var portfolioToEdit: Portfolio?
 
   @Query(sort: \Portfolio.name) private var portfolios: [Portfolio]
 
@@ -42,6 +43,13 @@ struct PortfolioListView: View {
       .sheet(isPresented: $showingAddPortfolioSheet) {
         NavigationStack {
           let formViewModel = PortfolioFormViewModel(modelContext: modelContext)
+          PortfolioFormView(viewModel: formViewModel)
+        }
+      }
+      .sheet(item: $portfolioToEdit) { portfolio in
+        NavigationStack {
+          let formViewModel = PortfolioFormViewModel(
+            modelContext: modelContext, portfolio: portfolio)
           PortfolioFormView(viewModel: formViewModel)
         }
       }
@@ -85,23 +93,29 @@ struct PortfolioListView: View {
   private var portfolioListContent: some View {
     List {
       ForEach(portfolios) { portfolio in
-        NavigationLink(value: portfolio) {
-          PortfolioRowView(portfolio: portfolio)
-            .accessibilityIdentifier("Portfolio-\(portfolio.name)")
-        }
-        .contextMenu {
-          Button(role: .destructive) {
-            viewModel.initiateDelete(portfolio: portfolio)
-          } label: {
-            Label("Delete Portfolio", systemImage: "trash")
+        PortfolioRowView(portfolio: portfolio)
+          .accessibilityIdentifier("Portfolio-\(portfolio.name)")
+          .contentShape(Rectangle())
+          .onTapGesture {
+            // TODO: Navigate to Portfolio Detail screen (showing assets, allocation, performance)
+            // For now, this does nothing - will be implemented in Phase 2
           }
-          .accessibilityIdentifier("Delete Portfolio Context Menu")
-        }
+          .contextMenu {
+            Button {
+              portfolioToEdit = portfolio
+            } label: {
+              Label("Edit Portfolio", systemImage: "pencil")
+            }
+            .accessibilityIdentifier("Edit Portfolio Context Menu")
+
+            Button(role: .destructive) {
+              viewModel.initiateDelete(portfolio: portfolio)
+            } label: {
+              Label("Delete Portfolio", systemImage: "trash")
+            }
+            .accessibilityIdentifier("Delete Portfolio Context Menu")
+          }
       }
-    }
-    .navigationDestination(for: Portfolio.self) { portfolio in
-      let formViewModel = PortfolioFormViewModel(modelContext: modelContext, portfolio: portfolio)
-      PortfolioFormView(viewModel: formViewModel)
     }
     .accessibilityIdentifier("Portfolio List")
   }
