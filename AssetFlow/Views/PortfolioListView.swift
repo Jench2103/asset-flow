@@ -93,29 +93,31 @@ struct PortfolioListView: View {
   private var portfolioListContent: some View {
     List {
       ForEach(portfolios) { portfolio in
-        PortfolioRowView(portfolio: portfolio)
-          .accessibilityIdentifier("Portfolio-\(portfolio.name)")
-          .contentShape(Rectangle())
-          .onTapGesture {
-            // TODO: Navigate to Portfolio Detail screen (showing assets, allocation, performance)
-            // For now, this does nothing - will be implemented in Phase 2
+        NavigationLink(value: portfolio) {
+          PortfolioRowView(portfolio: portfolio)
+            .accessibilityIdentifier("Portfolio-\(portfolio.name)")
+        }
+        .contextMenu {
+          Button {
+            portfolioToEdit = portfolio
+          } label: {
+            Label("Edit Portfolio", systemImage: "pencil")
           }
-          .contextMenu {
-            Button {
-              portfolioToEdit = portfolio
-            } label: {
-              Label("Edit Portfolio", systemImage: "pencil")
-            }
-            .accessibilityIdentifier("Edit Portfolio Context Menu")
+          .accessibilityIdentifier("Edit Portfolio Context Menu")
 
-            Button(role: .destructive) {
-              viewModel.initiateDelete(portfolio: portfolio)
-            } label: {
-              Label("Delete Portfolio", systemImage: "trash")
-            }
-            .accessibilityIdentifier("Delete Portfolio Context Menu")
+          Button(role: .destructive) {
+            viewModel.initiateDelete(portfolio: portfolio)
+          } label: {
+            Label("Delete Portfolio", systemImage: "trash")
           }
+          .accessibilityIdentifier("Delete Portfolio Context Menu")
+        }
       }
+    }
+    .navigationDestination(for: Portfolio.self) { portfolio in
+      let detailViewModel = PortfolioDetailViewModel(
+        portfolio: portfolio, modelContext: modelContext)
+      PortfolioDetailView(viewModel: detailViewModel)
     }
     .accessibilityIdentifier("Portfolio List")
   }

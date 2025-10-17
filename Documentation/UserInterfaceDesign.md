@@ -386,9 +386,20 @@ ______________________________________________________________________
 
 **Interactions**
 
-- Tap "Edit" → Edit portfolio details (name, target allocation)
-- Tap asset row → Navigate to asset detail
-- Tap "Add Asset" → Add existing asset or create new one
+- Tap "Edit" → Edit portfolio details via context menu (name, description)
+- Tap asset row → Navigate to asset detail (future implementation)
+- Tap "Add Asset" → Add existing asset or create new one (future implementation)
+
+**Current Implementation (Phase 1 MVP)**:
+
+- ✅ Displays portfolio name and description
+- ✅ Shows total portfolio value
+- ✅ Lists all assets with their name, type, quantity, and current value
+- ✅ Empty state when portfolio has no assets
+- ✅ Navigation: Click portfolio from Portfolio List → View Portfolio Detail
+- 🚧 Asset allocation chart (Phase 2)
+- 🚧 Performance metrics (Phase 2)
+- 🚧 Add Asset functionality (Future)
 
 **Chart Colors** (Phase 2+)
 
