@@ -186,3 +186,54 @@ ______________________________________________________________________
 - **Independence:** Tests must not rely on each other.
 - **Avoid Testing Frameworks:** Don't test SwiftData or SwiftUI internals.
 - **Write Regression Tests:** When fixing a bug, write a test that fails before the fix and passes after.
+
+______________________________________________________________________
+
+## Implemented Test Suites
+
+### ViewModel Tests
+
+1. **PortfolioFormViewModelTests**
+
+   - Portfolio creation and editing initialization
+   - Name validation (empty, whitespace, uniqueness)
+   - Save/update operations
+   - User interaction tracking
+   - Whitespace trimming warnings
+
+1. **PortfolioManagementViewModelTests**
+
+   - Portfolio listing
+   - Portfolio deletion with validation
+   - Empty state handling
+
+1. **PortfolioDetailViewModelTests**
+
+   - Asset list display
+   - Total value calculation
+   - Portfolio metadata
+
+1. **AssetFormViewModelTests**
+
+   - Asset creation and editing initialization
+   - Name validation (empty, whitespace)
+   - Quantity validation (required, numeric, positive)
+   - Current value validation (required, numeric, non-negative)
+   - Save operations for new and existing assets
+   - User interaction tracking
+   - Form state management
+
+### Integration Tests
+
+1. **AssetIntegrationTests**
+   - Asset saved to SwiftData with initial transaction
+   - Asset-Portfolio relationship bidirectional linkage
+   - Multiple assets in same portfolio
+   - Price history creation
+   - Asset editing updates properties correctly
+   - Portfolio total value reflects new assets
+   - Portfolio asset count updates
+   - Asset quantity calculation from transactions
+   - Asset current value calculation
+
+______________________________________________________________________

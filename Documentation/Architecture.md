@@ -59,24 +59,63 @@ struct PortfolioView: View {
 #### ViewModel Layer
 
 - **Purpose**: Business logic and state management
-- **Location**: `AssetFlow/ViewModels/` (to be implemented)
+- **Location**: `AssetFlow/ViewModels/`
 - **Characteristics**:
-  - Conforms to `ObservableObject`
-  - Publishes state changes via `@Published` properties
+  - Uses `@Observable` macro for automatic change tracking
+  - `@MainActor` isolation for UI thread safety
   - Coordinates between Views and Models/Services
   - Platform-agnostic logic
   - Handles data transformation and validation
+  - Form validation with real-time feedback
+
+**Implemented ViewModels**:
+
+1. **PortfolioFormViewModel**: Portfolio creation and editing
+
+   - Form state management (name, description)
+   - Real-time name validation (empty, uniqueness)
+   - Whitespace trimming and warning
+   - User interaction tracking
+
+1. **PortfolioDetailViewModel**: Portfolio detail view state
+
+   - Asset list management
+   - Total value computation
+   - Portfolio metadata display
+
+1. **PortfolioManagementViewModel**: Portfolio list and operations
+
+   - Portfolio listing
+   - Deletion with validation
+   - Empty state handling
+
+1. **AssetFormViewModel**: Asset creation and editing
+
+   - Form state management (name, type, quantity, price, notes)
+   - Comprehensive validation (name, quantity, current value)
+   - Automatic transaction and price history creation for new assets
+   - Edit mode: updates asset properties only (quantity/price via transactions)
 
 **Example Structure**:
 
 ```swift
+@Observable
 @MainActor
-class PortfolioViewModel: ObservableObject {
-    @Published var portfolios: [Portfolio] = []
-    private let dataService: DataService
+class AssetFormViewModel {
+    var name: String
+    var assetType: AssetType
+    var quantity: String
+    var currentValue: String
 
-    func fetchPortfolios() async { }
-    func createPortfolio(_ portfolio: Portfolio) async { }
+    var nameValidationMessage: String?
+    var quantityValidationMessage: String?
+
+    var isSaveDisabled: Bool {
+        nameValidationMessage != nil || quantityValidationMessage != nil
+    }
+
+    func save() { /* Creates or updates asset */ }
+    private func validateName() { /* Validation logic */ }
 }
 ```
 

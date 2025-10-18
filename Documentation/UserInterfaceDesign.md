@@ -456,14 +456,105 @@ ______________________________________________________________________
 - ✅ Lists all assets with their name, type, quantity, and current value
 - ✅ Empty state when portfolio has no assets
 - ✅ Navigation: Click portfolio from Portfolio List → View Portfolio Detail
+- ✅ Add Asset functionality (sheet-based form)
+- ✅ Edit Asset functionality (context menu on asset rows)
+- ✅ Asset form validation (name, quantity, current value)
 - 🚧 Asset allocation chart (Phase 2)
 - 🚧 Performance metrics (Phase 2)
-- 🚧 Add Asset functionality (Future)
 
 **Chart Colors** (Phase 2+)
 
 - Use distinct, accessible colors for asset types
 - Include legend with percentages
+
+______________________________________________________________________
+
+### Asset Form (Add/Edit Asset)
+
+**Primary Purpose**: Create new assets or edit existing asset properties
+
+**Visual Layout**
+
+```
+┌──────────────────────────────────────────────────┐
+│  ← Cancel                  New Asset      Save   │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  Asset Details                                   │
+│  ┌────────────────────────────────────────────┐  │
+│  │ Name: [Apple Inc.              ]           │  │
+│  │ Asset Type: [Stock            ▼]           │  │
+│  │ Currency: [USD                 ]           │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  Initial Position (new assets only)              │
+│  ┌────────────────────────────────────────────┐  │
+│  │ Quantity: [10                  ]           │  │
+│  │ Current Price: [150.50         ]           │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  Notes                                           │
+│  ┌────────────────────────────────────────────┐  │
+│  │ Notes (optional):                          │  │
+│  │ [                              ]           │  │
+│  │ [                              ]           │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**Form Fields**
+
+1. **Name** (Required): Asset name (e.g., "Apple Inc.", "Bitcoin")
+
+   - Validation: Cannot be empty
+   - Trimmed whitespace
+
+1. **Asset Type** (Required): Picker with predefined types
+
+   - Stock, Bond, Cryptocurrency, Real Estate, Commodity, Cash, Mutual Fund, ETF, Other
+   - Default: Stock
+
+1. **Currency** (Required): Currency code
+
+   - Default: "USD"
+   - Plain text field for flexibility
+
+1. **Quantity** (Required for new assets): Initial quantity held
+
+   - Validation: Must be a positive number greater than zero
+   - Accepts decimal values
+   - For editing: Read-only (managed via transactions)
+
+1. **Current Price** (Required for new assets): Initial price per unit
+
+   - Validation: Must be a number >= 0
+   - Accepts decimal values
+   - For editing: Read-only (managed via price history)
+
+1. **Notes** (Optional): Free-form text notes
+
+**Validation Behavior**
+
+- Save button disabled when validation errors exist
+- Real-time validation on name field
+- Validation messages shown in red below fields
+- Empty state shows validation message after user interaction
+
+**Interactions**
+
+- Tap "Cancel" → Dismiss form without saving
+- Tap "Save" → Validate and save asset, dismiss form
+- Save button disabled when form invalid
+
+**Current Implementation**:
+
+- ✅ Form validation for all required fields
+- ✅ Sheet presentation on macOS/iOS
+- ✅ Real-time validation feedback
+- ✅ Separate behavior for new vs. editing assets
+- ✅ Automatic creation of initial transaction and price history for new assets
+- ✅ Context menu integration for editing existing assets
 
 ______________________________________________________________________
 

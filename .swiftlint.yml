@@ -4,6 +4,7 @@
 disabled_rules:
   - trailing_whitespace
   - todo
+  - opening_brace
 
 # Opt-in Rules
 opt_in_rules:

@@ -16,6 +16,8 @@ import SwiftUI
 struct PortfolioDetailView: View {
   @State var viewModel: PortfolioDetailViewModel
   @Environment(\.modelContext) private var modelContext
+  @State private var showingAddAsset = false
+  @State private var editingAsset: Asset?
 
   var body: some View {
     Group {
@@ -32,9 +34,24 @@ struct PortfolioDetailView: View {
     .toolbar {
       ToolbarItem(placement: .primaryAction) {
         Button("Add Asset") {
-          // TODO: Navigate to Asset creation screen
+          showingAddAsset = true
         }
         .accessibilityIdentifier("Add Asset")
+      }
+    }
+    .sheet(isPresented: $showingAddAsset) {
+      NavigationStack {
+        AssetFormView(
+          viewModel: AssetFormViewModel(modelContext: modelContext, portfolio: viewModel.portfolio)
+        )
+      }
+    }
+    .sheet(item: $editingAsset) { asset in
+      NavigationStack {
+        AssetFormView(
+          viewModel: AssetFormViewModel(
+            modelContext: modelContext, portfolio: viewModel.portfolio, asset: asset)
+        )
       }
     }
   }
@@ -46,13 +63,18 @@ struct PortfolioDetailView: View {
       // Portfolio Summary Header
       portfolioSummaryHeader
 
-      Divider()
-
       // Assets List
       List {
         ForEach(viewModel.assets) { asset in
           AssetRowView(asset: asset)
             .accessibilityIdentifier("Asset-\(asset.name)")
+            .contextMenu {
+              Button {
+                editingAsset = asset
+              } label: {
+                Label("Edit", systemImage: "pencil")
+              }
+            }
         }
       }
       .accessibilityIdentifier("Asset List")
@@ -62,23 +84,42 @@ struct PortfolioDetailView: View {
   // MARK: - Portfolio Summary Header
 
   private var portfolioSummaryHeader: some View {
-    VStack(spacing: 8) {
+    VStack(alignment: .leading, spacing: 12) {
       HStack {
+        Image(systemName: "chart.pie.fill")
+          .font(.title2)
+          .foregroundStyle(.blue)
+
         Text("Total Value")
           .font(.headline)
           .foregroundStyle(.secondary)
+
         Spacer()
       }
 
       HStack {
-        Text(viewModel.totalValue.formatted(currency: viewModel.portfolio.name))
-          .font(.largeTitle)
-          .fontWeight(.bold)
+        Text(viewModel.totalValue.formatted(currency: "USD"))
+          .font(.system(size: 36, weight: .bold))
+          .foregroundStyle(.primary)
+        Spacer()
+      }
+
+      HStack(spacing: 16) {
+        Label("\(viewModel.assets.count) assets", systemImage: "list.bullet")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+
         Spacer()
       }
     }
-    .padding()
-    .background(Color(.secondarySystemFill))
+    .padding(20)
+    .background(
+      RoundedRectangle(cornerRadius: 12)
+        .fill(Color(.controlBackgroundColor))
+        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+    )
+    .padding(.horizontal)
+    .padding(.top, 8)
   }
 
   // MARK: - Empty State
@@ -103,7 +144,7 @@ struct PortfolioDetailView: View {
       }
 
       Button {
-        // TODO: Navigate to Asset creation screen
+        showingAddAsset = true
       } label: {
         Label("Add Asset", systemImage: "plus")
       }
@@ -142,7 +183,7 @@ private struct AssetRowView: View {
           .fontWeight(.medium)
 
         HStack(spacing: 4) {
-          Text("Qty:")
+          Text("Quantity:")
             .font(.caption)
             .foregroundStyle(.secondary)
           Text(asset.quantity.formatted())
