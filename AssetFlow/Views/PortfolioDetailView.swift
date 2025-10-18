@@ -26,6 +26,9 @@ struct PortfolioDetailView: View {
       }
     }
     .navigationTitle(viewModel.portfolio.name)
+    #if os(macOS)
+      .navigationSubtitle(viewModel.portfolio.portfolioDescription ?? "")
+    #endif
     .toolbar {
       ToolbarItem(placement: .primaryAction) {
         Button("Add Asset") {
@@ -72,15 +75,6 @@ struct PortfolioDetailView: View {
           .font(.largeTitle)
           .fontWeight(.bold)
         Spacer()
-      }
-
-      if let description = viewModel.portfolio.portfolioDescription {
-        HStack {
-          Text(description)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-          Spacer()
-        }
       }
     }
     .padding()

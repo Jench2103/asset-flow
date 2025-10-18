@@ -98,6 +98,65 @@ ______________________________________________________________________
 
 ## Screen Designs
 
+### Overview Screen (macOS Default Landing Page)
+
+**Primary Purpose**: High-level dashboard showing total portfolio value and portfolio summary
+
+**Visual Layout**
+
+```
+┌──────────────────────────────────────────────────┐
+│  Overview                                        │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │  Total Portfolio Value                     │  │
+│  │  $45,230.00                                │  │
+│  │  📊 3 Portfolios                           │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  Portfolios                                      │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │  Tech Stocks              $15,750.00       │  │
+│  │  5 assets                                  │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │  Real Estate              $25,000.00       │  │
+│  │  2 assets                                  │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │  Crypto                   $4,480.00        │  │
+│  │  3 assets                                  │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**Information Sections**
+
+1. **Total Value Card**: Aggregated value across all portfolios with portfolio count
+1. **Portfolio Summary List**: Each portfolio shown with name, asset count, and total value
+
+**Interactions**
+
+- Click "Add Portfolio" button in toolbar → Opens portfolio creation form
+- Use sidebar to navigate to specific portfolios or "All Portfolios" view
+
+**Current Implementation (Phase 1 MVP)**:
+
+- ✅ Total portfolio value calculation
+- ✅ Portfolio count display
+- ✅ Portfolio summary cards with name, asset count, and value
+- ✅ Add Portfolio button in toolbar
+- 🚧 Performance metrics (Phase 2)
+- 🚧 Recent activity feed (Phase 2)
+- 🚧 Allocation charts (Phase 2)
+
+______________________________________________________________________
+
 ### Asset List Screen
 
 **Primary Purpose**: Browse and manage all assets
@@ -546,23 +605,46 @@ ______________________________________________________________________
 **Pattern**: Sidebar + Detail View (Multi-column)
 
 ```
-┌─────────────┬──────────────────────────────────┐
-│  Sidebar    │  Detail View                     │
-│             │                                  │
-│  Dashboard  │  [Content for selected item]     │
-│  Assets     │                                  │
-│  Portfolios │                                  │
-│  Plans      │                                  │
-│  Settings   │                                  │
-└─────────────┴──────────────────────────────────┘
+┌─────────────────────┬──────────────────────────────────┐
+│  Sidebar            │  Detail View                     │
+│                     │                                  │
+│  Overview           │  [Content for selected item]     │
+│                     │                                  │
+│  PORTFOLIOS         │                                  │
+│  Tech Stocks        │                                  │
+│  Real Estate        │                                  │
+│  Crypto             │                                  │
+└─────────────────────┴──────────────────────────────────┘
 ```
+
+**Current Implementation (Phase 1 MVP)**:
+
+- ✅ Overview (default landing page)
+  - Shows total portfolio value and count
+  - Lists all portfolios with their values and asset counts
+  - Add Portfolio button in toolbar
+- ✅ Individual Portfolio Items in Sidebar
+  - Each portfolio appears in sidebar
+  - Click to view portfolio detail (assets, total value, subtitle with description)
+  - Right-click portfolio for Edit and Delete context menu
+- 🚧 Assets section (Future)
+- 🚧 Plans section (Future)
+- 🚧 Settings (Future)
 
 **User Flow**
 
-1. Select section in sidebar (e.g., "Assets")
-1. View list or detail in main area
-1. Double-click or select item for detail view
-1. Use toolbar actions for Add/Edit/Delete
+1. App opens to Overview (shows all portfolios summary)
+1. Click "Add Portfolio" button in Overview toolbar → Create new portfolio
+1. Click portfolio in sidebar → View portfolio detail with assets
+1. Right-click portfolio in sidebar → Edit or Delete portfolio
+
+**Context Menu Actions (Sidebar Portfolios)**:
+
+- Right-click any portfolio item in sidebar
+- Menu shows:
+  - "Edit Portfolio" → Opens edit form in sheet/popup
+  - "Delete Portfolio" → Validates and shows confirmation/error
+- Portfolio must be empty (no assets) to delete
 
 ______________________________________________________________________
 

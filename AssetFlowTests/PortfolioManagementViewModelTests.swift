@@ -1,5 +1,5 @@
 //
-//  PortfolioListViewModelTests.swift
+//  PortfolioManagementViewModelTests.swift
 //  AssetFlowTests
 //
 //  Created by Gemini on 2025/10/10.
@@ -11,10 +11,10 @@ import Testing
 
 @testable import AssetFlow
 
-/// Tests for PortfolioListViewModel
-@Suite("PortfolioListViewModel Tests")
+/// Tests for PortfolioManagementViewModel
+@Suite("PortfolioManagementViewModel Tests")
 @MainActor
-struct PortfolioListViewModelTests {
+struct PortfolioManagementViewModelTests {
 
   @Test("ViewModel initializes and holds the correct model context")
   func viewModelInitializesAndHoldsContext() {
@@ -23,7 +23,7 @@ struct PortfolioListViewModelTests {
     let context = container.mainContext
 
     // Act
-    let viewModel = PortfolioListViewModel(modelContext: context)
+    let viewModel = PortfolioManagementViewModel(modelContext: context)
 
     // Assert
     // Verify that the ViewModel correctly stores the context it was given.
@@ -37,7 +37,7 @@ struct PortfolioListViewModelTests {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
-    let viewModel = PortfolioListViewModel(modelContext: context)
+    let viewModel = PortfolioManagementViewModel(modelContext: context)
 
     let emptyPortfolio = Portfolio(name: "Empty Portfolio")
     context.insert(emptyPortfolio)
@@ -60,7 +60,7 @@ struct PortfolioListViewModelTests {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
-    let viewModel = PortfolioListViewModel(modelContext: context)
+    let viewModel = PortfolioManagementViewModel(modelContext: context)
 
     let portfolio = Portfolio(name: "Tech Portfolio")
     let asset = Asset(name: "Apple", assetType: .stock, currency: "USD", portfolio: portfolio)
@@ -90,7 +90,7 @@ struct PortfolioListViewModelTests {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
-    let viewModel = PortfolioListViewModel(modelContext: context)
+    let viewModel = PortfolioManagementViewModel(modelContext: context)
 
     let portfolio = Portfolio(name: "Diversified Portfolio")
     let asset1 = Asset(name: "Apple", assetType: .stock, portfolio: portfolio)
@@ -126,7 +126,7 @@ struct PortfolioListViewModelTests {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
-    let viewModel = PortfolioListViewModel(modelContext: context)
+    let viewModel = PortfolioManagementViewModel(modelContext: context)
 
     let portfolio = Portfolio(name: "Empty Portfolio")
     context.insert(portfolio)
@@ -145,7 +145,7 @@ struct PortfolioListViewModelTests {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
-    let viewModel = PortfolioListViewModel(modelContext: context)
+    let viewModel = PortfolioManagementViewModel(modelContext: context)
 
     let portfolio = Portfolio(name: "Tech Portfolio")
     let asset = Asset(name: "Apple", assetType: .stock, currency: "USD", portfolio: portfolio)
@@ -169,7 +169,7 @@ struct PortfolioListViewModelTests {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
-    let viewModel = PortfolioListViewModel(modelContext: context)
+    let viewModel = PortfolioManagementViewModel(modelContext: context)
 
     let portfolio = Portfolio(name: "Test Portfolio")
     context.insert(portfolio)
@@ -198,7 +198,7 @@ struct PortfolioListViewModelTests {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
-    let viewModel = PortfolioListViewModel(modelContext: context)
+    let viewModel = PortfolioManagementViewModel(modelContext: context)
 
     let portfolio = Portfolio(name: "Tech Portfolio")
     let asset = Asset(name: "Apple", assetType: .stock, portfolio: portfolio)
@@ -225,7 +225,7 @@ struct PortfolioListViewModelTests {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
-    let viewModel = PortfolioListViewModel(modelContext: context)
+    let viewModel = PortfolioManagementViewModel(modelContext: context)
 
     let portfolio = Portfolio(name: "Test Portfolio")
     context.insert(portfolio)
@@ -253,7 +253,7 @@ struct PortfolioListViewModelTests {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
-    let viewModel = PortfolioListViewModel(modelContext: context)
+    let viewModel = PortfolioManagementViewModel(modelContext: context)
 
     let portfolio = Portfolio(name: "Test Portfolio")
     context.insert(portfolio)

@@ -1,5 +1,5 @@
 //
-//  PortfolioListViewModel.swift
+//  PortfolioManagementViewModel.swift
 //  AssetFlow
 //
 //  Created by Gemini on 2025/10/10.
@@ -9,17 +9,17 @@ import Foundation
 import SwiftData
 import os.log
 
-/// ViewModel for managing portfolio list data
+/// ViewModel for managing portfolio operations
 ///
-/// This ViewModel can be used to contain business logic for the portfolio list,
-/// such as deletion or filtering logic.
+/// Handles portfolio deletion with validation and error handling.
+/// Business logic ensures portfolios can only be deleted when empty.
 @Observable
 @MainActor
-class PortfolioListViewModel {
+class PortfolioManagementViewModel {
   var modelContext: ModelContext
   private let logger = Logger(
     subsystem: "com.jench2103.AssetFlow",
-    category: "PortfolioListViewModel")
+    category: "PortfolioManagementViewModel")
 
   // MARK: - Deletion State
 

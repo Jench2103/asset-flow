@@ -36,8 +36,7 @@ struct AssetFlowApp: App {
 
   var body: some Scene {
     WindowGroup {
-      let viewModel = PortfolioListViewModel(modelContext: sharedModelContainer.mainContext)
-      PortfolioListView(viewModel: viewModel)
+      ContentView()
     }
     .modelContainer(sharedModelContainer)
   }

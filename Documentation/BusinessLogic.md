@@ -261,7 +261,7 @@ Allocation % = (Sum of asset values of type / Portfolio total value) × 100
 
 **Implementation Details**:
 
-- **File**: `AssetFlow/ViewModels/PortfolioListViewModel.swift`
+- **File**: `AssetFlow/ViewModels/PortfolioManagementViewModel.swift`
 - **Validation Method**: `validateDeletion(of:) -> Result<Void, PortfolioDeletionError>`
 - **Initiation Method**: `initiateDelete(portfolio:)` - validates and sets UI state
 - **Execution Method**: `confirmDelete()` - re-validates and deletes

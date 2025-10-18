@@ -105,25 +105,25 @@ struct PortfolioModelTests {
 ViewModels that use SwiftData should accept a `ModelContext` in their initializer. This allows us to inject the context from our in-memory container during testing, giving us full control over the ViewModel's environment.
 
 ```swift
-@Suite("PortfolioListViewModel Tests")
+@Suite("PortfolioManagementViewModel Tests")
 @MainActor
-struct PortfolioListViewModelTests {
-    @Test("fetchPortfolios returns all items from the store")
-    func fetchPortfolios_WhenStoreHasData_ReturnsPortfolios() throws {
+struct PortfolioManagementViewModelTests {
+    @Test("validateDeletion returns success for empty portfolio")
+    func validateDeletion_EmptyPortfolio_ReturnsSuccess() throws {
         // 1. Create a dedicated container and context
         let container = TestDataManager.createInMemoryContainer()
         let context = container.mainContext
 
         // 2. Arrange: Insert data and initialize the ViewModel
-        context.insert(Portfolio(name: "Portfolio 1"))
-        context.insert(Portfolio(name: "Portfolio 2"))
-        let viewModel = PortfolioListViewModel(modelContext: context)
+        let portfolio = Portfolio(name: "Empty Portfolio")
+        context.insert(portfolio)
+        let viewModel = PortfolioManagementViewModel(modelContext: context)
 
-        // 3. Act: Call the method to be tested
-        viewModel.fetchPortfolios()
+        // 3. Act: Validate deletion
+        let result = viewModel.validateDeletion(of: portfolio)
 
-        // 4. Assert: Check the ViewModel's state
-        #expect(viewModel.portfolios.count == 2)
+        // 4. Assert: Check the result
+        #expect(result == .success(()))
     }
 }
 ```
