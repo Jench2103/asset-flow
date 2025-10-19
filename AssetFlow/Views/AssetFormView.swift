@@ -76,36 +76,55 @@ struct AssetFormView: View {
       if !viewModel.isEditing {
         Section {
           VStack(alignment: .leading, spacing: 16) {
-            // Quantity field
-            VStack(alignment: .leading, spacing: 4) {
-              TextField("Quantity", text: $viewModel.quantity)
-                #if os(iOS)
-                  .keyboardType(.decimalPad)
-                #endif
+            if viewModel.assetType == .cash {
+              // For cash assets, only show amount field
+              VStack(alignment: .leading, spacing: 4) {
+                TextField("Amount", text: $viewModel.quantity)
+                  #if os(iOS)
+                    .keyboardType(.decimalPad)
+                  #endif
 
-              if viewModel.hasQuantityInteraction {
-                if let validationMessage = viewModel.quantityValidationMessage {
-                  Text(validationMessage)
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                if viewModel.hasQuantityInteraction {
+                  if let validationMessage = viewModel.quantityValidationMessage {
+                    Text(validationMessage)
+                      .font(.caption)
+                      .foregroundStyle(.red)
+                  }
                 }
               }
-            }
+            } else {
+              // For non-cash assets, show quantity and price
+              // Quantity field
+              VStack(alignment: .leading, spacing: 4) {
+                TextField("Quantity", text: $viewModel.quantity)
+                  #if os(iOS)
+                    .keyboardType(.decimalPad)
+                  #endif
 
-            Divider()
+                if viewModel.hasQuantityInteraction {
+                  if let validationMessage = viewModel.quantityValidationMessage {
+                    Text(validationMessage)
+                      .font(.caption)
+                      .foregroundStyle(.red)
+                  }
+                }
+              }
 
-            // Current value/price field
-            VStack(alignment: .leading, spacing: 4) {
-              TextField("Current Price", text: $viewModel.currentValue)
-                #if os(iOS)
-                  .keyboardType(.decimalPad)
-                #endif
+              Divider()
 
-              if viewModel.hasCurrentValueInteraction {
-                if let validationMessage = viewModel.currentValueValidationMessage {
-                  Text(validationMessage)
-                    .font(.caption)
-                    .foregroundStyle(.red)
+              // Current value/price field
+              VStack(alignment: .leading, spacing: 4) {
+                TextField("Current Price", text: $viewModel.currentValue)
+                  #if os(iOS)
+                    .keyboardType(.decimalPad)
+                  #endif
+
+                if viewModel.hasCurrentValueInteraction {
+                  if let validationMessage = viewModel.currentValueValidationMessage {
+                    Text(validationMessage)
+                      .font(.caption)
+                      .foregroundStyle(.red)
+                  }
                 }
               }
             }

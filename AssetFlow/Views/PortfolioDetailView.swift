@@ -225,13 +225,16 @@ private struct AssetRowView: View {
           .font(.body)
           .fontWeight(.medium)
 
-        HStack(spacing: 4) {
-          Text("Quantity:")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-          Text(asset.quantity.formatted())
-            .font(.caption)
-            .foregroundStyle(.secondary)
+        // Only show quantity for non-cash assets
+        if asset.assetType != .cash {
+          HStack(spacing: 4) {
+            Text("Quantity:")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+            Text(asset.quantity.formatted())
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
         }
       }
     }
@@ -267,6 +270,15 @@ private struct AssetRowView: View {
     Transaction(
       transactionType: .buy, transactionDate: Date(), quantity: 5, pricePerUnit: 300.0,
       totalAmount: 1500.0, asset: microsoft))
+
+  // Asset 3: Cash
+  let cash = Asset(name: "USD Cash", assetType: .cash, currency: "USD", portfolio: portfolio)
+  context.insert(cash)
+  context.insert(PriceHistory(date: Date(), price: 1.0, asset: cash))
+  context.insert(
+    Transaction(
+      transactionType: .buy, transactionDate: Date(), quantity: 5000, pricePerUnit: 1.0,
+      totalAmount: 5000.0, asset: cash))
 
   let viewModel = PortfolioDetailViewModel(portfolio: portfolio, modelContext: context)
 

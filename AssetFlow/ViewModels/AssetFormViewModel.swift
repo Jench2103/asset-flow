@@ -28,7 +28,14 @@ class AssetFormViewModel {
   }
 
   /// The type of asset (stock, bond, crypto, etc.)
-  var assetType: AssetType
+  var assetType: AssetType {
+    didSet {
+      // When switching to cash, set price to 1 automatically
+      if assetType == .cash {
+        currentValue = "1"
+      }
+    }
+  }
 
   /// The quantity held as a string for text field binding
   var quantity: String {
@@ -153,10 +160,11 @@ class AssetFormViewModel {
       modelContext.insert(newAsset)
 
       // Create initial transaction
-      if let quantityValue = Decimal(string: quantity),
-        let priceValue = Decimal(string: currentValue)
-      {
+      if let quantityValue = Decimal(string: quantity) {
+        // For cash assets, price is always 1; for others, use the entered price
+        let priceValue = assetType == .cash ? Decimal(1) : (Decimal(string: currentValue) ?? 0)
         let totalAmount = quantityValue * priceValue
+
         let transaction = Transaction(
           transactionType: .buy,
           transactionDate: Date(),
@@ -201,17 +209,22 @@ class AssetFormViewModel {
     let trimmedQuantity = quantity.trimmingCharacters(in: .whitespacesAndNewlines)
 
     if trimmedQuantity.isEmpty {
-      quantityValidationMessage = "Quantity is required."
+      // For cash assets, show "Amount is required" instead of "Quantity is required"
+      quantityValidationMessage =
+        assetType == .cash ? "Amount is required." : "Quantity is required."
       return
     }
 
     guard let quantityValue = Decimal(string: trimmedQuantity) else {
-      quantityValidationMessage = "Quantity must be a valid number."
+      quantityValidationMessage =
+        assetType == .cash ? "Amount must be a valid number." : "Quantity must be a valid number."
       return
     }
 
     if quantityValue <= 0 {
-      quantityValidationMessage = "Quantity must be greater than zero."
+      quantityValidationMessage =
+        assetType == .cash
+        ? "Amount must be greater than zero." : "Quantity must be greater than zero."
       return
     }
 
@@ -221,6 +234,12 @@ class AssetFormViewModel {
   private func validateCurrentValue() {
     // When editing, current value is read-only (managed via price history)
     if isEditing {
+      currentValueValidationMessage = nil
+      return
+    }
+
+    // For cash assets, price is always 1 (no validation needed)
+    if assetType == .cash {
       currentValueValidationMessage = nil
       return
     }
