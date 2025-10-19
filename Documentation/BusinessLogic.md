@@ -326,6 +326,34 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## Asset Type and Currency Immutability
+
+**Business Rule**: Once an asset has associated transactions or price history, its type and currency cannot be edited.
+
+**Rationale**:
+
+- **Data Integrity**: Asset type defines the nature of the investment. Changing it retroactively would misrepresent historical records.
+- **Currency Consistency**: Prices and transaction amounts are denominated in the asset's currency. Changing it would break historical calculations (cost basis, gains/losses).
+- **Audit Trail**: Users can see exactly what they purchased and in what currency, creating a clear audit trail.
+
+**Implementation**:
+
+- Asset has `isLocked` computed property that returns `true` if `transactions.isEmpty == false || priceHistory.isEmpty == false`
+- When editing an asset, `canEditAssetType` and `canEditCurrency` return `false` if the asset is locked
+- UI disables the Type and Currency pickers and shows explanatory text when fields are locked
+- New assets (before any transactions or price history) allow editing these fields
+
+**Recovery Options for Users**:
+
+If a user makes a mistake during asset creation:
+
+1. **Before saving**: User can change type/currency freely during initial creation
+1. **After saving**: User must delete the asset and recreate it with the correct type/currency
+
+This design prevents accidental changes to asset metadata while providing clear recovery options at the appropriate time.
+
+______________________________________________________________________
+
 ## Asset Deletion
 
 **Business Rule**: Assets can be deleted at any time without restrictions.

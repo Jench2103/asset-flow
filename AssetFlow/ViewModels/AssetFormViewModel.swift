@@ -100,6 +100,18 @@ class AssetFormViewModel {
       || currentValueValidationMessage != nil
   }
 
+  /// Returns true if the asset type can be edited
+  /// Cannot edit if asset has transactions or price history
+  var canEditAssetType: Bool {
+    asset?.isLocked != true
+  }
+
+  /// Returns true if the currency can be edited
+  /// Cannot edit if asset has transactions or price history
+  var canEditCurrency: Bool {
+    asset?.isLocked != true
+  }
+
   // MARK: - Initializer
 
   /// Initializes the ViewModel for creating a new asset or editing an existing one.

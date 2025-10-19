@@ -466,4 +466,132 @@ struct AssetFormViewModelTests {
     // Assert
     #expect(viewModel.hasUserInteracted == false)
   }
+
+  // MARK: - Asset Type/Currency Edit Restriction Tests
+
+  @Test("canEditAssetType is true for new assets (no transactions or price history)")
+  func testCanEditAssetTypeTrueForNewAsset() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+
+    // Assert
+    #expect(viewModel.canEditAssetType == true)
+  }
+
+  @Test("canEditAssetType is false when asset has transactions")
+  func testCanEditAssetTypeFalseWhenHasTransactions() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+
+    let asset = Asset(name: "Apple Inc.", assetType: .stock, currency: "USD", portfolio: portfolio)
+    context.insert(asset)
+
+    let transaction = Transaction(
+      transactionType: .buy,
+      transactionDate: Date(),
+      quantity: 10,
+      pricePerUnit: 150.0,
+      totalAmount: 1500.0,
+      asset: asset
+    )
+    context.insert(transaction)
+
+    let viewModel = AssetFormViewModel(
+      modelContext: context, portfolio: portfolio, asset: asset)
+
+    // Assert
+    #expect(viewModel.canEditAssetType == false)
+  }
+
+  @Test("canEditAssetType is false when asset has price history")
+  func testCanEditAssetTypeFalseWhenHasPriceHistory() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+
+    let asset = Asset(name: "Apple Inc.", assetType: .stock, currency: "USD", portfolio: portfolio)
+    context.insert(asset)
+
+    let priceHistory = PriceHistory(date: Date(), price: 150.0, asset: asset)
+    context.insert(priceHistory)
+
+    let viewModel = AssetFormViewModel(
+      modelContext: context, portfolio: portfolio, asset: asset)
+
+    // Assert
+    #expect(viewModel.canEditAssetType == false)
+  }
+
+  @Test("canEditCurrency is true for new assets")
+  func testCanEditCurrencyTrueForNewAsset() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+
+    // Assert
+    #expect(viewModel.canEditCurrency == true)
+  }
+
+  @Test("canEditCurrency is false when asset has transactions")
+  func testCanEditCurrencyFalseWhenHasTransactions() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+
+    let asset = Asset(name: "Apple Inc.", assetType: .stock, currency: "USD", portfolio: portfolio)
+    context.insert(asset)
+
+    let transaction = Transaction(
+      transactionType: .buy,
+      transactionDate: Date(),
+      quantity: 10,
+      pricePerUnit: 150.0,
+      totalAmount: 1500.0,
+      asset: asset
+    )
+    context.insert(transaction)
+
+    let viewModel = AssetFormViewModel(
+      modelContext: context, portfolio: portfolio, asset: asset)
+
+    // Assert
+    #expect(viewModel.canEditCurrency == false)
+  }
+
+  @Test("canEditCurrency is false when asset has price history")
+  func testCanEditCurrencyFalseWhenHasPriceHistory() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+
+    let asset = Asset(name: "Apple Inc.", assetType: .stock, currency: "USD", portfolio: portfolio)
+    context.insert(asset)
+
+    let priceHistory = PriceHistory(date: Date(), price: 150.0, asset: asset)
+    context.insert(priceHistory)
+
+    let viewModel = AssetFormViewModel(
+      modelContext: context, portfolio: portfolio, asset: asset)
+
+    // Assert
+    #expect(viewModel.canEditCurrency == false)
+  }
 }

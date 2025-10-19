@@ -72,6 +72,12 @@ final class Asset {
   var costBasis: Decimal {
     averageCost * quantity
   }
+
+  /// Whether this asset is locked from editing type/currency
+  /// Assets are locked if they have any associated transactions or price history
+  var isLocked: Bool {
+    (transactions?.isEmpty == false) || (priceHistory?.isEmpty == false)
+  }
 }
 
 enum AssetType: String, Codable, CaseIterable {

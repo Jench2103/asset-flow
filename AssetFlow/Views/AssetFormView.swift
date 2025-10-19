@@ -40,18 +40,36 @@ struct AssetFormView: View {
           Divider()
 
           // Asset type picker
-          Picker("Asset Type", selection: $viewModel.assetType) {
-            ForEach(AssetType.allCases, id: \.self) { type in
-              Text(type.rawValue).tag(type)
+          VStack(alignment: .leading, spacing: 4) {
+            Picker("Asset Type", selection: $viewModel.assetType) {
+              ForEach(AssetType.allCases, id: \.self) { type in
+                Text(type.rawValue).tag(type)
+              }
+            }
+            .disabled(!viewModel.canEditAssetType)
+
+            if !viewModel.canEditAssetType {
+              Text("Cannot change asset type after transactions or price history are added.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
           }
 
           Divider()
 
           // Currency picker
-          Picker("Currency", selection: $viewModel.currency) {
-            ForEach(CurrencyService.shared.currencies) { currency in
-              Text(currency.displayName).tag(currency.code)
+          VStack(alignment: .leading, spacing: 4) {
+            Picker("Currency", selection: $viewModel.currency) {
+              ForEach(CurrencyService.shared.currencies) { currency in
+                Text(currency.displayName).tag(currency.code)
+              }
+            }
+            .disabled(!viewModel.canEditCurrency)
+
+            if !viewModel.canEditCurrency {
+              Text("Cannot change currency after transactions or price history are added.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
           }
         }

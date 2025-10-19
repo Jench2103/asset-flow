@@ -110,7 +110,31 @@ var averageCost: Decimal {
 var costBasis: Decimal {
     averageCost * quantity
 }
+
+// Whether this asset is locked from editing type/currency
+// Assets are locked if they have any associated transactions or price history
+var isLocked: Bool {
+    (transactions?.isEmpty == false) || (priceHistory?.isEmpty == false)
+}
 ```
+
+#### Edit Restrictions
+
+**Asset Type and Currency Immutability**: Once an asset has transactions or price history, its `assetType` and `currency` fields become read-only and cannot be modified.
+
+**Implementation**:
+
+- The `isLocked` computed property checks if the asset has any associated transactions or price history
+- `isLocked == true` prevents editing of these fields
+- This prevents data integrity issues in financial calculations (cost basis, gains/losses, allocations)
+- Users can edit type/currency during initial creation (before any transactions)
+- If a mistake occurs after saving, users must delete and recreate the asset with the correct values
+
+**View Model Support**:
+
+- `AssetFormViewModel` provides `canEditAssetType` and `canEditCurrency` computed properties
+- These disable the corresponding UI pickers when `false`
+- Explanatory text is shown to users when fields are locked
 
 #### Usage Example
 
@@ -120,6 +144,23 @@ let asset = Asset(
     assetType: .stock,
     currency: "USD"
 )
+
+// Before saving with transactions - can edit type and currency
+// asset.isLocked == false
+
+// After adding transaction:
+let transaction = Transaction(
+    transactionType: .buy,
+    transactionDate: Date(),
+    quantity: 10,
+    pricePerUnit: 150.0,
+    totalAmount: 1500.0,
+    asset: asset
+)
+
+// Now asset is locked
+// asset.isLocked == true
+// Cannot change assetType or currency anymore
 ```
 
 ______________________________________________________________________
