@@ -15,6 +15,7 @@ import SwiftUI
 /// their quantities and values. It also displays the total value of the portfolio.
 struct PortfolioDetailView: View {
   @State var viewModel: PortfolioDetailViewModel
+  @State var assetManagementViewModel: AssetManagementViewModel
   @Environment(\.modelContext) private var modelContext
   @State private var showingAddAsset = false
   @State private var editingAsset: Asset?
@@ -76,7 +77,43 @@ struct PortfolioDetailView: View {
               modelContext: modelContext, portfolio: viewModel.portfolio, asset: asset)
           )
         }
-      })
+      }
+    )
+    .confirmationDialog(
+      "Delete Asset",
+      isPresented: $assetManagementViewModel.showingDeleteConfirmation,
+      presenting: assetManagementViewModel.assetToDelete,
+      actions: { _ in
+        Button("Delete", role: .destructive) {
+          assetManagementViewModel.confirmDelete()
+          // Give SwiftData a moment to update the relationship
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            viewModel.refreshAssets()
+            viewModel.calculateTotalValue()
+          }
+        }
+        Button("Cancel", role: .cancel) {
+          assetManagementViewModel.cancelDelete()
+        }
+      },
+      message: { asset in
+        Text("Are you sure you want to delete '\(asset.name)'? This action cannot be undone.")
+      }
+    )
+    .alert(
+      "Failed to Delete Asset",
+      isPresented: $assetManagementViewModel.showingDeletionError,
+      presenting: assetManagementViewModel.deletionError,
+      actions: { _ in
+        Button("OK") {
+          assetManagementViewModel.deletionError = nil
+          assetManagementViewModel.showingDeletionError = false
+        }
+      },
+      message: { error in
+        Text(error.errorDescription ?? "An unknown error occurred.")
+      }
+    )
   }
 
   // MARK: - Asset List Content
@@ -96,6 +133,14 @@ struct PortfolioDetailView: View {
                 editingAsset = asset
               } label: {
                 Label("Edit", systemImage: "pencil")
+              }
+
+              Divider()
+
+              Button(role: .destructive) {
+                assetManagementViewModel.initiateDelete(asset: asset)
+              } label: {
+                Label("Delete", systemImage: "trash")
               }
             }
         }
@@ -281,9 +326,10 @@ private struct AssetRowView: View {
       totalAmount: 5000.0, asset: cash))
 
   let viewModel = PortfolioDetailViewModel(portfolio: portfolio, modelContext: context)
+  let assetManagementViewModel = AssetManagementViewModel(modelContext: context)
 
   return NavigationStack {
-    PortfolioDetailView(viewModel: viewModel)
+    PortfolioDetailView(viewModel: viewModel, assetManagementViewModel: assetManagementViewModel)
   }
   .modelContainer(container)
 }
@@ -296,9 +342,10 @@ private struct AssetRowView: View {
   context.insert(portfolio)
 
   let viewModel = PortfolioDetailViewModel(portfolio: portfolio, modelContext: context)
+  let assetManagementViewModel = AssetManagementViewModel(modelContext: context)
 
   return NavigationStack {
-    PortfolioDetailView(viewModel: viewModel)
+    PortfolioDetailView(viewModel: viewModel, assetManagementViewModel: assetManagementViewModel)
   }
   .modelContainer(container)
 }

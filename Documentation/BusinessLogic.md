@@ -326,6 +326,36 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## Asset Deletion
+
+**Business Rule**: Assets can be deleted at any time without restrictions.
+
+**Deletion Workflow**:
+
+1. User initiates deletion (right-click context menu on asset row)
+1. Confirmation dialog shows asset name and warning
+1. If user confirms, asset is deleted via `modelContext.delete(asset)`
+1. SwiftData automatically cascades deletion to:
+   - All `Transaction` records for the asset (`.cascade` rule)
+   - All `PriceHistory` records for the asset (`.cascade` rule)
+   - Removes asset from portfolio's `assets` relationship (`.nullify` rule)
+
+**Error Handling**:
+
+| Scenario              | Detection Point  | User Feedback                   | Recovery Action |
+| --------------------- | ---------------- | ------------------------------- | --------------- |
+| Deletion fails        | Exception        | Error alert with message        | Retry deletion  |
+| Asset already deleted | Query after save | Asset no longer visible in list | Refresh view    |
+
+**Implementation Details**:
+
+- **File**: `AssetFlow/ViewModels/AssetManagementViewModel.swift`
+- **Methods**: `initiateDelete(asset:)`, `confirmDelete()`, `cancelDelete()`
+- **Error Type**: `AssetDeletionError` enum
+- **UI**: Context menu on asset rows with confirmation dialog
+
+______________________________________________________________________
+
 ## Data Validation Rules
 
 ### Asset Validation

@@ -138,8 +138,11 @@ struct ContentView: View {
 
       case .portfolio(let portfolio):
         let viewModel = PortfolioDetailViewModel(portfolio: portfolio, modelContext: modelContext)
-        PortfolioDetailView(viewModel: viewModel)
-          .id(portfolio.id)
+        let assetManagementViewModel = AssetManagementViewModel(modelContext: modelContext)
+        PortfolioDetailView(
+          viewModel: viewModel, assetManagementViewModel: assetManagementViewModel
+        )
+        .id(portfolio.id)
       }
     } else {
       // Default to overview if nothing selected

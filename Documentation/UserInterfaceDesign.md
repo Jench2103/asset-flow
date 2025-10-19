@@ -206,7 +206,13 @@ ______________________________________________________________________
 - Tap/click row → Navigate to Asset Detail
 - Tap "Add Asset" → Show Asset Entry form
 - Search field → Filter list in real-time
+- Right-click/context menu (macOS) → Edit or Delete asset
 - Swipe row (iOS) → Quick actions (Edit, Delete)
+
+**Context Menu Options**:
+
+- **Edit**: Opens asset form in edit mode
+- **Delete**: Shows confirmation dialog before deletion
 
 **Empty State**
 
@@ -456,7 +462,13 @@ ______________________________________________________________________
 
 - Tap "Edit" → Edit portfolio details via context menu (name, description)
 - Tap asset row → Navigate to asset detail (future implementation)
+- Right-click/context menu on asset → Edit or Delete asset
 - Tap "Add Asset" → Add existing asset or create new one (future implementation)
+
+**Asset Row Context Menu**:
+
+- **Edit**: Opens asset form for editing
+- **Delete**: Shows confirmation dialog before deletion
 
 **Asset List Display Details**:
 
@@ -473,8 +485,10 @@ ______________________________________________________________________
 - ✅ Navigation: Click portfolio from Portfolio List → View Portfolio Detail
 - ✅ Add Asset functionality (sheet-based form)
 - ✅ Edit Asset functionality (context menu on asset rows)
+- ✅ Delete Asset functionality (context menu with confirmation dialog)
 - ✅ Asset form validation (name, quantity, current value)
 - ✅ Loading state while fetching exchange rates
+- ✅ Cascading delete of transactions and price history
 - 🚧 Asset allocation chart (Phase 2)
 - 🚧 Performance metrics (Phase 2)
 

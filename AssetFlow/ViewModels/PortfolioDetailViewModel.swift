@@ -26,6 +26,9 @@ final class PortfolioDetailViewModel {
   /// Converted total value in USD
   var totalValueInUSD: Decimal = 0
 
+  /// Refresh trigger to force view updates when assets change
+  var refreshTrigger = UUID()
+
   /// Loading state for exchange rates
   var isLoadingRates: Bool {
     exchangeRateService.isLoading
@@ -68,12 +71,20 @@ final class PortfolioDetailViewModel {
 
   /// Calculate total value in USD with currency conversion
   func calculateTotalValue() {
+    // Fetch fresh assets from the portfolio relationship to ensure we have latest data
+    let currentAssets = portfolio.assets ?? []
     totalValueInUSD = PortfolioValueCalculator.calculateTotalValue(
-      for: portfolio.assets ?? [],
+      for: currentAssets,
       using: exchangeRateService.rates,
       targetCurrency: "USD",
       ratesBaseCurrency: exchangeRateService.baseCurrency
     )
+  }
+
+  /// Refresh the view by notifying observers of changes
+  func refreshAssets() {
+    // Update the refresh trigger to notify SwiftUI of changes
+    refreshTrigger = UUID()
   }
 
   /// Refresh exchange rates and recalculate
