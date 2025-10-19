@@ -9,7 +9,6 @@ import Foundation
 import SwiftData
 
 /// A container for providing a `ModelContainer` for SwiftUI previews.
-@MainActor
 class PreviewContainer {
   /// A shared, in-memory `ModelContainer` for SwiftUI previews.
   static let container: ModelContainer = {

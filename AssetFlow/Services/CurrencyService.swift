@@ -47,7 +47,6 @@ struct Currency: Identifiable, Hashable {
 }
 
 /// Service for loading and managing currencies from ISO 4217 XML
-@MainActor
 class CurrencyService {
   static let shared = CurrencyService()
 
