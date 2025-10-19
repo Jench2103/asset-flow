@@ -45,9 +45,11 @@ struct PortfolioDetailViewModelTests {
 
     // Act
     let viewModel = PortfolioDetailViewModel(portfolio: portfolio, modelContext: context)
+    // No need to fetch rates for empty portfolio - just calculate
+    viewModel.calculateTotalValue()
 
     // Assert
-    #expect(viewModel.totalValue == 0)
+    #expect(viewModel.totalValueInUSD == 0)
   }
 
   @Test("Total value is calculated correctly with single asset")
@@ -58,7 +60,7 @@ struct PortfolioDetailViewModelTests {
     let portfolio = Portfolio(name: "Tech Portfolio")
     context.insert(portfolio)
 
-    let asset = Asset(name: "Apple", assetType: .stock, portfolio: portfolio)
+    let asset = Asset(name: "Apple", assetType: .stock, currency: "USD", portfolio: portfolio)
     context.insert(asset)
 
     // Add price history and transaction to set up value
@@ -78,10 +80,12 @@ struct PortfolioDetailViewModelTests {
 
     // Act
     let viewModel = PortfolioDetailViewModel(portfolio: portfolio, modelContext: context)
+    // No API call needed - all assets in USD, no conversion required
+    viewModel.calculateTotalValue()
 
     // Assert
     // Current value = quantity (10) * current price (150) = 1500
-    #expect(viewModel.totalValue == 1500)
+    #expect(viewModel.totalValueInUSD == 1500)
   }
 
   @Test("Total value aggregates multiple assets correctly")
@@ -93,7 +97,7 @@ struct PortfolioDetailViewModelTests {
     context.insert(portfolio)
 
     // Asset 1: Apple - 10 shares @ $150 = $1,500
-    let apple = Asset(name: "Apple", assetType: .stock, portfolio: portfolio)
+    let apple = Asset(name: "Apple", assetType: .stock, currency: "USD", portfolio: portfolio)
     context.insert(apple)
     context.insert(PriceHistory(date: Date(), price: 150.0, asset: apple))
     context.insert(
@@ -102,7 +106,7 @@ struct PortfolioDetailViewModelTests {
         pricePerUnit: 100.0, totalAmount: 1000.0, currency: "USD", asset: apple))
 
     // Asset 2: Bitcoin - 0.5 BTC @ $40,000 = $20,000
-    let bitcoin = Asset(name: "Bitcoin", assetType: .crypto, portfolio: portfolio)
+    let bitcoin = Asset(name: "Bitcoin", assetType: .crypto, currency: "USD", portfolio: portfolio)
     context.insert(bitcoin)
     context.insert(PriceHistory(date: Date(), price: 40000.0, asset: bitcoin))
     context.insert(
@@ -111,7 +115,8 @@ struct PortfolioDetailViewModelTests {
         pricePerUnit: 35000.0, totalAmount: 17500.0, currency: "USD", asset: bitcoin))
 
     // Asset 3: Bonds - 100 units @ $50 = $5,000
-    let bonds = Asset(name: "Treasury Bonds", assetType: .bond, portfolio: portfolio)
+    let bonds = Asset(
+      name: "Treasury Bonds", assetType: .bond, currency: "USD", portfolio: portfolio)
     context.insert(bonds)
     context.insert(PriceHistory(date: Date(), price: 50.0, asset: bonds))
     context.insert(
@@ -121,10 +126,12 @@ struct PortfolioDetailViewModelTests {
 
     // Act
     let viewModel = PortfolioDetailViewModel(portfolio: portfolio, modelContext: context)
+    // No API call needed - all assets in USD, no conversion required
+    viewModel.calculateTotalValue()
 
     // Assert
     // Total = 1,500 + 20,000 + 5,000 = 26,500
-    #expect(viewModel.totalValue == 26500)
+    #expect(viewModel.totalValueInUSD == 26500)
   }
 
   // MARK: - Asset Count Tests

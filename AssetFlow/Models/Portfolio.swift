@@ -40,10 +40,6 @@ final class Portfolio {
 
   // Computed Properties
 
-  var totalValue: Decimal {
-    assets?.reduce(0) { $0 + $1.currentValue } ?? 0
-  }
-
   /// Number of assets in this portfolio
   var assetCount: Int {
     assets?.count ?? 0

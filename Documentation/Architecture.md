@@ -142,28 +142,66 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 
 #### Service Layer
 
-- **Purpose**: Data operations and external integrations
-- **Location**: `AssetFlow/Services/` (to be implemented)
+- **Purpose**: Data operations, business logic, and external integrations
+- **Location**: `AssetFlow/Services/`
 - **Characteristics**:
-  - Data access abstraction
-  - SwiftData query operations
-  - External API integrations (future)
-  - Business logic helpers
+  - Business logic separated from models and ViewModels
+  - NOT marked as `@MainActor` (pure functions where possible)
+  - External API integrations
+  - Stateless calculations
   - Error handling and validation
 
-**Planned Services**:
+**Implemented Services**:
+
+1. **ExchangeRateService**: Fetches and caches exchange rates from Coinbase API
+
+   - Singleton pattern (`shared` instance)
+   - 1-hour caching to reduce API calls
+   - Configurable base currency via `init(baseCurrency:)`
+   - Static `convert()` method for currency conversion (nonisolated)
+   - Comprehensive error handling with categorized messages
+
+1. **PortfolioValueCalculator**: Calculates portfolio values with currency conversion
+
+   - Pure struct (no state, not @MainActor)
+   - Static method for calculating total value across multiple currencies
+   - Takes array of assets and exchange rates as parameters
+   - Keeps models free from business logic
+
+1. **CurrencyService**: Provides ISO 4217 currency information
+
+   - Parses ISO 4217 XML for currency codes and names
+   - Generates flag emojis for currencies
+   - Filters duplicate and fund currencies
+   - Singleton pattern (`shared` instance)
+
+**Example Usage**:
 
 ```swift
-protocol DataService {
-    func fetch<T: PersistentModel>(_ modelType: T.Type) async throws -> [T]
-    func save<T: PersistentModel>(_ model: T) async throws
-    func delete<T: PersistentModel>(_ model: T) async throws
-}
+// Exchange rate conversion (nonisolated, can be called from any context)
+let convertedValue = ExchangeRateService.convert(
+    amount: 100,
+    from: "EUR",
+    to: "USD",
+    using: exchangeRates,
+    baseCurrency: "USD"
+)
 
-protocol PriceService {
-    func fetchCurrentPrice(for symbol: String) async throws -> Decimal
-}
+// Portfolio value calculation (nonisolated)
+let totalValue = PortfolioValueCalculator.calculateTotalValue(
+    for: assets,
+    using: exchangeRates,
+    targetCurrency: "USD",
+    ratesBaseCurrency: "USD"
+)
 ```
+
+**Design Principles**:
+
+- Services perform pure calculations without requiring MainActor
+- Models remain simple data containers
+- ViewModels coordinate between services and UI
+- Testability: mock data can be passed to services without network calls
 
 ## Data Flow
 

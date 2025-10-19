@@ -216,20 +216,32 @@ struct AssetIntegrationTests {
     let portfolio = Portfolio(name: "Test Portfolio")
     context.insert(portfolio)
 
+    // Mock exchange rates (empty since all assets are in USD)
+    let mockRates: [String: Decimal] = [:]
+
     // Initial total value should be 0
-    #expect(portfolio.totalValue == 0)
+    #expect(
+      PortfolioValueCalculator.calculateTotalValue(
+        for: portfolio.assets ?? [], using: mockRates, targetCurrency: "USD",
+        ratesBaseCurrency: "USD")
+        == 0)
 
     // Act - Add asset
     let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
     viewModel.name = "Apple Inc."
     viewModel.assetType = .stock
+    viewModel.currency = "USD"
     viewModel.quantity = "10"
     viewModel.currentValue = "150.50"
     viewModel.save()
 
     // Assert
     // Total value should be 10 * 150.50 = 1505.00
-    #expect(portfolio.totalValue == 1505.00)
+    #expect(
+      PortfolioValueCalculator.calculateTotalValue(
+        for: portfolio.assets ?? [], using: mockRates, targetCurrency: "USD",
+        ratesBaseCurrency: "USD")
+        == 1505.00)
   }
 
   @Test("Portfolio's asset count increases when asset is added")

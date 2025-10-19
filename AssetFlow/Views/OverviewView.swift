@@ -17,6 +17,8 @@ struct OverviewView: View {
   @Query(sort: \Portfolio.name) private var portfolios: [Portfolio]
 
   @State private var showingAddPortfolioSheet = false
+  @State private var exchangeRateService = ExchangeRateService.shared
+  @State private var isLoadingRates = false
 
   var body: some View {
     ScrollView {
@@ -32,6 +34,9 @@ struct OverviewView: View {
       .padding()
     }
     .navigationTitle("Overview")
+    .task {
+      await exchangeRateService.fetchRates()
+    }
     .toolbar {
       ToolbarItem(placement: .primaryAction) {
         Button {
@@ -91,7 +96,7 @@ struct OverviewView: View {
 
       VStack(spacing: 12) {
         ForEach(portfolios) { portfolio in
-          PortfolioSummaryRow(portfolio: portfolio)
+          PortfolioSummaryRow(portfolio: portfolio, exchangeRateService: exchangeRateService)
         }
       }
     }
@@ -100,7 +105,15 @@ struct OverviewView: View {
   // MARK: - Computed Properties
 
   private var totalValue: Decimal {
-    portfolios.reduce(0) { $0 + $1.totalValue }
+    portfolios.reduce(0) { total, portfolio in
+      total
+        + PortfolioValueCalculator.calculateTotalValue(
+          for: portfolio.assets ?? [],
+          using: exchangeRateService.rates,
+          targetCurrency: "USD",
+          ratesBaseCurrency: exchangeRateService.baseCurrency
+        )
+    }
   }
 }
 
@@ -108,6 +121,7 @@ struct OverviewView: View {
 
 private struct PortfolioSummaryRow: View {
   let portfolio: Portfolio
+  let exchangeRateService: ExchangeRateService
 
   var body: some View {
     HStack {
@@ -122,9 +136,16 @@ private struct PortfolioSummaryRow: View {
 
       Spacer()
 
-      Text(portfolio.totalValue.formatted(currency: "USD"))
-        .font(.body)
-        .fontWeight(.medium)
+      Text(
+        PortfolioValueCalculator.calculateTotalValue(
+          for: portfolio.assets ?? [],
+          using: exchangeRateService.rates,
+          targetCurrency: "USD",
+          ratesBaseCurrency: exchangeRateService.baseCurrency
+        ).formatted(currency: "USD")
+      )
+      .font(.body)
+      .fontWeight(.medium)
     }
     .padding(16)
     .background(Color(.tertiarySystemFill))

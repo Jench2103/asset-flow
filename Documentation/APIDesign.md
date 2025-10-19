@@ -41,13 +41,24 @@ ______________________________________________________________________
 
 ## Development Phases
 
-### Phase 1-2: No External APIs (Current)
+### Phase 1-2: Exchange Rate Integration (Current)
 
-**Status**: Fully offline, no network features
+**Status**: ✅ Coinbase exchange rate API integrated
 
-**Data Entry**: Manual user input only
+**External Integration**: Coinbase API for currency exchange rates
 
-**Internal APIs**: Direct SwiftData access via `@Query` and `@Environment(\.modelContext)`
+**Internal APIs**:
+
+- Direct SwiftData access via `@Query` and `@Environment(\.modelContext)`
+- `ExchangeRateService` for currency conversion
+- `PortfolioValueCalculator` for multi-currency portfolio totals
+- `CurrencyService` for ISO 4217 currency information
+
+**Network Requirements**:
+
+- Requires `com.apple.security.network.client` entitlement for API access
+- 1-hour caching reduces network calls
+- Graceful degradation with cached rates if API unavailable
 
 ______________________________________________________________________
 
@@ -84,7 +95,54 @@ ______________________________________________________________________
 
 ## External API Integrations
 
-### Asset Price Data API (Phase 3)
+### Coinbase Exchange Rate API (Implemented)
+
+**Purpose**: Fetch current exchange rates for multi-currency portfolio calculations
+
+**Provider**: Coinbase (https://api.coinbase.com)
+
+**API Endpoint**: `GET https://api.coinbase.com/v2/exchange-rates?currency={baseCurrency}`
+
+**Authentication**: None required (public API)
+
+**Required Headers**:
+
+- `CB-VERSION: 2018-01-01` (API version)
+
+**Rate Limits**: Not strictly enforced, but we implement 1-hour caching
+
+**Response Format**:
+
+```json
+{
+  "data": {
+    "currency": "USD",
+    "rates": {
+      "EUR": "0.85",
+      "GBP": "0.73",
+      "JPY": "110.25",
+      ...
+    }
+  }
+}
+```
+
+**Implementation**:
+
+- Service: `ExchangeRateService`
+- Caching: 1 hour in-memory cache
+- Error handling: Categorized errors (network, timeout, parsing)
+- Fallback: Uses cached rates if API unavailable
+
+**Usage in App**:
+
+- PortfolioDetailView: Calculate total value in USD
+- OverviewView: Aggregate portfolio values across currencies
+- AssetFormView: Currency picker with ISO 4217 codes
+
+______________________________________________________________________
+
+### Asset Price Data API (Phase 3 - Planned)
 
 **Purpose**: Fetch current market prices for stocks, cryptocurrencies, and other assets
 
@@ -296,21 +354,119 @@ ______________________________________________________________________
 
 ## Internal API Design
 
-### Service Layer (To Be Implemented)
+### Service Layer (Implemented)
 
-**Purpose**: Encapsulate business logic and data access
+**Purpose**: Encapsulate business logic and external integrations
 
-**Pattern**: Repository/Service pattern
+**Pattern**: Service pattern with static methods for pure functions
 
 **Benefits**
 
-- Separate concerns (ViewModel doesn't directly access SwiftData)
-- Testable (mock services in tests)
+- Separate business logic from models and ViewModels
+- NOT marked as `@MainActor` (pure functions where possible)
+- Testable (mock data can be passed to services)
 - Reusable logic across ViewModels
+
+**Implemented Services**:
+
+1. **ExchangeRateService**: Exchange rate API integration
+1. **PortfolioValueCalculator**: Portfolio value calculations
+1. **CurrencyService**: ISO 4217 currency data
 
 ______________________________________________________________________
 
-#### Service Interfaces
+#### Implemented Service APIs
+
+**ExchangeRateService**
+
+Fetches and caches exchange rates from Coinbase API.
+
+```swift
+@Observable
+@MainActor
+class ExchangeRateService {
+    static let shared: ExchangeRateService
+
+    let baseCurrency: String  // Configured at init (default: "USD")
+    var rates: [String: Decimal]
+    var isLoading: Bool
+    var lastError: String?
+
+    // Fetch rates from API (async, MainActor)
+    func fetchRates() async
+
+    // Convert using instance rates (MainActor)
+    func convert(amount: Decimal, from: String, to: String) -> Decimal
+
+    // Static conversion (nonisolated - can be called from any context)
+    static func convert(
+        amount: Decimal,
+        from: String,
+        to: String,
+        using rates: [String: Decimal],
+        baseCurrency: String
+    ) -> Decimal
+}
+```
+
+**Usage**:
+
+- Singleton pattern with `shared` instance
+- 1-hour caching to reduce API calls
+- Handles network errors with categorized messages
+- CB-VERSION header included for Coinbase API compatibility
+
+**PortfolioValueCalculator**
+
+Calculates portfolio values with currency conversion.
+
+```swift
+struct PortfolioValueCalculator {
+    // Pure calculation (nonisolated - can be called from any context)
+    static func calculateTotalValue(
+        for assets: [Asset],
+        using exchangeRates: [String: Decimal],
+        targetCurrency: String,
+        ratesBaseCurrency: String
+    ) -> Decimal
+}
+```
+
+**Usage**:
+
+- Stateless pure function
+- NOT marked as `@MainActor` (can run on any thread)
+- Takes assets array directly (caller handles SwiftData access)
+- Testable with mock data
+
+**CurrencyService**
+
+Provides ISO 4217 currency information.
+
+```swift
+class CurrencyService {
+    static let shared: CurrencyService
+
+    var currencies: [Currency]  // Loaded from ISO 4217 XML
+
+    struct Currency: Identifiable {
+        let code: String  // e.g., "USD"
+        let name: String  // e.g., "US Dollar"
+        var flag: String  // e.g., "🇺🇸"
+        var displayName: String  // e.g., "🇺🇸 USD - US Dollar"
+    }
+}
+```
+
+**Usage**:
+
+- Parses bundled ISO 4217 XML file
+- Filters duplicates and fund currencies
+- Generates flag emojis from country codes
+
+______________________________________________________________________
+
+#### Planned Service Interfaces (Future)
 
 **AssetService**
 

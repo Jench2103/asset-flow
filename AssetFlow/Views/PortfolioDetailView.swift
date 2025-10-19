@@ -32,6 +32,17 @@ struct PortfolioDetailView: View {
       .navigationSubtitle(viewModel.portfolio.portfolioDescription ?? "")
     #endif
     .toolbar {
+      ToolbarItem(placement: .automatic) {
+        Button {
+          Task {
+            await viewModel.refresh()
+          }
+        } label: {
+          Label("Refresh Rates", systemImage: "arrow.clockwise")
+        }
+        .disabled(viewModel.isLoadingRates)
+      }
+
       ToolbarItem(placement: .primaryAction) {
         Button("Add Asset") {
           showingAddAsset = true
@@ -39,21 +50,33 @@ struct PortfolioDetailView: View {
         .accessibilityIdentifier("Add Asset")
       }
     }
-    .sheet(isPresented: $showingAddAsset) {
-      NavigationStack {
-        AssetFormView(
-          viewModel: AssetFormViewModel(modelContext: modelContext, portfolio: viewModel.portfolio)
-        )
+    .sheet(
+      isPresented: $showingAddAsset,
+      onDismiss: {
+        viewModel.calculateTotalValue()
+      },
+      content: {
+        NavigationStack {
+          AssetFormView(
+            viewModel: AssetFormViewModel(
+              modelContext: modelContext, portfolio: viewModel.portfolio)
+          )
+        }
       }
-    }
-    .sheet(item: $editingAsset) { asset in
-      NavigationStack {
-        AssetFormView(
-          viewModel: AssetFormViewModel(
-            modelContext: modelContext, portfolio: viewModel.portfolio, asset: asset)
-        )
-      }
-    }
+    )
+    .sheet(
+      item: $editingAsset,
+      onDismiss: {
+        viewModel.calculateTotalValue()
+      },
+      content: { asset in
+        NavigationStack {
+          AssetFormView(
+            viewModel: AssetFormViewModel(
+              modelContext: modelContext, portfolio: viewModel.portfolio, asset: asset)
+          )
+        }
+      })
   }
 
   // MARK: - Asset List Content
@@ -98,9 +121,17 @@ struct PortfolioDetailView: View {
       }
 
       HStack {
-        Text(viewModel.totalValue.formatted(currency: "USD"))
-          .font(.system(size: 36, weight: .bold))
-          .foregroundStyle(.primary)
+        if viewModel.isLoadingRates {
+          ProgressView()
+            .scaleEffect(0.8)
+          Text("Loading rates...")
+            .font(.system(size: 36, weight: .bold))
+            .foregroundStyle(.secondary)
+        } else {
+          Text(viewModel.totalValueInUSD.formatted(currency: "USD"))
+            .font(.system(size: 36, weight: .bold))
+            .foregroundStyle(.primary)
+        }
         Spacer()
       }
 
@@ -110,6 +141,18 @@ struct PortfolioDetailView: View {
           .foregroundStyle(.secondary)
 
         Spacer()
+      }
+
+      // Error message if exchange rates failed to load
+      if let errorMessage = viewModel.exchangeRateError {
+        HStack(spacing: 8) {
+          Image(systemName: "exclamationmark.triangle.fill")
+            .foregroundStyle(.orange)
+          Text(errorMessage)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.top, 4)
       }
     }
     .padding(20)

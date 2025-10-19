@@ -23,14 +23,19 @@ struct PortfolioModelTests {
     let portfolio = Portfolio(name: "Test Portfolio", portfolioDescription: "")
     context.insert(portfolio)
 
+    // Mock exchange rates (1:1 for USD)
+    let mockRates: [String: Decimal] = [:]
+
     // Act
-    let totalValue = portfolio.totalValue
+    let totalValue = PortfolioValueCalculator.calculateTotalValue(
+      for: portfolio.assets ?? [], using: mockRates, targetCurrency: "USD",
+      ratesBaseCurrency: "USD")
 
     // Assert
     #expect(totalValue == 0)
   }
 
-  @Test("totalValue sums the currentValue of its assets")
+  @Test("totalValue sums the currentValue of its assets with currency conversion")
   func totalValue_SumsCurrentValueOfAssets() {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
@@ -39,15 +44,15 @@ struct PortfolioModelTests {
     let portfolio = Portfolio(name: "Test Portfolio", portfolioDescription: "")
 
     // Create assets with transactions and price history
-    // Asset 1: 10 shares @ $125.05 = 1250.50
-    let asset1 = Asset(name: "Stock A", assetType: .stock, portfolio: portfolio)
+    // Asset 1: 10 shares @ $125.05 = 1250.50 USD
+    let asset1 = Asset(name: "Stock A", assetType: .stock, currency: "USD", portfolio: portfolio)
     let transaction1 = Transaction(
       transactionType: .buy, transactionDate: Date(), quantity: Decimal(10),
       pricePerUnit: Decimal(100), totalAmount: Decimal(1000), asset: asset1)
     let price1 = PriceHistory(date: Date(), price: Decimal(string: "125.05")!, asset: asset1)
 
-    // Asset 2: 100 shares @ $30.0025 = 3000.25
-    let asset2 = Asset(name: "Stock B", assetType: .stock, portfolio: portfolio)
+    // Asset 2: 100 shares @ $30.0025 = 3000.25 USD
+    let asset2 = Asset(name: "Stock B", assetType: .stock, currency: "USD", portfolio: portfolio)
     let transaction2 = Transaction(
       transactionType: .buy, transactionDate: Date(), quantity: Decimal(100),
       pricePerUnit: Decimal(25), totalAmount: Decimal(2500), asset: asset2)
@@ -61,8 +66,13 @@ struct PortfolioModelTests {
     context.insert(price1)
     context.insert(price2)
 
+    // Mock exchange rates (empty since all assets are in USD)
+    let mockRates: [String: Decimal] = [:]
+
     // Act
-    let totalValue = portfolio.totalValue  // Should be 1250.50 + 3000.25 = 4250.75
+    let totalValue = PortfolioValueCalculator.calculateTotalValue(
+      for: portfolio.assets ?? [], using: mockRates, targetCurrency: "USD",
+      ratesBaseCurrency: "USD")
 
     // Assert
     let expected = Decimal(string: "4250.75")!
