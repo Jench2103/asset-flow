@@ -124,7 +124,7 @@ struct PortfolioDetailView: View {
         if viewModel.isLoadingRates {
           ProgressView()
             .scaleEffect(0.8)
-          Text("Loading rates...")
+          Text("Loading exchange rates...")
             .font(.system(size: 36, weight: .bold))
             .foregroundStyle(.secondary)
         } else {

@@ -170,10 +170,12 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 
 1. **CurrencyService**: Provides ISO 4217 currency information
 
+   - NOT marked as `@MainActor` - pure data lookup service
    - Parses ISO 4217 XML for currency codes and names
    - Generates flag emojis for currencies
    - Filters duplicate and fund currencies
    - Singleton pattern (`shared` instance)
+   - Can be called from any thread context
 
 **Example Usage**:
 

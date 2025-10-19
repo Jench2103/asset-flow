@@ -18,7 +18,6 @@ struct OverviewView: View {
 
   @State private var showingAddPortfolioSheet = false
   @State private var exchangeRateService = ExchangeRateService.shared
-  @State private var isLoadingRates = false
 
   var body: some View {
     ScrollView {
@@ -68,11 +67,22 @@ struct OverviewView: View {
       }
 
       HStack {
-        Text(totalValue.formatted(currency: "USD"))
-          .font(.system(size: 48, weight: .bold))
-          .accessibilityIdentifier("Total Portfolio Value")
+        if exchangeRateService.isLoading {
+          HStack(spacing: 12) {
+            ProgressView()
+              .scaleEffect(0.8)
+            Text("Loading exchange rates...")
+              .font(.system(size: 20, weight: .semibold))
+              .foregroundStyle(.secondary)
+          }
+        } else {
+          Text(totalValue.formatted(currency: "USD"))
+            .font(.system(size: 48, weight: .bold))
+            .accessibilityIdentifier("Total Portfolio Value")
+        }
         Spacer()
       }
+      .frame(minHeight: 60)
 
       HStack {
         Label("\(portfolios.count) Portfolios", systemImage: "folder.fill")
@@ -136,16 +146,21 @@ private struct PortfolioSummaryRow: View {
 
       Spacer()
 
-      Text(
-        PortfolioValueCalculator.calculateTotalValue(
-          for: portfolio.assets ?? [],
-          using: exchangeRateService.rates,
-          targetCurrency: "USD",
-          ratesBaseCurrency: exchangeRateService.baseCurrency
-        ).formatted(currency: "USD")
-      )
-      .font(.body)
-      .fontWeight(.medium)
+      if exchangeRateService.isLoading {
+        ProgressView()
+          .scaleEffect(0.8)
+      } else {
+        Text(
+          PortfolioValueCalculator.calculateTotalValue(
+            for: portfolio.assets ?? [],
+            using: exchangeRateService.rates,
+            targetCurrency: "USD",
+            ratesBaseCurrency: exchangeRateService.baseCurrency
+          ).formatted(currency: "USD")
+        )
+        .font(.body)
+        .fontWeight(.medium)
+      }
     }
     .padding(16)
     .background(Color(.tertiarySystemFill))

@@ -145,12 +145,21 @@ ______________________________________________________________________
 - Click "Add Portfolio" button in toolbar → Opens portfolio creation form
 - Use sidebar to navigate to specific portfolios or "All Portfolios" view
 
+**Loading State**:
+
+While fetching exchange rates for multi-currency conversion:
+
+- Total Value Card shows: Spinning progress indicator + "Loading rates..." text
+- Portfolio Summary rows show: Spinning progress indicator in place of values
+- Prevents display of incorrect unconverted values
+
 **Current Implementation (Phase 1 MVP)**:
 
-- ✅ Total portfolio value calculation
+- ✅ Total portfolio value calculation with currency conversion
 - ✅ Portfolio count display
 - ✅ Portfolio summary cards with name, asset count, and value
 - ✅ Add Portfolio button in toolbar
+- ✅ Loading state while fetching exchange rates (no incorrect values displayed)
 - 🚧 Performance metrics (Phase 2)
 - 🚧 Recent activity feed (Phase 2)
 - 🚧 Allocation charts (Phase 2)
@@ -449,16 +458,23 @@ ______________________________________________________________________
 - Tap asset row → Navigate to asset detail (future implementation)
 - Tap "Add Asset" → Add existing asset or create new one (future implementation)
 
+**Asset List Display Details**:
+
+- For **cash assets**: Shows only total value (quantity hidden - not meaningful for cash)
+- For **other assets**: Shows quantity + total value
+- Loading state while fetching exchange rates (same as Overview)
+
 **Current Implementation (Phase 1 MVP)**:
 
 - ✅ Displays portfolio name and description
-- ✅ Shows total portfolio value
-- ✅ Lists all assets with their name, type, quantity, and current value
+- ✅ Shows total portfolio value with currency conversion
+- ✅ Lists all assets with their name, type, quantity (hidden for cash), and current value
 - ✅ Empty state when portfolio has no assets
 - ✅ Navigation: Click portfolio from Portfolio List → View Portfolio Detail
 - ✅ Add Asset functionality (sheet-based form)
 - ✅ Edit Asset functionality (context menu on asset rows)
 - ✅ Asset form validation (name, quantity, current value)
+- ✅ Loading state while fetching exchange rates
 - 🚧 Asset allocation chart (Phase 2)
 - 🚧 Performance metrics (Phase 2)
 
@@ -522,12 +538,16 @@ ______________________________________________________________________
 
 1. **Quantity** (Required for new assets): Initial quantity held
 
+   - For **cash assets**: Labeled as "Amount" (e.g., $5,000)
+   - For **other assets**: Standard quantity field
    - Validation: Must be a positive number greater than zero
    - Accepts decimal values
    - For editing: Read-only (managed via transactions)
 
 1. **Current Price** (Required for new assets): Initial price per unit
 
+   - For **cash assets**: Automatically set to 1 (no user input needed)
+   - For **other assets**: User enters price per unit
    - Validation: Must be a number >= 0
    - Accepts decimal values
    - For editing: Read-only (managed via price history)
@@ -555,6 +575,8 @@ ______________________________________________________________________
 - ✅ Separate behavior for new vs. editing assets
 - ✅ Automatic creation of initial transaction and price history for new assets
 - ✅ Context menu integration for editing existing assets
+- ✅ Special UX for cash assets (single "Amount" field, automatic price=1)
+- ✅ Context-aware validation messages ("Amount" vs "Quantity")
 
 ______________________________________________________________________
 
