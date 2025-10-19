@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import SwiftUI
 
 /// ViewModel for the Portfolio Detail screen
 ///
@@ -25,9 +26,6 @@ final class PortfolioDetailViewModel {
 
   /// Converted total value in USD
   var totalValueInUSD: Decimal = 0
-
-  /// Refresh trigger to force view updates when assets change
-  var refreshTrigger = UUID()
 
   /// Loading state for exchange rates
   var isLoadingRates: Bool {
@@ -53,13 +51,16 @@ final class PortfolioDetailViewModel {
   // MARK: - Computed Properties
 
   /// All assets belonging to this portfolio
+  /// Fetches fresh data from SwiftData to ensure latest changes are included
   var assets: [Asset] {
+    // Return the portfolio's assets directly from the relationship
+    // This ensures we always get the current state including any recent deletions
     portfolio.assets ?? []
   }
 
   /// Number of assets in the portfolio
   var assetCount: Int {
-    portfolio.assetCount
+    assets.count
   }
 
   // MARK: - Methods
@@ -71,20 +72,13 @@ final class PortfolioDetailViewModel {
 
   /// Calculate total value in USD with currency conversion
   func calculateTotalValue() {
-    // Fetch fresh assets from the portfolio relationship to ensure we have latest data
-    let currentAssets = portfolio.assets ?? []
+    // Use assets property which is always fetched fresh from SwiftData
     totalValueInUSD = PortfolioValueCalculator.calculateTotalValue(
-      for: currentAssets,
+      for: assets,
       using: exchangeRateService.rates,
       targetCurrency: "USD",
       ratesBaseCurrency: exchangeRateService.baseCurrency
     )
-  }
-
-  /// Refresh the view by notifying observers of changes
-  func refreshAssets() {
-    // Update the refresh trigger to notify SwiftUI of changes
-    refreshTrigger = UUID()
   }
 
   /// Refresh exchange rates and recalculate

@@ -86,9 +86,8 @@ struct PortfolioDetailView: View {
       actions: { _ in
         Button("Delete", role: .destructive) {
           assetManagementViewModel.confirmDelete()
-          // Give SwiftData a moment to update the relationship
+          // Give SwiftData a moment to update the @Query results
           DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            viewModel.refreshAssets()
             viewModel.calculateTotalValue()
           }
         }
