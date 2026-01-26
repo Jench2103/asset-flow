@@ -61,20 +61,14 @@ class AssetManagementViewModel {
       return
     }
 
-    do {
-      // Delete the asset (cascade rules handle related data)
-      modelContext.delete(asset)
+    // Delete the asset (cascade rules handle related data)
+    modelContext.delete(asset)
 
-      // Reset state
-      assetToDelete = nil
-      showingDeleteConfirmation = false
-      deletionError = nil
-      showingDeletionError = false
-    } catch {
-      // Handle deletion error
-      deletionError = .deletionFailed(error.localizedDescription)
-      showingDeletionError = true
-    }
+    // Reset state
+    assetToDelete = nil
+    showingDeleteConfirmation = false
+    deletionError = nil
+    showingDeletionError = false
   }
 
   /// Cancels the deletion and resets the state.
