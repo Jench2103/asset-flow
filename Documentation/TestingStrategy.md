@@ -59,7 +59,8 @@ We use a simple factory pattern in `TestDataManager.swift` to create these conta
 class TestDataManager {
     static func createInMemoryContainer() -> ModelContainer {
         let schema = Schema([
-            Portfolio.self, Asset.self, Transaction.self, InvestmentPlan.self
+            Portfolio.self, Asset.self, Transaction.self,
+            InvestmentPlan.self, PriceHistory.self, RegularSavingPlan.self
         ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: schema, configurations: [configuration])
@@ -222,6 +223,7 @@ ______________________________________________________________________
    - Save operations for new and existing assets
    - User interaction tracking
    - Form state management
+   - Cash asset: cost basis auto-set to 1, validation bypass, save with price = 1
 
 1. **TransactionFormViewModelTests** (38 tests)
 
@@ -255,6 +257,16 @@ ______________________________________________________________________
    - Field preservation across sorting
    - Multiple transaction types ordering
    - Same-date transaction handling
+
+### Service Tests
+
+1. **ExchangeRateServiceTests**
+   - Same-currency no-op (base and non-base)
+   - Direct conversion from base currency
+   - Inverse conversion to base currency
+   - Cross-currency conversion via base
+   - Missing rate handling (source, target, both)
+   - Edge cases (zero amount, empty rates, zero rate)
 
 ### Integration Tests
 

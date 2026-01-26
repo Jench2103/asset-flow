@@ -22,7 +22,7 @@ final class PortfolioDetailViewModel {
   let modelContext: ModelContext
 
   /// Exchange rate service for currency conversion
-  private let exchangeRateService = ExchangeRateService.shared
+  private let exchangeRateService: ExchangeRateService
 
   /// Converted total value in USD
   var totalValueInUSD: Decimal = 0
@@ -37,9 +37,13 @@ final class PortfolioDetailViewModel {
     exchangeRateService.lastError
   }
 
-  init(portfolio: Portfolio, modelContext: ModelContext) {
+  init(
+    portfolio: Portfolio, modelContext: ModelContext,
+    exchangeRateService: ExchangeRateService = .shared
+  ) {
     self.portfolio = portfolio
     self.modelContext = modelContext
+    self.exchangeRateService = exchangeRateService
 
     // Start fetching exchange rates.
     // Use [weak self] to avoid retaining the ViewModel — if it is deallocated

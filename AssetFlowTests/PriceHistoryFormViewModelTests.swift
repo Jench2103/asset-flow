@@ -167,6 +167,47 @@ struct PriceHistoryFormViewModelTests {
         == "A price record already exists for this date.")
   }
 
+  @Test("Date validation: unique date among multiple records is valid")
+  func testDateValidation_UniqueDateAmongMultipleRecords_IsValid() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let date1 = Calendar.current.date(byAdding: .day, value: -10, to: Date())!
+    let date2 = Calendar.current.date(byAdding: .day, value: -5, to: Date())!
+
+    let asset = Asset(name: "Test Asset", assetType: .stock, currency: "USD")
+    context.insert(asset)
+    context.insert(PriceHistory(date: date1, price: 100.0, asset: asset))
+    context.insert(PriceHistory(date: date2, price: 110.0, asset: asset))
+
+    // Adding a new record on a date that doesn't conflict
+    let viewModel = PriceHistoryFormViewModel(
+      modelContext: context, asset: asset)
+    viewModel.date = Calendar.current.date(byAdding: .day, value: -3, to: Date())!
+
+    #expect(viewModel.dateValidationMessage == nil)
+  }
+
+  @Test("Date validation: editing record to unused date is valid")
+  func testDateValidation_EditingToUnusedDate_IsValid() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let date1 = Calendar.current.date(byAdding: .day, value: -10, to: Date())!
+    let date2 = Calendar.current.date(byAdding: .day, value: -5, to: Date())!
+
+    let asset = Asset(name: "Test Asset", assetType: .stock, currency: "USD")
+    context.insert(asset)
+    let record1 = PriceHistory(date: date1, price: 100.0, asset: asset)
+    context.insert(record1)
+    context.insert(PriceHistory(date: date2, price: 110.0, asset: asset))
+
+    // Editing record1 to a date that doesn't conflict with record2
+    let viewModel = PriceHistoryFormViewModel(
+      modelContext: context, asset: asset, priceHistory: record1)
+    viewModel.date = Calendar.current.date(byAdding: .day, value: -3, to: Date())!
+
+    #expect(viewModel.dateValidationMessage == nil)
+  }
+
   // MARK: - Price Validation Tests
 
   @Test("Price validation: empty shows error")

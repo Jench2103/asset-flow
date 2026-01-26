@@ -211,4 +211,3 @@ See `AssetFlow/Models/README.md` for comprehensive model documentation.
 
 - Single shared `ModelContainer` injected at app root
 - No manual save() calls needed - SwiftData handles persistence automatically
-- `Item.swift` is legacy from template - remove after updating ContentView

@@ -741,4 +741,127 @@ struct AssetFormViewModelTests {
     // Assert
     #expect(viewModel.canEditCurrency == false)
   }
+
+  // MARK: - Cash Asset Tests
+
+  @Test("Cash asset type sets cost basis to 1 automatically")
+  func testCashAssetSetsCostBasisToOne() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+
+    // Act
+    viewModel.assetType = .cash
+
+    // Assert
+    #expect(viewModel.costBasis == "1")
+  }
+
+  @Test("Cash asset skips cost basis validation")
+  func testCashAssetSkipsCostBasisValidation() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+    viewModel.name = "Savings"
+    viewModel.assetType = .cash
+    viewModel.quantity = "1000"
+
+    // Assert — cost basis validation is bypassed for cash
+    #expect(viewModel.costBasisValidationMessage == nil)
+    #expect(viewModel.isSaveDisabled == false)
+  }
+
+  @Test("Cash asset skips current price validation")
+  func testCashAssetSkipsCurrentPriceValidation() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+    viewModel.name = "Savings"
+    viewModel.assetType = .cash
+    viewModel.quantity = "1000"
+    viewModel.currentPrice = "abc"
+
+    // Assert — current price validation is bypassed for cash
+    #expect(viewModel.currentPriceValidationMessage == nil)
+    #expect(viewModel.isSaveDisabled == false)
+  }
+
+  @Test("Cash asset isSaveDisabled is true when name and quantity are missing")
+  func testCashAssetSaveDisabledWithoutRequiredFields() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+    viewModel.assetType = .cash
+
+    // Assert — still requires name and quantity
+    #expect(viewModel.isSaveDisabled == true)
+  }
+
+  @Test("save() for cash asset creates transaction with pricePerUnit = 1")
+  func testSaveCashAssetCreatesTransactionWithPriceOne() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+    viewModel.name = "USD Savings"
+    viewModel.assetType = .cash
+    viewModel.quantity = "5000"
+    viewModel.currency = "USD"
+
+    // Act
+    viewModel.save()
+
+    // Assert
+    let fetchDescriptor = FetchDescriptor<Asset>()
+    let assets = try context.fetch(fetchDescriptor)
+    let asset = try #require(assets.first)
+
+    #expect(asset.assetType == .cash)
+
+    let transaction = try #require(asset.transactions?.first)
+    #expect(transaction.pricePerUnit == 1)
+    #expect(transaction.quantity == 5000)
+    #expect(transaction.totalAmount == 5000)
+  }
+
+  @Test("save() for cash asset creates price history with price = 1")
+  func testSaveCashAssetCreatesPriceHistoryWithPriceOne() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+    viewModel.name = "EUR Cash"
+    viewModel.assetType = .cash
+    viewModel.quantity = "2000"
+    viewModel.currency = "EUR"
+
+    // Act
+    viewModel.save()
+
+    // Assert
+    let fetchDescriptor = FetchDescriptor<Asset>()
+    let assets = try context.fetch(fetchDescriptor)
+    let asset = try #require(assets.first)
+
+    let priceHistory = try #require(asset.priceHistory?.first)
+    #expect(priceHistory.price == 1)
+  }
 }

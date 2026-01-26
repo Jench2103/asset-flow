@@ -43,6 +43,13 @@ final class Asset {
   }
 
   // Computed Properties
+  //
+  // Note: These computed properties chain together (e.g., currentValue uses quantity
+  // and currentPrice; costBasis uses averageCost which iterates transactions twice).
+  // Accessing a high-level property like unrealizedGainLoss triggers up to 5-6 full
+  // iterations over the transactions/priceHistory arrays. This is acceptable for MVP
+  // dataset sizes but should be revisited with caching or snapshotting if performance
+  // degrades with large portfolios. See Documentation/Architecture.md for details.
 
   /// Current quantity held, calculated from transactions
   var quantity: Decimal {

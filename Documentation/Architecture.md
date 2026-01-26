@@ -80,8 +80,9 @@ struct PortfolioView: View {
 1. **PortfolioDetailViewModel**: Portfolio detail view state
 
    - Asset list management
-   - Total value computation
+   - Total value computation with currency conversion
    - Portfolio metadata display
+   - `ExchangeRateService` injected via init (default: `.shared`) for testability
 
 1. **PortfolioManagementViewModel**: Portfolio list and operations
 
@@ -395,6 +396,22 @@ A critical architectural decision is how to compute an asset's state (e.g., quan
 - **Benefit**: When displaying an asset, the app will only need to load the latest snapshot and the few transactions that have occurred since. This provides near-instant access to both current and historical data, which is essential for timeline charts.
 
 This phased approach allows for rapid initial development while establishing a clear, robust plan for future scalability.
+
+### Known Complexity: Asset Computed Property Chains
+
+Asset computed properties chain together, causing multiple iterations per access:
+
+```
+unrealizedGainLoss
+├── currentValue
+│   ├── quantity          → iterates all transactions
+│   └── currentPrice      → iterates all priceHistory
+└── costBasis
+    ├── averageCost       → iterates transactions twice (filter + reduce)
+    └── quantity          → iterates all transactions (again)
+```
+
+Accessing `unrealizedGainLoss` or `unrealizedGainLossPercentage` triggers up to 5-6 full iterations over the transactions and priceHistory arrays. This is acceptable for MVP dataset sizes (typical user has \<100 transactions per asset) but is documented as known technical debt. The snapshotting mechanism described above (Phase 2) will address this when needed.
 
 ### General Optimization Strategies
 
