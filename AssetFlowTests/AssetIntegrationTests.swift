@@ -323,4 +323,61 @@ struct AssetIntegrationTests {
     // Current value = quantity * current price = 10 * 125.50 = 1255.00
     #expect(asset.currentValue == 1255.00)
   }
+
+  // MARK: - Current Price Date Tests
+
+  @Test("currentPriceDate returns nil when no price history exists")
+  func testCurrentPriceDate_NoPriceHistory_ReturnsNil() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "Test Asset", assetType: .stock)
+    context.insert(asset)
+
+    // Assert
+    #expect(asset.currentPriceDate == nil)
+  }
+
+  @Test("currentPriceDate returns date when single price record exists")
+  func testCurrentPriceDate_SingleRecord_ReturnsDate() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "Test Asset", assetType: .stock)
+    context.insert(asset)
+
+    let recordDate = Date()
+    let priceHistory = PriceHistory(date: recordDate, price: 100.0, asset: asset)
+    context.insert(priceHistory)
+
+    // Assert
+    #expect(asset.currentPriceDate != nil)
+    #expect(
+      Calendar.current.isDate(asset.currentPriceDate!, inSameDayAs: recordDate))
+  }
+
+  @Test("currentPriceDate returns most recent date when multiple records exist")
+  func testCurrentPriceDate_MultipleRecords_ReturnsMostRecentDate() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "Test Asset", assetType: .stock)
+    context.insert(asset)
+
+    let oldDate = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+    let recentDate = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+
+    let oldRecord = PriceHistory(date: oldDate, price: 90.0, asset: asset)
+    let recentRecord = PriceHistory(date: recentDate, price: 110.0, asset: asset)
+    context.insert(oldRecord)
+    context.insert(recentRecord)
+
+    // Assert
+    #expect(asset.currentPriceDate != nil)
+    #expect(
+      Calendar.current.isDate(asset.currentPriceDate!, inSameDayAs: recentDate))
+  }
 }

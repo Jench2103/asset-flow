@@ -224,6 +224,8 @@ ______________________________________________________________________
 
 ### Asset Detail Screen
 
+**Implementation Status**: ✅ Implemented in `AssetFlow/Views/AssetDetailView.swift`
+
 **Primary Purpose**: View and edit complete asset information
 
 **Visual Layout**
@@ -489,6 +491,10 @@ ______________________________________________________________________
 - ✅ Asset form validation (name, quantity, current value)
 - ✅ Loading state while fetching exchange rates
 - ✅ Cascading delete of transactions and price history
+- ✅ Asset rows navigate to Asset Detail screen (NavigationLink)
+- ✅ "View Price History" context menu on asset rows
+- ✅ Price history sheet accessible from context menu
+- ✅ Latest price date shown in asset rows
 - 🚧 Asset allocation chart (Phase 2)
 - 🚧 Performance metrics (Phase 2)
 
@@ -496,6 +502,188 @@ ______________________________________________________________________
 
 - Use distinct, accessible colors for asset types
 - Include legend with percentages
+
+______________________________________________________________________
+
+### Price History Modal
+
+**Implementation Status**: ✅ Implemented in `AssetFlow/Views/PriceHistoryView.swift`
+
+**Primary Purpose**: View, add, edit, and delete historical price records for an asset
+
+**Access Points**
+
+- **macOS**:
+
+  - Context menu on asset row (Asset List) → "View Price History"
+  - Button/link in Asset Detail screen
+  - Right-click on "Latest Price Date" field (future enhancement)
+
+- **iOS/iPadOS**:
+
+  - Long-press on asset row → "View Price History"
+  - Swipe action on asset row
+  - Button in Asset Detail screen
+
+**Visual Layout (macOS Modal)**
+
+```
+┌──────────────────────────────────────────────────┐
+│  ✕ Price History - Apple Inc. (AAPL)             │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  Asset: Apple Inc. (AAPL) | Stock | USD          │
+│  Current Price: $175.00 (Updated: Jan 15, 2025)  │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │ Price History                              │  │
+│  ├────────────────────────────────────────────┤  │
+│  │ Date         │  Price      │  Actions      │  │
+│  ├────────────────────────────────────────────┤  │
+│  │ Jan 15, 2025 │  $175.00    │ Edit | Delete │  │
+│  │ Jan 10, 2025 │  $170.50    │ Edit | Delete │  │
+│  │ Jan 5, 2025  │  $168.00    │ Edit | Delete │  │
+│  │ Dec 30, 2024 │  $165.00    │ Edit | Delete │  │
+│  │ Dec 25, 2024 │  $162.50    │ Edit | Delete │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  [+ Add Price Record]                            │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**Information Display**
+
+1. **Header**: Asset name, type, and currency
+1. **Current Price Summary**: Shows latest price and date
+1. **Price History List**: Table or list showing:
+   - Date (sorted newest first)
+   - Price (formatted as currency)
+   - Quick action buttons: Edit, Delete
+1. **Add Button**: Prominent button to create new price record
+
+**Interactions**
+
+- **Edit**: Click "Edit" button → Opens edit form (sheet or inline)
+- **Delete**: Click "Delete" button → Shows confirmation dialog
+- **Add**: Click "+ Add Price Record" → Opens form to add new record
+- **Close**: Click X or press Escape → Dismiss modal
+
+**Empty State**
+
+- Message: "No price history yet"
+- Shows add button to create first price record
+
+______________________________________________________________________
+
+### Add/Edit Price Record Form
+
+**Implementation Status**: ✅ Implemented in `AssetFlow/Views/PriceHistoryFormView.swift`
+
+**Primary Purpose**: Create or modify a price history record
+
+**Visual Layout**
+
+```
+┌──────────────────────────────────────────────────┐
+│  ✕ Cancel               Add Price Record    Save │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  Date *                                          │
+│  [ Jan 15, 2025 📅 ]                             │
+│  Cannot be in the future                         │
+│                                                  │
+│  Price *                                         │
+│  [ $175.00 ]                                     │
+│  Must be a positive number                       │
+│                                                  │
+│  [Cancel]                           [Save]       │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**Form Fields**
+
+1. **Date** (Required): Date picker
+
+   - Default: Today's date
+   - Cannot be in the future
+   - Validates on blur and submit
+
+1. **Price** (Required): Currency input field
+
+   - Default: Empty (for new) or existing price (for edit)
+   - Must be >= 0
+   - Accepts decimal values
+   - Formatted as currency with locale-aware separator
+
+**Validation**
+
+- Save button disabled until all required fields are valid
+- Real-time validation messages:
+  - Date: "Date cannot be in the future"
+  - Price: "Price must be a positive number"
+  - Empty fields: "[Field name] is required"
+- Messages shown in red below their respective fields
+
+**Interactions**
+
+- **Cancel**: Dismiss without saving
+- **Save**: Validate and persist to SwiftData
+  - If new: Create PriceHistory record, asset.currentPrice updates
+  - If edit: Update existing record, asset.currentPrice recalculates
+- **Date picker**: Click to open date selector
+- **Price field**: Type to enter or edit price
+
+**Editing Mode (Prepopulated)**
+
+When editing an existing record:
+
+- Date field shows the current date
+- Price field shows the current price
+- Form title: "Edit Price Record"
+- Submit button: "Save Changes"
+
+**Delete Confirmation Dialog**
+
+**When deleting a non-final record:**
+
+```
+┌──────────────────────────────────────────────────┐
+│  Delete Price Record?                            │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  Are you sure you want to delete the price       │
+│  record from Jan 15, 2025?                       │
+│                                                  │
+│  [Cancel]                      [Delete] ⚠️       │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**When trying to delete the last/only record:**
+
+```
+┌──────────────────────────────────────────────────┐
+│  Cannot Delete Last Price Record                 │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  An asset must have at least one price record.   │
+│                                                  │
+│  You can:                                        │
+│  • Edit this record to update the price          │
+│  • Delete the entire asset if no longer needed   │
+│                                                  │
+│  [OK]                                            │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**UI Behavior:**
+
+- Delete button is disabled (grayed out) on the last price record
+- Hover/tooltip on disabled button explains why: "Cannot delete the last price record"
+- This prevents accidental deletion and maintains data integrity
 
 ______________________________________________________________________
 

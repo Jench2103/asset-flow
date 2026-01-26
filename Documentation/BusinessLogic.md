@@ -354,6 +354,137 @@ This design prevents accidental changes to asset metadata while providing clear 
 
 ______________________________________________________________________
 
+## Price History Management
+
+**Implementation Status**: ✅ Implemented
+
+**Implementation Files**:
+
+- **Form ViewModel**: `AssetFlow/ViewModels/PriceHistoryFormViewModel.swift` — add/edit form with validation
+- **Management ViewModel**: `AssetFlow/ViewModels/PriceHistoryManagementViewModel.swift` — deletion flow
+- **Form View**: `AssetFlow/Views/PriceHistoryFormView.swift` — add/edit price record form
+- **List View**: `AssetFlow/Views/PriceHistoryView.swift` — price history modal with macOS Table
+- **Asset Detail**: `AssetFlow/Views/AssetDetailView.swift` — shows current price + date, link to price history
+- **Model**: `AssetFlow/Models/Asset.swift` — `currentPriceDate` computed property
+- **Tests**: `AssetFlowTests/PriceHistoryFormViewModelTests.swift` (22 tests), `AssetFlowTests/PriceHistoryManagementViewModelTests.swift` (16 tests), `AssetFlowTests/AssetIntegrationTests.swift` (3 additional tests)
+
+### Price History CRUD Operations
+
+**Create Price Record**
+
+1. User opens price history modal/sheet for an asset
+1. Clicks "Add Price Record" button
+1. Fills in date (defaults to today) and price
+1. Validates:
+   - Date cannot be in the future
+   - Date cannot duplicate an existing price record for this asset
+   - Price must be a positive number (>= 0)
+1. On save:
+   - Creates new `PriceHistory` record linked to asset
+   - Persists to SwiftData automatically
+   - If this is the only/latest price, `Asset.currentPrice` updates
+   - All dependent calculations (current value, gains/losses) recalculate
+
+**Read Price History**
+
+1. Asset's `priceHistory` relationship contains all price records
+1. `Asset.currentPrice` computed property retrieves the most recent price:
+   ```swift
+   priceHistory?.sorted(by: { $0.date > $1.date }).first?.price ?? 0
+   ```
+1. Price history displayed in chronological order (newest first)
+1. `Asset.currentPriceDate` computed property returns date of latest price
+
+**Update Price Record**
+
+1. User selects "Edit" on a price history entry
+1. Form pre-populates with existing date and price
+1. User modifies date and/or price
+1. Validation:
+   - Same date validation as "Create"
+   - **When changing date**: Ensure new date doesn't duplicate another record (except itself)
+   - Price validation same as "Create"
+1. On save:
+   - Updates existing `PriceHistory` record in-place
+   - Persists changes to SwiftData
+   - If edited record is the latest, `Asset.currentPrice` recalculates
+   - If edited record was latest and no longer latest, recalculates to the new latest
+
+**Delete Price Record**
+
+**Validation:**
+
+- Before allowing deletion, check if this is the last/only price record
+- Constraint: `priceHistory.count >= 2` must be true to delete
+- If constraint fails (last record):
+  - Prevent deletion
+  - Show info dialog: "An asset must have at least one price record"
+  - Suggest alternatives: edit the record or delete the entire asset
+
+**If validation passes (not the last record):**
+
+1. User selects "Delete" on a price history entry
+1. Confirmation dialog appears showing date of record
+1. On confirmation:
+   - Deletes `PriceHistory` record from SwiftData
+   - If deleted record was the latest, `Asset.currentPrice` recalculates to remaining latest
+   - All dependent calculations update accordingly
+
+**Cascading delete (when asset is deleted):**
+
+- All associated `PriceHistory` records deleted automatically via `.cascade` rule
+- Asset deletion has no minimum price history requirement (entire asset is removed)
+
+### Price Validation Rules
+
+**Date Validation**
+
+- Cannot be in the future
+- Must be a valid date
+- Must not duplicate an existing price record date for this asset
+- Allows historical dates (including very old)
+- No artificial limits on how far back prices can be recorded
+
+**Price Validation**
+
+- Must be a valid `Decimal` number
+- Must be >= 0 (zero allowed for zero-value assets)
+- No upper limit
+
+**Deletion Constraint**
+
+- An asset must maintain at least one price history record at all times
+- Validation: `priceHistory.count >= 2` required before allowing deletion
+- Prevents assets from becoming "priceless" and breaking value calculations
+- Users can still delete the entire asset if needed (cascades all price history)
+
+### Latest Price Display
+
+**Asset List Screen**
+
+- Show date of latest price next to current value
+- Format: "Updated: Jan 15, 2025"
+- If no price history: "No price recorded"
+- Date is clickable to open price history modal (future enhancement)
+
+**Asset Detail Screen**
+
+- Display current price with recorded date
+- Example: "$175.00 (Updated: Jan 15, 2025)"
+- Include "View Price History" button to access modal
+
+### Current Price Recalculation
+
+Whenever price history changes, `Asset.currentPrice` recalculates:
+
+1. If price history is not empty: Returns most recent (by date) price
+1. If price history is empty: Returns 0
+1. Duplicate dates are prevented, so this logic is deterministic
+
+This ensures `currentValue` and all dependent calculations always reflect the latest available price.
+
+______________________________________________________________________
+
 ## Asset Deletion
 
 **Business Rule**: Assets can be deleted at any time without restrictions.

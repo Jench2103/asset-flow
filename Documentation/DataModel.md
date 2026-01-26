@@ -167,7 +167,7 @@ ______________________________________________________________________
 
 ### PriceHistory
 
-Represents the price of an asset at a specific point in time.
+Represents the price of an asset at a specific point in time. Price history enables users to track how asset prices have changed and provides the basis for calculating `Asset.currentPrice`.
 
 **File**: `AssetFlow/Models/PriceHistory.swift`
 
@@ -186,7 +186,45 @@ Represents the price of an asset at a specific point in time.
 var asset: Asset?
 ```
 
-- **Asset**: The parent asset this price point belongs to.
+- **Asset**: The parent asset this price point belongs to
+
+#### Constraints
+
+- **Unique Date per Asset**: An asset cannot have multiple price records for the same date
+- **No Future Dates**: Price records cannot have dates in the future
+- **Non-negative Price**: Price must be >= 0
+- **Minimum Price History**: An asset must maintain at least one price history record (deletion prevented if last record)
+
+#### Usage
+
+Price history records are created:
+
+1. Automatically when a new asset is created with an initial price
+1. Manually by users via the Price History modal
+1. Future: Automatically via price data API integrations
+
+#### Computed Property on Asset
+
+```swift
+// The most recent price from price history
+var currentPrice: Decimal {
+    priceHistory?.sorted(by: { $0.date > $1.date }).first?.price ?? 0
+}
+
+// The date of the most recent price (future)
+var currentPriceDate: Date? {
+    priceHistory?.sorted(by: { $0.date > $1.date }).first?.date
+}
+```
+
+#### CRUD Operations
+
+- **Create**: New price records added via Price History modal or during asset creation
+- **Read**: All price records accessible via `asset.priceHistory` relationship
+- **Update**: Existing price records can be edited (date and/or price)
+- **Delete**: Price records can be deleted with cascade cleanup when asset is deleted
+
+See [BusinessLogic.md](BusinessLogic.md#price-history-management) for detailed CRUD operations and validation rules.
 
 ______________________________________________________________________
 

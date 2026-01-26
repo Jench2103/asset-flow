@@ -51,7 +51,12 @@ final class Asset {
 
   /// The most recent price from price history
   var currentPrice: Decimal {
-    priceHistory?.sorted(by: { $0.date > $1.date }).first?.price ?? 0
+    priceHistory?.max(by: { $0.date < $1.date })?.price ?? 0
+  }
+
+  /// The date of the most recent price from price history
+  var currentPriceDate: Date? {
+    priceHistory?.max(by: { $0.date < $1.date })?.date
   }
 
   /// Current total value of the asset

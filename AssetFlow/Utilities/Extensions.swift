@@ -48,6 +48,11 @@ extension Date {
     return formatter.string(from: self)
   }
 
+  /// Formats the date using the system's short date format (date only, no time).
+  var formattedDate: String {
+    formatted(style: .short)
+  }
+
   var startOfDay: Date {
     Calendar.current.startOfDay(for: self)
   }

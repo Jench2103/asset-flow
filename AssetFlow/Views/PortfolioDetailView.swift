@@ -19,6 +19,7 @@ struct PortfolioDetailView: View {
   @Environment(\.modelContext) private var modelContext
   @State private var showingAddAsset = false
   @State private var editingAsset: Asset?
+  @State private var priceHistoryAsset: Asset?
 
   var body: some View {
     Group {
@@ -113,6 +114,21 @@ struct PortfolioDetailView: View {
         Text(error.errorDescription ?? "An unknown error occurred.")
       }
     )
+    .sheet(
+      item: $priceHistoryAsset,
+      onDismiss: {
+        viewModel.calculateTotalValue()
+      },
+      content: { asset in
+        NavigationStack {
+          PriceHistoryView(
+            asset: asset,
+            managementViewModel: PriceHistoryManagementViewModel(
+              asset: asset, modelContext: modelContext)
+          )
+        }
+      }
+    )
   }
 
   // MARK: - Asset List Content
@@ -125,26 +141,37 @@ struct PortfolioDetailView: View {
       // Assets List
       List {
         ForEach(viewModel.assets) { asset in
-          AssetRowView(asset: asset)
-            .accessibilityIdentifier("Asset-\(asset.name)")
-            .contextMenu {
-              Button {
-                editingAsset = asset
-              } label: {
-                Label("Edit", systemImage: "pencil")
-              }
-
-              Divider()
-
-              Button(role: .destructive) {
-                assetManagementViewModel.initiateDelete(asset: asset)
-              } label: {
-                Label("Delete", systemImage: "trash")
-              }
+          NavigationLink(value: asset) {
+            AssetRowView(asset: asset)
+          }
+          .accessibilityIdentifier("Asset-\(asset.name)")
+          .contextMenu {
+            Button {
+              editingAsset = asset
+            } label: {
+              Label("Edit", systemImage: "pencil")
             }
+
+            Button {
+              priceHistoryAsset = asset
+            } label: {
+              Label("View Price History", systemImage: "chart.line.uptrend.xyaxis")
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+              assetManagementViewModel.initiateDelete(asset: asset)
+            } label: {
+              Label("Delete", systemImage: "trash")
+            }
+          }
         }
       }
       .accessibilityIdentifier("Asset List")
+      .navigationDestination(for: Asset.self) { asset in
+        AssetDetailView(asset: asset)
+      }
     }
   }
 
@@ -279,6 +306,17 @@ private struct AssetRowView: View {
               .font(.caption)
               .foregroundStyle(.secondary)
           }
+        }
+
+        // Latest price date
+        if let priceDate = asset.currentPriceDate {
+          Text("Updated: \(priceDate.formattedDate)")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        } else {
+          Text("No price recorded")
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
       }
     }
