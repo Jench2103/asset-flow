@@ -223,7 +223,7 @@ ______________________________________________________________________
    - User interaction tracking
    - Form state management
 
-1. **TransactionFormViewModelTests** (27 tests)
+1. **TransactionFormViewModelTests** (38 tests)
 
    - Default initialization and price pre-fill from asset
    - Date validation (today, past, future)
@@ -235,12 +235,23 @@ ______________________________________________________________________
    - Sell/transferOut quantity capped at current holdings
    - Cash asset display names ("Deposit"/"Withdrawal")
    - User interaction flag tracking
+   - Edit mode: field pre-population, isEditing flag, navigationTitle
+   - Edit mode: interaction flags set to true
+   - Edit mode: quantity validation excludes current transaction's impact
+   - Edit mode: resulting quantity must be >= 0
+   - Edit mode: save updates in-place (no new insert, count unchanged)
+   - Edit mode: cash asset price stays at 1
 
-1. **TransactionHistoryViewModelTests** (7 tests)
+1. **TransactionManagementViewModelTests** (20 tests)
 
+   - Init default state (no pending deletion)
    - Sorted transactions (newest first)
    - Empty transaction list
    - Transaction count
+   - canDelete validation (sell/transferOut always safe, buy safe when quantity >= 0, buy unsafe when negative)
+   - Initiate delete (safe → confirmation, unsafe → error)
+   - Confirm delete (removes transaction, resets state, updates asset quantity)
+   - Cancel delete (resets all state, preserves transactions)
    - Field preservation across sorting
    - Multiple transaction types ordering
    - Same-date transaction handling

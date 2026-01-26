@@ -8,23 +8,26 @@
 import SwiftData
 import SwiftUI
 
-/// Transaction History View - Displays a chronological list of transactions for an asset.
+/// Transaction History View - Displays and manages transactions for an asset.
 ///
 /// Primary platform: macOS (uses Table component)
-/// Shows asset info header, transaction table with type, date, quantity, and total amount.
+/// Shows asset info header, transaction table with context menu actions,
+/// and provides add/edit/delete functionality.
 struct TransactionHistoryView: View {
   let asset: Asset
-  @State var viewModel: TransactionHistoryViewModel
+  @State var managementViewModel: TransactionManagementViewModel
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
 
+  @State private var selectedTransactionID: Transaction.ID?
   @State private var showingAddTransaction = false
+  @State private var editingTransaction: Transaction?
 
   var body: some View {
     VStack(spacing: 0) {
       assetInfoHeader
 
-      if viewModel.sortedTransactions.isEmpty {
+      if managementViewModel.sortedTransactions.isEmpty {
         emptyStateView
       } else {
         transactionContent
@@ -56,6 +59,51 @@ struct TransactionHistoryView: View {
         )
       }
     }
+    .sheet(item: $editingTransaction) { transaction in
+      NavigationStack {
+        TransactionFormView(
+          viewModel: TransactionFormViewModel(
+            modelContext: modelContext, asset: asset, transaction: transaction)
+        )
+      }
+    }
+    .confirmationDialog(
+      "Delete Transaction",
+      isPresented: $managementViewModel.showingDeleteConfirmation,
+      presenting: managementViewModel.transactionToDelete,
+      actions: { _ in
+        Button("Delete", role: .destructive) {
+          managementViewModel.confirmDelete()
+        }
+        Button("Cancel", role: .cancel) {
+          managementViewModel.cancelDelete()
+        }
+      },
+      message: { transaction in
+        let typeName = transactionDisplayName(
+          for: transaction.transactionType
+        ).lowercased()
+        let date = transaction.transactionDate.formattedDate
+        Text(
+          "Are you sure you want to delete the \(typeName)"
+            + " transaction from \(date)?"
+        )
+      }
+    )
+    .alert(
+      managementViewModel.deletionError?.errorDescription ?? "Cannot Delete Transaction",
+      isPresented: $managementViewModel.showingDeletionError,
+      actions: {
+        Button("OK") {
+          managementViewModel.showingDeletionError = false
+        }
+      },
+      message: {
+        Text(
+          managementViewModel.deletionError?.recoverySuggestion ?? ""
+        )
+      }
+    )
   }
 
   // MARK: - Asset Info Header
@@ -91,7 +139,7 @@ struct TransactionHistoryView: View {
             .font(.title3)
             .fontWeight(.medium)
 
-          Text("\(viewModel.transactionCount) transaction(s)")
+          Text("\(managementViewModel.transactionCount) transaction(s)")
             .font(.caption)
             .foregroundStyle(.secondary)
         }
@@ -111,7 +159,7 @@ struct TransactionHistoryView: View {
 
   private var transactionContent: some View {
     #if os(macOS)
-      Table(viewModel.sortedTransactions) {
+      Table(managementViewModel.sortedTransactions, selection: $selectedTransactionID) {
         TableColumn("Type") { transaction in
           Text(transactionDisplayName(for: transaction.transactionType))
         }
@@ -127,8 +175,29 @@ struct TransactionHistoryView: View {
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
       }
+      .contextMenu(forSelectionType: Transaction.ID.self) { selectedIDs in
+        if let selectedID = selectedIDs.first,
+          let transaction = managementViewModel.sortedTransactions.first(where: {
+            $0.id == selectedID
+          })
+        {
+          Button {
+            editingTransaction = transaction
+          } label: {
+            Label("Edit", systemImage: "pencil")
+          }
+
+          Divider()
+
+          Button(role: .destructive) {
+            managementViewModel.initiateDelete(transaction: transaction)
+          } label: {
+            Label("Delete", systemImage: "trash")
+          }
+        }
+      }
     #else
-      List(viewModel.sortedTransactions) { transaction in
+      List(managementViewModel.sortedTransactions) { transaction in
         VStack(alignment: .leading, spacing: 4) {
           HStack {
             Text(transactionDisplayName(for: transaction.transactionType))
@@ -145,6 +214,21 @@ struct TransactionHistoryView: View {
             Text(transaction.totalAmount.formatted(currency: asset.currency))
               .font(.subheadline)
               .fontWeight(.medium)
+          }
+        }
+        .contextMenu {
+          Button {
+            editingTransaction = transaction
+          } label: {
+            Label("Edit", systemImage: "pencil")
+          }
+
+          Divider()
+
+          Button(role: .destructive) {
+            managementViewModel.initiateDelete(transaction: transaction)
+          } label: {
+            Label("Delete", systemImage: "trash")
           }
         }
       }

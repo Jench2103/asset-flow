@@ -55,7 +55,8 @@ struct AssetDetailView: View {
       NavigationStack {
         TransactionHistoryView(
           asset: asset,
-          viewModel: TransactionHistoryViewModel(asset: asset)
+          managementViewModel: TransactionManagementViewModel(
+            asset: asset, modelContext: modelContext)
         )
       }
     }

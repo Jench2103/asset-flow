@@ -583,7 +583,7 @@ ______________________________________________________________________
 
 **Implementation Status**: ✅ Implemented in `AssetFlow/Views/TransactionHistoryView.swift`
 
-**Primary Purpose**: View a chronological list of transactions for an asset
+**Primary Purpose**: View, add, edit, and delete transactions for an asset
 
 **Access Points**
 
@@ -615,14 +615,54 @@ ______________________________________________________________________
 **Information Display**
 
 1. **Header**: Asset name, type, currency, current price, transaction count
-1. **Transaction Table (macOS)**: Table with 4 columns — Type, Date, Quantity, Total Amount
+1. **Transaction Table (macOS)**: Table with 4 columns — Type, Date, Quantity, Total Amount. Supports row selection.
 1. **Transaction List (iOS)**: Two-row layout per transaction (type+date top, quantity+amount bottom)
 1. **Cash-friendly labels**: For cash assets, "Buy" displays as "Deposit" and "Sell" as "Withdrawal"
 
 **Interactions**
 
 - **Add**: Click "+" button → Opens "Record Transaction" form
+- **Edit**: Right-click transaction row (macOS) or long-press (iOS) → Context menu → "Edit" → Opens edit form in sheet with pre-populated fields
+- **Delete**: Right-click transaction row (macOS) or long-press (iOS) → Context menu → "Delete" → Shows confirmation dialog or error alert if deletion would cause negative quantity
 - **Close**: Click "Close" or press Escape → Dismiss modal
+
+**Context Menu Options**:
+
+- **Edit** (pencil icon): Opens transaction form in edit mode with all fields pre-populated
+- **Delete** (trash icon, destructive): Validates and shows confirmation dialog or error alert
+
+**Delete Confirmation Dialog**:
+
+```
+┌──────────────────────────────────────────────────┐
+│  Delete Transaction?                             │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  Are you sure you want to delete the buy         │
+│  transaction from Jan 15, 2025?                  │
+│                                                  │
+│  [Cancel]                        [Delete] ⚠️     │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**Delete Error Alert (negative quantity)**:
+
+```
+┌──────────────────────────────────────────────────┐
+│  Cannot Delete Transaction                       │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  Deleting this transaction would cause the       │
+│  asset quantity to become negative.              │
+│                                                  │
+│  Delete or edit other transactions first to      │
+│  ensure the quantity remains valid.              │
+│                                                  │
+│  [OK]                                            │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
 
 **Empty State**
 
@@ -633,16 +673,16 @@ ______________________________________________________________________
 
 **Platform Behavior**
 
-- **macOS**: Uses `Table` component with 4 columns, minimum frame 600×400
-- **iOS**: Uses `List` with two-row layout per transaction
+- **macOS**: Uses `Table` component with 4 columns and row selection, minimum frame 600×400. Context menu via `.contextMenu(forSelectionType:)`.
+- **iOS**: Uses `List` with two-row layout per transaction. Context menu via `.contextMenu` on each row.
 
 ______________________________________________________________________
 
-### Record Transaction Form
+### Record/Edit Transaction Form
 
 **Implementation Status**: ✅ Implemented in `AssetFlow/Views/TransactionFormView.swift`
 
-**Primary Purpose**: Record a new financial transaction for an asset
+**Primary Purpose**: Record a new or edit an existing financial transaction for an asset
 
 **Visual Layout**
 
@@ -694,8 +734,18 @@ ______________________________________________________________________
 **Interactions**
 
 - **Cancel**: Dismiss without saving
-- **Save**: Validate and create transaction, dismiss
+- **Save**: Validate and create/update transaction, dismiss
 - **Type change**: Re-validates quantity for sell/transferOut constraints
+
+**Editing Mode (Prepopulated)**
+
+When editing an existing transaction:
+
+- All fields pre-populated from existing transaction data
+- All interaction flags set to `true` (validation messages show immediately)
+- Form title: "Edit Transaction"
+- Quantity validation uses edit-aware logic: `baseQuantity + newImpact >= 0`
+- Cash assets: price per unit stays locked at 1
 
 ______________________________________________________________________
 

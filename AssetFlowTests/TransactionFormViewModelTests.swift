@@ -496,4 +496,224 @@ struct TransactionFormViewModelTests {
 
     #expect(viewModel.hasPricePerUnitInteraction == true)
   }
+
+  // MARK: - Edit Mode Tests
+
+  @Test("Edit mode init populates all fields from existing transaction")
+  func testEditMode_InitPopulatesFields() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let asset = createAssetWithHoldings(context: context, quantity: 10, pricePerUnit: 100)
+    let transaction = asset.transactions!.first!
+
+    let viewModel = TransactionFormViewModel(
+      modelContext: context, asset: asset, transaction: transaction)
+
+    #expect(viewModel.transactionType == .buy)
+    #expect(viewModel.quantityText == "10")
+    #expect(viewModel.pricePerUnitText == "100")
+  }
+
+  @Test("Edit mode: isEditing returns true")
+  func testEditMode_IsEditing_ReturnsTrue() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let asset = createAssetWithHoldings(context: context, quantity: 10, pricePerUnit: 100)
+    let transaction = asset.transactions!.first!
+
+    let viewModel = TransactionFormViewModel(
+      modelContext: context, asset: asset, transaction: transaction)
+
+    #expect(viewModel.isEditing == true)
+  }
+
+  @Test("Create mode: isEditing returns false")
+  func testCreateMode_IsEditing_ReturnsFalse() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let asset = createAsset(context: context)
+
+    let viewModel = TransactionFormViewModel(modelContext: context, asset: asset)
+
+    #expect(viewModel.isEditing == false)
+  }
+
+  @Test("Edit mode: navigationTitle returns Edit Transaction")
+  func testEditMode_NavigationTitle() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let asset = createAssetWithHoldings(context: context, quantity: 10, pricePerUnit: 100)
+    let transaction = asset.transactions!.first!
+
+    let viewModel = TransactionFormViewModel(
+      modelContext: context, asset: asset, transaction: transaction)
+
+    #expect(viewModel.navigationTitle == "Edit Transaction")
+  }
+
+  @Test("Create mode: navigationTitle returns Record Transaction")
+  func testCreateMode_NavigationTitle() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let asset = createAsset(context: context)
+
+    let viewModel = TransactionFormViewModel(modelContext: context, asset: asset)
+
+    #expect(viewModel.navigationTitle == "Record Transaction")
+  }
+
+  @Test("Edit mode: all interaction flags set to true")
+  func testEditMode_InteractionFlagsSetToTrue() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let asset = createAssetWithHoldings(context: context, quantity: 10, pricePerUnit: 100)
+    let transaction = asset.transactions!.first!
+
+    let viewModel = TransactionFormViewModel(
+      modelContext: context, asset: asset, transaction: transaction)
+
+    #expect(viewModel.hasDateInteraction == true)
+    #expect(viewModel.hasQuantityInteraction == true)
+    #expect(viewModel.hasPricePerUnitInteraction == true)
+  }
+
+  @Test("Edit mode: sell quantity validation excludes current transaction's impact")
+  func testEditMode_SellQuantityValidation_ExcludesCurrentImpact() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let asset = createAssetWithHoldings(context: context, quantity: 10, pricePerUnit: 100)
+    let transaction = asset.transactions!.first!
+
+    // Current quantity = 10 (from buy(10))
+    // Edit to sell: baseQuantity = 10 - 10 = 0, newImpact = -5, resulting = -5 → invalid
+    let viewModel = TransactionFormViewModel(
+      modelContext: context, asset: asset, transaction: transaction)
+    viewModel.transactionType = .sell
+    viewModel.quantityText = "5"
+
+    // baseQuantity = 10 - 10 (existing buy impact) = 0
+    // newImpact = -5 (sell), resulting = -5 → should show error
+    #expect(viewModel.quantityValidationMessage != nil)
+  }
+
+  @Test("Edit mode: general validation ensures resulting quantity >= 0")
+  func testEditMode_ResultingQuantityMustBeNonNegative() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let asset = createAsset(context: context)
+    // Buy 10, then buy 5
+    let buy1 = Transaction(
+      transactionType: .buy,
+      transactionDate: Date(),
+      quantity: 10,
+      pricePerUnit: 100,
+      totalAmount: 1000,
+      currency: "USD",
+      asset: asset
+    )
+    context.insert(buy1)
+    let buy2 = Transaction(
+      transactionType: .buy,
+      transactionDate: Date(),
+      quantity: 5,
+      pricePerUnit: 100,
+      totalAmount: 500,
+      currency: "USD",
+      asset: asset
+    )
+    context.insert(buy2)
+    // Add a sell transaction
+    let sellTransaction = Transaction(
+      transactionType: .sell,
+      transactionDate: Date(),
+      quantity: 3,
+      pricePerUnit: 110,
+      totalAmount: 330,
+      currency: "USD",
+      asset: asset
+    )
+    context.insert(sellTransaction)
+
+    // Current quantity = 10 + 5 - 3 = 12
+    // Edit the sell(3) to sell(20):
+    // baseQuantity = 12 - (-3) = 15
+    // newImpact = -20
+    // resulting = 15 - 20 = -5 → should fail
+    let viewModel = TransactionFormViewModel(
+      modelContext: context, asset: asset, transaction: sellTransaction)
+    viewModel.quantityText = "20"
+
+    #expect(viewModel.quantityValidationMessage != nil)
+  }
+
+  @Test("Edit mode: save updates existing transaction in-place")
+  func testEditMode_Save_UpdatesInPlace() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let asset = createAssetWithHoldings(context: context, quantity: 10, pricePerUnit: 100)
+    let transaction = asset.transactions!.first!
+    let originalID = transaction.id
+
+    let viewModel = TransactionFormViewModel(
+      modelContext: context, asset: asset, transaction: transaction)
+    viewModel.quantityText = "15"
+    viewModel.pricePerUnitText = "110"
+    viewModel.save()
+
+    // Should update the existing transaction, not create a new one
+    #expect(asset.transactions?.count == 1)
+    let updated = asset.transactions!.first!
+    #expect(updated.id == originalID)
+    #expect(updated.quantity == 15)
+    #expect(updated.pricePerUnit == 110)
+    #expect(updated.totalAmount == 1650)
+  }
+
+  @Test("Edit mode: save does not change transaction count")
+  func testEditMode_Save_DoesNotChangeCount() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let asset = createAssetWithHoldings(context: context, quantity: 10, pricePerUnit: 100)
+    let transaction = asset.transactions!.first!
+
+    let countBefore = asset.transactions?.count ?? 0
+
+    let viewModel = TransactionFormViewModel(
+      modelContext: context, asset: asset, transaction: transaction)
+    viewModel.quantityText = "15"
+    viewModel.pricePerUnitText = "110"
+    viewModel.save()
+
+    #expect(asset.transactions?.count == countBefore)
+  }
+
+  @Test("Edit mode: cash asset price stays at 1")
+  func testEditMode_CashAsset_PriceStaysAt1() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let asset = createAsset(context: context, assetType: .cash)
+    let transaction = Transaction(
+      transactionType: .buy,
+      transactionDate: Date(),
+      quantity: 1000,
+      pricePerUnit: 1,
+      totalAmount: 1000,
+      currency: "USD",
+      asset: asset
+    )
+    context.insert(transaction)
+
+    let viewModel = TransactionFormViewModel(
+      modelContext: context, asset: asset, transaction: transaction)
+
+    #expect(viewModel.pricePerUnitText == "1")
+    #expect(viewModel.isCashAsset == true)
+
+    // Editing quantity should keep price at 1
+    viewModel.quantityText = "2000"
+    viewModel.save()
+
+    #expect(transaction.pricePerUnit == 1)
+    #expect(transaction.totalAmount == 2000)
+  }
 }

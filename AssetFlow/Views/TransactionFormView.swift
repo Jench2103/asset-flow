@@ -125,7 +125,7 @@ struct TransactionFormView: View {
       )
     }
     .formStyle(.grouped)
-    .navigationTitle("Record Transaction")
+    .navigationTitle(viewModel.navigationTitle)
     #if os(macOS)
       .padding()
       .frame(minWidth: 400, minHeight: 300)

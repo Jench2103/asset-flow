@@ -147,18 +147,20 @@ ______________________________________________________________________
 | `dividend`    | Positive          | Income received from a `sourceAsset`. Typically affects a `cash` asset.                                     |
 | `interest`    | Positive          | Interest received from a `sourceAsset`. Can affect a `cash` asset or be in-kind.                            |
 
-### Transaction Creation Workflow
+### Transaction CRUD Operations
 
-**Implementation Status**: ✅ Implemented
+**Implementation Status**: ✅ Implemented (Create, Read, Update, Delete)
 
 **Implementation Files**:
 
-- **Form ViewModel**: `AssetFlow/ViewModels/TransactionFormViewModel.swift` — form validation and save logic
-- **History ViewModel**: `AssetFlow/ViewModels/TransactionHistoryViewModel.swift` — sorted list display
-- **Form View**: `AssetFlow/Views/TransactionFormView.swift` — record transaction form
-- **History View**: `AssetFlow/Views/TransactionHistoryView.swift` — transaction history modal
+- **Form ViewModel**: `AssetFlow/ViewModels/TransactionFormViewModel.swift` — create/edit form validation and save logic
+- **Management ViewModel**: `AssetFlow/ViewModels/TransactionManagementViewModel.swift` — deletion flow and list state
+- **Form View**: `AssetFlow/Views/TransactionFormView.swift` — record/edit transaction form
+- **History View**: `AssetFlow/Views/TransactionHistoryView.swift` — transaction history modal with context menu actions
 - **Asset Detail**: `AssetFlow/Views/AssetDetailView.swift` — buttons to access transaction features
-- **Tests**: `AssetFlowTests/TransactionFormViewModelTests.swift`, `AssetFlowTests/TransactionHistoryViewModelTests.swift`
+- **Tests**: `AssetFlowTests/TransactionFormViewModelTests.swift`, `AssetFlowTests/TransactionManagementViewModelTests.swift`
+
+### Transaction Creation Workflow
 
 **Form Validation Rules**:
 
@@ -231,6 +233,63 @@ To provide a more intuitive user experience, the UI will display different label
 - If `asset.assetType == .cash` and `transaction.type == .sell`, the UI will show **"Withdrawal"**.
 
 This is a presentation-layer concern; the underlying data model remains consistent.
+
+### Transaction Edit Workflow
+
+**Implementation Status**: ✅ Implemented
+
+1. User selects "Edit" on a transaction entry (context menu)
+1. Form pre-populates with existing transaction data (type, date, quantity, price)
+1. All interaction flags set to `true` so validation messages show immediately
+1. User modifies any fields
+
+**Edit Validation Rules**:
+
+- Same base validation as creation (date not in future, quantity > 0, price >= 0)
+- **Resulting quantity check**: The asset's quantity after the edit must remain >= 0
+  - Formula: `baseQuantity + newImpact >= 0`
+  - Where `baseQuantity = asset.quantity - existingTransaction.quantityImpact`
+  - Where `newImpact` is the quantity impact of the edited transaction values
+- This covers type changes (e.g., buy → sell), quantity changes, and all edge cases
+- Cash assets: price per unit stays locked at 1 in edit mode (same as create)
+
+**Save Behavior**:
+
+- Updates the existing `Transaction` record in-place (no new insert)
+- Transaction count remains unchanged
+- Asset quantity recalculates automatically via computed property
+
+### Transaction Delete Workflow
+
+**Implementation Status**: ✅ Implemented
+
+**Delete Validation**:
+
+- Before allowing deletion, check if removing the transaction would cause negative quantity
+- Constraint: `(asset.quantity - transaction.quantityImpact) >= 0`
+- Removing a buy/transferIn/dividend/interest transaction decreases the asset's quantity
+- Removing a sell/transferOut transaction increases the asset's quantity
+
+**If validation passes (quantity remains valid)**:
+
+1. User selects "Delete" on a transaction entry (context menu)
+1. Confirmation dialog appears showing transaction type and date
+1. On confirmation:
+   - Deletes `Transaction` record from SwiftData
+   - Asset quantity recalculates automatically
+   - All dependent calculations update accordingly
+
+**If validation fails (would cause negative quantity)**:
+
+1. User selects "Delete" on a transaction entry (context menu)
+1. Error alert appears: "Cannot Delete Transaction"
+1. Message: "Deleting this transaction would cause the asset quantity to become negative."
+1. Recovery suggestion: "Delete or edit other transactions first to ensure the quantity remains valid."
+
+**Cascading delete (when asset is deleted)**:
+
+- All associated `Transaction` records deleted automatically via `.cascade` rule
+- Asset deletion has no transaction-level validation (entire asset is removed)
 
 ______________________________________________________________________
 

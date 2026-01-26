@@ -9,10 +9,10 @@ import Foundation
 import Observation
 import SwiftData
 
-/// Manages the state and validation for the transaction creation form.
+/// Manages the state and validation for the transaction creation and editing form.
 ///
 /// This ViewModel holds form data, performs real-time validation on all fields,
-/// calculates the total amount, and handles saving new `Transaction` records.
+/// calculates the total amount, and handles saving new or updated `Transaction` records.
 @Observable
 @MainActor
 class TransactionFormViewModel {
@@ -79,8 +79,19 @@ class TransactionFormViewModel {
 
   private var modelContext: ModelContext
   let asset: Asset
+  private let existingTransaction: Transaction?
 
   // MARK: - Computed Properties
+
+  /// Whether this is an edit operation on an existing transaction
+  var isEditing: Bool {
+    existingTransaction != nil
+  }
+
+  /// Navigation title based on editing state
+  var navigationTitle: String {
+    isEditing ? "Edit Transaction" : "Record Transaction"
+  }
 
   /// Whether this asset is a cash type (price is always 1)
   var isCashAsset: Bool {
@@ -108,27 +119,47 @@ class TransactionFormViewModel {
 
   // MARK: - Initializer
 
-  /// Initializes the ViewModel for creating a new transaction.
+  /// Initializes the ViewModel for creating or editing a transaction.
   ///
   /// - Parameters:
   ///   - modelContext: The `ModelContext` for data persistence
   ///   - asset: The asset this transaction belongs to
-  init(modelContext: ModelContext, asset: Asset) {
+  ///   - transaction: The existing transaction to edit (nil for new transaction)
+  init(modelContext: ModelContext, asset: Asset, transaction: Transaction? = nil) {
     self.modelContext = modelContext
     self.asset = asset
+    self.existingTransaction = transaction
 
-    // Set defaults
-    self.transactionType = .buy
-    self.transactionDate = Date()
-    self.quantityText = ""
+    if let transaction = transaction {
+      // Edit mode: pre-populate from existing transaction
+      self.transactionType = transaction.transactionType
+      self.transactionDate = transaction.transactionDate
+      self.quantityText = "\(transaction.quantity)"
 
-    // Cash assets always have price per unit = 1
-    if asset.assetType == .cash {
-      self.pricePerUnitText = "1"
+      if asset.assetType == .cash {
+        self.pricePerUnitText = "1"
+      } else {
+        self.pricePerUnitText = "\(transaction.pricePerUnit)"
+      }
+
+      // In edit mode, show validation messages immediately
+      self.hasDateInteraction = true
+      self.hasQuantityInteraction = true
+      self.hasPricePerUnitInteraction = true
     } else {
-      // Pre-fill price with asset's current price if available
-      let currentPrice = asset.currentPrice
-      self.pricePerUnitText = currentPrice > 0 ? "\(currentPrice)" : ""
+      // Create mode: set defaults
+      self.transactionType = .buy
+      self.transactionDate = Date()
+      self.quantityText = ""
+
+      // Cash assets always have price per unit = 1
+      if asset.assetType == .cash {
+        self.pricePerUnitText = "1"
+      } else {
+        // Pre-fill price with asset's current price if available
+        let currentPrice = asset.currentPrice
+        self.pricePerUnitText = currentPrice > 0 ? "\(currentPrice)" : ""
+      }
     }
 
     // Perform initial validation
@@ -155,7 +186,8 @@ class TransactionFormViewModel {
 
   /// Saves the transaction to the ModelContext.
   ///
-  /// Creates a new `Transaction` linked to the asset with the current form values.
+  /// For new transactions, creates a new `Transaction` linked to the asset.
+  /// For existing transactions, updates the record in-place.
   func save() {
     guard !isSaveDisabled else { return }
     let trimmedQuantity = quantityText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -173,16 +205,26 @@ class TransactionFormViewModel {
 
     let totalAmount = quantity * pricePerUnit
 
-    let transaction = Transaction(
-      transactionType: transactionType,
-      transactionDate: transactionDate,
-      quantity: quantity,
-      pricePerUnit: pricePerUnit,
-      totalAmount: totalAmount,
-      currency: asset.currency,
-      asset: asset
-    )
-    modelContext.insert(transaction)
+    if let existing = existingTransaction {
+      // Update existing transaction in-place
+      existing.transactionType = transactionType
+      existing.transactionDate = transactionDate
+      existing.quantity = quantity
+      existing.pricePerUnit = pricePerUnit
+      existing.totalAmount = totalAmount
+    } else {
+      // Create new transaction
+      let transaction = Transaction(
+        transactionType: transactionType,
+        transactionDate: transactionDate,
+        quantity: quantity,
+        pricePerUnit: pricePerUnit,
+        totalAmount: totalAmount,
+        currency: asset.currency,
+        asset: asset
+      )
+      modelContext.insert(transaction)
+    }
   }
 
   // MARK: - Private Validation
@@ -219,20 +261,49 @@ class TransactionFormViewModel {
       return
     }
 
-    // Sell/transferOut quantity validation
-    if transactionType == .sell {
-      let currentHoldings = asset.quantity
-      if quantityValue > currentHoldings {
-        quantityValidationMessage =
-          "Cannot sell more than current holdings (\(currentHoldings))."
+    if isEditing {
+      // Edit mode: check that resulting quantity is >= 0
+      // baseQuantity = current quantity without the existing transaction's impact
+      let baseQuantity = asset.quantity - (existingTransaction?.quantityImpact ?? 0)
+      // newImpact = the impact of the edited transaction
+      let newImpact: Decimal
+      switch transactionType {
+      case .sell, .transferOut:
+        newImpact = -quantityValue
+
+      case .buy, .transferIn, .adjustment, .dividend, .interest:
+        newImpact = quantityValue
+      }
+      let resultingQuantity = baseQuantity + newImpact
+      if resultingQuantity < 0 {
+        if transactionType == .sell {
+          quantityValidationMessage =
+            "Cannot sell more than available holdings (\(baseQuantity))."
+        } else if transactionType == .transferOut {
+          quantityValidationMessage =
+            "Cannot transfer out more than available holdings (\(baseQuantity))."
+        } else {
+          quantityValidationMessage =
+            "This change would cause the asset quantity to become negative."
+        }
         return
       }
-    } else if transactionType == .transferOut {
-      let currentHoldings = asset.quantity
-      if quantityValue > currentHoldings {
-        quantityValidationMessage =
-          "Cannot transfer out more than current holdings (\(currentHoldings))."
-        return
+    } else {
+      // Create mode: sell/transferOut quantity validation
+      if transactionType == .sell {
+        let currentHoldings = asset.quantity
+        if quantityValue > currentHoldings {
+          quantityValidationMessage =
+            "Cannot sell more than current holdings (\(currentHoldings))."
+          return
+        }
+      } else if transactionType == .transferOut {
+        let currentHoldings = asset.quantity
+        if quantityValue > currentHoldings {
+          quantityValidationMessage =
+            "Cannot transfer out more than current holdings (\(currentHoldings))."
+          return
+        }
       }
     }
 
