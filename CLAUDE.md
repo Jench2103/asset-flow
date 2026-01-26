@@ -29,6 +29,9 @@ swift-format lint --strict --recursive --parallel .
 
 # Lint code with SwiftLint
 swiftlint --strict
+
+# Run tests
+xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow test -destination 'platform=macOS'
 ```
 
 ## Architecture
@@ -37,14 +40,17 @@ swiftlint --strict
 
 - Models: SwiftData models with relationships
 - Views: SwiftUI components
-- ViewModels: Business logic (to be implemented)
-- Services: Data operations (to be implemented)
+- ViewModels: `@Observable @MainActor` classes handling form state, validation, and persistence
+- Services: Stateless utilities (CurrencyService, ExchangeRateService, PortfolioValueCalculator)
 
 **Data Model Relationships:**
 
 ```
-Portfolio (1:Many) Asset (1:Many) Transaction
-InvestmentPlan (currently standalone)
+Portfolio (1:Many) → Asset (1:Many) → Transaction
+                     Asset (1:Many) → PriceHistory
+RegularSavingPlan → asset (Asset, nullify)
+RegularSavingPlan → sourceAsset (Asset, nullify)
+InvestmentPlan (standalone)
 ```
 
 All models are registered in `AssetFlowApp.swift` in the `sharedModelContainer` Schema. When adding new models, update both the Schema and `Models/README.md`.
@@ -146,6 +152,12 @@ This project uses `swift-format` for code formatting and `SwiftLint` for linting
 //
 ```
 
+**Testing Framework:**
+
+- Uses **Swift Testing** (`import Testing`), NOT XCTest
+- Tests use `@Suite`, `@Test`, `#expect()`, and `#require()`
+- See `AssetFlowTests/CLAUDE.md` for detailed test patterns
+
 **Platform-Specific Code:**
 
 ```swift
@@ -184,6 +196,14 @@ This tool lints the code to enforce stylistic and convention-based rules. Config
 - Links to specific Asset
 
 **InvestmentPlan** - Strategic goals with risk tolerance and status tracking
+
+**PriceHistory** - Time-series price records for an asset
+
+- Links to Asset (parent cascades deletion)
+
+**RegularSavingPlan** - Recurring investment plans with frequency and execution method
+
+- Links to Asset (target, nullify) and sourceAsset (funding source, nullify)
 
 See `AssetFlow/Models/README.md` for comprehensive model documentation.
 
