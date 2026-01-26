@@ -32,7 +32,9 @@ struct ContentView: View {
       sidebar
     } detail: {
       // Detail view based on selection
-      detailView
+      NavigationStack {
+        detailView
+      }
     }
     .onAppear {
       // Initialize viewModel when modelContext becomes available

@@ -80,6 +80,10 @@ class ExchangeRateService {
     } catch let error as URLError {
       // Network-specific errors
       switch error.code {
+      case .cancelled:
+        // Expected when SwiftUI cancels a .task on view disappear; not a user-facing error.
+        break
+
       case .notConnectedToInternet:
         lastError = "No internet connection. Using cached rates if available."
 

@@ -16,6 +16,8 @@ struct AssetDetailView: View {
   let asset: Asset
   @Environment(\.modelContext) private var modelContext
   @State private var showingPriceHistory = false
+  @State private var showingTransactionHistory = false
+  @State private var showingAddTransaction = false
 
   var body: some View {
     ScrollView {
@@ -46,6 +48,22 @@ struct AssetDetailView: View {
           asset: asset,
           managementViewModel: PriceHistoryManagementViewModel(
             asset: asset, modelContext: modelContext)
+        )
+      }
+    }
+    .sheet(isPresented: $showingTransactionHistory) {
+      NavigationStack {
+        TransactionHistoryView(
+          asset: asset,
+          viewModel: TransactionHistoryViewModel(asset: asset)
+        )
+      }
+    }
+    .sheet(isPresented: $showingAddTransaction) {
+      NavigationStack {
+        TransactionFormView(
+          viewModel: TransactionFormViewModel(
+            modelContext: modelContext, asset: asset)
         )
       }
     }
@@ -194,6 +212,20 @@ struct AssetDetailView: View {
         showingPriceHistory = true
       } label: {
         Label("View Price History", systemImage: "chart.line.uptrend.xyaxis")
+      }
+      .buttonStyle(.borderedProminent)
+
+      Button {
+        showingTransactionHistory = true
+      } label: {
+        Label("View Transaction History", systemImage: "list.bullet.rectangle")
+      }
+      .buttonStyle(.borderedProminent)
+
+      Button {
+        showingAddTransaction = true
+      } label: {
+        Label("Record Transaction", systemImage: "plus.circle")
       }
       .buttonStyle(.borderedProminent)
     }

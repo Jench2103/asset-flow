@@ -96,6 +96,19 @@ struct PortfolioView: View {
    - Automatic transaction and price history creation for new assets
    - Edit mode: updates asset properties only (quantity/price via transactions)
 
+1. **TransactionFormViewModel**: Transaction recording
+
+   - Form state management (type, date, quantity, price per unit)
+   - Real-time validation (date, quantity, price)
+   - Sell/transferOut quantity capped at current holdings
+   - Auto-calculated total amount (quantity × pricePerUnit)
+   - Cash asset handling: price fixed at 1, "Deposit"/"Withdrawal" labels, "Amount" field label
+
+1. **TransactionHistoryViewModel**: Transaction history display
+
+   - Sorted transaction list (newest first)
+   - Transaction count
+
 **Example Structure**:
 
 ```swift

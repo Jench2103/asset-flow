@@ -126,6 +126,54 @@ ______________________________________________________________________
 | `dividend`    | Positive          | Income received from a `sourceAsset`. Typically affects a `cash` asset.                                     |
 | `interest`    | Positive          | Interest received from a `sourceAsset`. Can affect a `cash` asset or be in-kind.                            |
 
+### Transaction Creation Workflow
+
+**Implementation Status**: ✅ Implemented
+
+**Implementation Files**:
+
+- **Form ViewModel**: `AssetFlow/ViewModels/TransactionFormViewModel.swift` — form validation and save logic
+- **History ViewModel**: `AssetFlow/ViewModels/TransactionHistoryViewModel.swift` — sorted list display
+- **Form View**: `AssetFlow/Views/TransactionFormView.swift` — record transaction form
+- **History View**: `AssetFlow/Views/TransactionHistoryView.swift` — transaction history modal
+- **Asset Detail**: `AssetFlow/Views/AssetDetailView.swift` — buttons to access transaction features
+- **Tests**: `AssetFlowTests/TransactionFormViewModelTests.swift`, `AssetFlowTests/TransactionHistoryViewModelTests.swift`
+
+**Form Validation Rules**:
+
+1. **Date**: Cannot be in the future. Validated against start of day to allow any time on the current day.
+1. **Quantity / Amount**: Required, must be a valid positive number greater than zero. For sell/transferOut transactions, quantity cannot exceed current asset holdings. Labeled "Amount" for cash assets, "Quantity" for others.
+1. **Price per Unit**: Required for non-cash assets, must be a valid number >= 0. Zero is allowed for free transfers. Pre-filled with the asset's current price from price history. For cash assets, price is always fixed at 1 (field is hidden from the UI and validation is skipped).
+
+**Sell/TransferOut Quantity Cap**:
+
+- Before saving a sell or transferOut transaction, the form validates that `quantity <= asset.quantity`
+- `asset.quantity` is computed as the sum of all transaction quantity impacts
+- If validation fails, an error message shows: "Cannot sell more than current holdings (N)" or "Cannot transfer out more than current holdings (N)"
+- Changing the transaction type re-validates the quantity to catch transitions between buy/sell
+
+**Auto-Calculated Total Amount**:
+
+- `totalAmount = quantity × pricePerUnit`
+- Displayed as a read-only field in the form
+- Shows "—" if either input is invalid or empty
+- Stored on the Transaction record for historical accuracy
+
+**Cash-Friendly Label Mapping**:
+
+- When `asset.assetType == .cash`:
+  - `buy` → displayed as "Deposit"
+  - `sell` → displayed as "Withdrawal"
+- All other transaction types retain their standard labels
+- This is a presentation-layer concern; the underlying data model uses `.buy`/`.sell`
+
+**Asset Quantity Auto-Update**:
+
+- Asset quantity is a computed property: `Σ (Transaction.quantityImpact)`
+- No manual update needed — saving a new transaction automatically changes the asset's quantity
+- Buy/transferIn/adjustment/dividend/interest increase quantity
+- Sell/transferOut decrease quantity
+
 ### Special Transaction Workflows
 
 **Asset Swap (e.g., sell BTC for ETH)**

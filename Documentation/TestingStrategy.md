@@ -223,6 +223,28 @@ ______________________________________________________________________
    - User interaction tracking
    - Form state management
 
+1. **TransactionFormViewModelTests** (27 tests)
+
+   - Default initialization and price pre-fill from asset
+   - Date validation (today, past, future)
+   - Quantity validation (empty, invalid, zero, negative, valid)
+   - Price per unit validation (empty, invalid, negative, zero, valid)
+   - Combined validation and save-disabled state
+   - Auto-calculated total amount
+   - Save creates transaction and updates asset quantity
+   - Sell/transferOut quantity capped at current holdings
+   - Cash asset display names ("Deposit"/"Withdrawal")
+   - User interaction flag tracking
+
+1. **TransactionHistoryViewModelTests** (7 tests)
+
+   - Sorted transactions (newest first)
+   - Empty transaction list
+   - Transaction count
+   - Field preservation across sorting
+   - Multiple transaction types ordering
+   - Same-date transaction handling
+
 ### Integration Tests
 
 1. **AssetIntegrationTests**

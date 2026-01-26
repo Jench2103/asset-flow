@@ -41,10 +41,13 @@ final class PortfolioDetailViewModel {
     self.portfolio = portfolio
     self.modelContext = modelContext
 
-    // Start fetching exchange rates
-    Task {
-      await fetchExchangeRates()
-      calculateTotalValue()
+    // Start fetching exchange rates.
+    // Use [weak self] to avoid retaining the ViewModel — if it is deallocated
+    // (e.g. during tests) the Task safely no-ops instead of accessing
+    // destroyed SwiftData backing storage.
+    Task { [weak self] in
+      await self?.fetchExchangeRates()
+      self?.calculateTotalValue()
     }
   }
 

@@ -273,6 +273,9 @@ ______________________________________________________________________
 **Interactions**
 
 - Tap "Edit" → Enter edit mode or navigate to edit screen
+- Tap "View Price History" → Opens price history modal
+- Tap "View Transaction History" → Opens transaction history modal
+- Tap "Record Transaction" → Opens record transaction form
 - Tap transaction row → View transaction detail
 - Tap "View All Transactions" → Navigate to filtered transaction list
 
@@ -573,6 +576,126 @@ ______________________________________________________________________
 
 - Message: "No price history yet"
 - Shows add button to create first price record
+
+______________________________________________________________________
+
+### Transaction History Modal
+
+**Implementation Status**: ✅ Implemented in `AssetFlow/Views/TransactionHistoryView.swift`
+
+**Primary Purpose**: View a chronological list of transactions for an asset
+
+**Access Points**
+
+- **macOS/iOS**:
+
+  - Button in Asset Detail screen → "View Transaction History"
+
+**Visual Layout (macOS Modal)**
+
+```
+┌──────────────────────────────────────────────────┐
+│  ✕ Transaction History - Apple Inc.         [+]  │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  Asset: Apple Inc. | Stock | USD                 │
+│  Current Price: $175.00 | 3 transaction(s)       │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │ Type    │ Date       │ Quantity │ Total     │  │
+│  ├────────────────────────────────────────────┤  │
+│  │ Buy     │ Jan 15     │ 10      │ $1,750.00 │  │
+│  │ Sell    │ Jan 10     │ 5       │ $850.00   │  │
+│  │ Buy     │ Jan 5      │ 20      │ $3,360.00 │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**Information Display**
+
+1. **Header**: Asset name, type, currency, current price, transaction count
+1. **Transaction Table (macOS)**: Table with 4 columns — Type, Date, Quantity, Total Amount
+1. **Transaction List (iOS)**: Two-row layout per transaction (type+date top, quantity+amount bottom)
+1. **Cash-friendly labels**: For cash assets, "Buy" displays as "Deposit" and "Sell" as "Withdrawal"
+
+**Interactions**
+
+- **Add**: Click "+" button → Opens "Record Transaction" form
+- **Close**: Click "Close" or press Escape → Dismiss modal
+
+**Empty State**
+
+- Icon: `list.bullet.rectangle` (large, centered)
+- Message: "No transactions yet"
+- Subtext: "Record your first transaction for this asset"
+- Action: "Record Transaction" button (prominent style)
+
+**Platform Behavior**
+
+- **macOS**: Uses `Table` component with 4 columns, minimum frame 600×400
+- **iOS**: Uses `List` with two-row layout per transaction
+
+______________________________________________________________________
+
+### Record Transaction Form
+
+**Implementation Status**: ✅ Implemented in `AssetFlow/Views/TransactionFormView.swift`
+
+**Primary Purpose**: Record a new financial transaction for an asset
+
+**Visual Layout**
+
+```
+┌──────────────────────────────────────────────────┐
+│  ✕ Cancel             Record Transaction    Save │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  ↔ Transaction Details                           │
+│  ┌────────────────────────────────────────────┐  │
+│  │ Type: [ Buy ▼ ]                            │  │
+│  │                                            │  │
+│  │ Date: [ Jan 15, 2025 📅 ]                  │  │
+│  │                                            │  │
+│  │ Quantity: [ 10 ]                           │  │
+│  │                                            │  │
+│  │ Price per Unit (USD): [ $175.00 ]          │  │
+│  │                                            │  │
+│  │ Total Amount: $1,750.00                    │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**Form Fields**
+
+1. **Transaction Type** (Required): Picker with all transaction types
+   - For cash assets: "Buy" shows as "Deposit", "Sell" shows as "Withdrawal"
+1. **Date** (Required): Date picker, defaults to today
+   - Cannot be in the future
+1. **Quantity / Amount** (Required): Decimal number input
+   - Labeled "Amount" for cash assets, "Quantity" for others
+   - Must be greater than zero
+   - For sell/transferOut: Cannot exceed current holdings
+1. **Price per Unit** (Required, non-cash only): Currency input, pre-filled with asset's current price
+   - Hidden for cash assets (price is always 1)
+   - Must be zero or greater (allows free transfers)
+1. **Total Amount** (Read-only, non-cash only): Auto-calculated as quantity × price per unit
+   - Hidden for cash assets (total always equals the amount)
+   - Shows "—" if inputs are invalid
+
+**Validation**
+
+- Save button disabled until all fields valid
+- Real-time validation messages shown in red below fields
+- Sell/transferOut quantity capped at current holdings
+- Messages shown only after user interaction (interaction flags)
+
+**Interactions**
+
+- **Cancel**: Dismiss without saving
+- **Save**: Validate and create transaction, dismiss
+- **Type change**: Re-validates quantity for sell/transferOut constraints
 
 ______________________________________________________________________
 
