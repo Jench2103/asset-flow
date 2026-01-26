@@ -155,9 +155,8 @@ struct AssetDetailView: View {
   // MARK: - Performance Card
 
   private var performanceCard: some View {
-    let unrealizedGain = asset.currentValue - asset.costBasis
-    let gainPercentage: Decimal =
-      asset.costBasis > 0 ? (unrealizedGain / asset.costBasis) * 100 : 0
+    let unrealizedGain = asset.unrealizedGainLoss
+    let gainPercentage = asset.unrealizedGainLossPercentage
 
     return VStack(alignment: .leading, spacing: 12) {
       HStack {

@@ -78,6 +78,16 @@ final class Asset {
     averageCost * quantity
   }
 
+  /// Unrealized gain or loss: current market value minus total cost basis
+  var unrealizedGainLoss: Decimal {
+    currentValue - costBasis
+  }
+
+  /// Unrealized gain/loss as a percentage of cost basis
+  var unrealizedGainLossPercentage: Decimal {
+    costBasis > 0 ? (unrealizedGainLoss / costBasis) * 100 : 0
+  }
+
   /// Whether this asset is locked from editing type/currency
   /// Assets are locked if they have any associated transactions or price history
   var isLocked: Bool {

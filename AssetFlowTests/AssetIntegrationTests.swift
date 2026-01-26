@@ -380,4 +380,229 @@ struct AssetIntegrationTests {
     #expect(
       Calendar.current.isDate(asset.currentPriceDate!, inSameDayAs: recentDate))
   }
+
+  // MARK: - Average Cost Basis Tests
+
+  @Test("Average cost for single buy transaction")
+  func testAverageCost_SingleBuy() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "Test Stock", assetType: .stock)
+    context.insert(asset)
+
+    let transaction = Transaction(
+      transactionType: .buy,
+      transactionDate: Date(),
+      quantity: 10,
+      pricePerUnit: 100,
+      totalAmount: 1000,
+      asset: asset
+    )
+    context.insert(transaction)
+
+    // Assert
+    #expect(asset.averageCost == 100)
+    #expect(asset.costBasis == 1000)
+  }
+
+  @Test("Average cost for multiple buy transactions at different prices")
+  func testAverageCost_MultipleBuys() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "Test Stock", assetType: .stock)
+    context.insert(asset)
+
+    let buy1 = Transaction(
+      transactionType: .buy,
+      transactionDate: Date(),
+      quantity: 10,
+      pricePerUnit: 100,
+      totalAmount: 1000,
+      asset: asset
+    )
+    context.insert(buy1)
+
+    let buy2 = Transaction(
+      transactionType: .buy,
+      transactionDate: Date(),
+      quantity: 5,
+      pricePerUnit: 200,
+      totalAmount: 1000,
+      asset: asset
+    )
+    context.insert(buy2)
+
+    // Assert
+    // Average cost = 2000 / 15 ≈ 133.33...
+    let expectedAvgCost: Decimal = 2000 / 15
+    #expect(asset.averageCost == expectedAvgCost)
+  }
+
+  @Test("Average cost ignores non-buy transactions")
+  func testAverageCost_NonBuyTransactionsIgnored() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "Test Stock", assetType: .stock)
+    context.insert(asset)
+
+    let buy = Transaction(
+      transactionType: .buy,
+      transactionDate: Date(),
+      quantity: 10,
+      pricePerUnit: 100,
+      totalAmount: 1000,
+      asset: asset
+    )
+    context.insert(buy)
+
+    let sell = Transaction(
+      transactionType: .sell,
+      transactionDate: Date(),
+      quantity: 3,
+      pricePerUnit: 120,
+      totalAmount: 360,
+      asset: asset
+    )
+    context.insert(sell)
+
+    let dividend = Transaction(
+      transactionType: .dividend,
+      transactionDate: Date(),
+      quantity: 0,
+      pricePerUnit: 0,
+      totalAmount: 50,
+      asset: asset
+    )
+    context.insert(dividend)
+
+    // Assert - average cost only reflects the buy
+    #expect(asset.averageCost == 100)
+  }
+
+  @Test("Average cost is zero when no buy transactions exist")
+  func testAverageCost_NoBuyTransactions() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "Test Stock", assetType: .stock)
+    context.insert(asset)
+
+    // Assert
+    #expect(asset.averageCost == 0)
+    #expect(asset.costBasis == 0)
+  }
+
+  // MARK: - Unrealized Gain/Loss Tests
+
+  @Test("Unrealized gain when current price exceeds cost basis")
+  func testUnrealizedGainLoss_GainScenario() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "Test Stock", assetType: .stock)
+    context.insert(asset)
+
+    // Buy 10 @ $100 (cost basis = $1000)
+    let buy = Transaction(
+      transactionType: .buy,
+      transactionDate: Date(),
+      quantity: 10,
+      pricePerUnit: 100,
+      totalAmount: 1000,
+      asset: asset
+    )
+    context.insert(buy)
+
+    // Current price = $150 (current value = $1500)
+    let priceHistory = PriceHistory(date: Date(), price: 150, asset: asset)
+    context.insert(priceHistory)
+
+    // Assert
+    #expect(asset.unrealizedGainLoss == 500)
+    #expect(asset.unrealizedGainLossPercentage == 50)
+  }
+
+  @Test("Unrealized loss when current price is below cost basis")
+  func testUnrealizedGainLoss_LossScenario() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "Test Stock", assetType: .stock)
+    context.insert(asset)
+
+    // Buy 10 @ $100 (cost basis = $1000)
+    let buy = Transaction(
+      transactionType: .buy,
+      transactionDate: Date(),
+      quantity: 10,
+      pricePerUnit: 100,
+      totalAmount: 1000,
+      asset: asset
+    )
+    context.insert(buy)
+
+    // Current price = $80 (current value = $800)
+    let priceHistory = PriceHistory(date: Date(), price: 80, asset: asset)
+    context.insert(priceHistory)
+
+    // Assert
+    #expect(asset.unrealizedGainLoss == -200)
+    #expect(asset.unrealizedGainLossPercentage == -20)
+  }
+
+  @Test("Unrealized gain/loss is zero at break-even")
+  func testUnrealizedGainLoss_BreakEven() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "Test Stock", assetType: .stock)
+    context.insert(asset)
+
+    // Buy 10 @ $100 (cost basis = $1000)
+    let buy = Transaction(
+      transactionType: .buy,
+      transactionDate: Date(),
+      quantity: 10,
+      pricePerUnit: 100,
+      totalAmount: 1000,
+      asset: asset
+    )
+    context.insert(buy)
+
+    // Current price = $100 (current value = $1000)
+    let priceHistory = PriceHistory(date: Date(), price: 100, asset: asset)
+    context.insert(priceHistory)
+
+    // Assert
+    #expect(asset.unrealizedGainLoss == 0)
+    #expect(asset.unrealizedGainLossPercentage == 0)
+  }
+
+  @Test("Unrealized gain/loss is zero when cost basis is zero")
+  func testUnrealizedGainLoss_ZeroCostBasis() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "Test Stock", assetType: .stock)
+    context.insert(asset)
+
+    // No buy transactions, but has a current price
+    let priceHistory = PriceHistory(date: Date(), price: 150, asset: asset)
+    context.insert(priceHistory)
+
+    // Assert
+    #expect(asset.unrealizedGainLoss == 0)
+    #expect(asset.unrealizedGainLossPercentage == 0)
+  }
 }
