@@ -32,7 +32,7 @@ class AssetFormViewModel {
     didSet {
       // When switching to cash, set price to 1 automatically
       if assetType == .cash {
-        currentValue = "1"
+        costBasis = "1"
       }
     }
   }
@@ -46,12 +46,21 @@ class AssetFormViewModel {
     }
   }
 
-  /// The current value/price as a string for text field binding
-  var currentValue: String {
+  /// The cost basis (price paid per unit) as a string for text field binding
+  var costBasis: String {
     didSet {
-      guard currentValue != oldValue else { return }
-      hasCurrentValueInteraction = true
-      validateCurrentValue()
+      guard costBasis != oldValue else { return }
+      hasCostBasisInteraction = true
+      validateCostBasis()
+    }
+  }
+
+  /// The current market price as a string for text field binding (optional field)
+  var currentPrice: String {
+    didSet {
+      guard currentPrice != oldValue else { return }
+      hasCurrentPriceInteraction = true
+      validateCurrentPrice()
     }
   }
 
@@ -69,8 +78,11 @@ class AssetFormViewModel {
   /// Validation message for the quantity field
   var quantityValidationMessage: String?
 
-  /// Validation message for the current value field
-  var currentValueValidationMessage: String?
+  /// Validation message for the cost basis field
+  var costBasisValidationMessage: String?
+
+  /// Validation message for the current price field
+  var currentPriceValidationMessage: String?
 
   /// Tracks if the user has interacted with the name field
   var hasUserInteracted: Bool = false
@@ -78,8 +90,11 @@ class AssetFormViewModel {
   /// Tracks if the user has interacted with the quantity field
   var hasQuantityInteraction: Bool = false
 
-  /// Tracks if the user has interacted with the current value field
-  var hasCurrentValueInteraction: Bool = false
+  /// Tracks if the user has interacted with the cost basis field
+  var hasCostBasisInteraction: Bool = false
+
+  /// Tracks if the user has interacted with the current price field
+  var hasCurrentPriceInteraction: Bool = false
 
   // MARK: - Private State
 
@@ -97,7 +112,7 @@ class AssetFormViewModel {
   /// Returns true if the form has validation errors
   var isSaveDisabled: Bool {
     nameValidationMessage != nil || quantityValidationMessage != nil
-      || currentValueValidationMessage != nil
+      || costBasisValidationMessage != nil || currentPriceValidationMessage != nil
   }
 
   /// Returns true if the asset type can be edited
@@ -131,19 +146,23 @@ class AssetFormViewModel {
     self.currency = asset?.currency ?? "USD"
     self.notes = asset?.notes ?? ""
 
-    // For editing, populate quantity and current value from existing data
+    // For editing, populate quantity and cost basis from existing data
     if let asset = asset {
       self.quantity = asset.quantity.description
-      self.currentValue = asset.currentPrice.description
+      self.costBasis = asset.currentPrice.description
     } else {
       self.quantity = ""
-      self.currentValue = ""
+      self.costBasis = ""
     }
+
+    // Current price is always empty initially (optional field, not used in edit mode)
+    self.currentPrice = ""
 
     // Perform initial validation
     validateName()
     validateQuantity()
-    validateCurrentValue()
+    validateCostBasis()
+    validateCurrentPrice()
   }
 
   // MARK: - Public Methods
@@ -173,24 +192,41 @@ class AssetFormViewModel {
 
       // Create initial transaction
       if let quantityValue = Decimal(string: quantity) {
-        // For cash assets, price is always 1; for others, use the entered price
-        let priceValue = assetType == .cash ? Decimal(1) : (Decimal(string: currentValue) ?? 0)
-        let totalAmount = quantityValue * priceValue
+        // For cash assets, price is always 1; for others, use the entered cost basis
+        let costBasisValue =
+          assetType == .cash ? Decimal(1) : (Decimal(string: costBasis) ?? 0)
+        let totalAmount = quantityValue * costBasisValue
 
         let transaction = Transaction(
           transactionType: .buy,
           transactionDate: Date(),
           quantity: quantityValue,
-          pricePerUnit: priceValue,
+          pricePerUnit: costBasisValue,
           totalAmount: totalAmount,
           asset: newAsset
         )
         modelContext.insert(transaction)
 
+        // Determine price history value:
+        // - Cash assets always use 1
+        // - If current price is provided, use it
+        // - Otherwise fall back to cost basis
+        let priceHistoryValue: Decimal
+        if assetType == .cash {
+          priceHistoryValue = Decimal(1)
+        } else if !currentPrice.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+          let enteredPrice = Decimal(
+            string: currentPrice.trimmingCharacters(in: .whitespacesAndNewlines))
+        {
+          priceHistoryValue = enteredPrice
+        } else {
+          priceHistoryValue = costBasisValue
+        }
+
         // Create initial price history
         let priceHistory = PriceHistory(
           date: Date(),
-          price: priceValue,
+          price: priceHistoryValue,
           asset: newAsset
         )
         modelContext.insert(priceHistory)
@@ -243,36 +279,70 @@ class AssetFormViewModel {
     quantityValidationMessage = nil
   }
 
-  private func validateCurrentValue() {
-    // When editing, current value is read-only (managed via price history)
+  private func validateCostBasis() {
+    // When editing, cost basis is read-only (managed via price history)
     if isEditing {
-      currentValueValidationMessage = nil
+      costBasisValidationMessage = nil
       return
     }
 
     // For cash assets, price is always 1 (no validation needed)
     if assetType == .cash {
-      currentValueValidationMessage = nil
+      costBasisValidationMessage = nil
       return
     }
 
-    let trimmedValue = currentValue.trimmingCharacters(in: .whitespacesAndNewlines)
+    let trimmedValue = costBasis.trimmingCharacters(in: .whitespacesAndNewlines)
 
     if trimmedValue.isEmpty {
-      currentValueValidationMessage = "Current value is required."
+      costBasisValidationMessage = "Cost basis is required."
       return
     }
 
     guard let valueDecimal = Decimal(string: trimmedValue) else {
-      currentValueValidationMessage = "Current value must be a valid number."
+      costBasisValidationMessage = "Cost basis must be a valid number."
       return
     }
 
     if valueDecimal < 0 {
-      currentValueValidationMessage = "Current value must be zero or greater."
+      costBasisValidationMessage = "Cost basis must be zero or greater."
       return
     }
 
-    currentValueValidationMessage = nil
+    costBasisValidationMessage = nil
+  }
+
+  private func validateCurrentPrice() {
+    // When editing, current price is not applicable
+    if isEditing {
+      currentPriceValidationMessage = nil
+      return
+    }
+
+    // For cash assets, price is always 1 (no validation needed)
+    if assetType == .cash {
+      currentPriceValidationMessage = nil
+      return
+    }
+
+    let trimmedValue = currentPrice.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    // Empty is valid (optional field)
+    if trimmedValue.isEmpty {
+      currentPriceValidationMessage = nil
+      return
+    }
+
+    guard let valueDecimal = Decimal(string: trimmedValue) else {
+      currentPriceValidationMessage = "Current price must be a valid number."
+      return
+    }
+
+    if valueDecimal < 0 {
+      currentPriceValidationMessage = "Current price must be zero or greater."
+      return
+    }
+
+    currentPriceValidationMessage = nil
   }
 }

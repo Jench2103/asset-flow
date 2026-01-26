@@ -28,7 +28,7 @@ struct AssetIntegrationTests {
     viewModel.name = "Apple Inc."
     viewModel.assetType = .stock
     viewModel.quantity = "10"
-    viewModel.currentValue = "150.50"
+    viewModel.costBasis = "150.50"
     viewModel.currency = "USD"
 
     // Act
@@ -66,7 +66,7 @@ struct AssetIntegrationTests {
     viewModel.name = "Microsoft Corp."
     viewModel.assetType = .stock
     viewModel.quantity = "5"
-    viewModel.currentValue = "350.00"
+    viewModel.costBasis = "350.00"
 
     // Act
     viewModel.save()
@@ -95,7 +95,7 @@ struct AssetIntegrationTests {
     viewModel1.name = "Apple Inc."
     viewModel1.assetType = .stock
     viewModel1.quantity = "10"
-    viewModel1.currentValue = "150.00"
+    viewModel1.costBasis = "150.00"
     viewModel1.save()
 
     // Add second asset
@@ -103,7 +103,7 @@ struct AssetIntegrationTests {
     viewModel2.name = "Bitcoin"
     viewModel2.assetType = .crypto
     viewModel2.quantity = "0.5"
-    viewModel2.currentValue = "45000.00"
+    viewModel2.costBasis = "45000.00"
     viewModel2.save()
 
     // Assert
@@ -128,7 +128,7 @@ struct AssetIntegrationTests {
     viewModel.name = "Tesla"
     viewModel.assetType = .stock
     viewModel.quantity = "20"
-    viewModel.currentValue = "250.75"
+    viewModel.costBasis = "250.75"
 
     // Act
     viewModel.save()
@@ -232,7 +232,7 @@ struct AssetIntegrationTests {
     viewModel.assetType = .stock
     viewModel.currency = "USD"
     viewModel.quantity = "10"
-    viewModel.currentValue = "150.50"
+    viewModel.costBasis = "150.50"
     viewModel.save()
 
     // Assert
@@ -259,7 +259,7 @@ struct AssetIntegrationTests {
     viewModel1.name = "Asset 1"
     viewModel1.assetType = .stock
     viewModel1.quantity = "5"
-    viewModel1.currentValue = "100.00"
+    viewModel1.costBasis = "100.00"
     viewModel1.save()
 
     #expect(portfolio.assetCount == 1)
@@ -269,7 +269,7 @@ struct AssetIntegrationTests {
     viewModel2.name = "Asset 2"
     viewModel2.assetType = .bond
     viewModel2.quantity = "10"
-    viewModel2.currentValue = "50.00"
+    viewModel2.costBasis = "50.00"
     viewModel2.save()
 
     // Assert
@@ -288,7 +288,7 @@ struct AssetIntegrationTests {
     viewModel.name = "Test Asset"
     viewModel.assetType = .stock
     viewModel.quantity = "15.5"
-    viewModel.currentValue = "200.00"
+    viewModel.costBasis = "200.00"
     viewModel.save()
 
     // Assert
@@ -312,7 +312,7 @@ struct AssetIntegrationTests {
     viewModel.name = "Test Asset"
     viewModel.assetType = .stock
     viewModel.quantity = "10"
-    viewModel.currentValue = "125.50"
+    viewModel.costBasis = "125.50"
     viewModel.save()
 
     // Assert

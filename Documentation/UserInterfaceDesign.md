@@ -831,7 +831,10 @@ ______________________________________________________________________
 │  Initial Position (new assets only)              │
 │  ┌────────────────────────────────────────────┐  │
 │  │ Quantity: [10                  ]           │  │
-│  │ Current Price: [150.50         ]           │  │
+│  │ Cost Basis: [150.50            ]           │  │
+│  │ Current Price (optional): [155.00]         │  │
+│  │ Leave empty to use cost basis as current   │  │
+│  │ price                                      │  │
 │  └────────────────────────────────────────────┘  │
 │                                                  │
 │  Notes                                           │
@@ -869,13 +872,24 @@ ______________________________________________________________________
    - Accepts decimal values
    - For editing: Read-only (managed via transactions)
 
-1. **Current Price** (Required for new assets): Initial price per unit
+1. **Cost Basis** (Required for new assets): Price paid per unit
 
    - For **cash assets**: Automatically set to 1 (no user input needed)
-   - For **other assets**: User enters price per unit
+   - For **other assets**: User enters price paid per unit
+   - Used as the initial transaction's `pricePerUnit`
    - Validation: Must be a number >= 0
    - Accepts decimal values
-   - For editing: Read-only (managed via price history)
+   - For editing: Read-only (managed via transactions)
+
+1. **Current Price** (Optional for new assets): Current market price per unit
+
+   - For **cash assets**: Not shown (price is always 1)
+   - For **other assets**: User may enter current market price
+   - Used as the initial price history record's `price`
+   - If left empty, falls back to cost basis value
+   - Helper text: "Leave empty to use cost basis as current price"
+   - Validation: If non-empty, must be a number >= 0
+   - For editing: Not shown (managed via price history)
 
 1. **Notes** (Optional): Free-form text notes
 

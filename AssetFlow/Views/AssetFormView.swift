@@ -130,15 +130,37 @@ struct AssetFormView: View {
 
               Divider()
 
-              // Current value/price field
+              // Cost basis field
               VStack(alignment: .leading, spacing: 4) {
-                TextField("Current Price", text: $viewModel.currentValue)
+                TextField("Cost Basis", text: $viewModel.costBasis)
                   #if os(iOS)
                     .keyboardType(.decimalPad)
                   #endif
 
-                if viewModel.hasCurrentValueInteraction {
-                  if let validationMessage = viewModel.currentValueValidationMessage {
+                if viewModel.hasCostBasisInteraction {
+                  if let validationMessage = viewModel.costBasisValidationMessage {
+                    Text(validationMessage)
+                      .font(.caption)
+                      .foregroundStyle(.red)
+                  }
+                }
+              }
+
+              Divider()
+
+              // Current price field (optional)
+              VStack(alignment: .leading, spacing: 4) {
+                TextField("Current Price (optional)", text: $viewModel.currentPrice)
+                  #if os(iOS)
+                    .keyboardType(.decimalPad)
+                  #endif
+
+                Text("Leave empty to use cost basis as current price")
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+
+                if viewModel.hasCurrentPriceInteraction {
+                  if let validationMessage = viewModel.currentPriceValidationMessage {
                     Text(validationMessage)
                       .font(.caption)
                       .foregroundStyle(.red)

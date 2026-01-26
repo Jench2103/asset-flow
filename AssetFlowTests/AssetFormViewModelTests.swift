@@ -31,7 +31,7 @@ struct AssetFormViewModelTests {
     #expect(viewModel.name.isEmpty)
     #expect(viewModel.assetType == .stock)  // Default value
     #expect(viewModel.quantity == "")
-    #expect(viewModel.currentValue == "")
+    #expect(viewModel.costBasis == "")
     #expect(viewModel.notes.isEmpty)
     #expect(viewModel.currency == "USD")  // Default currency
     #expect(viewModel.isEditing == false)
@@ -77,7 +77,7 @@ struct AssetFormViewModelTests {
     #expect(viewModel.name == "Apple Inc.")
     #expect(viewModel.assetType == .stock)
     #expect(viewModel.quantity == "10")
-    #expect(viewModel.currentValue == "175")
+    #expect(viewModel.costBasis == "175")
     #expect(viewModel.notes == "Tech stock")
     #expect(viewModel.currency == "USD")
     #expect(viewModel.isEditing == true)
@@ -131,7 +131,7 @@ struct AssetFormViewModelTests {
     // Act
     viewModel.name = "Apple Inc."
     viewModel.quantity = "10"
-    viewModel.currentValue = "150"
+    viewModel.costBasis = "150"
 
     // Assert
     #expect(viewModel.isSaveDisabled == false)
@@ -221,7 +221,7 @@ struct AssetFormViewModelTests {
     context.insert(portfolio)
     let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
     viewModel.name = "Valid Name"
-    viewModel.currentValue = "100.50"
+    viewModel.costBasis = "100.50"
 
     // Act
     viewModel.quantity = "10.5"
@@ -231,10 +231,10 @@ struct AssetFormViewModelTests {
     #expect(viewModel.quantityValidationMessage == nil)
   }
 
-  // MARK: - Current Value Validation Tests
+  // MARK: - Cost Basis Validation Tests
 
-  @Test("isSaveDisabled is true when current value is empty")
-  func testIsSaveDisabledTrueWhenCurrentValueEmpty() {
+  @Test("isSaveDisabled is true when cost basis is empty")
+  func testIsSaveDisabledTrueWhenCostBasisEmpty() {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
@@ -245,15 +245,15 @@ struct AssetFormViewModelTests {
     viewModel.quantity = "10"
 
     // Act
-    viewModel.currentValue = ""
+    viewModel.costBasis = ""
 
     // Assert
     #expect(viewModel.isSaveDisabled == true)
-    #expect(viewModel.currentValueValidationMessage == "Current value is required.")
+    #expect(viewModel.costBasisValidationMessage == "Cost basis is required.")
   }
 
-  @Test("isSaveDisabled is true when current value is not a valid number")
-  func testIsSaveDisabledTrueWhenCurrentValueInvalid() {
+  @Test("isSaveDisabled is true when cost basis is not a valid number")
+  func testIsSaveDisabledTrueWhenCostBasisInvalid() {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
@@ -264,15 +264,15 @@ struct AssetFormViewModelTests {
     viewModel.quantity = "10"
 
     // Act
-    viewModel.currentValue = "xyz"
+    viewModel.costBasis = "xyz"
 
     // Assert
     #expect(viewModel.isSaveDisabled == true)
-    #expect(viewModel.currentValueValidationMessage == "Current value must be a valid number.")
+    #expect(viewModel.costBasisValidationMessage == "Cost basis must be a valid number.")
   }
 
-  @Test("isSaveDisabled is true when current value is negative")
-  func testIsSaveDisabledTrueWhenCurrentValueNegative() {
+  @Test("isSaveDisabled is true when cost basis is negative")
+  func testIsSaveDisabledTrueWhenCostBasisNegative() {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
@@ -283,16 +283,16 @@ struct AssetFormViewModelTests {
     viewModel.quantity = "10"
 
     // Act
-    viewModel.currentValue = "-100"
+    viewModel.costBasis = "-100"
 
     // Assert
     #expect(viewModel.isSaveDisabled == true)
     #expect(
-      viewModel.currentValueValidationMessage == "Current value must be zero or greater.")
+      viewModel.costBasisValidationMessage == "Cost basis must be zero or greater.")
   }
 
-  @Test("isSaveDisabled is false when current value is zero")
-  func testIsSaveDisabledFalseWhenCurrentValueZero() {
+  @Test("isSaveDisabled is false when cost basis is zero")
+  func testIsSaveDisabledFalseWhenCostBasisZero() {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
@@ -303,15 +303,15 @@ struct AssetFormViewModelTests {
     viewModel.quantity = "10"
 
     // Act
-    viewModel.currentValue = "0"
+    viewModel.costBasis = "0"
 
     // Assert
     #expect(viewModel.isSaveDisabled == false)
-    #expect(viewModel.currentValueValidationMessage == nil)
+    #expect(viewModel.costBasisValidationMessage == nil)
   }
 
-  @Test("isSaveDisabled is false when current value is valid positive number")
-  func testIsSaveDisabledFalseWhenCurrentValueValid() {
+  @Test("isSaveDisabled is false when cost basis is valid positive number")
+  func testIsSaveDisabledFalseWhenCostBasisValid() {
     // Arrange
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
@@ -322,11 +322,94 @@ struct AssetFormViewModelTests {
     viewModel.quantity = "10"
 
     // Act
-    viewModel.currentValue = "150.75"
+    viewModel.costBasis = "150.75"
 
     // Assert
     #expect(viewModel.isSaveDisabled == false)
-    #expect(viewModel.currentValueValidationMessage == nil)
+    #expect(viewModel.costBasisValidationMessage == nil)
+  }
+
+  // MARK: - Current Price Validation Tests
+
+  @Test("Empty current price is valid (optional field)")
+  func testEmptyCurrentPriceIsValid() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+    viewModel.name = "Valid Name"
+    viewModel.quantity = "10"
+    viewModel.costBasis = "100"
+
+    // Act
+    viewModel.currentPrice = ""
+
+    // Assert
+    #expect(viewModel.isSaveDisabled == false)
+    #expect(viewModel.currentPriceValidationMessage == nil)
+  }
+
+  @Test("isSaveDisabled is true when current price is not a valid number")
+  func testIsSaveDisabledTrueWhenCurrentPriceInvalid() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+    viewModel.name = "Valid Name"
+    viewModel.quantity = "10"
+    viewModel.costBasis = "100"
+
+    // Act
+    viewModel.currentPrice = "abc"
+
+    // Assert
+    #expect(viewModel.isSaveDisabled == true)
+    #expect(viewModel.currentPriceValidationMessage == "Current price must be a valid number.")
+  }
+
+  @Test("isSaveDisabled is true when current price is negative")
+  func testIsSaveDisabledTrueWhenCurrentPriceNegative() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+    viewModel.name = "Valid Name"
+    viewModel.quantity = "10"
+    viewModel.costBasis = "100"
+
+    // Act
+    viewModel.currentPrice = "-50"
+
+    // Assert
+    #expect(viewModel.isSaveDisabled == true)
+    #expect(
+      viewModel.currentPriceValidationMessage == "Current price must be zero or greater.")
+  }
+
+  @Test("isSaveDisabled is false when current price is valid positive number")
+  func testIsSaveDisabledFalseWhenCurrentPriceValid() {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+    viewModel.name = "Valid Name"
+    viewModel.quantity = "10"
+    viewModel.costBasis = "100"
+
+    // Act
+    viewModel.currentPrice = "120.50"
+
+    // Assert
+    #expect(viewModel.isSaveDisabled == false)
+    #expect(viewModel.currentPriceValidationMessage == nil)
   }
 
   // MARK: - Save Tests
@@ -343,7 +426,7 @@ struct AssetFormViewModelTests {
     viewModel.name = "Apple Inc."
     viewModel.assetType = .stock
     viewModel.quantity = "10"
-    viewModel.currentValue = "150.50"
+    viewModel.costBasis = "150.50"
     viewModel.currency = "USD"
     viewModel.notes = "Tech stock"
 
@@ -427,6 +510,70 @@ struct AssetFormViewModelTests {
     #expect(asset.assetType == .etf)
     #expect(asset.notes == "Updated notes")
     #expect(asset.id == existingAsset.id)
+  }
+
+  @Test("save() uses current price for price history when provided")
+  func testSaveUsesCurrentPriceForPriceHistory() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+    viewModel.name = "Apple Inc."
+    viewModel.assetType = .stock
+    viewModel.quantity = "10"
+    viewModel.costBasis = "100"
+    viewModel.currentPrice = "120"
+
+    // Act
+    viewModel.save()
+
+    // Assert
+    let fetchDescriptor = FetchDescriptor<Asset>()
+    let assets = try context.fetch(fetchDescriptor)
+    let asset = try #require(assets.first)
+
+    // Transaction should use cost basis
+    let transaction = try #require(asset.transactions?.first)
+    #expect(transaction.pricePerUnit == 100)
+
+    // Price history should use current price
+    let priceHistory = try #require(asset.priceHistory?.first)
+    #expect(priceHistory.price == 120)
+  }
+
+  @Test("save() falls back to cost basis for price history when current price is empty")
+  func testSaveFallsBackToCostBasisForPriceHistory() throws {
+    // Arrange
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let portfolio = Portfolio(name: "Test Portfolio")
+    context.insert(portfolio)
+
+    let viewModel = AssetFormViewModel(modelContext: context, portfolio: portfolio)
+    viewModel.name = "Tesla"
+    viewModel.assetType = .stock
+    viewModel.quantity = "5"
+    viewModel.costBasis = "150"
+    viewModel.currentPrice = ""
+
+    // Act
+    viewModel.save()
+
+    // Assert
+    let fetchDescriptor = FetchDescriptor<Asset>()
+    let assets = try context.fetch(fetchDescriptor)
+    let asset = try #require(assets.first)
+
+    // Transaction should use cost basis
+    let transaction = try #require(asset.transactions?.first)
+    #expect(transaction.pricePerUnit == 150)
+
+    // Price history should fall back to cost basis
+    let priceHistory = try #require(asset.priceHistory?.first)
+    #expect(priceHistory.price == 150)
   }
 
   // MARK: - User Interaction Tests

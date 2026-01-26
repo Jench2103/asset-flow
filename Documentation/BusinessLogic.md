@@ -112,6 +112,27 @@ This phased approach allows for rapid initial development while establishing a c
 
 ______________________________________________________________________
 
+## Asset Creation Logic
+
+### Initial Position Setup
+
+When creating a new non-cash asset, the user provides two price-related fields:
+
+1. **Cost Basis** (required): The price paid per unit. This is used as the `pricePerUnit` on the initial `buy` transaction.
+1. **Current Price** (optional): The current market price per unit. This is used as the `price` on the initial `PriceHistory` record.
+
+If the user leaves the current price empty, the cost basis value is used for the initial price history record (i.e., assuming the current market price equals what was paid).
+
+For **cash assets**, both the transaction price and price history are always set to 1, regardless of user input.
+
+**Example**: A user bought 10 shares of AAPL at $100/share, but the current market price is $120/share.
+
+- Cost Basis = 100 → Transaction: `pricePerUnit = 100`, `totalAmount = 1000`
+- Current Price = 120 → PriceHistory: `price = 120`
+- The asset's `currentValue` = 10 * 120 = $1,200
+
+______________________________________________________________________
+
 ## Transaction Processing Logic
 
 ### Transaction Types & Behavior
