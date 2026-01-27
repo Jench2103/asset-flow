@@ -43,7 +43,7 @@ struct AssetFormView: View {
           VStack(alignment: .leading, spacing: 4) {
             Picker("Asset Type", selection: $viewModel.assetType) {
               ForEach(AssetType.allCases, id: \.self) { type in
-                Text(type.rawValue).tag(type)
+                Text(type.localizedName).tag(type)
               }
             }
             .disabled(!viewModel.canEditAssetType)

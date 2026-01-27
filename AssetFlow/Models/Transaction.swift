@@ -80,3 +80,17 @@ enum TransactionType: String, Codable, CaseIterable {
   case dividend = "Dividend"
   case interest = "Interest"
 }
+
+extension TransactionType {
+  var localizedName: String {
+    switch self {
+    case .buy: return String(localized: "Buy")
+    case .sell: return String(localized: "Sell")
+    case .transferIn: return String(localized: "Transfer In")
+    case .transferOut: return String(localized: "Transfer Out")
+    case .adjustment: return String(localized: "Adjustment")
+    case .dividend: return String(localized: "Dividend")
+    case .interest: return String(localized: "Interest")
+    }
+  }
+}

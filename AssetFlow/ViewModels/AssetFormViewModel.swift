@@ -240,7 +240,7 @@ class AssetFormViewModel {
     let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
 
     if trimmedName.isEmpty {
-      nameValidationMessage = "Asset name cannot be empty."
+      nameValidationMessage = String(localized: "Asset name cannot be empty.", table: "Asset")
       return
     }
 
@@ -259,20 +259,25 @@ class AssetFormViewModel {
     if trimmedQuantity.isEmpty {
       // For cash assets, show "Amount is required" instead of "Quantity is required"
       quantityValidationMessage =
-        assetType == .cash ? "Amount is required." : "Quantity is required."
+        assetType == .cash
+        ? String(localized: "Amount is required.", table: "Asset")
+        : String(localized: "Quantity is required.", table: "Asset")
       return
     }
 
     guard let quantityValue = Decimal(string: trimmedQuantity) else {
       quantityValidationMessage =
-        assetType == .cash ? "Amount must be a valid number." : "Quantity must be a valid number."
+        assetType == .cash
+        ? String(localized: "Amount must be a valid number.", table: "Asset")
+        : String(localized: "Quantity must be a valid number.", table: "Asset")
       return
     }
 
     if quantityValue <= 0 {
       quantityValidationMessage =
         assetType == .cash
-        ? "Amount must be greater than zero." : "Quantity must be greater than zero."
+        ? String(localized: "Amount must be greater than zero.", table: "Asset")
+        : String(localized: "Quantity must be greater than zero.", table: "Asset")
       return
     }
 
@@ -295,17 +300,19 @@ class AssetFormViewModel {
     let trimmedValue = costBasis.trimmingCharacters(in: .whitespacesAndNewlines)
 
     if trimmedValue.isEmpty {
-      costBasisValidationMessage = "Cost basis is required."
+      costBasisValidationMessage = String(localized: "Cost basis is required.", table: "Asset")
       return
     }
 
     guard let valueDecimal = Decimal(string: trimmedValue) else {
-      costBasisValidationMessage = "Cost basis must be a valid number."
+      costBasisValidationMessage = String(
+        localized: "Cost basis must be a valid number.", table: "Asset")
       return
     }
 
     if valueDecimal < 0 {
-      costBasisValidationMessage = "Cost basis must be zero or greater."
+      costBasisValidationMessage = String(
+        localized: "Cost basis must be zero or greater.", table: "Asset")
       return
     }
 
@@ -334,12 +341,14 @@ class AssetFormViewModel {
     }
 
     guard let valueDecimal = Decimal(string: trimmedValue) else {
-      currentPriceValidationMessage = "Current price must be a valid number."
+      currentPriceValidationMessage = String(
+        localized: "Current price must be a valid number.", table: "Asset")
       return
     }
 
     if valueDecimal < 0 {
-      currentPriceValidationMessage = "Current price must be zero or greater."
+      currentPriceValidationMessage = String(
+        localized: "Current price must be zero or greater.", table: "Asset")
       return
     }
 

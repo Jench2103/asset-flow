@@ -72,7 +72,9 @@ class PriceHistoryFormViewModel {
 
   /// Navigation title based on editing state
   var navigationTitle: String {
-    isEditing ? "Edit Price Record" : "Add Price Record"
+    isEditing
+      ? String(localized: "Edit Price Record", table: "PriceHistory")
+      : String(localized: "Add Price Record", table: "PriceHistory")
   }
 
   // MARK: - Initializer
@@ -128,7 +130,8 @@ class PriceHistoryFormViewModel {
   private func validateDate() {
     // Check future date
     if Calendar.current.startOfDay(for: date) > Calendar.current.startOfDay(for: Date()) {
-      dateValidationMessage = "Date cannot be in the future."
+      dateValidationMessage = String(
+        localized: "Date cannot be in the future.", table: "PriceHistory")
       return
     }
 
@@ -144,7 +147,8 @@ class PriceHistoryFormViewModel {
       } ?? false
 
     if hasDuplicate {
-      dateValidationMessage = "A price record already exists for this date."
+      dateValidationMessage = String(
+        localized: "A price record already exists for this date.", table: "PriceHistory")
       return
     }
 
@@ -155,17 +159,19 @@ class PriceHistoryFormViewModel {
     let trimmedPrice = priceText.trimmingCharacters(in: .whitespacesAndNewlines)
 
     if trimmedPrice.isEmpty {
-      priceValidationMessage = "Price is required."
+      priceValidationMessage = String(localized: "Price is required.", table: "PriceHistory")
       return
     }
 
     guard let priceValue = Decimal(string: trimmedPrice) else {
-      priceValidationMessage = "Price must be a valid number."
+      priceValidationMessage = String(
+        localized: "Price must be a valid number.", table: "PriceHistory")
       return
     }
 
     if priceValue < 0 {
-      priceValidationMessage = "Price must be zero or greater."
+      priceValidationMessage = String(
+        localized: "Price must be zero or greater.", table: "PriceHistory")
       return
     }
 

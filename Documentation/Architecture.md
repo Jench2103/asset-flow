@@ -222,6 +222,14 @@ let totalValue = PortfolioValueCalculator.calculateTotalValue(
 - ViewModels coordinate between services and UI
 - Testability: mock data can be passed to services without network calls
 
+## Localization
+
+AssetFlow uses Apple's **String Catalogs** (`.xcstrings`) with feature-scoped tables for organization:
+
+- **View Layer**: String literals in SwiftUI (`Text()`, `Label()`, etc.) are auto-extracted into `Localizable.xcstrings` at build time. No manual wrapping needed.
+- **ViewModel/Service Layer**: All user-facing strings use `String(localized:table:)` with feature-specific tables (`Asset`, `Portfolio`, `Transaction`, `PriceHistory`, `Services`).
+- **Enum Display Names**: Enums like `AssetType` and `TransactionType` have a `localizedName` computed property for UI display. The `rawValue` is reserved for SwiftData persistence and must never be shown to users.
+
 ## Data Flow
 
 ### Unidirectional Data Flow

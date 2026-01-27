@@ -96,6 +96,22 @@ Services are stateless structs or classes with no direct SwiftData dependency:
 - **ExchangeRateService** — `@Observable @MainActor`, fetches rates from Coinbase API with 1-hour cache
 - **PortfolioValueCalculator** — pure `struct` with static calculation methods
 
+### Localization
+
+String Catalogs (`.xcstrings`) organize localized strings by feature:
+
+- **Views**: String literals in `Text()`, `Label()`, etc. auto-extract into `Localizable.xcstrings`.
+- **ViewModels/Services**: Use `String(localized:table:)` with feature tables (`Asset`, `Portfolio`, `Transaction`, `PriceHistory`, `Services`).
+- **Enums**: Use `localizedName` for display; `rawValue` is for SwiftData persistence only.
+
+```swift
+// ViewModel validation message
+nameValidationMessage = String(localized: "Asset name cannot be empty.", table: "Asset")
+
+// Enum display in views
+Text(asset.assetType.localizedName)  // not .rawValue
+```
+
 ## Naming Conventions
 
 - PascalCase with descriptive suffix: `AssetFormViewModel`, `AssetFormView`, `CurrencyService`

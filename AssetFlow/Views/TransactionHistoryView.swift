@@ -84,10 +84,7 @@ struct TransactionHistoryView: View {
           for: transaction.transactionType
         ).lowercased()
         let date = transaction.transactionDate.formattedDate
-        Text(
-          "Are you sure you want to delete the \(typeName)"
-            + " transaction from \(date)?"
-        )
+        Text("Are you sure you want to delete the \(typeName) transaction from \(date)?")
       }
     )
     .alert(
@@ -117,7 +114,7 @@ struct TransactionHistoryView: View {
             .fontWeight(.semibold)
 
           HStack(spacing: 8) {
-            Text(asset.assetType.rawValue)
+            Text(asset.assetType.localizedName)
               .font(.subheadline)
               .padding(.horizontal, 8)
               .padding(.vertical, 2)
@@ -269,11 +266,11 @@ struct TransactionHistoryView: View {
   private func transactionDisplayName(for type: TransactionType) -> String {
     if asset.assetType == .cash {
       switch type {
-      case .buy: return "Deposit"
-      case .sell: return "Withdrawal"
-      default: return type.rawValue
+      case .buy: return String(localized: "Deposit")
+      case .sell: return String(localized: "Withdrawal")
+      default: return type.localizedName
       }
     }
-    return type.rawValue
+    return type.localizedName
   }
 }

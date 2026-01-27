@@ -104,14 +104,17 @@ class PortfolioFormViewModel {
 
     // 1. Check for and set whitespace warning
     if !trimmedName.isEmpty && name != trimmedName {
-      nameWarningMessage = "Leading and trailing spaces will be automatically trimmed."
+      nameWarningMessage = String(
+        localized: "Leading and trailing spaces will be automatically trimmed.",
+        table: "Portfolio")
     } else {
       nameWarningMessage = nil
     }
 
     // 2. Check for validation errors (which override warnings)
     if trimmedName.isEmpty {
-      nameValidationMessage = "Portfolio name cannot be empty."
+      nameValidationMessage = String(
+        localized: "Portfolio name cannot be empty.", table: "Portfolio")
       return
     }
 
@@ -119,7 +122,8 @@ class PortfolioFormViewModel {
     let fetchDescriptor = FetchDescriptor<Portfolio>()
     guard let portfolios = try? modelContext.fetch(fetchDescriptor) else {
       // If fetch fails, play it safe and disable saving.
-      nameValidationMessage = "Could not verify portfolio name."
+      nameValidationMessage = String(
+        localized: "Could not verify portfolio name.", table: "Portfolio")
       return
     }
 
@@ -139,7 +143,8 @@ class PortfolioFormViewModel {
     }
 
     if isDuplicate {
-      nameValidationMessage = "A portfolio with this name already exists."
+      nameValidationMessage = String(
+        localized: "A portfolio with this name already exists.", table: "Portfolio")
     } else {
       nameValidationMessage = nil
     }

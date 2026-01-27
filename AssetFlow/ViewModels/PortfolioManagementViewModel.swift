@@ -138,22 +138,28 @@ enum PortfolioDeletionError: LocalizedError {
   var errorDescription: String? {
     switch self {
     case .portfolioNotEmpty:
-      return "Cannot delete portfolio"
+      return String(localized: "Cannot delete portfolio", table: "Portfolio")
 
     case .deletionFailed(let error):
-      return "Failed to delete portfolio: \(error.localizedDescription)"
+      return String(
+        localized: "Failed to delete portfolio: \(error.localizedDescription)",
+        table: "Portfolio")
     }
   }
 
   var recoverySuggestion: String? {
     switch self {
     case .portfolioNotEmpty(let count):
-      let assetWord = count == 1 ? "asset" : "assets"
-      return
-        "This portfolio contains \(count) \(assetWord). Remove all assets before deleting the portfolio."
+      // swiftlint:disable:next line_length
+      return String(
+        localized:
+          "This portfolio contains \(count) asset(s). Remove all assets before deleting the portfolio.",
+        table: "Portfolio")
 
     case .deletionFailed:
-      return "Please try again. If the problem persists, restart the application."
+      return String(
+        localized: "Please try again. If the problem persists, restart the application.",
+        table: "Portfolio")
     }
   }
 }

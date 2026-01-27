@@ -90,7 +90,9 @@ class TransactionFormViewModel {
 
   /// Navigation title based on editing state
   var navigationTitle: String {
-    isEditing ? "Edit Transaction" : "Record Transaction"
+    isEditing
+      ? String(localized: "Edit Transaction", table: "Transaction")
+      : String(localized: "Record Transaction", table: "Transaction")
   }
 
   /// Whether this asset is a cash type (price is always 1)
@@ -176,12 +178,12 @@ class TransactionFormViewModel {
   func displayName(for type: TransactionType) -> String {
     if asset.assetType == .cash {
       switch type {
-      case .buy: return "Deposit"
-      case .sell: return "Withdrawal"
-      default: return type.rawValue
+      case .buy: return String(localized: "Deposit", table: "Transaction")
+      case .sell: return String(localized: "Withdrawal", table: "Transaction")
+      default: return type.localizedName
       }
     }
-    return type.rawValue
+    return type.localizedName
   }
 
   /// Saves the transaction to the ModelContext.
@@ -233,7 +235,8 @@ class TransactionFormViewModel {
     if Calendar.current.startOfDay(for: transactionDate)
       > Calendar.current.startOfDay(for: Date())
     {
-      dateValidationMessage = "Date cannot be in the future."
+      dateValidationMessage = String(
+        localized: "Date cannot be in the future.", table: "Transaction")
       return
     }
     dateValidationMessage = nil
@@ -245,19 +248,26 @@ class TransactionFormViewModel {
     let isCash = asset.assetType == .cash
 
     if trimmed.isEmpty {
-      quantityValidationMessage = isCash ? "Amount is required." : "Quantity is required."
+      quantityValidationMessage =
+        isCash
+        ? String(localized: "Amount is required.", table: "Transaction")
+        : String(localized: "Quantity is required.", table: "Transaction")
       return
     }
 
     guard let quantityValue = Decimal(string: trimmed) else {
       quantityValidationMessage =
-        isCash ? "Amount must be a valid number." : "Quantity must be a valid number."
+        isCash
+        ? String(localized: "Amount must be a valid number.", table: "Transaction")
+        : String(localized: "Quantity must be a valid number.", table: "Transaction")
       return
     }
 
     if quantityValue <= 0 {
       quantityValidationMessage =
-        isCash ? "Amount must be greater than zero." : "Quantity must be greater than zero."
+        isCash
+        ? String(localized: "Amount must be greater than zero.", table: "Transaction")
+        : String(localized: "Quantity must be greater than zero.", table: "Transaction")
       return
     }
 
@@ -277,14 +287,17 @@ class TransactionFormViewModel {
       let resultingQuantity = baseQuantity + newImpact
       if resultingQuantity < 0 {
         if transactionType == .sell {
-          quantityValidationMessage =
-            "Cannot sell more than available holdings (\(baseQuantity))."
+          quantityValidationMessage = String(
+            localized: "Cannot sell more than available holdings (\(baseQuantity)).",
+            table: "Transaction")
         } else if transactionType == .transferOut {
-          quantityValidationMessage =
-            "Cannot transfer out more than available holdings (\(baseQuantity))."
+          quantityValidationMessage = String(
+            localized: "Cannot transfer out more than available holdings (\(baseQuantity)).",
+            table: "Transaction")
         } else {
-          quantityValidationMessage =
-            "This change would cause the asset quantity to become negative."
+          quantityValidationMessage = String(
+            localized: "This change would cause the asset quantity to become negative.",
+            table: "Transaction")
         }
         return
       }
@@ -293,15 +306,17 @@ class TransactionFormViewModel {
       if transactionType == .sell {
         let currentHoldings = asset.quantity
         if quantityValue > currentHoldings {
-          quantityValidationMessage =
-            "Cannot sell more than current holdings (\(currentHoldings))."
+          quantityValidationMessage = String(
+            localized: "Cannot sell more than current holdings (\(currentHoldings)).",
+            table: "Transaction")
           return
         }
       } else if transactionType == .transferOut {
         let currentHoldings = asset.quantity
         if quantityValue > currentHoldings {
-          quantityValidationMessage =
-            "Cannot transfer out more than current holdings (\(currentHoldings))."
+          quantityValidationMessage = String(
+            localized: "Cannot transfer out more than current holdings (\(currentHoldings)).",
+            table: "Transaction")
           return
         }
       }
@@ -320,17 +335,20 @@ class TransactionFormViewModel {
     let trimmed = pricePerUnitText.trimmingCharacters(in: .whitespacesAndNewlines)
 
     if trimmed.isEmpty {
-      pricePerUnitValidationMessage = "Price per unit is required."
+      pricePerUnitValidationMessage = String(
+        localized: "Price per unit is required.", table: "Transaction")
       return
     }
 
     guard let priceValue = Decimal(string: trimmed) else {
-      pricePerUnitValidationMessage = "Price per unit must be a valid number."
+      pricePerUnitValidationMessage = String(
+        localized: "Price per unit must be a valid number.", table: "Transaction")
       return
     }
 
     if priceValue < 0 {
-      pricePerUnitValidationMessage = "Price per unit must be zero or greater."
+      pricePerUnitValidationMessage = String(
+        localized: "Price per unit must be zero or greater.", table: "Transaction")
       return
     }
 

@@ -16,16 +16,18 @@ enum TransactionDeletionError: LocalizedError {
   var errorDescription: String? {
     switch self {
     case .wouldCauseNegativeQuantity:
-      return "Cannot Delete Transaction"
+      return String(localized: "Cannot Delete Transaction", table: "Transaction")
     }
   }
 
   var recoverySuggestion: String? {
     switch self {
     case .wouldCauseNegativeQuantity:
-      return
-        "Deleting this transaction would cause the asset quantity to become negative."
-        + "\n\nDelete or edit other transactions first to ensure the quantity remains valid."
+      // swiftlint:disable:next line_length
+      return String(
+        localized:
+          "Deleting this transaction would cause the asset quantity to become negative.\n\nDelete or edit other transactions first to ensure the quantity remains valid.",
+        table: "Transaction")
     }
   }
 }

@@ -283,7 +283,7 @@ private struct AssetRowView: View {
           .font(.headline)
           .accessibilityIdentifier(asset.name)
 
-        Text(asset.assetType.rawValue)
+        Text(asset.assetType.localizedName)
           .font(.subheadline)
           .foregroundStyle(.secondary)
           .accessibilityIdentifier(asset.assetType.rawValue)

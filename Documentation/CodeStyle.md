@@ -691,6 +691,56 @@ let percentage = ratio.formattedPercentage()      // "12.34%"
 
 ______________________________________________________________________
 
+## Localization
+
+### String Localization in ViewModels and Services
+
+All user-facing strings in ViewModels and Services must be localized using `String(localized:table:)` with the appropriate feature-scoped table:
+
+```swift
+// Good
+nameValidationMessage = String(localized: "Asset name cannot be empty.", table: "Asset")
+
+// Bad — not localized
+nameValidationMessage = "Asset name cannot be empty."
+```
+
+### Enum Display Names
+
+Never display enum `rawValue` directly in the UI. Use the `localizedName` computed property:
+
+```swift
+// Good
+Text(asset.assetType.localizedName)
+
+// Bad — rawValue is for persistence, not display
+Text(asset.assetType.rawValue)
+```
+
+### String Concatenation in Views
+
+Avoid `+` concatenation inside `Text()` — it produces a `String`, not `LocalizedStringKey`, preventing auto-extraction. Use a single string literal instead:
+
+```swift
+// Good (single literal, auto-extracted)
+// swiftlint:disable:next line_length
+Text("An asset must have at least one price record.\n\nYou can edit this record to update the price, or delete the entire asset if no longer needed.")
+
+// Bad (concatenation breaks localization)
+Text("An asset must have at least one price record."
+  + "\n\nYou can edit this record...")
+```
+
+### Translator Comments
+
+For ambiguous strings, add a `comment` parameter to help translators:
+
+```swift
+String(localized: "Bond", comment: "Asset type: a debt investment (e.g., government bond)")
+```
+
+______________________________________________________________________
+
 ## Platform-Specific Code
 
 ### Compiler Directives

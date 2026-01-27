@@ -113,3 +113,19 @@ enum AssetType: String, Codable, CaseIterable {
   case etf = "ETF"
   case other = "Other"
 }
+
+extension AssetType {
+  var localizedName: String {
+    switch self {
+    case .stock: return String(localized: "Stock")
+    case .bond: return String(localized: "Bond")
+    case .crypto: return String(localized: "Cryptocurrency")
+    case .realEstate: return String(localized: "Real Estate")
+    case .commodity: return String(localized: "Commodity")
+    case .cash: return String(localized: "Cash")
+    case .mutualFund: return String(localized: "Mutual Fund")
+    case .etf: return String(localized: "ETF")
+    case .other: return String(localized: "Other")
+    }
+  }
+}

@@ -96,10 +96,9 @@ struct PriceHistoryView: View {
         }
       },
       message: {
+        // swiftlint:disable:next line_length
         Text(
-          "An asset must have at least one price record."
-            + "\n\nYou can edit this record to update the price,"
-            + " or delete the entire asset if no longer needed."
+          "An asset must have at least one price record.\n\nYou can edit this record to update the price, or delete the entire asset if no longer needed."
         )
       }
     )
@@ -116,7 +115,7 @@ struct PriceHistoryView: View {
             .fontWeight(.semibold)
 
           HStack(spacing: 8) {
-            Text(asset.assetType.rawValue)
+            Text(asset.assetType.localizedName)
               .font(.subheadline)
               .padding(.horizontal, 8)
               .padding(.vertical, 2)

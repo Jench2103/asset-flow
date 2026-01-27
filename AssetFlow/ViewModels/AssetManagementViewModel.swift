@@ -89,14 +89,15 @@ enum AssetDeletionError: LocalizedError {
   var errorDescription: String? {
     switch self {
     case .deletionFailed(let message):
-      return "Failed to delete asset: \(message)"
+      return String(localized: "Failed to delete asset: \(message)", table: "Asset")
     }
   }
 
   var recoverySuggestion: String? {
     switch self {
     case .deletionFailed:
-      return "Please try again or restart the application."
+      return String(
+        localized: "Please try again or restart the application.", table: "Asset")
     }
   }
 }

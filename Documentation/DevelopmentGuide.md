@@ -428,6 +428,63 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## Localization
+
+### Overview
+
+AssetFlow uses Apple's **String Catalogs** (`.xcstrings`) for localization. English is the development language, with Traditional Chinese (`zh-Hant`) as an additional supported language.
+
+### String Catalog Tables
+
+Strings are organized into feature-scoped tables:
+
+| Table file                         | Used by                                                    | Scope                             |
+| ---------------------------------- | ---------------------------------------------------------- | --------------------------------- |
+| `Resources/Localizable.xcstrings`  | SwiftUI views (auto-extracted), enum `localizedName`       | Default table                     |
+| `Resources/Asset.xcstrings`        | AssetFormViewModel, AssetManagementViewModel               | Asset validation & errors         |
+| `Resources/Portfolio.xcstrings`    | PortfolioFormViewModel, PortfolioManagementViewModel       | Portfolio validation & errors     |
+| `Resources/Transaction.xcstrings`  | TransactionFormViewModel, TransactionManagementViewModel   | Transaction validation & errors   |
+| `Resources/PriceHistory.xcstrings` | PriceHistoryFormViewModel, PriceHistoryManagementViewModel | Price history validation & errors |
+| `Resources/Services.xcstrings`     | ExchangeRateService                                        | Service error messages            |
+
+### How Strings Are Localized
+
+1. **SwiftUI views**: String literals in `Text()`, `Label()`, etc. are automatically extracted into `Localizable.xcstrings` by Xcode at build time.
+1. **ViewModels and Services**: Use `String(localized:table:)` with the appropriate feature table:
+   ```swift
+   nameValidationMessage = String(localized: "Asset name cannot be empty.", table: "Asset")
+   ```
+1. **Enums**: Use the `localizedName` computed property for user-facing display. Never display `rawValue` directly (it is used for SwiftData persistence).
+   ```swift
+   Text(asset.assetType.localizedName) // Correct
+   Text(asset.assetType.rawValue)      // Wrong for UI display
+   ```
+
+### Adding New Strings
+
+1. **In SwiftUI views**: Just use string literals — Xcode auto-extracts them on build.
+1. **In ViewModels/Services**: Wrap with `String(localized:table:)` specifying the correct table.
+1. **Build the project** to populate the String Catalogs.
+1. **Open the `.xcstrings` file** in Xcode to add translations for `zh-Hant`.
+
+### Adding a New Language
+
+1. Open `AssetFlow.xcodeproj/project.pbxproj` and add the language code to `knownRegions`.
+1. Build the project — Xcode adds a column for the new language in each String Catalog.
+1. Open each `.xcstrings` file in Xcode and provide translations.
+
+### Exporting/Importing Translations
+
+```bash
+# Export for translators (creates .xliff files)
+xcodebuild -exportLocalizations -project AssetFlow.xcodeproj -localizationPath ./Localizations
+
+# Import translated .xliff files
+xcodebuild -importLocalizations -project AssetFlow.xcodeproj -localizationPath ./Localizations/zh-Hant.xcloc
+```
+
+______________________________________________________________________
+
 ## Adding Dependencies
 
 ### Swift Package Manager

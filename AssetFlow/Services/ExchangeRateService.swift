@@ -85,17 +85,22 @@ class ExchangeRateService {
         break
 
       case .notConnectedToInternet:
-        lastError = "No internet connection. Using cached rates if available."
+        lastError = String(
+          localized: "No internet connection. Using cached rates if available.",
+          table: "Services")
 
       case .timedOut:
-        lastError = "Request timed out. Please try again."
+        lastError = String(localized: "Request timed out. Please try again.", table: "Services")
 
       default:
-        lastError = "Network error: \(error.localizedDescription)"
+        lastError = String(
+          localized: "Network error: \(error.localizedDescription)", table: "Services")
       }
       isLoading = false
     } catch {
-      lastError = "Failed to fetch exchange rates: \(error.localizedDescription)"
+      lastError = String(
+        localized: "Failed to fetch exchange rates: \(error.localizedDescription)",
+        table: "Services")
       isLoading = false
     }
   }

@@ -40,7 +40,7 @@ struct AssetDetailView: View {
     }
     .navigationTitle(asset.name)
     #if os(macOS)
-      .navigationSubtitle(asset.assetType.rawValue)
+      .navigationSubtitle(asset.assetType.localizedName)
     #endif
     .sheet(isPresented: $showingPriceHistory) {
       NavigationStack {
