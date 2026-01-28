@@ -135,6 +135,12 @@ This project uses `swift-format` for code formatting and `SwiftLint` for linting
 
 ## Critical Conventions
 
+**Build Warnings:**
+
+- All compilation warnings must be fixed before committing code
+- Treat warnings as errors — they often indicate bugs or will become errors in future Swift versions
+- Run `xcodebuild build` and verify zero warnings in output
+
 **Financial Data:**
 
 - Always use `Decimal` for monetary values (never Float/Double)

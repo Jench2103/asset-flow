@@ -288,11 +288,13 @@ class TransactionFormViewModel {
       if resultingQuantity < 0 {
         if transactionType == .sell {
           quantityValidationMessage = String(
-            localized: "Cannot sell more than available holdings (\(baseQuantity)).",
+            localized:
+              "Cannot sell more than available holdings (\(String(describing: baseQuantity))).",
             table: "Transaction")
         } else if transactionType == .transferOut {
           quantityValidationMessage = String(
-            localized: "Cannot transfer out more than available holdings (\(baseQuantity)).",
+            localized:
+              "Cannot transfer out more than available holdings (\(String(describing: baseQuantity))).",
             table: "Transaction")
         } else {
           quantityValidationMessage = String(
@@ -307,7 +309,8 @@ class TransactionFormViewModel {
         let currentHoldings = asset.quantity
         if quantityValue > currentHoldings {
           quantityValidationMessage = String(
-            localized: "Cannot sell more than current holdings (\(currentHoldings)).",
+            localized:
+              "Cannot sell more than current holdings (\(String(describing: currentHoldings))).",
             table: "Transaction")
           return
         }
@@ -315,7 +318,8 @@ class TransactionFormViewModel {
         let currentHoldings = asset.quantity
         if quantityValue > currentHoldings {
           quantityValidationMessage = String(
-            localized: "Cannot transfer out more than current holdings (\(currentHoldings)).",
+            localized:
+              "Cannot transfer out more than current holdings (\(String(describing: currentHoldings))).",
             table: "Transaction")
           return
         }

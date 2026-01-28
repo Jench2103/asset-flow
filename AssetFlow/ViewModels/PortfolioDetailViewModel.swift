@@ -47,13 +47,13 @@ final class PortfolioDetailViewModel {
 
   init(
     portfolio: Portfolio, modelContext: ModelContext,
-    exchangeRateService: ExchangeRateService = .shared,
-    settingsService: SettingsService = .shared
+    exchangeRateService: ExchangeRateService? = nil,
+    settingsService: SettingsService? = nil
   ) {
     self.portfolio = portfolio
     self.modelContext = modelContext
-    self.exchangeRateService = exchangeRateService
-    self.settingsService = settingsService
+    self.exchangeRateService = exchangeRateService ?? .shared
+    self.settingsService = settingsService ?? .shared
 
     // Start fetching exchange rates.
     // Use [weak self] to avoid retaining the ViewModel — if it is deallocated
