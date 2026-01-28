@@ -49,7 +49,7 @@ struct PortfolioDetailViewModelTests {
     viewModel.calculateTotalValue()
 
     // Assert
-    #expect(viewModel.totalValueInUSD == 0)
+    #expect(viewModel.totalValueInMainCurrency == 0)
   }
 
   @Test("Total value is calculated correctly with single asset")
@@ -85,7 +85,7 @@ struct PortfolioDetailViewModelTests {
 
     // Assert
     // Current value = quantity (10) * current price (150) = 1500
-    #expect(viewModel.totalValueInUSD == 1500)
+    #expect(viewModel.totalValueInMainCurrency == 1500)
   }
 
   @Test("Total value aggregates multiple assets correctly")
@@ -131,7 +131,7 @@ struct PortfolioDetailViewModelTests {
 
     // Assert
     // Total = 1,500 + 20,000 + 5,000 = 26,500
-    #expect(viewModel.totalValueInUSD == 26500)
+    #expect(viewModel.totalValueInMainCurrency == 26500)
   }
 
   // MARK: - Asset Count Tests

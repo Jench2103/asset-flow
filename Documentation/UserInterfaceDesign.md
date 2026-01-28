@@ -969,6 +969,122 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+### Settings Screen
+
+**Implementation Status**: ✅ Implemented in `AssetFlow/Views/SettingsView.swift`
+
+**Primary Purpose**: Configure app-wide settings including display currency and financial goals
+
+**Access Point**: Settings item in sidebar (macOS)
+
+**Visual Layout**
+
+```
+┌──────────────────────────────────────────────────┐
+│  Settings                                        │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  DISPLAY CURRENCY                                │
+│  ┌────────────────────────────────────────────┐  │
+│  │  Main Currency                             │  │
+│  │  [ USD - US Dollar ▼ ]                     │  │
+│  └────────────────────────────────────────────┘  │
+│  The currency used to display total portfolio    │
+│  values across the app.                          │
+│                                                  │
+│  FINANCIAL GOAL                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │  Target amount                             │  │
+│  │  [ 1000000 ]               [✕]  ✓ Saved    │  │
+│  └────────────────────────────────────────────┘  │
+│  Set a target wealth amount. Your progress       │
+│  towards this goal will be shown on the          │
+│  Overview page.                                  │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**Information Sections**
+
+1. **Display Currency Section**: Currency picker for main display currency
+   - Picker with all available currencies from CurrencyService
+   - Shows currency code and full name (e.g., "USD - US Dollar")
+   - Changes saved immediately when selection changes
+1. **Financial Goal Section**: Target wealth amount input
+   - Text field for numeric input with auto-save behavior
+   - Clear button (×) appears when field has content
+   - "Saved" indicator appears after successful save
+   - Validation message shown for invalid input (no auto-save occurs)
+
+**Form Fields**
+
+1. **Main Currency** (Picker):
+
+   - Lists all currencies from CurrencyService
+   - Default: USD
+   - Saves immediately on change (no explicit save needed)
+
+1. **Financial Goal** (Text Field):
+
+   - Optional numeric input
+   - Empty = no goal set
+   - Must be positive number if provided
+   - Auto-saves with debounce (see Auto-Save Behavior below)
+
+**Validation**
+
+- Financial goal must be a valid positive number if provided
+- Empty goal is valid (clears the goal)
+- Validation message shown below field in orange warning style
+- Invalid input prevents auto-save until corrected
+
+**Auto-Save Behavior**
+
+All settings auto-save following the macOS System Settings pattern:
+
+| Trigger                 | Behavior                                       |
+| ----------------------- | ---------------------------------------------- |
+| Typing (valid input)    | Debounced save after 0.75 seconds of no typing |
+| Typing (invalid input)  | Shows validation message, no save scheduled    |
+| Enter key               | Immediate save (bypasses debounce)             |
+| Focus loss (click away) | Immediate save if input is valid               |
+| Clear button (×)        | Immediate save of nil value                    |
+
+**Saved Indicator**
+
+- Green checkmark with "Saved" text appears after successful save
+- Fades out automatically after 1.5 seconds
+- Provides visual confirmation without modal dialogs
+
+**Interactions**
+
+- **Change currency**: Updates immediately, affects all portfolio value displays
+- **Enter goal**: Type target amount, auto-saves after 0.75s or press Enter for immediate save
+- **Clear goal**: Click × button next to goal input (saves immediately)
+- **Invalid input**: Shows warning message, no save occurs
+
+**Goal Progress Display (Overview Page)**
+
+When a financial goal is set, the Overview page displays a progress card:
+
+```
+┌────────────────────────────────────────────────┐
+│  Financial Goal Progress                       │
+│                                                │
+│  ████████████░░░░░░░░░░░░░░░░░░  [progress]    │
+│                                                │
+│  45.2% achieved           $548,000 to go       │
+└────────────────────────────────────────────────┘
+```
+
+When goal is reached (100%+):
+
+```
+│  100%+ achieved           Goal reached! 🎯     │
+```
+
+______________________________________________________________________
+
 ### Dashboard Screen (Phase 2)
 
 **Primary Purpose**: Overview of all portfolios and total wealth
@@ -1125,13 +1241,16 @@ ______________________________________________________________________
   - Shows total portfolio value and count
   - Lists all portfolios with their values and asset counts
   - Add Portfolio button in toolbar
+  - Goal progress card (when financial goal is set)
 - ✅ Individual Portfolio Items in Sidebar
   - Each portfolio appears in sidebar
   - Click to view portfolio detail (assets, total value, subtitle with description)
   - Right-click portfolio for Edit and Delete context menu
+- ✅ Settings (at bottom of sidebar)
+  - Main currency selection
+  - Financial goal configuration
 - 🚧 Assets section (Future)
 - 🚧 Plans section (Future)
-- 🚧 Settings (Future)
 
 **User Flow**
 
@@ -1792,6 +1911,6 @@ ______________________________________________________________________
 
 **Document Status**: 🚧 Initial framework - update as screens are designed and built
 
-**Last Updated**: 2025-10-09
+**Last Updated**: 2026-01-28
 
-**Next Action**: Implement Asset List Screen (Phase 1 MVP), update this doc with actual design decisions
+**Next Action**: Continue Phase 2 features (asset allocation charts, performance metrics)

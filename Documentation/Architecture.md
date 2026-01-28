@@ -113,6 +113,15 @@ struct PortfolioView: View {
    - Deletion validation (prevents negative asset quantity)
    - Delete confirmation and error state management
 
+1. **SettingsViewModel**: Settings form state and validation
+
+   - Form state for main currency and financial goal
+   - Real-time goal validation (must be positive number if provided)
+   - Immediate currency save via `didSet` observer
+   - Deferred goal save (explicit save action)
+   - User interaction tracking for validation message display
+   - `SettingsService` injected via init (default: `.shared`) for testability
+
 **Example Structure**:
 
 ```swift
@@ -194,6 +203,25 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
    - Singleton pattern (`shared` instance)
    - Can be called from any thread context
 
+1. **SettingsService**: Manages app-wide user preferences
+
+   - `@Observable @MainActor` singleton (`shared` instance)
+   - Persists to UserDefaults for simple key-value storage
+   - Properties:
+     - `mainCurrency: String` - display currency for portfolio values (default: "USD")
+     - `financialGoal: Decimal?` - target wealth amount (optional)
+   - Immediate persistence on property change via `didSet`
+   - Financial goal stored as string for Decimal precision preservation
+   - Factory method `createForTesting()` for test isolation
+
+1. **GoalProgressCalculator**: Calculates financial goal progress metrics
+
+   - Pure `enum` with static functions (no state)
+   - `calculateAchievementRate(totalValue:goal:)` - returns percentage (0-100+)
+   - `calculateDistanceToGoal(totalValue:goal:)` - returns remaining amount
+   - `isGoalReached(totalValue:goal:)` - returns boolean
+   - Handles edge cases: nil goal, zero goal (prevents division by zero)
+
 **Example Usage**:
 
 ```swift
@@ -212,6 +240,16 @@ let totalValue = PortfolioValueCalculator.calculateTotalValue(
     using: exchangeRates,
     targetCurrency: "USD",
     ratesBaseCurrency: "USD"
+)
+
+// Goal progress calculation (nonisolated)
+let achievementRate = GoalProgressCalculator.calculateAchievementRate(
+    totalValue: totalValue,
+    goal: settingsService.financialGoal
+)
+let distanceToGoal = GoalProgressCalculator.calculateDistanceToGoal(
+    totalValue: totalValue,
+    goal: settingsService.financialGoal
 )
 ```
 

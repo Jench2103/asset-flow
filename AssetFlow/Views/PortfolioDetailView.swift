@@ -199,7 +199,7 @@ struct PortfolioDetailView: View {
             .font(.system(size: 36, weight: .bold))
             .foregroundStyle(.secondary)
         } else {
-          Text(viewModel.totalValueInUSD.formatted(currency: "USD"))
+          Text(viewModel.totalValueInMainCurrency.formatted(currency: viewModel.mainCurrency))
             .font(.system(size: 36, weight: .bold))
             .foregroundStyle(.primary)
         }

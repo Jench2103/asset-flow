@@ -643,6 +643,99 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## Financial Goal Progress
+
+**Implementation Status**: ✅ Implemented
+
+**Implementation Files**:
+
+- **Service**: `AssetFlow/Services/SettingsService.swift` — stores financial goal
+- **Calculator**: `AssetFlow/Services/GoalProgressCalculator.swift` — pure calculation functions
+- **ViewModel**: `AssetFlow/ViewModels/SettingsViewModel.swift` — form state and validation
+- **View**: `AssetFlow/Views/SettingsView.swift` — settings form UI
+- **Display**: `AssetFlow/Views/OverviewView.swift` — goal progress card
+- **Tests**: `AssetFlowTests/GoalProgressCalculationTests.swift`, `AssetFlowTests/SettingsServiceTests.swift`, `AssetFlowTests/SettingsViewModelTests.swift`
+
+### Goal Achievement Rate
+
+**Formula**:
+
+```
+Achievement Rate (%) = (Total Portfolio Value / Financial Goal) × 100
+```
+
+**Rules**:
+
+- Returns 0% if goal is nil (no goal set)
+- Returns 0% if goal is zero (prevents division by zero)
+- Returns 0% if total value is zero
+- Can exceed 100% when total value exceeds goal
+- Uses total portfolio value converted to main currency
+
+**Examples**:
+
+| Total Value | Goal     | Achievement Rate |
+| ----------- | -------- | ---------------- |
+| $50,000     | $100,000 | 50%              |
+| $100,000    | $100,000 | 100%             |
+| $150,000    | $100,000 | 150%             |
+| $50,000     | nil      | 0%               |
+| $50,000     | $0       | 0%               |
+
+### Distance to Goal
+
+**Formula**:
+
+```
+Distance to Goal = Financial Goal - Total Portfolio Value
+```
+
+**Rules**:
+
+- Returns 0 if goal is nil
+- Positive value = below goal (amount needed to reach goal)
+- Zero = exactly at goal
+- Negative value = above goal (surplus amount)
+
+**Examples**:
+
+| Total Value | Goal     | Distance |
+| ----------- | -------- | -------- |
+| $40,000     | $100,000 | $60,000  |
+| $100,000    | $100,000 | $0       |
+| $120,000    | $100,000 | -$20,000 |
+
+### Goal Reached Status
+
+**Logic**: `totalValue >= goal`
+
+- Returns `false` if goal is nil
+- Returns `true` when total value equals or exceeds goal
+
+### Goal Validation Rules
+
+When setting a financial goal:
+
+- Empty input is valid (clears the goal)
+- Whitespace-only input treated as empty
+- Must be a valid decimal number if provided
+- Must be greater than zero if provided
+- Validation messages:
+  - "Financial goal must be a valid number."
+  - "Financial goal must be greater than zero."
+
+### Currency Integration
+
+Goal progress calculations use the main currency setting:
+
+1. Total portfolio value is calculated by converting all asset values to main currency
+1. Financial goal is set in main currency
+1. Distance to goal is displayed in main currency
+
+When main currency changes, all displayed values update automatically.
+
+______________________________________________________________________
+
 ## Data Validation Rules
 
 ### Asset Validation

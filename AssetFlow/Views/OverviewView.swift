@@ -18,12 +18,18 @@ struct OverviewView: View {
 
   @State private var showingAddPortfolioSheet = false
   @State private var exchangeRateService = ExchangeRateService.shared
+  @State private var settingsService = SettingsService.shared
 
   var body: some View {
     ScrollView {
       VStack(spacing: 24) {
         // Total Value Card
         totalValueCard
+
+        // Goal Progress Card (only shown if goal is set)
+        if settingsService.financialGoal != nil {
+          goalProgressCard
+        }
 
         // Portfolio Summary
         if !portfolios.isEmpty {
@@ -76,7 +82,7 @@ struct OverviewView: View {
               .foregroundStyle(.secondary)
           }
         } else {
-          Text(totalValue.formatted(currency: "USD"))
+          Text(totalValue.formatted(currency: settingsService.mainCurrency))
             .font(.system(size: 48, weight: .bold))
             .accessibilityIdentifier("Total Portfolio Value")
         }
@@ -106,10 +112,72 @@ struct OverviewView: View {
 
       VStack(spacing: 12) {
         ForEach(portfolios) { portfolio in
-          PortfolioSummaryRow(portfolio: portfolio, exchangeRateService: exchangeRateService)
+          PortfolioSummaryRow(
+            portfolio: portfolio,
+            exchangeRateService: exchangeRateService,
+            mainCurrency: settingsService.mainCurrency)
         }
       }
     }
+  }
+
+  // MARK: - Goal Progress Card
+
+  private var goalProgressCard: some View {
+    VStack(spacing: 12) {
+      HStack {
+        Text("Financial Goal Progress")
+          .font(.headline)
+          .foregroundStyle(.secondary)
+        Spacer()
+      }
+
+      // Progress bar
+      if let goal = settingsService.financialGoal {
+        let progress = min(1.0, Double(truncating: (totalValue / goal) as NSDecimalNumber))
+        ProgressView(value: progress)
+          .progressViewStyle(.linear)
+          .tint(
+            GoalProgressCalculator.isGoalReached(totalValue: totalValue, goal: goal)
+              ? .green : .blue
+          )
+          .accessibilityIdentifier("Goal Progress Bar")
+      }
+
+      // Stats row
+      HStack {
+        // Achievement rate
+        let achievementRate = GoalProgressCalculator.calculateAchievementRate(
+          totalValue: totalValue, goal: settingsService.financialGoal)
+        Text("\(achievementRate.formattedPercentage()) achieved")
+          .font(.subheadline)
+          .foregroundStyle(.primary)
+
+        Spacer()
+
+        // Distance to goal or success message
+        if GoalProgressCalculator.isGoalReached(
+          totalValue: totalValue, goal: settingsService.financialGoal)
+        {
+          HStack(spacing: 4) {
+            Text("Goal reached!")
+              .font(.subheadline)
+              .foregroundStyle(.green)
+            Image(systemName: "checkmark.circle.fill")
+              .foregroundStyle(.green)
+          }
+        } else {
+          let distance = GoalProgressCalculator.calculateDistanceToGoal(
+            totalValue: totalValue, goal: settingsService.financialGoal)
+          Text("\(distance.formatted(currency: settingsService.mainCurrency)) to go")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
+      }
+    }
+    .padding(24)
+    .background(Color(.secondarySystemFill))
+    .cornerRadius(12)
   }
 
   // MARK: - Computed Properties
@@ -120,7 +188,7 @@ struct OverviewView: View {
         + PortfolioValueCalculator.calculateTotalValue(
           for: portfolio.assets ?? [],
           using: exchangeRateService.rates,
-          targetCurrency: "USD",
+          targetCurrency: settingsService.mainCurrency,
           ratesBaseCurrency: exchangeRateService.baseCurrency
         )
     }
@@ -132,6 +200,7 @@ struct OverviewView: View {
 private struct PortfolioSummaryRow: View {
   let portfolio: Portfolio
   let exchangeRateService: ExchangeRateService
+  let mainCurrency: String
 
   var body: some View {
     HStack {
@@ -154,9 +223,9 @@ private struct PortfolioSummaryRow: View {
           PortfolioValueCalculator.calculateTotalValue(
             for: portfolio.assets ?? [],
             using: exchangeRateService.rates,
-            targetCurrency: "USD",
+            targetCurrency: mainCurrency,
             ratesBaseCurrency: exchangeRateService.baseCurrency
-          ).formatted(currency: "USD")
+          ).formatted(currency: mainCurrency)
         )
         .font(.body)
         .fontWeight(.medium)

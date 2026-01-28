@@ -24,8 +24,16 @@ final class PortfolioDetailViewModel {
   /// Exchange rate service for currency conversion
   private let exchangeRateService: ExchangeRateService
 
-  /// Converted total value in USD
-  var totalValueInUSD: Decimal = 0
+  /// Settings service for main currency
+  private let settingsService: SettingsService
+
+  /// Converted total value in main currency
+  var totalValueInMainCurrency: Decimal = 0
+
+  /// The main currency used for display
+  var mainCurrency: String {
+    settingsService.mainCurrency
+  }
 
   /// Loading state for exchange rates
   var isLoadingRates: Bool {
@@ -39,11 +47,13 @@ final class PortfolioDetailViewModel {
 
   init(
     portfolio: Portfolio, modelContext: ModelContext,
-    exchangeRateService: ExchangeRateService = .shared
+    exchangeRateService: ExchangeRateService = .shared,
+    settingsService: SettingsService = .shared
   ) {
     self.portfolio = portfolio
     self.modelContext = modelContext
     self.exchangeRateService = exchangeRateService
+    self.settingsService = settingsService
 
     // Start fetching exchange rates.
     // Use [weak self] to avoid retaining the ViewModel — if it is deallocated
@@ -77,13 +87,13 @@ final class PortfolioDetailViewModel {
     await exchangeRateService.fetchRates()
   }
 
-  /// Calculate total value in USD with currency conversion
+  /// Calculate total value in main currency with currency conversion
   func calculateTotalValue() {
     // Use assets property which is always fetched fresh from SwiftData
-    totalValueInUSD = PortfolioValueCalculator.calculateTotalValue(
+    totalValueInMainCurrency = PortfolioValueCalculator.calculateTotalValue(
       for: assets,
       using: exchangeRateService.rates,
-      targetCurrency: "USD",
+      targetCurrency: settingsService.mainCurrency,
       ratesBaseCurrency: exchangeRateService.baseCurrency
     )
   }

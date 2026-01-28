@@ -25,6 +25,7 @@ enum Constants {
     static let preferredCurrency = "preferredCurrency"
     static let enableBiometricAuth = "enableBiometricAuth"
     static let lastSyncDate = "lastSyncDate"
+    static let financialGoal = "financialGoal"
   }
 
   enum CloudKit {

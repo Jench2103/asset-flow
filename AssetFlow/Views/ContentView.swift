@@ -124,6 +124,14 @@ struct ContentView: View {
           }
         }
       }
+
+      // Settings section
+      Section {
+        NavigationLink(value: SidebarItem.settings) {
+          Label("Settings", systemImage: "gearshape")
+        }
+        .accessibilityIdentifier("Settings Sidebar Item")
+      }
     }
     .navigationTitle("AssetFlow")
     .accessibilityIdentifier("Sidebar")
@@ -145,6 +153,9 @@ struct ContentView: View {
           viewModel: viewModel, assetManagementViewModel: assetManagementViewModel
         )
         .id(portfolio.id)
+
+      case .settings:
+        SettingsView()
       }
     } else {
       // Default to overview if nothing selected
@@ -158,6 +169,7 @@ struct ContentView: View {
 enum SidebarItem: Hashable {
   case overview
   case portfolio(Portfolio)
+  case settings
 
   // Make Portfolio hashable for this enum
   func hash(into hasher: inout Hasher) {
@@ -168,6 +180,9 @@ enum SidebarItem: Hashable {
     case .portfolio(let portfolio):
       hasher.combine("portfolio")
       hasher.combine(portfolio.id)
+
+    case .settings:
+      hasher.combine("settings")
     }
   }
 
@@ -178,6 +193,9 @@ enum SidebarItem: Hashable {
 
     case (.portfolio(let lhsPortfolio), .portfolio(let rhsPortfolio)):
       return lhsPortfolio.id == rhsPortfolio.id
+
+    case (.settings, .settings):
+      return true
 
     default:
       return false
