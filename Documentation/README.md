@@ -1,10 +1,28 @@
 # AssetFlow Documentation
 
-Welcome to the AssetFlow project documentation. This folder contains comprehensive design documents and guides for developing and maintaining the AssetFlow application.
+Welcome to the AssetFlow project documentation. This folder contains comprehensive design documents and guides for developing and maintaining the AssetFlow application -- a macOS desktop application for snapshot-based portfolio management and asset allocation tracking.
 
 ## Documentation Index
 
-### 📐 [Architecture.md](Architecture.md)
+### [SPEC.md](SPEC.md)
+
+**Product and technical specification (v1.3)**
+
+The foundational requirements document defining what AssetFlow does:
+
+- Core concept: snapshot-based portfolio model
+- User interface design and navigation
+- CSV import system and validation rules
+- Data model (Category, Asset, Snapshot, SnapshotAssetValue, CashFlowOperation)
+- Calculation logic (growth rate, Modified Dietz, TWR, CAGR)
+- Rebalancing engine, visualizations, error handling
+- Architecture requirements and non-goals
+
+**Who should read**: Everyone — this is the source of truth for all design decisions
+
+______________________________________________________________________
+
+### [Architecture.md](Architecture.md)
 
 **System design and architectural patterns**
 
@@ -14,33 +32,34 @@ Learn about:
 - Layer responsibilities (View, ViewModel, Model, Service)
 - Data flow and state management
 - SwiftData integration
-- Multi-platform strategy (macOS, iOS, iPadOS)
+- macOS-only platform design
+- Carry-forward computation strategy
 - Dependency management
-- Future architecture enhancements
 
 **Who should read**: All developers working on AssetFlow
 
 ______________________________________________________________________
 
-### 🗄️ [DataModel.md](DataModel.md)
+### [DataModel.md](DataModel.md)
 
 **Complete data model reference**
 
 Covers:
 
-- Core entities: Asset, Portfolio, Transaction, PriceHistory, InvestmentPlan
+- Core entities: Category, Asset, Snapshot, SnapshotAssetValue, CashFlowOperation
 - Property definitions and types
 - Relationships and delete rules
+- Uniqueness constraints
 - SwiftData configuration
 - Financial data precision with Decimal
 - Data validation rules
 - Schema migration strategy
 
-**Who should read**: Developers working with data models, backend integration, or business logic
+**Who should read**: Developers working with data models or business logic
 
 ______________________________________________________________________
 
-### 🛠️ [DevelopmentGuide.md](DevelopmentGuide.md)
+### [DevelopmentGuide.md](DevelopmentGuide.md)
 
 **Getting started and development workflow**
 
@@ -50,8 +69,9 @@ Includes:
 - Development environment configuration
 - Build commands and workflows
 - Working with SwiftData
-- Platform-specific development (macOS/iOS/iPadOS)
+- macOS-specific development
 - Code formatting and linting
+- Localization workflow
 - Debugging tips and troubleshooting
 - Code review checklist
 
@@ -59,7 +79,7 @@ Includes:
 
 ______________________________________________________________________
 
-### 🎨 [CodeStyle.md](CodeStyle.md)
+### [CodeStyle.md](CodeStyle.md)
 
 **Coding standards and conventions**
 
@@ -70,15 +90,15 @@ Details:
 - SwiftUI-specific patterns
 - SwiftData best practices
 - Financial data handling (Decimal usage)
-- Platform-specific code organization
+- macOS-specific code patterns
 - Documentation standards
-- Logging guidelines (no `print()` statements!)
+- Logging guidelines (no `print()` statements)
 
 **Who should read**: All developers to maintain code consistency
 
 ______________________________________________________________________
 
-### 🧪 [TestingStrategy.md](TestingStrategy.md)
+### [TestingStrategy.md](TestingStrategy.md)
 
 **Comprehensive testing approach**
 
@@ -87,157 +107,85 @@ Explains:
 - Testing philosophy and pyramid
 - Unit testing with Swift Testing
 - Integration testing with SwiftData
-- UI testing for critical flows
 - Mocking and test doubles
 - Test coverage goals
-- Performance testing
-- Manual testing checklist
+- Test examples for new models and ViewModels
 
 **Who should read**: Developers writing tests, QA engineers, CI/CD maintainers
 
 ______________________________________________________________________
 
-### 🎯 [UserInterfaceDesign.md](UserInterfaceDesign.md)
+### [UserInterfaceDesign.md](UserInterfaceDesign.md)
 
 **User interface and interaction design**
 
 Documents:
 
-- Development phases and UI priorities
+- Sidebar navigation structure (Dashboard, Snapshots, Assets, Categories, Platforms, Rebalancing, Import)
 - Screen layouts and user flows
+- List-detail split patterns
 - Visual style (colors, typography, icons)
-- Navigation patterns (macOS, iOS, iPadOS)
-- Component library and design patterns
-- Platform-specific adaptations
+- Chart specifications (pie, line, TWR)
+- Empty states and edge cases
+- Settings and data management
 - Accessibility considerations
-- SwiftUI implementation guidance
 
 **Who should read**: Developers building UI, designers, anyone working on user experience
 
 ______________________________________________________________________
 
-### ⚙️ [BusinessLogic.md](BusinessLogic.md)
+### [BusinessLogic.md](BusinessLogic.md)
 
-**Business rules and execution logic**
+**Business rules and calculation logic**
 
 Covers:
 
-- Financial calculations (cost basis, gain/loss, allocations)
-- Transaction processing and validation rules
-- Portfolio management logic
-- Investment plan tracking algorithms
-- Data workflows (CRUD operations)
-- State management patterns
+- Snapshot-based portfolio model and carry-forward resolution
+- Composite portfolio value calculation
+- Category allocation and rebalancing engine
+- Growth rate calculation
+- Modified Dietz return calculation
+- Cumulative TWR and CAGR
+- CSV import validation and duplicate detection
+- Asset identity and matching rules
 - Edge cases and error handling
-- Calculation examples and formulas
 
 **Who should read**: Developers implementing business logic, QA engineers verifying calculations
 
 ______________________________________________________________________
 
-### 🔒 [SecurityAndPrivacy.md](SecurityAndPrivacy.md)
+### [SecurityAndPrivacy.md](SecurityAndPrivacy.md)
 
 **Security and privacy considerations**
 
 Details:
 
-- Threat model and risk assessment
-- Data security (encryption, storage, backups)
-- Privacy principles (data collection, usage, control)
-- Platform security features (sandbox, keychain, etc.)
+- Local-only architecture (no network, no API keys)
+- Data security (SwiftData, file system encryption)
+- Backup file security (ZIP export/restore)
+- Privacy principles (no data collection, no telemetry)
+- macOS platform security features (sandbox, hardened runtime)
 - Secure coding practices
 - Compliance considerations (GDPR, CCPA)
-- User security best practices
-- Incident response procedures
 
-**Who should read**: All developers, security-conscious contributors, privacy advocates
+**Who should read**: All developers, security-conscious contributors
 
 ______________________________________________________________________
 
-### 🔌 [APIDesign.md](APIDesign.md)
+### [APIDesign.md](APIDesign.md)
 
-**API and integration design**
+**Internal API and integration design**
 
 Describes:
 
-- External API integrations (price data, market info)
-- Internal API patterns (services, ViewModels)
-- Data import/export formats (CSV, JSON)
-- API error handling and rate limiting
-- Caching strategies
-- Future integration plans (iCloud sync, brokerage connections)
-- Testing API interactions
-- Privacy considerations for external APIs
+- Internal service APIs (CSV parsing, carry-forward resolution, backup/restore)
+- ViewModel contracts and data access patterns
+- CSV import/export format specifications
+- Backup archive format (ZIP with CSV files and manifest)
+- Error handling patterns
+- No external API integrations (local-only)
 
-**Who should read**: Developers working on integrations, API consumers, backend integration
-
-______________________________________________________________________
-
-## Development Roadmap
-
-This section provides a high-level overview of the planned features for each development phase. For more detailed information, please refer to the specific design documents linked below.
-
-### Phase 1: Core Asset Tracking (MVP)
-
-**Goal**: Establish the foundation for manual asset and transaction management.
-
-- **Features**:
-  - Create, edit, and delete portfolios.
-  - Manually add assets to portfolios.
-  - Record transactions (`buy`, `sell`, `transfer`, `adjustment`) to manage asset quantities.
-  - Manually update the price of each asset.
-- **Calculations**:
-  - Basic asset value (`quantity * price`).
-  - Average cost basis from transactions.
-  - Unrealized gain/loss.
-- **Primary Documents**: [BusinessLogic.md](BusinessLogic.md), [UserInterfaceDesign.md](UserInterfaceDesign.md)
-
-### Phase 2: Portfolio Organization & Analysis
-
-**Goal**: Provide users with insights into their portfolio composition.
-
-- **Features**:
-  - Aggregate asset values to the portfolio and global level.
-  - Visualize portfolio allocation by asset type.
-  - Compare actual allocation against user-defined targets.
-- **UI/UX**:
-  - Dashboard screen for a global overview.
-  - Portfolio detail screens with allocation charts (e.g., pie or donut charts).
-- **Primary Documents**: [BusinessLogic.md](BusinessLogic.md), [UserInterfaceDesign.md](UserInterfaceDesign.md)
-
-### Phase 3: Planning & Advanced Metrics
-
-**Goal**: Introduce investment planning and true performance measurement.
-
-- **Features**:
-  - Create and track investment plans with specific goals.
-  - Create and track regular saving plans, with options for automatic transaction creation or manual reminders.
-- **Calculations**:
-  - Implement Time-Weighted Rate of Return (TWR) for accurate performance analysis.
-  - Project goal achievement based on contributions and returns.
-- **Primary Documents**: [BusinessLogic.md](BusinessLogic.md), [APIDesign.md](APIDesign.md)
-
-### Phase 4: Live Data Integration
-
-**Goal**: Automate asset pricing with live data.
-
-- **Features**:
-  - Integrate with external APIs to fetch live asset prices automatically.
-- **Primary Documents**: [APIDesign.md](APIDesign.md)
-
-### Phase 5: Polish & Advanced Integrations
-
-**Goal**: Refine the user experience and add powerful automation features.
-
-- **Features**:
-  - Provide rebalancing suggestions to align with targets.
-  - Implement multi-device data synchronization via iCloud.
-  - Explore integrations with financial institutions (read-only).
-  - Implement robust data import/export (CSV, JSON).
-- **UI/UX**:
-  - Full accessibility review and implementation.
-  - Dark Mode optimization.
-- **Primary Documents**: [APIDesign.md](APIDesign.md), [SecurityAndPrivacy.md](SecurityAndPrivacy.md)
+**Who should read**: Developers working on services, import/export, or data management
 
 ______________________________________________________________________
 
@@ -245,6 +193,7 @@ ______________________________________________________________________
 
 **New to the project?** Read in this order:
 
+1. [SPEC.md](SPEC.md) - Understand the product requirements
 1. [DevelopmentGuide.md](DevelopmentGuide.md) - Set up your environment
 1. [Architecture.md](Architecture.md) - Understand the system design
 1. [CodeStyle.md](CodeStyle.md) - Learn coding standards
@@ -256,7 +205,7 @@ ______________________________________________________________________
 1. Review [UserInterfaceDesign.md](UserInterfaceDesign.md) for UI patterns and screen layouts
 1. Check [BusinessLogic.md](BusinessLogic.md) for business rules and calculations
 1. Consider [SecurityAndPrivacy.md](SecurityAndPrivacy.md) if handling sensitive data
-1. Plan [APIDesign.md](APIDesign.md) if integrating external services
+1. Plan [APIDesign.md](APIDesign.md) for internal service interfaces
 
 **Implementing a feature?**
 
@@ -315,10 +264,10 @@ ______________________________________________________________________
 | Design new screen/UI       | [UserInterfaceDesign.md](UserInterfaceDesign.md)                                             |
 | Add business rule/calc     | [BusinessLogic.md](BusinessLogic.md)                                                         |
 | Security/privacy change    | [SecurityAndPrivacy.md](SecurityAndPrivacy.md)                                               |
-| API integration            | [APIDesign.md](APIDesign.md)                                                                 |
+| API/service integration    | [APIDesign.md](APIDesign.md)                                                                 |
 | Major feature (all design) | [UserInterfaceDesign.md](UserInterfaceDesign.md), [BusinessLogic.md](BusinessLogic.md), etc. |
 
-**Documentation is code** - keep it accurate, clear, and up-to-date!
+**Documentation is code** -- keep it accurate, clear, and up-to-date!
 
 ______________________________________________________________________
 
@@ -335,51 +284,22 @@ Found an error or unclear explanation?
 **Example commit**:
 
 ```bash
-git commit -m "docs: Update DataModel.md with new InvestmentPlan fields"
+git commit -m "docs: Update DataModel.md with new SnapshotAssetValue fields"
 ```
-
-______________________________________________________________________
-
-## Document Maintenance
-
-**Last Updated**: 2025-10-09
-
-**Next Review**: When major architecture or design changes occur
-
-**Maintainers**: Project contributors
-
-______________________________________________________________________
-
-## Questions?
-
-If something is unclear or missing from the documentation:
-
-1. Check the specific document's table of contents
-1. Search for keywords across all documentation files
-1. Review the project's [`CLAUDE.md`](../CLAUDE.md) for conventions
-1. Consult the team or create an issue
 
 ______________________________________________________________________
 
 ## Document Status
 
-| Document               | Status       | Coverage      | Last Updated |
-| ---------------------- | ------------ | ------------- | ------------ |
-| Architecture.md        | ✅ Complete  | Comprehensive | 2025-10-08   |
-| DataModel.md           | ✅ Complete  | Comprehensive | 2025-10-08   |
-| DevelopmentGuide.md    | ✅ Complete  | Comprehensive | 2025-10-09   |
-| CodeStyle.md           | ✅ Complete  | Comprehensive | 2025-10-08   |
-| TestingStrategy.md     | ✅ Complete  | Comprehensive | 2025-10-08   |
-| UserInterfaceDesign.md | 🚧 Framework | Initial       | 2025-10-09   |
-| BusinessLogic.md       | 🚧 Framework | Initial       | 2025-10-09   |
-| SecurityAndPrivacy.md  | ✅ Complete  | Comprehensive | 2025-10-09   |
-| APIDesign.md           | 🚧 Framework | Initial       | 2025-10-09   |
-
-**Legend:**
-
-- ✅ Complete: Comprehensive documentation, updated regularly
-- 🚧 Framework: Structure established, content to be filled as features develop
-
-______________________________________________________________________
-
-Happy developing! 🚀
+| Document               | Status  |
+| ---------------------- | ------- |
+| SPEC.md                | Current |
+| Architecture.md        | Current |
+| DataModel.md           | Current |
+| DevelopmentGuide.md    | Current |
+| CodeStyle.md           | Current |
+| TestingStrategy.md     | Current |
+| UserInterfaceDesign.md | Current |
+| BusinessLogic.md       | Current |
+| SecurityAndPrivacy.md  | Current |
+| APIDesign.md           | Current |

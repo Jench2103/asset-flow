@@ -2,7 +2,7 @@
 
 ## Overview
 
-AssetFlow is built using modern Apple platform technologies with a focus on maintainability, scalability, and cross-platform consistency across macOS, iOS, and iPadOS.
+AssetFlow is a macOS desktop application (macOS 14.0+) for snapshot-based portfolio management and asset allocation tracking. It is built with SwiftUI, SwiftData, and Swift Charts, following a local-first architecture with no network dependencies.
 
 ## Architecture Pattern
 
@@ -11,24 +11,24 @@ AssetFlow is built using modern Apple platform technologies with a focus on main
 The application follows the MVVM architectural pattern to separate concerns and improve testability:
 
 ```
-┌──────────────┐
-│     View     │ ← SwiftUI Views (UI Layer)
-└──────┬───────┘
-       │ observes
-       ↓
-┌──────────────┐
-│  ViewModel   │ ← Business Logic & State
-└──────┬───────┘
-       │ uses
-       ↓
-┌──────────────┐
-│    Model     │ ← SwiftData Models (Data Layer)
-└──────┬───────┘
-       │
-       ↓
-┌──────────────┐
-│   Services   │ ← Data Operations & External APIs
-└──────────────┘
++--------------+
+|     View     | <- SwiftUI Views (UI Layer)
++------+-------+
+       | observes
+       v
++--------------+
+|  ViewModel   | <- Business Logic & State
++------+-------+
+       | uses
+       v
++--------------+
+|    Model     | <- SwiftData Models (Data Layer)
++------+-------+
+       |
+       v
++--------------+
+|   Services   | <- Stateless Calculations & Utilities
++--------------+
 ```
 
 ### Layer Responsibilities
@@ -41,14 +41,14 @@ The application follows the MVVM architectural pattern to separate concerns and 
   - Declarative UI with SwiftUI
   - Observes ViewModel state changes
   - Minimal business logic
-  - Platform-specific adaptations using `#if os()` compiler directives
+  - macOS-optimized layouts (sidebar navigation, list-detail split)
   - Reusable components
 
 **Example Structure**:
 
 ```swift
-struct PortfolioView: View {
-    @StateObject private var viewModel: PortfolioViewModel
+struct DashboardView: View {
+    @State private var viewModel: DashboardViewModel
 
     var body: some View {
         // UI declaration
@@ -64,84 +64,44 @@ struct PortfolioView: View {
   - Uses `@Observable` macro for automatic change tracking
   - `@MainActor` isolation for UI thread safety
   - Coordinates between Views and Models/Services
-  - Platform-agnostic logic
   - Handles data transformation and validation
   - Form validation with real-time feedback
 
-**Implemented ViewModels**:
+**ViewModels** (planned for new design):
 
-1. **PortfolioFormViewModel**: Portfolio creation and editing
-
-   - Form state management (name, description)
-   - Real-time name validation (empty, uniqueness)
-   - Whitespace trimming and warning
-   - User interaction tracking
-
-1. **PortfolioDetailViewModel**: Portfolio detail view state
-
-   - Asset list management
-   - Total value computation with currency conversion
-   - Portfolio metadata display
-   - `ExchangeRateService` injected via init (default: `.shared`) for testability
-
-1. **PortfolioManagementViewModel**: Portfolio list and operations
-
-   - Portfolio listing
-   - Deletion with validation
-   - Empty state handling
-
-1. **AssetFormViewModel**: Asset creation and editing
-
-   - Form state management (name, type, quantity, price, notes)
-   - Comprehensive validation (name, quantity, current value)
-   - Automatic transaction and price history creation for new assets
-   - Edit mode: updates asset properties only (quantity/price via transactions)
-
-1. **TransactionFormViewModel**: Transaction creation and editing
-
-   - Form state management (type, date, quantity, price per unit)
-   - Real-time validation (date, quantity, price)
-   - Sell/transferOut quantity capped at current holdings
-   - Auto-calculated total amount (quantity × pricePerUnit)
-   - Cash asset handling: price fixed at 1, "Deposit"/"Withdrawal" labels, "Amount" field label
-   - Edit mode: pre-populates fields, validates resulting quantity, updates in-place
-
-1. **TransactionManagementViewModel**: Transaction history management (list state, deletion flow)
-
-   - Sorted transaction list (newest first)
-   - Transaction count
-   - Deletion validation (prevents negative asset quantity)
-   - Delete confirmation and error state management
-
-1. **SettingsViewModel**: Settings form state and validation
-
-   - Form state for main currency and financial goal
-   - Real-time goal validation (must be positive number if provided)
-   - Immediate currency save via `didSet` observer
-   - Deferred goal save (explicit save action)
-   - User interaction tracking for validation message display
-   - `SettingsService` injected via init (default: `.shared`) for testability
+1. **DashboardViewModel**: Portfolio overview metrics, summary cards, chart data
+1. **SnapshotListViewModel**: Snapshot listing, creation, deletion
+1. **SnapshotDetailViewModel**: Snapshot detail, asset breakdown, carry-forward resolution, cash flow management
+1. **AssetListViewModel**: Asset listing, grouping (by platform or category)
+1. **AssetDetailViewModel**: Asset value history, editing, deletion validation
+1. **CategoryListViewModel**: Category listing, creation, deletion
+1. **CategoryDetailViewModel**: Category detail, value and allocation history
+1. **PlatformListViewModel**: Platform listing, rename operations
+1. **RebalancingViewModel**: Rebalancing calculations, current vs. target allocation
+1. **ImportViewModel**: CSV parsing, validation, preview, import execution
+1. **SettingsViewModel**: Display currency, date format, default platform, backup/restore
 
 **Example Structure**:
 
 ```swift
 @Observable
 @MainActor
-class AssetFormViewModel {
-    var name: String
-    var assetType: AssetType
-    var quantity: String
-    var currentValue: String
+class ImportViewModel {
+    var importType: ImportType = .assets
+    var selectedFile: URL?
+    var snapshotDate: Date = .now
+    var selectedPlatform: String?
+    var selectedCategory: Category?
+    var previewRows: [PreviewRow] = []
+    var validationErrors: [ValidationError] = []
+    var validationWarnings: [ValidationWarning] = []
 
-    var nameValidationMessage: String?
-    var quantityValidationMessage: String?
-
-    var isSaveDisabled: Bool {
-        nameValidationMessage != nil || quantityValidationMessage != nil
+    var isImportDisabled: Bool {
+        !validationErrors.isEmpty || previewRows.isEmpty
     }
 
-    func save() { /* Creates or updates asset */ }
-    private func validateName() { /* Validation logic */ }
+    func parseCSV(_ url: URL) { /* Parse and validate */ }
+    func executeImport() { /* Create/update snapshot */ }
 }
 ```
 
@@ -158,132 +118,106 @@ class AssetFormViewModel {
 
 **Core Models**:
 
-- `Asset` - Individual investments
-- `Portfolio` - Asset collections
-- `Transaction` - Financial operations
-- `PriceHistory` - Historical price points for assets
-- `InvestmentPlan` - Strategic goals
+- `Category` - Asset categorization with target allocation
+- `Asset` - Individual investments identified by (name, platform)
+- `Snapshot` - Portfolio state at a specific date
+- `SnapshotAssetValue` - Market value of an asset within a snapshot
+- `CashFlowOperation` - External cash flow event associated with a snapshot
 
 See [DataModel.md](DataModel.md) for detailed model documentation.
 
 #### Service Layer
 
-- **Purpose**: Data operations, business logic, and external integrations
+- **Purpose**: Stateless calculations, data operations, and utility functions
 - **Location**: `AssetFlow/Services/`
 - **Characteristics**:
   - Business logic separated from models and ViewModels
   - NOT marked as `@MainActor` (pure functions where possible)
-  - External API integrations
+  - No external API integrations (local-only)
   - Stateless calculations
   - Error handling and validation
 
-**Implemented Services**:
+**Planned Services**:
 
-1. **ExchangeRateService**: Fetches and caches exchange rates from Coinbase API
+1. **CarryForwardService**: Resolves composite portfolio values by combining direct snapshot data with carried-forward platform values from prior snapshots. Must operate on pre-fetched data in memory (no N+1 queries).
 
-   - Singleton pattern (`shared` instance)
-   - 1-hour caching to reduce API calls
-   - Configurable base currency via `init(baseCurrency:)`
-   - Static `convert()` method for currency conversion (nonisolated)
-   - Comprehensive error handling with categorized messages
+1. **CSVParsingService**: Parses asset CSV and cash flow CSV files according to the schemas defined in SPEC Section 4.2. Handles encoding (UTF-8 with BOM tolerance), number parsing (strip currency symbols, thousand separators), and validation.
 
-1. **PortfolioValueCalculator**: Calculates portfolio values with currency conversion
+1. **DuplicateDetectionService**: Detects duplicate assets (by normalized name + platform) and duplicate cash flows (by case-insensitive description) both within a CSV file and between CSV data and existing snapshot records.
 
-   - Pure struct (no state, not @MainActor)
-   - Static method for calculating total value across multiple currencies
-   - Takes array of assets and exchange rates as parameters
-   - Keeps models free from business logic
+1. **GrowthRateCalculator**: Calculates simple percentage change in portfolio value between two dates with period lookback logic (1M, 3M, 1Y) and the 14-day staleness threshold.
 
-1. **CurrencyService**: Provides ISO 4217 currency information
+1. **ModifiedDietzCalculator**: Calculates cash-flow-adjusted returns using the Modified Dietz method, with time-weighting of intermediate cash flows.
 
-   - NOT marked as `@MainActor` - pure data lookup service
-   - Parses ISO 4217 XML for currency codes and names
-   - Generates flag emojis for currencies
-   - Filters duplicate and fund currencies
-   - Singleton pattern (`shared` instance)
-   - Can be called from any thread context
+1. **TWRCalculator**: Chains Modified Dietz returns between consecutive snapshots to compute cumulative time-weighted return.
 
-1. **SettingsService**: Manages app-wide user preferences
+1. **CAGRCalculator**: Calculates compound annual growth rate from beginning/ending values and time span.
 
-   - `@Observable @MainActor` singleton (`shared` instance)
-   - Persists to UserDefaults for simple key-value storage
-   - Properties:
-     - `mainCurrency: String` - display currency for portfolio values (default: "USD")
-     - `financialGoal: Decimal?` - target wealth amount (optional)
-   - Immediate persistence on property change via `didSet`
-   - Financial goal stored as string for Decimal precision preservation
-   - Factory method `createForTesting()` for test isolation
+1. **RebalancingCalculator**: Computes target vs. current allocation differences and suggested buy/sell actions for each category.
 
-1. **GoalProgressCalculator**: Calculates financial goal progress metrics
+1. **BackupService**: Exports all application data to a ZIP archive containing CSV files and a manifest.json. Restores from a backup archive with full validation (file integrity, column headers, foreign key references). **Note**: BackupService requires `@MainActor` annotation because it accepts `ModelContext`, which is `@MainActor`-isolated. This is an exception to the general "services are not `@MainActor`" principle.
 
-   - Pure `enum` with static functions (no state)
-   - `calculateAchievementRate(totalValue:goal:)` - returns percentage (0-100+)
-   - `calculateDistanceToGoal(totalValue:goal:)` - returns remaining amount
-   - `isGoalReached(totalValue:goal:)` - returns boolean
-   - Handles edge cases: nil goal, zero goal (prevents division by zero)
+1. **SettingsService**: Manages app-wide user preferences (display currency, date format, default platform) via UserDefaults.
 
-**Example Usage**:
-
-```swift
-// Exchange rate conversion (nonisolated, can be called from any context)
-let convertedValue = ExchangeRateService.convert(
-    amount: 100,
-    from: "EUR",
-    to: "USD",
-    using: exchangeRates,
-    baseCurrency: "USD"
-)
-
-// Portfolio value calculation (nonisolated)
-let totalValue = PortfolioValueCalculator.calculateTotalValue(
-    for: assets,
-    using: exchangeRates,
-    targetCurrency: "USD",
-    ratesBaseCurrency: "USD"
-)
-
-// Goal progress calculation (nonisolated)
-let achievementRate = GoalProgressCalculator.calculateAchievementRate(
-    totalValue: totalValue,
-    goal: settingsService.financialGoal
-)
-let distanceToGoal = GoalProgressCalculator.calculateDistanceToGoal(
-    totalValue: totalValue,
-    goal: settingsService.financialGoal
-)
-```
+1. **CurrencyService**: Provides ISO 4217 currency information (codes, names, flag emojis). Unlike other services, CurrencyService is a class with a `static let shared` singleton because it caches parsed currency data from the bundled ISO 4217 XML file.
 
 **Design Principles**:
 
 - Services perform pure calculations without requiring MainActor
 - Models remain simple data containers
 - ViewModels coordinate between services and UI
-- Testability: mock data can be passed to services without network calls
+- Testability: mock data can be passed to services without side effects
+- All service data types (structs used as inputs/outputs, such as `CompositeSnapshotView`, `AssetCSVResult`, `RebalancingSuggestion`) should conform to `Sendable` for Swift 6 strict concurrency compatibility
+- Using `enum` for stateless services naturally avoids actor isolation issues
 
 ## Localization
 
 AssetFlow uses Apple's **String Catalogs** (`.xcstrings`) with feature-scoped tables for organization:
 
 - **View Layer**: String literals in SwiftUI (`Text()`, `Label()`, etc.) are auto-extracted into `Localizable.xcstrings` at build time. No manual wrapping needed.
-- **ViewModel/Service Layer**: All user-facing strings use `String(localized:table:)` with feature-specific tables (`Asset`, `Portfolio`, `Transaction`, `PriceHistory`, `Services`).
-- **Enum Display Names**: Enums like `AssetType` and `TransactionType` have a `localizedName` computed property for UI display. The `rawValue` is reserved for SwiftData persistence and must never be shown to users.
+- **ViewModel/Service Layer**: All user-facing strings use `String(localized:table:)` with feature-specific tables (e.g., `Snapshot`, `Asset`, `Category`, `Import`, `Services`).
+- **Enum Display Names**: Enums with user-facing values have a `localizedName` computed property for UI display. The `rawValue` is reserved for SwiftData persistence and must never be shown to users.
 
 ## Data Flow
 
 ### Unidirectional Data Flow
 
 ```
-User Action → View → ViewModel → Service/Model → SwiftData
-                ↑                                      ↓
-                └──────── State Update ←───────────────┘
+User Action -> View -> ViewModel -> Service/Model -> SwiftData
+                ^                                      |
+                +-------- State Update <---------------+
 ```
 
 1. **User Interaction**: User interacts with View
 1. **Action Dispatch**: View calls ViewModel method
-1. **Business Logic**: ViewModel processes request
-1. **Data Operation**: Service/Model updates SwiftData
+1. **Business Logic**: ViewModel processes request (may use Services)
+1. **Data Operation**: Model updates SwiftData
 1. **State Update**: Changes propagate back to ViewModel
 1. **UI Refresh**: View automatically re-renders
+
+### Carry-Forward Data Flow
+
+A key architectural pattern is the carry-forward resolution for composite portfolio values:
+
+```
+Snapshot N requested
+       |
+       v
+Fetch all SnapshotAssetValues for Snapshot N
+       |
+       v
+Identify platforms present in Snapshot N
+       |
+       v
+For each missing platform:
+  Find most recent prior snapshot containing that platform
+  Include those platform's asset values
+       |
+       v
+Composite portfolio value = direct values + carried-forward values
+```
+
+**Important**: Carry-forward values are computed at query time, never stored as new records. The `CarryForwardService` must operate on pre-fetched snapshot history in memory to avoid N+1 database queries.
 
 ### SwiftData Integration
 
@@ -297,11 +231,11 @@ User Action → View → ViewModel → Service/Model → SwiftData
 struct AssetFlowApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
+            Category.self,
             Asset.self,
-            Portfolio.self,
-            Transaction.self,
-            PriceHistory.self,
-            InvestmentPlan.self
+            Snapshot.self,
+            SnapshotAssetValue.self,
+            CashFlowOperation.self,
         ])
         // Container configuration
     }()
@@ -310,37 +244,19 @@ struct AssetFlowApp: App {
 
 ## Platform Support
 
-### Multi-Platform Strategy
+### macOS Only (v1)
 
-**Primary Platform**: macOS
+**Platform**: macOS 14.0+
 
-- Full-featured implementation
-- Priority for new features
-- Desktop-optimized layouts
+- Full-featured desktop application
+- Sidebar navigation with list-detail split views
+- Minimum window size: 900 x 600 points
+- Collapsible sidebar (default width: 220 points)
+- Supports system appearance (light and dark mode)
+- Menu bar integration (Settings via Cmd+,)
+- Keyboard shortcuts for common actions
 
-**Secondary Platforms**: iOS, iPadOS
-
-- Core feature parity
-- Platform-specific UI adaptations
-- Touch-optimized interactions
-
-### Platform-Specific Code
-
-Use compiler directives for platform differences:
-
-```swift
-#if os(macOS)
-    .frame(minWidth: 800, minHeight: 600)
-#elseif os(iOS)
-    .navigationBarTitleDisplayMode(.large)
-#endif
-```
-
-### Responsive Design
-
-- Adaptive layouts using SwiftUI's size classes
-- Shared components with platform variants
-- Progressive disclosure for complex features
+**No iOS or iPadOS support** in v1. No platform-specific compiler directives are needed.
 
 ## Dependency Management
 
@@ -348,24 +264,34 @@ Use compiler directives for platform differences:
 
 - **SwiftData**: First-party persistence framework
 - **SwiftUI**: UI framework
-- **Foundation**: Core utilities
+- **Swift Charts**: Data visualization (pie charts, line charts)
+- **Foundation**: Core utilities (including CSV parsing, ZIP handling)
 
-### Future Dependencies
+### No External Dependencies
 
-- Swift Charts (data visualization)
-- Swift Testing (testing framework)
-- CloudKit (sync capabilities)
+AssetFlow is a local-only application with no network requirements:
+
+- No external API calls
+- No API keys
+- No `com.apple.security.network.client` entitlement needed
+- No third-party packages
 
 ### Dependency Injection
 
 ViewModels and Services use dependency injection for testability:
 
 ```swift
-class PortfolioViewModel: ObservableObject {
-    private let dataService: DataService
+@Observable
+@MainActor
+class SnapshotDetailViewModel {
+    private let carryForwardService: CarryForwardService
 
-    init(dataService: DataService = DefaultDataService()) {
-        self.dataService = dataService
+    init(
+        snapshot: Snapshot,
+        modelContext: ModelContext,
+        carryForwardService: CarryForwardService = CarryForwardService()
+    ) {
+        // ...
     }
 }
 ```
@@ -376,18 +302,16 @@ class PortfolioViewModel: ObservableObject {
 
 - `@State`: Local view state
 - `@Binding`: Two-way bindings
-- `@StateObject`: ViewModel lifecycle ownership
-- `@ObservedObject`: ViewModel observation without ownership
+- `@Environment(\.modelContext)`: Access to persistence context
 
 ### Data State
 
 - `@Query`: SwiftData reactive queries
-- `@Environment(\.modelContext)`: Access to persistence context
+- `@Observable` ViewModels: Business logic state
 
 ### App State
 
-- `@Environment`: Shared app-level state
-- `@AppStorage`: User preferences
+- `@AppStorage`: User preferences (display currency, date format)
 - Custom environment values for configuration
 
 ## Error Handling
@@ -395,14 +319,16 @@ class PortfolioViewModel: ObservableObject {
 ### Strategy
 
 - Typed errors with custom `Error` conformances
-- Error propagation via `throws`/`async throws`
-- User-facing error messages
-- Logging for debugging (no `print()` statements)
+- Error propagation via `throws`
+- User-facing error messages (localized)
+- Logging for debugging via `os.log` (no `print()` statements)
 
 ```swift
-enum DataError: LocalizedError {
-    case fetchFailed
-    case saveFailed(underlying: Error)
+enum ImportError: LocalizedError {
+    case missingRequiredColumns([String])
+    case duplicateAssetsInCSV([(row1: Int, row2: Int, name: String)])
+    case duplicateAssetsInSnapshot([(name: String, platform: String)])
+    case emptyFile
 
     var errorDescription: String? {
         // Localized descriptions
@@ -410,66 +336,55 @@ enum DataError: LocalizedError {
 }
 ```
 
+### Calculation Error Handling
+
+- Division by zero: Display "N/A" or "Cannot calculate" with explanation
+- Insufficient snapshots for TWR/CAGR: Display "Insufficient data (need at least 2 snapshots)"
+- Beginning value \<= 0: Display "Cannot calculate"
+- Denominator (BMV + weighted CF) \<= 0: Display "Cannot calculate"
+- No snapshot within lookback window: Period metric = N/A
+
+## Performance and Scalability
+
+### Carry-Forward Resolution Performance
+
+The most performance-critical operation is carry-forward resolution. To avoid N+1 queries:
+
+1. **Pre-fetch all snapshot data** needed for the date range
+1. **Build an in-memory index** of platforms to their latest values per snapshot
+1. **Resolve carry-forward** from the in-memory data structure
+
+This ensures that computing the composite value for any snapshot is O(platforms) rather than O(snapshots * platforms * assets).
+
+### General Optimization Strategies
+
+- **Lazy Loading**: SwiftData automatically lazy loads relationships
+- **Efficient Queries**: Use specific, filtered predicates in `@Query`
+- **Batch Operations**: Use batch processing for CSV imports (insert all SnapshotAssetValues at once)
+- **Background Processing**: Consider background tasks for large CSV imports
+
+### Memory Management
+
+- **ARC**: Swift's Automatic Reference Counting is the primary mechanism
+- **SwiftUI**: SwiftUI's struct-based views minimize memory footprint
+- **Chart Data**: Compute chart data points lazily as needed for the visible time range
+
 ## Security Considerations
 
 ### Data Protection
 
-- SwiftData encrypted storage
-- Keychain for sensitive data (future)
-- Secure API communication (future)
+- SwiftData encrypted storage (via file system encryption)
+- All data stored locally (no network transmission)
+- Backup files are unencrypted ZIP archives (user responsibility to store securely)
 
 ### Privacy
 
-- Minimal data collection
+- No data collection or telemetry
+- No network access
+- User owns 100% of their data
 - Local-first architecture
-- Optional cloud sync with user consent
 
-## Performance and Scalability
-
-### Calculation Strategy: Real-Time vs. Snapshotting
-
-A critical architectural decision is how to compute an asset's state (e.g., quantity, cost basis) from its history. This involves a trade-off between immediate data integrity and long-term performance.
-
-**Phase 1 (MVP): Real-Time Calculation**
-
-- **Strategy**: For the initial release, all asset states will be calculated on-the-fly from the full history of `Transaction` and `PriceHistory` records.
-- **Benefit**: This approach guarantees 100% data accuracy and is simpler to implement, making it ideal for the MVP.
-- **Drawback**: Performance will degrade as a user accumulates many years of data.
-
-**Phase 2 and Beyond: Snapshotting for Performance**
-
-- **Strategy**: To ensure the application remains fast for long-term users, a **snapshotting** mechanism will be introduced. A background process will periodically calculate and store the state of an asset in a separate `AssetSnapshot` model.
-- **Benefit**: When displaying an asset, the app will only need to load the latest snapshot and the few transactions that have occurred since. This provides near-instant access to both current and historical data, which is essential for timeline charts.
-
-This phased approach allows for rapid initial development while establishing a clear, robust plan for future scalability.
-
-### Known Complexity: Asset Computed Property Chains
-
-Asset computed properties chain together, causing multiple iterations per access:
-
-```
-unrealizedGainLoss
-├── currentValue
-│   ├── quantity          → iterates all transactions
-│   └── currentPrice      → iterates all priceHistory
-└── costBasis
-    ├── averageCost       → iterates transactions twice (filter + reduce)
-    └── quantity          → iterates all transactions (again)
-```
-
-Accessing `unrealizedGainLoss` or `unrealizedGainLossPercentage` triggers up to 5-6 full iterations over the transactions and priceHistory arrays. This is acceptable for MVP dataset sizes (typical user has \<100 transactions per asset) but is documented as known technical debt. The snapshotting mechanism described above (Phase 2) will address this when needed.
-
-### General Optimization Strategies
-
-- **Lazy Loading**: SwiftData automatically lazy loads relationships, preventing large object graphs from being loaded into memory at once.
-- **Efficient Queries**: Use specific, filtered predicates in `@Query` to fetch only the necessary data.
-- **Background Processing**: For intensive operations like generating snapshots, use background tasks to avoid blocking the main thread.
-
-### Memory Management
-
-- **ARC**: Swift's Automatic Reference Counting is the primary mechanism.
-- **Weak References**: Use `weak` references in custom classes where necessary to prevent retain cycles (e.g., delegates).
-- **SwiftUI**: SwiftUI's struct-based views help minimize memory footprint.
+See [SecurityAndPrivacy.md](SecurityAndPrivacy.md) for comprehensive security documentation.
 
 ## Testing Strategy
 
@@ -479,9 +394,7 @@ See [TestingStrategy.md](TestingStrategy.md) for comprehensive testing approach.
 
 ### Targets
 
-- **AssetFlow (macOS)**: Primary desktop application
-- **AssetFlow (iOS)**: Mobile application
-- **AssetFlow (iPadOS)**: Tablet application
+- **AssetFlow (macOS)**: Desktop application (macOS 14.0+)
 
 ### Build Schemes
 
@@ -495,21 +408,12 @@ See [TestingStrategy.md](TestingStrategy.md) for comprehensive testing approach.
 - `.editorconfig`: Editor settings
 - `.pre-commit-config.yaml`: Git hooks
 
-## Future Architecture Enhancements
+## Future Architecture Considerations
 
-### Planned Additions
+### Potential Enhancements
 
 1. **Modular Architecture**: Extract features into Swift Packages
 1. **Repository Pattern**: Abstract data persistence layer
-1. **Coordinator Pattern**: Navigation management
-1. **Use Cases/Interactors**: Complex business logic isolation
-1. **CloudKit Integration**: Cross-device synchronization
-1. **Widget Extension**: Home screen widgets
-1. **Share Extension**: Import from other apps
-
-### Scalability Considerations
-
-- Feature modules for code organization
-- Protocol-oriented design for flexibility
-- Composition over inheritance
-- Clear boundaries between layers
+1. **iOS/iPadOS Support**: Platform expansion in future versions
+1. **Column Mapping**: Configurable CSV column mapping (future version)
+1. **Category-Level Cash Flows**: Per-category cash flow tracking (future version)

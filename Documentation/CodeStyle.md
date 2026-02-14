@@ -8,8 +8,8 @@ This document defines the code style standards for the AssetFlow project. Consis
 
 Code style is enforced through:
 
-- **`swift-format`**: Used for automated code formatting to ensure a consistent layout and structure. Its configuration is in the `.swift-format` file.
-- **`SwiftLint`**: Used as a static analysis tool to enforce a wide range of stylistic and convention-based rules that go beyond simple formatting. Its configuration is in the `.swiftlint.yml` file.
+- **`swift-format`**: Automated code formatting. Configuration in `.swift-format`.
+- **`SwiftLint`**: Static analysis for stylistic and convention-based rules. Configuration in `.swiftlint.yml`.
 - **EditorConfig**: Editor settings (`.editorconfig`)
 - **Pre-commit hooks**: Automated checks before commits (`.pre-commit-config.yaml`)
 
@@ -55,14 +55,6 @@ import SwiftUI
 1. Third-party dependencies (alphabetically)
 1. Internal modules (alphabetically)
 
-**Example**:
-
-```swift
-import Foundation
-import SwiftData
-import SwiftUI
-```
-
 **SwiftLint Rule**: Imports must be sorted alphabetically.
 
 ______________________________________________________________________
@@ -74,10 +66,10 @@ ______________________________________________________________________
 **Classes, Structs, Enums, Protocols**: `UpperCamelCase`
 
 ```swift
-class PortfolioViewModel { }
-struct Asset { }
-enum TransactionType { }
-protocol DataService { }
+class SnapshotDetailViewModel { }
+struct Category { }
+enum ImportType { }
+protocol CarryForwardResolving { }
 ```
 
 ### Variables and Functions
@@ -85,25 +77,26 @@ protocol DataService { }
 **Variables, Constants, Functions**: `lowerCamelCase`
 
 ```swift
-var currentValue: Decimal
-let purchaseDate: Date
-func calculateGainLoss() -> Decimal
+var marketValue: Decimal
+let snapshotDate: Date
+func calculateCompositeValue() -> Decimal
 ```
 
 ### Acronyms
 
-Treat acronyms as words:
+Follow Swift standard library convention: short acronyms (2-3 letters) remain uppercase, longer ones are treated as words:
 
 ```swift
 // Good
 let urlString: String
-let apiKey: String
-class HttpClient { }
+let csvParser: CSVParsingService
+class HTTPClient { }       // Short acronym: all caps
+var jsonDecoder: JSONDecoder
 
 // Bad
 let uRLString: String
-let aPIKey: String
-class HTTPClient { }
+let cSVParser: CSVParsingService
+class HttpClient { }       // Should be HTTPClient
 ```
 
 ### Boolean Properties
@@ -111,26 +104,9 @@ class HTTPClient { }
 Use `is`, `has`, `should`, or `can` prefixes:
 
 ```swift
-var isActive: Bool
-var hasTransactions: Bool
-var shouldRefresh: Bool
-var canEdit: Bool
-```
-
-### Protocols
-
-**Capability protocols**: `-able` suffix
-
-```swift
-protocol Comparable { }
-protocol Equatable { }
-```
-
-**Data source/delegate**: `-DataSource`, `-Delegate`
-
-```swift
-protocol TableViewDataSource { }
-protocol NetworkDelegate { }
+var isImportDisabled: Bool
+var hasSnapshotValues: Bool
+var canDeleteAsset: Bool
 ```
 
 ______________________________________________________________________
@@ -142,66 +118,19 @@ ______________________________________________________________________
 - **Warning**: 120 characters
 - **Error**: 150 characters
 
-**Configuration**: `.swiftlint.yml`
-
 ### Indentation
 
 - **4 spaces** (no tabs)
-- **Configuration**: `.editorconfig`, `.swift-format`
+- Configuration: `.editorconfig`, `.swift-format`
 
 ### Braces
 
 Opening brace on same line, closing brace on new line:
 
 ```swift
-// Good
 if condition {
     // code
 }
-
-// Bad
-if condition
-{
-    // code
-}
-```
-
-### Spacing
-
-**Operators**:
-
-```swift
-// Good
-let sum = a + b
-let range = 0...10
-
-// Bad
-let sum=a+b
-let range = 0 ... 10
-```
-
-**Colons**:
-
-```swift
-// Good
-let dict: [String: Int] = [:]
-func foo(param: String) { }
-
-// Bad
-let dict : [String : Int] = [:]
-func foo(param : String) { }
-```
-
-**Commas**:
-
-```swift
-// Good
-let array = [1, 2, 3]
-func foo(a: Int, b: String) { }
-
-// Bad
-let array = [1,2,3]
-func foo(a: Int,b: String) { }
 ```
 
 ### Blank Lines
@@ -209,21 +138,6 @@ func foo(a: Int,b: String) { }
 - One blank line between functions
 - One blank line between types
 - No blank line at start/end of braces
-- Two blank lines between major sections (optional)
-
-```swift
-struct Example {
-    var property: String
-
-    func methodOne() {
-        // implementation
-    }
-
-    func methodTwo() {
-        // implementation
-    }
-}
-```
 
 ______________________________________________________________________
 
@@ -234,45 +148,23 @@ ______________________________________________________________________
 **Use structs by default**, classes when needed for:
 
 - Reference semantics
-- Inheritance
-- Deinitializers
-- Objective-C interoperability
+- SwiftData models (`@Model` requires class)
+- ViewModels (`@Observable` requires class)
 
-```swift
-// Default: struct
-struct Portfolio {
-    let name: String
-    var assets: [Asset]
-}
+### Sendable Conformance
 
-// When needed: class
-@MainActor
-class PortfolioViewModel: ObservableObject {
-    @Published var portfolios: [Portfolio] = []
-}
-```
+For Swift 6 strict concurrency compatibility, all data types passed across isolation boundaries must conform to `Sendable`. In particular:
+
+- Service data types (structs used as inputs/outputs, such as `CompositeSnapshotView`, `AssetCSVResult`, `RebalancingSuggestion`) should conform to `Sendable`
+- Using `enum` for stateless services naturally avoids actor isolation issues
 
 ### Properties
 
 **Computed properties** when appropriate:
 
 ```swift
-// Example of a computed property on the Asset model
-// (See DataModel.md for the full list)
-
-// The most recent price from price history
-var currentPrice: Decimal {
-    priceHistory?.sorted(by: { $0.date > $1.date }).first?.price ?? 0
-}
-```
-
-**Property observers**:
-
-```swift
-var name: String {
-    didSet {
-        print("Asset name changed to \(name) from \(oldValue)")
-    }
+var totalValue: Decimal {
+    assetValues?.reduce(0) { $0 + $1.marketValue } ?? 0
 }
 ```
 
@@ -282,12 +174,12 @@ Use type inference when obvious:
 
 ```swift
 // Good
-let name = "Portfolio"
+let name = "Category"
 let count = 5
 let items: [Asset] = []  // Explicit when empty
 
 // Avoid
-let name: String = "Portfolio"
+let name: String = "Category"
 let count: Int = 5
 ```
 
@@ -303,167 +195,51 @@ func functionName(parameterLabel argumentName: Type) -> ReturnType {
 }
 ```
 
-### Parameter Labels
-
-**Use descriptive labels**:
-
-```swift
-// Good
-func add(_ asset: Asset, to portfolio: Portfolio)
-func calculate(gainLoss for: Asset) -> Decimal
-
-// Bad
-func add(_ asset: Asset, _ portfolio: Portfolio)
-func calculate(_ asset: Asset) -> Decimal
-```
-
-**Omit label with `_`** when clear:
-
-```swift
-func print(_ value: String)
-func insert(_ asset: Asset)
-```
-
 ### Multiple Parameters
 
-**Line breaks** for readability (>3 parameters or long):
+Line breaks for readability (>3 parameters or long):
 
 ```swift
-// Short
-func create(name: String, value: Decimal, date: Date)
-
-// Long - break lines
-func createTransaction(
-    type: TransactionType,
-    date: Date,
-    quantity: Decimal,
-    pricePerUnit: Decimal,
-    totalAmount: Decimal,
-    currency: String,
-    fees: Decimal?
-) -> Transaction
-```
-
-### Default Parameters
-
-Place at the end:
-
-```swift
-func fetchAssets(
-    for portfolio: Portfolio,
-    includeInactive: Bool = false
-) -> [Asset]
+func createSnapshotAssetValue(
+    snapshotID: UUID,
+    assetID: UUID,
+    marketValue: Decimal
+) -> SnapshotAssetValue
 ```
 
 ### Function Length
 
 - **Warning**: 60 lines
 - **Error**: 100 lines
-- **Best practice**: Extract into smaller functions
+- Extract into smaller functions when needed
 
 ______________________________________________________________________
 
 ## Control Flow
-
-### if Statements
-
-```swift
-// Good
-if condition {
-    // code
-} else if otherCondition {
-    // code
-} else {
-    // code
-}
-
-// Multiple conditions
-if condition1,
-   condition2,
-   condition3
-{
-    // code
-}
-```
 
 ### guard Statements
 
 **Early exit pattern**:
 
 ```swift
-func process(asset: Asset?) {
-    guard let asset = asset else {
-        return
+func deleteCategory(_ category: Category) throws {
+    guard category.assets?.isEmpty ?? true else {
+        throw CategoryError.cannotDeleteWithAssignedAssets
     }
-
-    // Continue with unwrapped asset
-}
-```
-
-**Multiple conditions**:
-
-```swift
-guard let asset = asset,
-      asset.currentValue > 0,
-      let portfolio = asset.portfolio
-else {
-    return
+    modelContext.delete(category)
 }
 ```
 
 ### switch Statements
 
-**Exhaustive switching**:
-
-```swift
-switch assetType {
-case .stock:
-    // handle stock
-case .bond:
-    // handle bond
-case .crypto:
-    // handle crypto
-default:
-    // handle others
-}
-```
-
 **Prefer switch over if-else chains**:
 
 ```swift
-// Good
-switch riskLevel {
-case .veryLow: return "Conservative"
-case .low: return "Low Risk"
-case .moderate: return "Balanced"
-case .high: return "High Risk"
-case .veryHigh: return "Aggressive"
-}
-
-// Avoid
-if riskLevel == .veryLow {
-    return "Conservative"
-} else if riskLevel == .low {
-    return "Low Risk"
-}
-// etc...
-```
-
-### for Loops
-
-```swift
-// Good
-for asset in assets {
-    process(asset)
-}
-
-for (index, asset) in assets.enumerated() {
-    print("\(index): \(asset.name)")
-}
-
-// Use where clause for filtering
-for asset in assets where asset.isActive {
-    process(asset)
+switch importType {
+case .assets:
+    parseAssetCSV(url)
+case .cashFlows:
+    parseCashFlowCSV(url)
 }
 ```
 
@@ -476,38 +252,20 @@ ______________________________________________________________________
 **Prefer optional binding**:
 
 ```swift
-// Good
-if let portfolio = portfolio {
-    print(portfolio.name)
+if let snapshot = selectedSnapshot {
+    showDetail(for: snapshot)
 }
 
-guard let portfolio = portfolio else {
-    return
-}
+guard let category = category else { return }
 ```
 
-**Avoid force unwrapping** (generates SwiftLint warning):
-
-```swift
-// Bad (unless absolutely certain)
-let portfolio = maybePortfolio!
-
-// Exception: IBOutlets, well-documented invariants
-@IBOutlet weak var tableView: UITableView!
-```
-
-### Optional Chaining
-
-```swift
-let totalValue = portfolio?.totalValue ?? 0
-let firstAsset = portfolio?.assets?.first
-```
+**Avoid force unwrapping** (generates SwiftLint warning).
 
 ### Nil Coalescing
 
 ```swift
-let currency = asset.currency ?? "USD"
-let fees = transaction.fees ?? 0
+let platform = asset.platform ?? ""
+let netCashFlow = cashFlows?.reduce(0) { $0 + $1.amount } ?? 0
 ```
 
 ______________________________________________________________________
@@ -517,10 +275,10 @@ ______________________________________________________________________
 ### View Structure
 
 ```swift
-struct PortfolioView: View {
+struct SnapshotDetailView: View {
     // 1. Property wrappers
-    @StateObject private var viewModel: PortfolioViewModel
-    @State private var showingDetail = false
+    @State private var viewModel: SnapshotDetailViewModel
+    @State private var showingAddAsset = false
 
     // 2. Body
     var body: some View {
@@ -530,7 +288,8 @@ struct PortfolioView: View {
     // 3. Extracted view builders
     private var content: some View {
         VStack {
-            // view content
+            assetTable
+            cashFlowSection
         }
     }
 }
@@ -538,17 +297,9 @@ struct PortfolioView: View {
 
 ### ViewBuilder
 
-**Extract complex views**:
+Extract complex views into computed properties:
 
 ```swift
-// Instead of:
-var body: some View {
-    VStack {
-        // 50 lines of view code
-    }
-}
-
-// Do:
 var body: some View {
     content
 }
@@ -560,45 +311,25 @@ private var content: some View {
         footer
     }
 }
-
-private var header: some View {
-    // header views
-}
 ```
 
 ### Modifiers
 
-**Order of modifiers** (generally):
+Order (generally):
 
 1. Layout modifiers (frame, padding)
 1. Style modifiers (foregroundColor, font)
 1. Behavior modifiers (onTapGesture, task)
 
-```swift
-Text("Portfolio")
-    .font(.headline)
-    .foregroundColor(.primary)
-    .padding()
-    .background(Color.gray.opacity(0.1))
-    .cornerRadius(8)
-    .onTapGesture {
-        // action
-    }
-```
-
-### Property Wrappers
-
-**Order**:
+### Property Wrappers Order
 
 ```swift
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var assets: [Asset]
-    @StateObject private var viewModel: ViewModel
+    @Query private var snapshots: [Snapshot]
+    @State private var viewModel: ViewModel
     @State private var isPresented = false
-    @Binding var selectedAsset: Asset?
-
-    // ...
+    @Binding var selectedSnapshot: Snapshot?
 }
 ```
 
@@ -614,43 +345,25 @@ import Foundation
 
 @Model
 final class Asset {
-    // 1. Stored Properties (identifiers and user content)
+    // 1. Stored Properties
     var id: UUID
     var name: String
-    var assetType: AssetType
-    var currency: String
-    var notes: String?
+    var platform: String
 
     // 2. Relationships
-    @Relationship(deleteRule: .nullify, inverse: \Portfolio.assets)
-    var portfolio: Portfolio?
+    @Relationship(deleteRule: .nullify, inverse: \Category.assets)
+    var category: Category?
 
-    @Relationship(deleteRule: .cascade, inverse: \Transaction.asset)
-    var transactions: [Transaction]?
-
-    @Relationship(deleteRule: .cascade, inverse: \PriceHistory.asset)
-    var priceHistory: [PriceHistory]?
+    @Relationship(deleteRule: .deny, inverse: \SnapshotAssetValue.asset)
+    var snapshotAssetValues: [SnapshotAssetValue]?
 
     // 3. Initializer
-    init(name: String, assetType: AssetType, currency: String) {
+    init(name: String, platform: String = "") {
         self.id = UUID()
         self.name = name
-        self.assetType = assetType
-        self.currency = currency
-    }
-
-    // 4. Computed Properties (state is derived, not stored)
-    var quantity: Decimal {
-        transactions?.reduce(0) { $0 + $1.quantityImpact } ?? 0
+        self.platform = platform
     }
 }
-```
-
-### Relationships
-
-```swift
-@Relationship(deleteRule: .cascade, inverse: \Transaction.asset)
-var transactions: [Transaction]?
 ```
 
 ______________________________________________________________________
@@ -663,30 +376,23 @@ ______________________________________________________________________
 
 ```swift
 // Good
-var currentValue: Decimal
-var purchasePrice: Decimal
+var marketValue: Decimal
+var targetAllocationPercentage: Decimal?
 let total: Decimal = 100.50
 
 // Bad - NEVER use Float/Double for money
-var currentValue: Double  // ❌
-var purchasePrice: Float  // ❌
+var marketValue: Double  // NO
+var targetAllocation: Float  // NO
 ```
 
-### Currency
+### Display Currency
 
-**Default currency**: `"USD"`
-
-```swift
-var currency: String = "USD"
-```
-
-### Formatting
-
-Use extensions from `Utilities/Extensions.swift`:
+- Default display currency: `"USD"` (cosmetic only, no FX conversion)
+- Use extensions from `Utilities/Extensions.swift`:
 
 ```swift
 let formatted = value.formatted(currency: "USD")  // "$1,234.56"
-let percentage = ratio.formattedPercentage()      // "12.34%"
+let percentage = ratio.formattedPercentage()       // "12.34%"
 ```
 
 ______________________________________________________________________
@@ -695,77 +401,54 @@ ______________________________________________________________________
 
 ### String Localization in ViewModels and Services
 
-All user-facing strings in ViewModels and Services must be localized using `String(localized:table:)` with the appropriate feature-scoped table:
+All user-facing strings in ViewModels and Services must be localized:
 
 ```swift
 // Good
-nameValidationMessage = String(localized: "Asset name cannot be empty.", table: "Asset")
+nameValidationMessage = String(localized: "Category name cannot be empty.", table: "Category")
 
-// Bad — not localized
-nameValidationMessage = "Asset name cannot be empty."
+// Bad -- not localized
+nameValidationMessage = "Category name cannot be empty."
 ```
 
 ### Enum Display Names
 
-Never display enum `rawValue` directly in the UI. Use the `localizedName` computed property:
+Never display enum `rawValue` directly in the UI. Use `localizedName`:
 
 ```swift
 // Good
-Text(asset.assetType.localizedName)
+Text(importType.localizedName)
 
-// Bad — rawValue is for persistence, not display
-Text(asset.assetType.rawValue)
+// Bad
+Text(importType.rawValue)
 ```
 
 ### String Concatenation in Views
 
-Avoid `+` concatenation inside `Text()` — it produces a `String`, not `LocalizedStringKey`, preventing auto-extraction. Use a single string literal instead:
+Avoid `+` concatenation inside `Text()` -- it breaks localization auto-extraction:
 
 ```swift
-// Good (single literal, auto-extracted)
-// swiftlint:disable:next line_length
-Text("An asset must have at least one price record.\n\nYou can edit this record to update the price, or delete the entire asset if no longer needed.")
+// Good (single literal)
+Text("This asset cannot be deleted because it has values in snapshot(s).")
 
 // Bad (concatenation breaks localization)
-Text("An asset must have at least one price record."
-  + "\n\nYou can edit this record...")
-```
-
-### Translator Comments
-
-For ambiguous strings, add a `comment` parameter to help translators:
-
-```swift
-String(localized: "Bond", comment: "Asset type: a debt investment (e.g., government bond)")
+Text("This asset cannot be deleted" + " because it has values.")
 ```
 
 ______________________________________________________________________
 
-## Platform-Specific Code
+## macOS-Specific Code
 
-### Compiler Directives
-
-```swift
-#if os(macOS)
-    // macOS-specific code
-    .frame(minWidth: 800, minHeight: 600)
-#elseif os(iOS)
-    // iOS-specific code
-    .navigationBarTitleDisplayMode(.large)
-#else
-    // Fallback
-#endif
-```
-
-### Platform Checks
+AssetFlow targets macOS only (14.0+). No `#if os(iOS)` or `#if os(iPadOS)` compiler directives are needed.
 
 ```swift
-// For runtime checks (rare)
-#if os(macOS)
-let platform = "macOS"
-#elseif os(iOS)
-let platform = "iOS"
-#endif
+// macOS window configuration
+.frame(minWidth: 900, minHeight: 600)
+.toolbar {
+    ToolbarItem(placement: .primaryAction) {
+        Button("Import", systemImage: "square.and.arrow.down") { /* action */ }
+    }
+}
 ```
 
 ______________________________________________________________________
@@ -787,39 +470,36 @@ ______________________________________________________________________
 
 ### Inline Comments
 
-**Document complex logic**:
+Document complex logic. Avoid obvious comments:
 
 ```swift
-// Calculate the weighted average cost basis across multiple purchases
-func calculateWeightedAverage() -> Decimal {
-    // implementation
-}
-```
+// BAD
+// Set name to "Category"
+name = "Category"
 
-**Avoid obvious comments**:
-
-```swift
-// Bad
-// Set name to "Portfolio"
-name = "Portfolio"
-
-// Good - comment explains WHY
-// Reset to default portfolio name for new users
-name = "Portfolio"
+// GOOD - explains WHY
+// Normalize platform name for case-insensitive matching
+let normalized = platform.trimmingCharacters(in: .whitespaces).lowercased()
 ```
 
 ### Doc Comments
 
-**Use for public APIs**:
+Use for public APIs:
 
 ```swift
-/// Calculates the total portfolio value including all assets.
+/// Resolves the composite portfolio view for a snapshot,
+/// including carry-forward values for missing platforms.
 ///
-/// - Returns: The sum of all asset values in the portfolio's currency.
-/// - Note: Inactive assets are excluded from calculation.
-func calculateTotalValue() -> Decimal {
-    // implementation
-}
+/// - Parameters:
+///   - snapshot: The target snapshot
+///   - allSnapshots: All snapshots sorted by date
+///   - allAssetValues: All SnapshotAssetValue records
+/// - Returns: Composite view with direct and carried-forward values
+static func resolveCompositeView(
+    for snapshot: Snapshot,
+    allSnapshots: [Snapshot],
+    allAssetValues: [SnapshotAssetValue]
+) -> CompositeSnapshotView
 ```
 
 ______________________________________________________________________
@@ -829,45 +509,21 @@ ______________________________________________________________________
 ### Custom Errors
 
 ```swift
-enum PortfolioError: LocalizedError {
-    case invalidAllocation
-    case assetNotFound(id: UUID)
-    case saveFailed(underlying: Error)
+enum ImportError: LocalizedError {
+    case missingRequiredColumns([String])
+    case duplicateAssetsInCSV([(row1: Int, row2: Int, name: String)])
+    case emptyFile
 
     var errorDescription: String? {
         switch self {
-        case .invalidAllocation:
-            return "Portfolio allocation percentages must sum to 100%"
-        case .assetNotFound(let id):
-            return "Asset with ID \(id) not found"
-        case .saveFailed(let error):
-            return "Failed to save: \(error.localizedDescription)"
+        case .missingRequiredColumns(let columns):
+            return "Missing required columns: \(columns.joined(separator: ", "))"
+        case .duplicateAssetsInCSV(let duplicates):
+            return "Duplicate assets found in CSV"
+        case .emptyFile:
+            return "File contains no data rows"
         }
     }
-}
-```
-
-### Throwing Functions
-
-```swift
-func validateAllocation(_ allocation: [String: Decimal]) throws {
-    let sum = allocation.values.reduce(0, +)
-    guard sum == 100 else {
-        throw PortfolioError.invalidAllocation
-    }
-}
-```
-
-### Do-Catch
-
-```swift
-do {
-    try validateAllocation(targetAllocation)
-    // proceed
-} catch let error as PortfolioError {
-    // handle specific error
-} catch {
-    // handle general error
 }
 ```
 
@@ -886,119 +542,14 @@ import os.log
 
 let logger = Logger(
     subsystem: "com.yourname.AssetFlow",
-    category: "Portfolio"
+    category: "Import"
 )
 
 // Log levels
 logger.debug("Debug information")
-logger.info("Informational message")
-logger.warning("Warning occurred")
-logger.error("Error: \(error.localizedDescription)")
-```
-
-______________________________________________________________________
-
-## Testing (Future)
-
-### Test Naming
-
-```swift
-func testPortfolioCalculatesTotalValue() {
-    // test implementation
-}
-
-func testAssetValidation_WithInvalidData_ThrowsError() {
-    // test implementation
-}
-```
-
-### Test Structure
-
-```swift
-// Arrange
-let portfolio = Portfolio(name: "Test")
-let asset = Asset(name: "AAPL", value: 100)
-
-// Act
-portfolio.addAsset(asset)
-
-// Assert
-XCTAssertEqual(portfolio.totalValue, 100)
-```
-
-______________________________________________________________________
-
-## Swift Best Practices
-
-### Value Types vs Reference Types
-
-**Prefer structs** (value types) for:
-
-- Data models without inheritance
-- Thread-safe data
-- Functional transformations
-
-**Use classes** (reference types) for:
-
-- SwiftData models (`@Model` requires class)
-- ViewModels (`ObservableObject` requires class)
-- Shared mutable state
-
-### Access Control
-
-**Be explicit**:
-
-```swift
-public class PublicAPI { }
-internal struct InternalData { }  // Default
-private var privateState: Int
-fileprivate var filePrivateHelper: String
-```
-
-**General rule**: Use most restrictive access level possible.
-
-### Extensions
-
-**Group related functionality**:
-
-```swift
-// MARK: - Computed Properties
-extension Portfolio {
-    var isBalanced: Bool {
-        // check allocation
-    }
-}
-
-// MARK: - Validation
-extension Portfolio {
-    func validate() throws {
-        // validation logic
-    }
-}
-```
-
-### Protocol Conformance
-
-**Use extensions**:
-
-```swift
-struct Asset {
-    // main definition
-}
-
-// MARK: - Equatable
-extension Asset: Equatable {
-    static func == (lhs: Asset, rhs: Asset) -> Bool {
-        lhs.id == rhs.id
-    }
-}
-
-// MARK: - Comparable
-extension Asset: Comparable {
-    static func < (lhs: Asset, rhs: Asset) -> Bool {
-        lhs.currentValue < rhs.currentValue
-    }
-}
+logger.info("CSV import completed successfully")
+logger.warning("Zero market value detected for asset")
+logger.error("Failed to parse CSV: \(error.localizedDescription)")
 ```
 
 ______________________________________________________________________
@@ -1012,12 +563,13 @@ ______________________________________________________________________
 - [ ] No `print()` statements
 - [ ] File headers present
 - [ ] Appropriate access control
-- [ ] Platform-specific code uses `#if os()`
 - [ ] Optional handling is safe
 - [ ] Functions are focused and short
 - [ ] Comments explain "why" not "what"
 - [ ] SwiftLint warnings addressed
 - [ ] Formatted with swift-format
+- [ ] Localization used for user-facing strings
+- [ ] No force unwrapping without good reason
 
 ______________________________________________________________________
 
@@ -1065,9 +617,3 @@ ______________________________________________________________________
 - [SwiftLint Rules](https://realm.github.io/SwiftLint/rule-directory.html)
 - [swift-format](https://github.com/apple/swift-format)
 - Project configurations: `.swiftlint.yml`, `.swift-format`, `.editorconfig`
-
-______________________________________________________________________
-
-## Questions or Clarifications?
-
-Refer to existing code for patterns, or consult the team for ambiguous cases. When in doubt, prioritize **clarity** and **consistency** with the existing codebase.

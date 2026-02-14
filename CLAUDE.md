@@ -4,13 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AssetFlow is a multi-platform personal asset allocation and investment tracking application. Platform priority: macOS (primary) → iOS → iPadOS.
-
-**Tech Stack:**
-
-- Swift with SwiftUI
-- SwiftData for persistence
-- Minimum targets: macOS 14.0+, iOS 17.0+, iPadOS 17.0+
+AssetFlow is a macOS desktop application (macOS 14.0+) for snapshot-based portfolio management and asset allocation tracking. It is built with SwiftUI, SwiftData, and Swift Charts, following a local-first architecture with no network dependencies.
 
 ## Build Commands
 
@@ -41,16 +35,15 @@ xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow test -destination 'pla
 - Models: SwiftData models with relationships
 - Views: SwiftUI components
 - ViewModels: `@Observable @MainActor` classes handling form state, validation, and persistence
-- Services: Stateless utilities (CurrencyService, ExchangeRateService, PortfolioValueCalculator)
+- Services: Stateless utilities (CarryForwardService, CSVParsingService, RebalancingCalculator, BackupService, CurrencyService)
 
 **Data Model Relationships:**
 
 ```
-Portfolio (1:Many) → Asset (1:Many) → Transaction
-                     Asset (1:Many) → PriceHistory
-RegularSavingPlan → asset (Asset, nullify)
-RegularSavingPlan → sourceAsset (Asset, nullify)
-InvestmentPlan (standalone)
+Category (1:Many) → Asset
+Asset (Many:Many via SnapshotAssetValue) → Snapshot
+Snapshot (1:Many) → SnapshotAssetValue
+Snapshot (1:Many) → CashFlowOperation
 ```
 
 All models are registered in `AssetFlowApp.swift` in the `sharedModelContainer` Schema. When adding new models, update both the Schema and `Models/README.md`.
@@ -68,11 +61,15 @@ All models are registered in `AssetFlowApp.swift` in the `sharedModelContainer` 
 
 Design documents are located in `Documentation/`:
 
+**Specification:**
+
+- `SPEC.md` - Product and technical specification (source of truth for all design decisions)
+
 **Core Documentation:**
 
 - `Architecture.md` - System design, MVVM pattern, layer responsibilities, data flow
 - `DataModel.md` - Complete model reference, relationships, SwiftData configuration
-- `DevelopmentGuide.md` - Setup, workflows, platform-specific development
+- `DevelopmentGuide.md` - Setup, workflows, macOS-specific development
 - `CodeStyle.md` - Coding standards, conventions, formatting rules
 - `TestingStrategy.md` - Testing approach, patterns, coverage goals
 
@@ -81,7 +78,7 @@ Design documents are located in `Documentation/`:
 - `UserInterfaceDesign.md` - UI layouts, navigation, visual design, component patterns
 - `BusinessLogic.md` - Business rules, calculations, workflows, validation logic
 - `SecurityAndPrivacy.md` - Security measures, privacy principles, threat model
-- `APIDesign.md` - External integrations, internal API patterns, import/export
+- `APIDesign.md` - Internal API patterns, CSV import/export, backup/restore
 
 **Update checklist by change type:**
 
@@ -93,12 +90,11 @@ Design documents are located in `Documentation/`:
 | New build command/tool      | `Documentation/DevelopmentGuide.md`, this file                                               |
 | Coding convention change    | `Documentation/CodeStyle.md`                                                                 |
 | Testing approach change     | `Documentation/TestingStrategy.md`                                                           |
-| New platform support        | `Documentation/Architecture.md`, `Documentation/DevelopmentGuide.md`                         |
 | Dependency added            | `Documentation/Architecture.md`, `Documentation/DevelopmentGuide.md`                         |
 | Design new screen/UI        | `Documentation/UserInterfaceDesign.md`                                                       |
 | Add business rule/calc      | `Documentation/BusinessLogic.md`                                                             |
 | Security/privacy change     | `Documentation/SecurityAndPrivacy.md`                                                        |
-| API/integration added       | `Documentation/APIDesign.md`, `Documentation/SecurityAndPrivacy.md` (if data transmitted)    |
+| API/integration added       | `Documentation/APIDesign.md`                                                                 |
 | Major feature (full design) | Multiple: `UserInterfaceDesign.md`, `BusinessLogic.md`, `DataModel.md`, `APIDesign.md`, etc. |
 
 **Before completing any task:**
@@ -111,7 +107,6 @@ Design documents are located in `Documentation/`:
 **General documentation rules:**
 
 - Add inline code documentation for public APIs and complex logic
-- Document platform-specific implementations and requirements
 - Keep model relationships diagrams current
 - Update README.md for user-facing changes
 
@@ -144,14 +139,14 @@ This project uses `swift-format` for code formatting and `SwiftLint` for linting
 **Financial Data:**
 
 - Always use `Decimal` for monetary values (never Float/Double)
-- Default currency: "USD"
+- Default display currency: "USD" (cosmetic only, no FX conversion)
 - Extensions in `Utilities/Extensions.swift` provide `.formatted(currency:)` and `.formattedPercentage()`
 
 **Localization:**
 
 - Uses Apple's String Catalogs (`.xcstrings`) with English as development language and Traditional Chinese (`zh-Hant`) as additional language
 - SwiftUI view strings are auto-extracted into `Localizable.xcstrings` — no manual wrapping needed
-- ViewModel/Service strings use `String(localized:table:)` with feature-scoped tables: `Asset`, `Portfolio`, `Transaction`, `PriceHistory`, `Services`
+- ViewModel/Service strings use `String(localized:table:)` with feature-scoped tables: `Asset`, `Snapshot`, `Category`, `Import`, `Services`
 - Enum display names use `localizedName` computed property — never display `rawValue` directly in UI
 - Avoid `+` concatenation in `Text()` — it prevents localization auto-extraction
 
@@ -172,17 +167,19 @@ This project uses `swift-format` for code formatting and `SwiftLint` for linting
 - Tests use `@Suite`, `@Test`, `#expect()`, and `#require()`
 - See `AssetFlowTests/CLAUDE.md` for detailed test patterns
 
-**Platform-Specific Code:**
+**Test-Driven Development (TDD):**
 
-```swift
-#if os(macOS)
-    // macOS-specific code
-#endif
+- Follow the Red-Green-Refactor cycle: write a failing test first, implement the minimum code to pass, then refactor
+- Write tests before implementation code for all new features and bug fixes
+- Use in-memory SwiftData containers (`ModelConfiguration(isStoredInMemoryOnly: true)`) for test isolation
+- Services are stateless and testable with pure input/output — pass mock data directly without side effects
+- See `AssetFlowTests/CLAUDE.md` for test structure, naming conventions, and helper patterns
 
-#if os(iOS)
-    // iOS-specific code
-#endif
-```
+**macOS Only (v1):**
+
+- Target platform: macOS 14.0+ only
+- No iOS or iPadOS support in v1 — no platform-specific compiler directives (`#if os(...)`) are needed
+- No network access, no API keys, no cloud sync
 
 ## Code Quality and Linting
 
@@ -196,32 +193,39 @@ This tool lints the code to enforce stylistic and convention-based rules. Config
 
 ## Core Models
 
-**Asset** - Individual investments (stocks, bonds, crypto, real estate, etc.)
+**Category** — Asset categorization with target allocation
 
-- Links to Portfolio (optional) and Transactions (many)
+- Properties: name (unique, case-insensitive), targetAllocationPercentage (optional, 0-100)
+- Relationship: assets (many, `.deny` delete rule — must reassign assets before deleting)
 
-**Portfolio** - Asset collections with target allocation
+**Asset** — Individual investments identified by (name, platform) tuple
 
-- `totalValue` computed property aggregates asset values
-- `targetAllocation: [String: Decimal]?` stores percentages by asset type
+- Properties: name, platform (optional), category (optional)
+- Uniqueness: (name, platform) must be unique (case-insensitive)
+- Relationships: category (optional, `.nullify`), snapshotAssetValues (many, `.cascade`)
 
-**Transaction** - Financial operations (buy/sell/dividend/interest/etc.)
+**Snapshot** — Portfolio state at a specific date
 
-- Links to specific Asset
+- Properties: date (unique, calendar date only), createdAt
+- Relationships: snapshotAssetValues (many, `.cascade`), cashFlowOperations (many, `.cascade`)
+- Note: `totalPortfolioValue` is always derived (never stored) — includes carry-forward
 
-**InvestmentPlan** - Strategic goals with risk tolerance and status tracking
+**SnapshotAssetValue** — Market value of an asset within a snapshot
 
-**PriceHistory** - Time-series price records for an asset
+- Properties: marketValue (Decimal)
+- Uniqueness: (snapshotID, assetID) must be unique
+- Relationships: snapshot (parent, `.cascade`), asset (parent, `.deny`)
 
-- Links to Asset (parent cascades deletion)
+**CashFlowOperation** — External cash flow event associated with a snapshot
 
-**RegularSavingPlan** - Recurring investment plans with frequency and execution method
+- Properties: description (unique per snapshot, case-insensitive), amount (Decimal, positive=inflow, negative=outflow)
+- Uniqueness: (snapshotID, description) must be unique
+- Relationship: snapshot (parent, `.cascade`)
 
-- Links to Asset (target, nullify) and sourceAsset (funding source, nullify)
-
-See `AssetFlow/Models/README.md` for comprehensive model documentation.
+See `Documentation/DataModel.md` for comprehensive model documentation.
 
 ## SwiftData Notes
 
 - Single shared `ModelContainer` injected at app root
-- No manual save() calls needed - SwiftData handles persistence automatically
+- No manual save() calls needed — SwiftData handles persistence automatically
+- Carry-forward values are computed at query time, never stored as new records
