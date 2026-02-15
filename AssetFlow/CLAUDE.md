@@ -117,25 +117,29 @@ nameValidationMessage = String(localized: "Asset name cannot be empty.", table: 
 
 ### ViewModels
 
-| File                            | Purpose                                                      |
-| ------------------------------- | ------------------------------------------------------------ |
-| `SnapshotListViewModel.swift`   | Snapshot creation, deletion, row data with carry-forward     |
-| `SnapshotDetailViewModel.swift` | Snapshot detail editing, asset/cash flow management          |
-| `AssetListViewModel.swift`      | Asset listing with platform/category grouping, latest values |
-| `AssetDetailViewModel.swift`    | Asset editing, value history, delete validation              |
-| `DashboardViewModel.swift`      | Dashboard metrics, charts, portfolio overview                |
-| `ImportViewModel.swift`         | CSV import workflow, validation, preview                     |
-| `SettingsViewModel.swift`       | App settings management                                      |
+| File                            | Purpose                                                       |
+| ------------------------------- | ------------------------------------------------------------- |
+| `SnapshotListViewModel.swift`   | Snapshot creation, deletion, row data with carry-forward      |
+| `SnapshotDetailViewModel.swift` | Snapshot detail editing, asset/cash flow management           |
+| `AssetListViewModel.swift`      | Asset listing with platform/category grouping, latest values  |
+| `AssetDetailViewModel.swift`    | Asset editing, value history, delete validation               |
+| `DashboardViewModel.swift`      | Dashboard metrics, charts, portfolio overview                 |
+| `ImportViewModel.swift`         | CSV import workflow, validation, preview                      |
+| `SettingsViewModel.swift`       | App settings management                                       |
+| `CategoryListViewModel.swift`   | Category listing, creation, editing, deletion with allocation |
+| `CategoryDetailViewModel.swift` | Category detail, value/allocation history, edit/delete        |
 
 ### Views
 
-| File                    | Purpose                                            |
-| ----------------------- | -------------------------------------------------- |
-| `ContentView.swift`     | Root navigation structure                          |
-| `AssetListView.swift`   | Asset list with grouping segmented control         |
-| `AssetDetailView.swift` | Asset detail/edit with sparkline and value history |
-| `ImportView.swift`      | CSV import screen                                  |
-| `SettingsView.swift`    | App settings screen                                |
+| File                       | Purpose                                             |
+| -------------------------- | --------------------------------------------------- |
+| `ContentView.swift`        | Root navigation structure                           |
+| `AssetListView.swift`      | Asset list with grouping segmented control          |
+| `AssetDetailView.swift`    | Asset detail/edit with sparkline and value history  |
+| `ImportView.swift`         | CSV import screen                                   |
+| `SettingsView.swift`       | App settings screen                                 |
+| `CategoryListView.swift`   | Category list with add sheet and allocation warning |
+| `CategoryDetailView.swift` | Category detail/edit with history charts            |
 
 ## Naming Conventions
 
