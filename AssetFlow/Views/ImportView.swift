@@ -139,7 +139,7 @@ struct ImportView: View {
           Text("Expected columns:")
             .font(.caption)
             .foregroundStyle(.secondary)
-          Text("Asset Name (required), Market Value (required), Platform (optional)")
+          Text(verbatim: "Asset Name (required), Market Value (required), Platform (optional)")
             .font(.caption)
             .foregroundStyle(.tertiary)
         }
@@ -149,7 +149,7 @@ struct ImportView: View {
           Text("Expected columns:")
             .font(.caption)
             .foregroundStyle(.secondary)
-          Text("Description (required), Amount (required)")
+          Text(verbatim: "Description (required), Amount (required)")
             .font(.caption)
             .foregroundStyle(.tertiary)
         }
