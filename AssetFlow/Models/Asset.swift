@@ -10,11 +10,13 @@ import SwiftData
 
 @Model
 final class Asset {
+  #Unique<Asset>([\.name, \.platform])
+
   var id: UUID
   var name: String
   var platform: String
 
-  @Relationship
+  @Relationship(deleteRule: .nullify)
   var category: Category?
 
   @Relationship(deleteRule: .deny, inverse: \SnapshotAssetValue.asset)

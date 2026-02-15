@@ -10,6 +10,8 @@ import SwiftData
 
 @Model
 final class Category {
+  #Unique<Category>([\.name])
+
   var id: UUID
   var name: String
   var targetAllocationPercentage: Decimal?

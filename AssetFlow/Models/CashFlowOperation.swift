@@ -10,6 +10,8 @@ import SwiftData
 
 @Model
 final class CashFlowOperation {
+  #Unique<CashFlowOperation>([\.snapshot, \.cashFlowDescription])
+
   var id: UUID
   var cashFlowDescription: String
   var amount: Decimal

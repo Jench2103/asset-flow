@@ -22,6 +22,18 @@ extension Decimal {
     return formatter.string(from: NSDecimalNumber(decimal: self)) ?? "\(self)"
   }
 
+  /// Formats a percentage value for display.
+  ///
+  /// **IMPORTANT:** Expects percentage-scale input (0-100 range).
+  /// For decimal ratios (0.0-1.0) from CalculationService,
+  /// multiply by 100 first: `(ratio * 100).formattedPercentage()`
+  ///
+  /// Examples:
+  ///   - Input: Decimal(45.67) → Output: "45.67%"
+  ///   - Input: Decimal(0.4567) * 100 → Output: "45.67%"
+  ///
+  /// - Parameter decimals: Number of decimal places (default: 2)
+  /// - Returns: Formatted percentage string
   func formattedPercentage(decimals: Int = 2) -> String {
     let formatter = NumberFormatter()
     formatter.numberStyle = .percent

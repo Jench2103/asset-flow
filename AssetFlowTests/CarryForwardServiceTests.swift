@@ -408,4 +408,84 @@ struct CarryForwardServiceTests {
     let carriedNames = Set(carried.map { $0.asset.name })
     #expect(carriedNames == Set(["BTC", "ETH"]))
   }
+
+  @Test("Carry-forward tracks only platforms actually carried in each iteration")
+  func carryForwardTracksOnlyActuallyCarriedPlatforms() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    // Scenario to expose bug:
+    // - Snapshot 1: Platform A has Asset X ($1000)
+    // - Snapshot 2: Platform A has Asset Y ($2000), Platform B has Asset Z ($3000)
+    // - Snapshot 3: Platform B has Asset Z ($3500) <-- Platform A completely missing
+    //
+    // When carrying forward to Snapshot 3:
+    // Step 1: Look at snapshot 2 - carry Platform A (Asset X and Y from snapshot 2)
+    // Step 2: Look at snapshot 1 - Platform A is there but should NOT be marked as
+    //         "carried from snapshot 1" because it was ALREADY carried from snapshot 2
+    //
+    // Bug: Current code marks Platform A as carried from BOTH snapshots
+
+    let snapshot1 = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
+    let snapshot2 = Snapshot(date: makeDate(year: 2025, month: 1, day: 2))
+    let snapshot3 = Snapshot(date: makeDate(year: 2025, month: 1, day: 3))
+
+    let assetX = Asset(name: "Asset X", platform: "Platform A")
+    let assetY = Asset(name: "Asset Y", platform: "Platform A")
+    let assetZ = Asset(name: "Asset Z", platform: "Platform B")
+
+    context.insert(snapshot1)
+    context.insert(snapshot2)
+    context.insert(snapshot3)
+    context.insert(assetX)
+    context.insert(assetY)
+    context.insert(assetZ)
+
+    // Snapshot 1: Platform A has Asset X
+    let sav1 = SnapshotAssetValue(marketValue: Decimal(1000))
+    linkAssetValue(sav1, to: snapshot1, asset: assetX)
+    context.insert(sav1)
+
+    // Snapshot 2: Platform A has Asset Y, Platform B has Asset Z
+    let sav2 = SnapshotAssetValue(marketValue: Decimal(2000))
+    linkAssetValue(sav2, to: snapshot2, asset: assetY)
+    context.insert(sav2)
+
+    let sav3 = SnapshotAssetValue(marketValue: Decimal(3000))
+    linkAssetValue(sav3, to: snapshot2, asset: assetZ)
+    context.insert(sav3)
+
+    // Snapshot 3: Platform B has Asset Z (Platform A completely missing - should carry from snapshot 2)
+    let sav4 = SnapshotAssetValue(marketValue: Decimal(3500))
+    linkAssetValue(sav4, to: snapshot3, asset: assetZ)
+    context.insert(sav4)
+
+    try context.save()
+
+    let allSnapshots = [snapshot1, snapshot2, snapshot3].sorted { $0.date < $1.date }
+    let allValues = try context.fetch(FetchDescriptor<SnapshotAssetValue>())
+
+    // Get composite for snapshot 3
+    let composite = CarryForwardService.compositeValues(
+      for: snapshot3,
+      allSnapshots: allSnapshots,
+      allAssetValues: allValues
+    )
+
+    // Should have:
+    // - Asset Z direct from snapshot 3 (Platform B)
+    // - Asset Y carried from snapshot 2 (Platform A)
+    #expect(composite.count == 2)
+
+    // Asset Y should be carried forward from snapshot 2
+    let assetYComposite = composite.first { $0.asset.name == "Asset Y" }
+    #expect(assetYComposite != nil)
+    #expect(assetYComposite?.isCarriedForward == true)
+    #expect(assetYComposite?.sourceSnapshotDate == snapshot2.date)
+
+    // Asset Z should be direct (not carried)
+    let assetZComposite = composite.first { $0.asset.name == "Asset Z" }
+    #expect(assetZComposite != nil)
+    #expect(assetZComposite?.isCarriedForward == false)
+  }
 }

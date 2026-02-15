@@ -43,6 +43,9 @@ enum CarryForwardService {
     allSnapshots: [Snapshot],
     allAssetValues: [SnapshotAssetValue]
   ) -> [CompositeAssetValue] {
+    // Sort defensively to prevent silent corruption from unsorted input
+    let sortedSnapshots = allSnapshots.sorted { $0.date < $1.date }
+
     // Group asset values by snapshot (using persistent model ID for reliable matching)
     let valuesBySnapshot = Dictionary(grouping: allAssetValues) { $0.snapshot }
 
@@ -66,7 +69,7 @@ enum CarryForwardService {
 
     // Find prior snapshots (those with date before current snapshot's date)
     let priorSnapshots =
-      allSnapshots
+      sortedSnapshots
       .filter { $0.date < snapshot.date }
       .sorted { $0.date > $1.date }  // Most recent first
 
@@ -75,6 +78,9 @@ enum CarryForwardService {
 
     for priorSnapshot in priorSnapshots {
       let priorValues = valuesBySnapshot[priorSnapshot] ?? []
+
+      // Track platforms that we actually carried forward from THIS prior snapshot
+      var platformsCarriedThisIteration = Set<String>()
 
       for sav in priorValues {
         guard let asset = sav.asset else { continue }
@@ -94,14 +100,11 @@ enum CarryForwardService {
             sourceSnapshotDate: priorSnapshot.date
           )
         )
+        platformsCarriedThisIteration.insert(platform)
       }
 
-      // Mark all platforms in this prior snapshot as carried (even if some assets
-      // were already carried from a more recent snapshot for the same platform)
-      let priorPlatforms = Set(priorValues.compactMap { $0.asset?.platform })
-      for platform in priorPlatforms where !directPlatforms.contains(platform) {
-        carriedPlatforms.insert(platform)
-      }
+      // Only mark platforms that we ACTUALLY carried from this snapshot
+      carriedPlatforms.formUnion(platformsCarriedThisIteration)
     }
 
     return result
