@@ -154,7 +154,6 @@ struct AssetDetailView: View {
         HStack {
           TextField("New category name", text: $newCategoryName)
             .textFieldStyle(.roundedBorder)
-            .frame(maxWidth: 180)
             .onSubmit { commitNewCategory() }
           Button("OK") { commitNewCategory() }
           Button("Cancel") {

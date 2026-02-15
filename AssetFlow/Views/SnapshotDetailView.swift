@@ -500,6 +500,13 @@ private struct AddAssetSheet: View {
     }
     showNewPlatformField = false
     newPlatformName = ""
+    // Refresh cache so picker shows new platform
+    var updated = existingPlatforms()
+    if !updated.contains(newPlatform) {
+      updated.append(newPlatform)
+      updated.sort()
+    }
+    cachedPlatforms = updated
   }
 
   private var categoryPicker: some View {
@@ -508,7 +515,6 @@ private struct AddAssetSheet: View {
         HStack {
           TextField("New category name", text: $newCategoryName)
             .textFieldStyle(.roundedBorder)
-            .frame(maxWidth: 180)
             .onSubmit { commitNewCategory() }
           Button("OK") { commitNewCategory() }
           Button("Cancel") {
@@ -551,6 +557,8 @@ private struct AddAssetSheet: View {
     newCategory = viewModel.resolveCategory(name: trimmed)
     showNewCategoryField = false
     newCategoryName = ""
+    // Refresh cache so picker shows new category
+    cachedCategories = existingCategories()
   }
 
   private var isAddDisabled: Bool {
