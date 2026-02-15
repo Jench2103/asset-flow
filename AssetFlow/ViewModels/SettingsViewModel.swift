@@ -25,14 +25,37 @@ final class SettingsViewModel {
     }
   }
 
+  /// Selected date format
+  var selectedDateFormat: DateFormatStyle {
+    didSet {
+      guard selectedDateFormat != oldValue else { return }
+      settingsService.dateFormat = selectedDateFormat
+    }
+  }
+
+  /// Default platform for imports
+  var defaultPlatformString: String {
+    didSet {
+      guard defaultPlatformString != oldValue else { return }
+      settingsService.defaultPlatform = defaultPlatformString
+    }
+  }
+
   /// Available currencies for picker
   var availableCurrencies: [Currency] {
     CurrencyService.shared.currencies
+  }
+
+  /// Available date formats for picker
+  var availableDateFormats: [DateFormatStyle] {
+    DateFormatStyle.allCases
   }
 
   init(settingsService: SettingsService? = nil) {
     let resolvedSettingsService = settingsService ?? SettingsService.shared
     self.settingsService = resolvedSettingsService
     self.selectedCurrency = resolvedSettingsService.mainCurrency
+    self.selectedDateFormat = resolvedSettingsService.dateFormat
+    self.defaultPlatformString = resolvedSettingsService.defaultPlatform
   }
 }

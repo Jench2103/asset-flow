@@ -254,7 +254,8 @@ enum BackupService {
     /// Export all data to a ZIP archive at the specified URL
     static func exportBackup(
         to url: URL,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        settingsService: SettingsService
     ) throws
 
     /// Validate a backup archive without modifying data
@@ -265,7 +266,8 @@ enum BackupService {
     /// Restore all data from a backup archive (replaces ALL existing data)
     static func restoreFromBackup(
         at url: URL,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        settingsService: SettingsService
     ) throws
 }
 
@@ -285,6 +287,8 @@ struct BackupManifest: Codable {
 - `snapshot_asset_values.csv` -- all SnapshotAssetValue records
 - `cash_flow_operations.csv` -- all CashFlowOperation records
 - `settings.csv` -- user preferences with columns: `key`, `value`. Keys: `displayCurrency` (e.g., "USD"), `dateFormat` (e.g., "abbreviated"), `defaultPlatform` (e.g., "" or "Interactive Brokers")
+
+**ZIP Implementation**: Uses `/usr/bin/ditto` via `Process` for ZIP creation (`-c -k --sequesterRsrc`) and extraction (`-x -k`). No external dependencies required — `ditto` is built into macOS.
 
 **CSV Serialization Rules**:
 
@@ -325,30 +329,34 @@ ______________________________________________________________________
 
 ### SettingsService
 
-**Purpose**: Manage app-wide user preferences.
+**Purpose**: Manage app-wide user preferences with `@Observable` reactivity.
 
-Settings are accessed using `@AppStorage` in ViewModels and Views, which is the idiomatic SwiftUI approach for UserDefaults-backed preferences. A stateless `SettingsService` enum provides default values and key constants:
+SettingsService is an `@Observable @MainActor class` with a shared singleton and support for test isolation via `createForTesting()`. Properties use `didSet` to persist to UserDefaults immediately:
 
 ```swift
-enum SettingsService {
-    static let displayCurrencyKey = "displayCurrency"
-    static let dateFormatKey = "dateFormat"
-    static let defaultPlatformKey = "defaultPlatform"
+@Observable
+@MainActor
+class SettingsService {
+    static let shared = SettingsService()
 
-    static let defaultDisplayCurrency = "USD"
-    static let defaultDateFormat = DateFormatStyle.abbreviated
-    static let defaultDefaultPlatform = ""
+    var mainCurrency: String       // Default: "USD"
+    var dateFormat: DateFormatStyle // Default: .abbreviated
+    var defaultPlatform: String    // Default: ""
+
+    static func createForTesting() -> SettingsService
 }
 ```
 
-**Usage in ViewModels/Views**:
+**DateFormatStyle**: A `String`-backed `CaseIterable` enum with cases `.numeric`, `.abbreviated`, `.long`, `.complete`. Maps to `Date.FormatStyle.DateStyle` for rendering and provides `localizedName` and `preview(for:)`.
+
+**Usage in ViewModels**:
 
 ```swift
-@AppStorage(SettingsService.displayCurrencyKey)
-var displayCurrency: String = SettingsService.defaultDisplayCurrency
+let service = settingsService ?? SettingsService.shared
+self.selectedCurrency = service.mainCurrency
 ```
 
-Changes are applied immediately and persisted to UserDefaults.
+Changes are applied immediately via `didSet` and persisted to UserDefaults.
 
 ______________________________________________________________________
 

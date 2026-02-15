@@ -1052,4 +1052,27 @@ struct ImportViewModelTests {
     viewModel.reset()
     #expect(viewModel.importedSnapshot == nil)
   }
+
+  // MARK: - Default Platform from Settings
+
+  @Test("Import pre-fills platform when default platform is set")
+  func importPrefillsPlatformFromSettings() {
+    let tc = createTestContext()
+    let settingsService = SettingsService.createForTesting()
+    settingsService.defaultPlatform = "Schwab"
+
+    let viewModel = ImportViewModel(
+      modelContext: tc.context, settingsService: settingsService)
+    #expect(viewModel.selectedPlatform == "Schwab")
+  }
+
+  @Test("Import leaves platform nil when default platform is empty")
+  func importLeavesPlatformNilWhenDefaultEmpty() {
+    let tc = createTestContext()
+    let settingsService = SettingsService.createForTesting()
+
+    let viewModel = ImportViewModel(
+      modelContext: tc.context, settingsService: settingsService)
+    #expect(viewModel.selectedPlatform == nil)
+  }
 }

@@ -96,14 +96,16 @@ Key points:
 Services are stateless structs or classes with no direct SwiftData dependency:
 
 - **CurrencyService** -- singleton (`static let shared`), loads ISO 4217 currency data
-- **SettingsService** -- `@Observable @MainActor`, manages app-wide settings (currency, financial goal)
+- **SettingsService** -- `@Observable @MainActor`, manages app-wide settings (currency, date format, default platform)
+- **BackupService** -- `@MainActor enum`, exports/validates/restores ZIP backup archives using `/usr/bin/ditto`
+- **DateFormatStyle** -- `enum`, maps user-selectable date formats to `Date.FormatStyle.DateStyle`
 
 ### Localization
 
 String Catalogs (`.xcstrings`) organize localized strings by feature:
 
 - **Views**: String literals in `Text()`, `Label()`, etc. auto-extract into `Localizable.xcstrings`.
-- **ViewModels/Services**: Use `String(localized:table:)` with feature tables (`Asset`, `Snapshot`, `Category`, `Import`, `Services`).
+- **ViewModels/Services**: Use `String(localized:table:)` with feature tables (`Asset`, `Snapshot`, `Category`, `Import`, `Services`, `Settings`).
 - **Enums**: Use `localizedName` for display; `rawValue` is for SwiftData persistence only.
 
 ```swift

@@ -146,7 +146,7 @@ This project uses `swift-format` for code formatting and `SwiftLint` for linting
 
 - Uses Apple's String Catalogs (`.xcstrings`) with English as development language and Traditional Chinese (`zh-Hant`) as additional language
 - SwiftUI view strings are auto-extracted into `Localizable.xcstrings` — no manual wrapping needed
-- ViewModel/Service strings use `String(localized:table:)` with feature-scoped tables: `Asset`, `Snapshot`, `Category`, `Import`, `Services`
+- ViewModel/Service strings use `String(localized:table:)` with feature-scoped tables: `Asset`, `Snapshot`, `Category`, `Import`, `Services`, `Settings`
 - Enum display names use `localizedName` computed property — never display `rawValue` directly in UI
 - Avoid `+` concatenation in `Text()` — it prevents localization auto-extraction
 

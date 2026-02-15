@@ -17,6 +17,7 @@ import SwiftData
 @MainActor
 class ImportViewModel {
   let modelContext: ModelContext
+  private let settingsService: SettingsService
 
   // MARK: - State
 
@@ -87,8 +88,15 @@ class ImportViewModel {
 
   // MARK: - Init
 
-  init(modelContext: ModelContext) {
+  init(modelContext: ModelContext, settingsService: SettingsService? = nil) {
     self.modelContext = modelContext
+    let resolvedService = settingsService ?? SettingsService.shared
+    self.settingsService = resolvedService
+
+    let defaultPlatform = resolvedService.defaultPlatform
+    if !defaultPlatform.isEmpty {
+      self.selectedPlatform = defaultPlatform
+    }
   }
 
   // MARK: - File Loading
@@ -217,7 +225,8 @@ class ImportViewModel {
   func reset() {
     clearLoadedData()
     snapshotDate = Date()
-    selectedPlatform = nil
+    let defaultPlatform = settingsService.defaultPlatform
+    selectedPlatform = defaultPlatform.isEmpty ? nil : defaultPlatform
     selectedCategory = nil
     importError = nil
     hasUnsavedChanges = false

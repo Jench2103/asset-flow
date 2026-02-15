@@ -28,13 +28,38 @@ class SettingsService {
     }
   }
 
+  /// The date display format
+  var dateFormat: DateFormatStyle {
+    didSet {
+      userDefaults.set(dateFormat.rawValue, forKey: Constants.UserDefaultsKeys.dateFormat)
+    }
+  }
+
+  /// The default platform pre-filled in import
+  var defaultPlatform: String {
+    didSet {
+      userDefaults.set(defaultPlatform, forKey: Constants.UserDefaultsKeys.defaultPlatform)
+    }
+  }
+
   private init(userDefaults: UserDefaults = .standard) {
     self.userDefaults = userDefaults
 
-    // Load main currency from UserDefaults or use default
     self.mainCurrency =
       userDefaults.string(forKey: Constants.UserDefaultsKeys.preferredCurrency)
       ?? Constants.DefaultValues.defaultCurrency
+
+    if let rawFormat = userDefaults.string(forKey: Constants.UserDefaultsKeys.dateFormat),
+      let format = DateFormatStyle(rawValue: rawFormat)
+    {
+      self.dateFormat = format
+    } else {
+      self.dateFormat = Constants.DefaultValues.defaultDateFormat
+    }
+
+    self.defaultPlatform =
+      userDefaults.string(forKey: Constants.UserDefaultsKeys.defaultPlatform)
+      ?? Constants.DefaultValues.defaultPlatform
   }
 
   /// Creates an isolated instance for testing purposes
