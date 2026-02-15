@@ -573,6 +573,77 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## Project-Specific Patterns
+
+### Test Isolation (TestContext Pattern)
+
+**Problem**: `ModelContainer` must be retained for the entire test scope. If a helper creates a container, the caller must hold a strong reference to it. Otherwise, ARC deallocates the container early and crashes occur on `@Relationship` property access ("model instance destroyed by calling ModelContext.reset").
+
+**Solution**: Use a `TestContext` struct to bundle container + context + model objects:
+
+```swift
+private struct TestContext {
+    let container: ModelContainer
+    let context: ModelContext
+}
+
+private func createTestContext() -> TestContext {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    return TestContext(container: container, context: context)
+}
+
+// Usage — container stays alive through `tc` for entire test scope
+let tc = createTestContext()
+let viewModel = DashboardViewModel(modelContext: tc.context)
+```
+
+**Note**: Never use `_ = helper()` or `let (_, context, ...) = helper()` — this discards the container immediately.
+
+### Stable Identifiable IDs in Computed Properties
+
+**Problem**: Using `let id = UUID()` in structs created inside computed properties (e.g., chart data) generates new UUIDs on every body evaluation. SwiftUI/Charts treats every render as a full data replacement, breaking animations and diffing.
+
+**Solution**: Use stable composite keys based on data content:
+
+```swift
+// BAD — new UUID every recompute
+struct ChartPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let category: String
+}
+
+// GOOD — stable identity
+struct ChartPoint: Identifiable {
+    var id: String { "\(category)-\(date.timeIntervalSince1970)" }
+    let date: Date
+    let category: String
+}
+```
+
+### Naming to Avoid Protocol Conflicts
+
+**Problem**: Property names like `description` conflict with Swift's built-in `CustomStringConvertible` protocol requirement.
+
+**Solution**: Use domain-specific names that avoid conflicts:
+
+```swift
+// Instead of:
+struct CashFlowOperation {
+    var description: String  // Conflicts with CustomStringConvertible
+}
+
+// Use:
+struct CashFlowOperation {
+    var cashFlowDescription: String  // Clear, no conflict
+}
+```
+
+**Example**: `CashFlowOperation.cashFlowDescription` is used instead of `.description` to avoid protocol conflicts while maintaining clarity.
+
+______________________________________________________________________
+
 ## Tools Configuration
 
 ### .swift-format

@@ -22,6 +22,21 @@ This document describes the user interface design for AssetFlow -- **what** user
 - [DataModel.md](DataModel.md) - Data structures
 - [Architecture.md](Architecture.md) - MVVM layer responsibilities
 
+**Implementation Status (Current)**
+
+All core screens and features are **implemented**:
+
+- ✅ All 12 Views: Dashboard, Snapshots (list + detail), Assets (list + detail), Categories (list + detail), Platforms, Rebalancing, Import, Settings
+- ✅ All 7 chart components with interactive features (hover tooltips, click-to-navigate, time range selectors, empty states)
+- ✅ EmptyStateView component for consistent empty state messaging across all views
+- ✅ Metric card tooltips (SPEC 3.2) for dashboard metrics
+- ✅ Keyboard shortcuts (Delete key for deletion confirmations)
+
+Minor features deferred to future versions:
+
+- Additional keyboard shortcuts (Cmd+I for import, Cmd+N for new snapshot)
+- Platform detail view (currently list-only with rename functionality)
+
 ______________________________________________________________________
 
 # Part 1: Design Specification
@@ -94,7 +109,7 @@ The dashboard provides a portfolio overview using the latest snapshot (with carr
    - "View all" link navigates to Snapshots screen
    - Each row is clickable and navigates to snapshot detail
 
-**Implementation notes (Phase 6 — Charts)**:
+**Implementation notes (Charts)**:
 
 - **DashboardView** (`AssetFlow/Views/DashboardView.swift`): Replaced chart placeholders with 2x2 grid of interactive charts. Row 1: `CategoryAllocationPieChart` (with snapshot date picker, click-to-navigate to category) + `PortfolioValueLineChart` (with click-to-navigate to snapshot). Row 2: `CumulativeTWRLineChart` + `CategoryValueLineChart` (multi-line with legend toggle). Each line chart has an independent `ChartTimeRange` `@State` that defaults to `.all` and resets on navigation via `dashboardRefreshID`.
 - **DashboardViewModel** (`AssetFlow/ViewModels/DashboardViewModel.swift`): Added `snapshotDates`, `categoryValueHistory` (per-category `[DashboardDataPoint]`), and `categoryAllocations(forSnapshotDate:)` for historical pie chart data. Extracted `computeCategoryAllocationsForSnapshot` helper for reuse.
@@ -170,7 +185,7 @@ ______________________________________________________________________
 - Duplicate identity validation: (name, platform) must be unique (case-insensitive, trimmed, collapsed)
 - Delete action: **only enabled when asset has no SnapshotAssetValue records**. When disabled, shows: "This asset cannot be deleted because it has values in snapshot(s). Remove the asset from all snapshots first."
 
-### Implementation Notes (Phase 2)
+### Implementation Notes
 
 - **AssetListView** (`AssetFlow/Views/AssetListView.swift`): Uses `AssetListViewModel` with `@State`. Segmented control binds to `viewModel.groupingMode`. List sections iterate over `viewModel.groups`. Context menu on rows provides delete action for eligible assets.
 - **AssetDetailView** (`AssetFlow/Views/AssetDetailView.swift`): Uses `AssetDetailViewModel` with `@State`. Form with `.grouped` style. Platform picker uses `Binding<String>` with sentinel `"__new__"` for inline new-platform creation. Sparkline uses Swift Charts `LineMark` with hidden axes, 40pt height. Delete confirmation dialog before deletion.
@@ -196,14 +211,14 @@ ______________________________________________________________________
 
 **Cross-section navigation**: Clicking a category in the dashboard pie chart navigates to the Categories section in the sidebar and selects the clicked category, showing its detail view. This is a cross-section navigation action (Dashboard -> Categories).
 
-**Implementation notes (Phase 3)**:
+**Implementation notes:**
 
 - **CategoryListView** (`AssetFlow/Views/CategoryListView.swift`): Takes `modelContext` and `selectedCategory: Binding<Category?>`. Uses `@State private var viewModel: CategoryListViewModel`. List selection drives the binding. Toolbar "+" button opens add category sheet. Target allocation sum warning banner shown at top when allocations don't sum to 100%. Deviation indicator (orange `exclamationmark.triangle.fill`) shown when `abs(current - target) > 5`. Empty state uses folder icon.
 - **CategoryListViewModel** (`AssetFlow/ViewModels/CategoryListViewModel.swift`): `CategoryRowData` struct bundles category, target/current allocation, value, and asset count. `loadCategories()` batch-fetches all data and uses `CarryForwardService.compositeValues` for the latest snapshot. `createCategory`/`editCategory`/`deleteCategory` with validation via `CategoryError`.
 - **CategoryDetailView** (`AssetFlow/Views/CategoryDetailView.swift`): Takes `category`, `modelContext`, `onDelete`. Parent must apply `.id(category.id)` for proper state reset. Form sections: Category Details (name + target allocation), Assets in Category (Table), Value History (LineMark + PointMark chart), Allocation History (LineMark + PointMark chart), Danger Zone (delete button).
 - **CategoryDetailViewModel** (`AssetFlow/ViewModels/CategoryDetailViewModel.swift`): `editedName`/`editedTargetAllocation` initialized from category. `loadData()` computes asset list with latest values, value history, and allocation history across all snapshots using `CarryForwardService`. Single snapshot renders as PointMark only.
 
-**Implementation notes (Phase 6 — Charts)**:
+**Implementation notes (Charts):**
 
 - Value history chart now uses `ChartTimeRangeSelector` with `ChartDataService.filter()` for time range zoom. Y-axis uses abbreviated labels (K/M/B).
 - Allocation history chart replaced with reusable `CategoryAllocationLineChart` component from `Views/Charts/`, which includes time range selector and hover tooltips.
@@ -231,7 +246,7 @@ ______________________________________________________________________
 
 Assets with no platform are NOT shown on the Platforms screen.
 
-### Implementation Notes (Phase 4)
+### Implementation Notes
 
 - **PlatformListView** (`AssetFlow/Views/PlatformListView.swift`): List-only layout (no list-detail split). Rename via context menu → sheet with TextField. Empty state with `building.columns` icon. Platform detail view is deferred to a future phase.
 - **PlatformListViewModel** (`AssetFlow/ViewModels/PlatformListViewModel.swift`): Derives platforms from `Asset.platform` values. `loadPlatforms()` computes totals from latest composite snapshot via `CarryForwardService`. `renamePlatform(from:to:)` validates uniqueness (case-insensitive), trims and normalizes whitespace, then updates all matching assets.
@@ -248,7 +263,7 @@ ______________________________________________________________________
 - Only categories with a target allocation are included
 - Uncategorized assets shown as separate row with "--" for Target % and "N/A" for Action
 
-### Implementation Notes (Phase 4)
+### Implementation Notes
 
 - **RebalancingView** (`AssetFlow/Views/RebalancingView.swift`): ScrollView with Grid-based tables. Three sections: "Categories with Targets" (main suggestions), "No Target Set", and "Uncategorized". Summary section shows suggested moves. Action text color-coded: green (Buy), red (Sell), gray (No action needed). Empty state with `chart.bar.doc.horizontal` icon.
 - **RebalancingViewModel** (`AssetFlow/ViewModels/RebalancingViewModel.swift`): Loads composite values from latest snapshot via `CarryForwardService` (single call). Groups by category, calls `RebalancingCalculator.calculateAdjustments()`, maps actions to display rows with localized action text. Adjustments under $1 display "No action needed" (SPEC 11.4).
@@ -721,7 +736,7 @@ ______________________________________________________________________
 | AssetListView                  | Implemented | Platform/category grouping, selection binding, EmptyStateView, Delete key shortcut                                              |
 | AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                                  |
 | CategoryListView               | Implemented | Add sheet, target allocation warning, delete validation, EmptyStateView, Delete key shortcut                                    |
-| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls (Phase 6), delete validation                              |
+| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                        |
 | PlatformListView               | Implemented | Rename sheet, EmptyStateView                                                                                                    |
 | RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, EmptyStateView                                            |
 | ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                 |

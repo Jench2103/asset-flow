@@ -255,11 +255,13 @@ Records an external money flow (deposit or withdrawal) associated with a snapsho
 
 #### Properties
 
-| Property      | Type      | Description                                           | Required |
-| ------------- | --------- | ----------------------------------------------------- | -------- |
-| `id`          | `UUID`    | Primary key                                           | Yes      |
-| `description` | `String`  | Description of the cash flow (e.g., "Salary deposit") | Yes      |
-| `amount`      | `Decimal` | Positive = inflow, negative = outflow                 | Yes      |
+| Property              | Type      | Description                                           | Required |
+| --------------------- | --------- | ----------------------------------------------------- | -------- |
+| `id`                  | `UUID`    | Primary key                                           | Yes      |
+| `cashFlowDescription` | `String`  | Description of the cash flow (e.g., "Salary deposit") | Yes      |
+| `amount`              | `Decimal` | Positive = inflow, negative = outflow                 | Yes      |
+
+**Note on property naming**: The property is named `cashFlowDescription` (not `description`) to avoid conflict with Swift's built-in `CustomStringConvertible` protocol requirement. This is an implementation detail — the SPEC uses "description" in CSV columns and documentation.
 
 **Note on SPEC field names**: The SPEC defines `snapshotID` as a UUID foreign key. In SwiftData, this is modeled as a relationship property (`snapshot`) rather than a manual UUID field. Access the snapshot UUID via `snapshot?.id` when needed (e.g., for backup serialization).
 
@@ -273,7 +275,7 @@ var snapshot: Snapshot?  // Inverse of Snapshot.cashFlowOperations
 
 #### Uniqueness Constraints
 
-- `(snapshotID, description)` must be unique (case-insensitive comparison on description)
+- `(snapshotID, cashFlowDescription)` must be unique (case-insensitive comparison on cashFlowDescription)
 
 #### Notes
 
@@ -286,7 +288,7 @@ var snapshot: Snapshot?  // Inverse of Snapshot.cashFlowOperations
 
 ```swift
 let cashFlow = CashFlowOperation(
-    description: "Salary deposit",
+    cashFlowDescription: "Salary deposit",
     amount: 50000
 )
 cashFlow.snapshot = snapshot

@@ -152,29 +152,28 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
   - Stateless calculations
   - Error handling and validation
 
-**Planned Services**:
+**Services**:
 
-1. **CarryForwardService**: Resolves composite portfolio values by combining direct snapshot data with carried-forward platform values from prior snapshots. Must operate on pre-fetched data in memory (no N+1 queries).
+1. **CalculationService** (`enum`): Unified calculation engine providing growth rate, Modified Dietz return, cumulative time-weighted return (TWR), compound annual growth rate (CAGR), and category allocation percentage calculations. All methods are pure functions operating on `Decimal` values.
 
-1. **CSVParsingService**: Parses asset CSV and cash flow CSV files according to the schemas defined in SPEC Section 4.2. Handles encoding (UTF-8 with BOM tolerance), number parsing (strip currency symbols, thousand separators), and validation.
+1. **CarryForwardService** (`enum`): Resolves composite portfolio values by combining direct snapshot data with carried-forward platform values from prior snapshots. Implements SPEC 2 asset-level granularity rule: platform presence blocks asset-level carry-forward. Must operate on pre-fetched, sorted data in memory (no N+1 queries).
 
-1. **DuplicateDetectionService**: Detects duplicate assets (by normalized name + platform) and duplicate cash flows (by case-insensitive description) both within a CSV file and between CSV data and existing snapshot records.
+1. **CSVParsingService** (`enum`): Parses asset CSV and cash flow CSV files according to the schemas defined in SPEC Section 4.2. Handles encoding (UTF-8 with BOM tolerance), number parsing (strip currency symbols, thousand separators), validation, and **within-CSV duplicate detection**. Returns structured results with error reporting.
 
-1. **GrowthRateCalculator**: Calculates simple percentage change in portfolio value between two dates with period lookback logic (1M, 3M, 1Y) and the 14-day staleness threshold.
+1. **RebalancingCalculator** (`enum`): Computes target vs. current allocation differences and suggested buy/sell adjustment amounts for each category. Returns signed `Decimal` values (positive = buy, negative = sell).
 
-1. **ModifiedDietzCalculator**: Calculates cash-flow-adjusted returns using the Modified Dietz method, with time-weighting of intermediate cash flows.
+1. **BackupService** (`@MainActor enum`): Exports all application data to a ZIP archive (via `/usr/bin/ditto`) containing CSV files and a manifest.json. Restores from a backup archive with full validation (file integrity, column headers, foreign key references). **Note**: BackupService requires `@MainActor` annotation because it accepts `ModelContext`, which is `@MainActor`-isolated. This is an exception to the general "services are not `@MainActor`" principle.
 
-1. **TWRCalculator**: Chains Modified Dietz returns between consecutive snapshots to compute cumulative time-weighted return.
+1. **SettingsService** (`@Observable @MainActor class`): Manages app-wide user preferences (display currency, date format, default platform) via UserDefaults. Observable for reactive UI updates when settings change.
 
-1. **CAGRCalculator**: Calculates compound annual growth rate from beginning/ending values and time span.
+1. **CurrencyService** (`class` with `static let shared` singleton): Provides ISO 4217 currency information (codes, names, flag emojis). Unlike other services, CurrencyService is a class singleton because it caches parsed currency data from the bundled ISO 4217 XML file.
 
-1. **RebalancingCalculator**: Computes target vs. current allocation differences and suggested buy/sell actions for each category.
+**Duplicate Detection**: AssetFlow handles duplicate detection in two layers:
 
-1. **BackupService**: Exports all application data to a ZIP archive containing CSV files and a manifest.json. Restores from a backup archive with full validation (file integrity, column headers, foreign key references). **Note**: BackupService requires `@MainActor` annotation because it accepts `ModelContext`, which is `@MainActor`-isolated. This is an exception to the general "services are not `@MainActor`" principle.
+- **CSV-internal duplicates**: Detected by `CSVParsingService` during parsing (same name+platform within file, or same description within cash flow CSV)
+- **CSV-vs-snapshot duplicates**: Detected by `ImportViewModel` when loading preview (checks CSV rows against existing snapshot data)
 
-1. **SettingsService**: Manages app-wide user preferences (display currency, date format, default platform) via UserDefaults.
-
-1. **CurrencyService**: Provides ISO 4217 currency information (codes, names, flag emojis). Unlike other services, CurrencyService is a class with a `static let shared` singleton because it caches parsed currency data from the bundled ISO 4217 XML file.
+**Supporting Types**: `DateFormatStyle`, `BackupTypes`, `CSVParsingTypes` (error enums and result types), `ChartDataService` (chart data filtering and axis formatting)
 
 **Design Principles**:
 

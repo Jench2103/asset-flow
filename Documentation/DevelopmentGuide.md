@@ -63,12 +63,14 @@ AssetFlow/
 +-- AssetFlow/                  # Main application code
 |   +-- Models/                 # SwiftData models
 |   +-- Views/                  # SwiftUI views
-|   +-- ViewModels/             # ViewModels
+|   |   +-- Charts/             # Chart components (7 interactive charts)
+|   |   +-- Components/         # Reusable view components (EmptyStateView)
+|   +-- ViewModels/             # ViewModels and ChartDataService
 |   +-- Services/               # Stateless services and utilities
 |   +-- Utilities/              # Helper functions and extensions
 |   +-- Resources/              # Assets, localization
 |   +-- AssetFlowApp.swift      # App entry point
-+-- AssetFlowTests/             # Test target
++-- AssetFlowTests/             # Test target (468+ tests across 27 files)
 +-- AssetFlow.xcodeproj/        # Xcode project
 +-- Documentation/              # Design documents (this folder)
 +-- .gitignore                  # Git ignore rules

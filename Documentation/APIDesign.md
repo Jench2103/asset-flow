@@ -75,10 +75,12 @@ struct CashFlowCSVResult {
 
 struct CashFlowCSVRow {
     let rowNumber: Int
-    let description: String
+    let description: String  // Maps to CashFlowOperation.cashFlowDescription in the model
     let amount: Decimal
 }
 ```
+
+**Note**: `CashFlowCSVRow.description` represents the "Description" column from the CSV file. When creating `CashFlowOperation` entities, this value is assigned to the `cashFlowDescription` property (not `description`) to avoid conflicts with Swift's built-in `CustomStringConvertible` protocol.
 
 **Parsing Rules**:
 
@@ -103,35 +105,26 @@ enum CSVParsingError: LocalizedError {
 
 ______________________________________________________________________
 
-### DuplicateDetectionService
+### Duplicate Detection
 
 **Purpose**: Detect duplicates within a CSV and between CSV data and existing snapshot records.
 
-```swift
-enum DuplicateDetectionService {
-    /// Check for duplicate assets within CSV rows
-    static func findAssetDuplicatesInCSV(
-        _ rows: [AssetCSVRow]
-    ) -> [AssetDuplicate]
+**Implementation**: AssetFlow handles duplicate detection in two layers:
 
-    /// Check for duplicate assets between CSV and existing snapshot
-    static func findAssetDuplicatesWithSnapshot(
-        _ rows: [AssetCSVRow],
-        existingValues: [SnapshotAssetValue]
-    ) -> [AssetConflict]
+1. **CSV-Internal Duplicates** (handled by `CSVParsingService`):
 
-    /// Check for duplicate cash flows within CSV rows
-    static func findCashFlowDuplicatesInCSV(
-        _ rows: [CashFlowCSVRow]
-    ) -> [CashFlowDuplicate]
+   - Detected during CSV parsing
+   - Asset duplicates: Same (name, platform) within the CSV file (normalized: trim whitespace, collapse spaces, case-insensitive)
+   - Cash flow duplicates: Same description within the CSV file (case-insensitive)
+   - Returns parsing errors with row numbers for duplicates found
 
-    /// Check for duplicate cash flows between CSV and existing snapshot
-    static func findCashFlowDuplicatesWithSnapshot(
-        _ rows: [CashFlowCSVRow],
-        existingOperations: [CashFlowOperation]
-    ) -> [CashFlowConflict]
-}
-```
+1. **CSV-vs-Snapshot Duplicates** (handled by `ImportViewModel`):
+
+   - Detected when loading preview in import workflow
+   - Compares parsed CSV rows against existing snapshot data
+   - Asset conflicts: CSV row matches an asset already in the target snapshot
+   - Cash flow conflicts: CSV row description matches a cash flow operation already in the target snapshot
+   - Surfaces conflicts in the import preview UI for user resolution
 
 **Asset Duplicate Detection**: Two records share the same (Asset Name, Platform) identity using normalized comparison (trim whitespace, collapse spaces, case-insensitive).
 
@@ -177,64 +170,91 @@ struct CarriedForwardValue {
 
 ______________________________________________________________________
 
-### Calculation Services
+### CalculationService
 
-**Purpose**: Stateless calculation services for financial metrics.
+**Purpose**: Unified calculation engine for all financial metrics. All methods are pure functions operating on `Decimal` values.
+
+**File**: `AssetFlow/Services/CalculationService.swift`
 
 ```swift
-enum GrowthRateCalculator {
-    /// Calculate growth rate between two portfolio values
-    static func calculate(
-        beginningValue: Decimal,
-        endingValue: Decimal
+enum CalculationService {
+    /// Calculate simple growth rate between two values (SPEC Section 10.3)
+    /// Formula: (endValue - beginValue) / beginValue
+    /// - Returns: Growth rate as a decimal (e.g., 0.10 for 10%), or nil if
+    ///   beginning value is zero or negative
+    static func growthRate(
+        beginValue: Decimal,
+        endValue: Decimal
     ) -> Decimal?
 
-    /// Find the appropriate beginning snapshot for a lookback period
-    static func findLookbackSnapshot(
-        from currentDate: Date,
-        period: LookbackPeriod,
-        snapshots: [Snapshot]
-    ) -> Snapshot?
-}
-
-enum ModifiedDietzCalculator {
-    /// Calculate Modified Dietz return for a period
-    static func calculate(
-        beginningValue: Decimal,
-        endingValue: Decimal,
-        cashFlows: [(date: Date, amount: Decimal)],
-        periodStart: Date,
-        periodEnd: Date
+    /// Calculate Modified Dietz return (SPEC Section 10.4)
+    /// Formula: R = (EMV - BMV - CF) / (BMV + sum(wi * CFi))
+    /// Where wi = (totalDays - daysSinceStart) / totalDays
+    /// - Parameters:
+    ///   - beginValue: Beginning composite portfolio value (BMV)
+    ///   - endValue: Ending composite portfolio value (EMV)
+    ///   - cashFlows: Array of (amount, daysSinceStart) tuples for intermediate cash flows
+    ///   - totalDays: Total calendar days in the period
+    /// - Returns: Modified Dietz return as a decimal, or nil if denominator is <= 0
+    ///   or beginning value is zero/negative
+    static func modifiedDietzReturn(
+        beginValue: Decimal,
+        endValue: Decimal,
+        cashFlows: [(amount: Decimal, daysSinceStart: Int)],
+        totalDays: Int
     ) -> Decimal?
-}
 
-enum TWRCalculator {
-    /// Calculate cumulative TWR from consecutive snapshot pairs
-    static func calculateCumulative(
-        snapshotReturns: [Decimal]
+    /// Calculate cumulative time-weighted return by chaining period returns (SPEC Section 10.5)
+    /// Formula: TWR = (1 + r1) * (1 + r2) * ... * (1 + rn) - 1
+    /// - Parameter periodReturns: Array of Modified Dietz returns for consecutive periods
+    /// - Returns: Cumulative TWR as a decimal
+    static func cumulativeTWR(
+        periodReturns: [Decimal]
+    ) -> Decimal
+
+    /// Calculate compound annual growth rate (SPEC Section 10.6)
+    /// Formula: CAGR = (endValue / beginValue) ^ (1 / years) - 1
+    /// - Parameters:
+    ///   - beginValue: Beginning portfolio value
+    ///   - endValue: Ending portfolio value
+    ///   - years: Number of years (can be fractional)
+    /// - Returns: CAGR as a decimal, or nil if beginning value is zero/negative
+    ///   or years is zero/negative
+    static func cagr(
+        beginValue: Decimal,
+        endValue: Decimal,
+        years: Double
     ) -> Decimal?
-}
 
-enum CAGRCalculator {
-    /// Calculate CAGR from beginning/ending values and dates
-    static func calculate(
-        beginningValue: Decimal,
-        endingValue: Decimal,
-        startDate: Date,
-        endDate: Date
-    ) -> Decimal?
+    /// Calculate category allocation percentage (SPEC Section 10.2)
+    /// Formula: categoryValue / totalValue * 100
+    /// - Returns: Allocation percentage, or 0 if total value is zero
+    static func categoryAllocation(
+        categoryValue: Decimal,
+        totalValue: Decimal
+    ) -> Decimal
 }
+```
 
+### RebalancingCalculator
+
+**Purpose**: Computes rebalancing adjustments for portfolio allocation.
+
+**File**: `AssetFlow/Services/RebalancingCalculator.swift`
+
+```swift
 enum RebalancingCalculator {
-    /// Calculate rebalancing suggestions
-    static func calculate(
-        categoryAllocations: [CategoryAllocation],
+    /// Calculate the adjustment amount needed to reach target allocation
+    /// - Parameters:
+    ///   - currentAllocation: Current allocation percentage (0-100)
+    ///   - targetAllocation: Target allocation percentage (0-100)
+    ///   - totalPortfolioValue: Total portfolio value
+    /// - Returns: Signed Decimal (positive = buy, negative = sell)
+    static func adjustment(
+        currentAllocation: Decimal,
+        targetAllocation: Decimal,
         totalPortfolioValue: Decimal
-    ) -> [RebalancingSuggestion]
-}
-
-enum LookbackPeriod {
-    case oneMonth, threeMonths, oneYear
+    ) -> Decimal
 }
 ```
 
@@ -380,6 +400,49 @@ class CurrencyService {
 ```
 
 Parses bundled ISO 4217 XML file. Filters duplicates and fund currencies.
+
+______________________________________________________________________
+
+### ChartDataService
+
+**Purpose**: Stateless service for chart data filtering by time range and Y-axis label abbreviation.
+
+**File**: `AssetFlow/ViewModels/ChartDataService.swift`
+
+```swift
+enum ChartTimeRange: String, CaseIterable, Identifiable {
+    case oneWeek = "1W"
+    case oneMonth = "1M"
+    case threeMonths = "3M"
+    case sixMonths = "6M"
+    case oneYear = "1Y"
+    case threeYears = "3Y"
+    case fiveYears = "5Y"
+    case all = "All"
+
+    /// Returns the start date for this range relative to a reference date,
+    /// or nil for `.all` (no filtering)
+    func startDate(from referenceDate: Date) -> Date?
+}
+
+protocol ChartFilterable {
+    var chartDate: Date { get }
+}
+
+enum ChartDataService {
+    /// Filters chart data points by time range
+    /// Uses the latest data point's date as reference, not Date.now
+    static func filter<T: ChartFilterable>(_ items: [T], range: ChartTimeRange) -> [T]
+
+    /// Returns abbreviated string for large numeric values
+    /// Examples: 3,000,000,000 → "3B", 2,000,000 → "2M", 5,000 → "5K"
+    static func abbreviatedLabel(for value: Decimal) -> String
+}
+```
+
+**Usage**: Chart views use `ChartDataService.filter()` to apply time range selection before rendering. `ChartFilterable` protocol is conformed to by all chart data point types (`DashboardDataPoint`, `CategoryValueHistoryEntry`, `CategoryAllocationHistoryEntry`).
+
+**Axis Labels**: Y-axis labels use `abbreviatedLabel(for:)` to format large values (K/M/B) for readability in compact chart layouts.
 
 ______________________________________________________________________
 

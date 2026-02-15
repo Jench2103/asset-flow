@@ -430,6 +430,27 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## Test Inventory
+
+**Current Status:**
+
+- **468+ tests** across **27 test files**
+- All models, services, and ViewModels have comprehensive test coverage
+- Includes SPEC verification tests for end-to-end scenarios
+
+**Test Files**:
+
+| Category    | Files                                                                                                                                                                                                                                                                                                | Coverage                                            |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Models      | AssetModelTests, CategoryModelTests, SnapshotModelTests, SnapshotAssetValueModelTests, CashFlowOperationModelTests, SwiftDataRelationshipTests                                                                                                                                                       | All 5 models + relationships                        |
+| ViewModels  | DashboardViewModelTests, SnapshotListViewModelTests, SnapshotDetailViewModelTests, AssetListViewModelTests, AssetDetailViewModelTests, CategoryListViewModelTests, CategoryDetailViewModelTests, PlatformListViewModelTests, RebalancingViewModelTests, ImportViewModelTests, SettingsViewModelTests | All 11 ViewModels                                   |
+| Services    | CalculationServiceTests, CarryForwardServiceTests, CSVParsingServiceTests, BackupServiceTests, RebalancingCalculatorTests, SettingsServiceTests, ChartDataServiceTests                                                                                                                               | All 7 services                                      |
+| Integration | NavigationIntegrationTests, EmptyStateTests, SpecVerificationTests                                                                                                                                                                                                                                   | End-to-end scenarios, SPEC verification, edge cases |
+
+**TestContext Pattern**: All ViewModel tests use the `TestContext` struct pattern to retain `ModelContainer` for the test scope, preventing premature deallocation and "model instance destroyed" crashes.
+
+______________________________________________________________________
+
 ## What to Test
 
 ### Models
@@ -448,18 +469,12 @@ ______________________________________________________________________
 
 ### Services
 
-- **CarryForwardService**: Composite resolution, platform-level carry-forward, edge cases
-- **CSVParsingService**: Valid files, malformed files, encoding, number formats
-- **DuplicateDetectionService**: Within-CSV and cross-snapshot duplicates
-- **BackupService**: Export format, restore validation, foreign key reference validation across files (every assetID in snapshot_asset_values exists in assets, every snapshotID exists in snapshots, etc.), error handling for corrupted archives
-
-### Calculators
-
-- **GrowthRateCalculator**: Basic growth, lookback period, 14-day staleness threshold
-- **ModifiedDietzCalculator**: No cash flows, with cash flows, time-weighting, edge cases
-- **TWRCalculator**: Chaining returns, single period, multi-period
-- **CAGRCalculator**: Multi-year, fractional year, zero/negative values
-- **RebalancingCalculator**: Balanced portfolio, unbalanced, no target, uncategorized assets
+- **CalculationService**: Growth rate, Modified Dietz return (no cash flows, with cash flows, time-weighting), cumulative TWR (chaining returns), CAGR (multi-year, fractional year), category allocation, edge cases (zero/negative values, divide-by-zero)
+- **CarryForwardService**: Composite resolution, platform-level carry-forward (SPEC 2 asset-level granularity rule), sorted snapshot requirement, edge cases
+- **CSVParsingService**: Valid files, malformed files, encoding, number formats, within-CSV duplicate detection (assets by name+platform, cash flows by description)
+- **BackupService**: Export format, restore validation, foreign key reference validation across files (every assetID in snapshot_asset_values exists in assets, every snapshotID exists in snapshots, etc.), error handling for corrupted archives, round-trip integrity
+- **RebalancingCalculator**: Balanced portfolio, unbalanced, no target, uncategorized assets, adjustment calculations
+- **ChartDataService**: Time range filtering, abbreviated axis labels (K/M/B)
 
 ______________________________________________________________________
 

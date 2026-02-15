@@ -35,7 +35,7 @@ xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow test -destination 'pla
 - Models: SwiftData models with relationships
 - Views: SwiftUI components
 - ViewModels: `@Observable @MainActor` classes handling form state, validation, and persistence
-- Services: Stateless utilities (CarryForwardService, CSVParsingService, RebalancingCalculator, BackupService, CurrencyService)
+- Services: Stateless utilities (CalculationService, CarryForwardService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, CurrencyService, ChartDataService)
 
 **Data Model Relationships:**
 

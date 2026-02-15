@@ -92,6 +92,8 @@ ______________________________________________________________________
 
 **Export Format**: ZIP archive containing CSV files and a manifest.json.
 
+**Implementation**: Uses macOS built-in `/usr/bin/ditto` command for ZIP creation and extraction. No external dependencies or third-party libraries.
+
 **Security Characteristics**:
 
 - Backup files are **not encrypted** by the application
