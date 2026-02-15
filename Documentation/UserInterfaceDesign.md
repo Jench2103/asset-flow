@@ -217,6 +217,11 @@ ______________________________________________________________________
 
 Assets with no platform are NOT shown on the Platforms screen.
 
+### Implementation Notes (Phase 4)
+
+- **PlatformListView** (`AssetFlow/Views/PlatformListView.swift`): List-only layout (no list-detail split). Rename via context menu → sheet with TextField. Empty state with `building.columns` icon. Platform detail view is deferred to a future phase.
+- **PlatformListViewModel** (`AssetFlow/ViewModels/PlatformListViewModel.swift`): Derives platforms from `Asset.platform` values. `loadPlatforms()` computes totals from latest composite snapshot via `CarryForwardService`. `renamePlatform(from:to:)` validates uniqueness (case-insensitive), trims and normalizes whitespace, then updates all matching assets.
+
 ______________________________________________________________________
 
 ## Rebalancing Screen
@@ -228,6 +233,11 @@ ______________________________________________________________________
 - Read-only/preview -- no data modification occurs
 - Only categories with a target allocation are included
 - Uncategorized assets shown as separate row with "--" for Target % and "N/A" for Action
+
+### Implementation Notes (Phase 4)
+
+- **RebalancingView** (`AssetFlow/Views/RebalancingView.swift`): ScrollView with Grid-based tables. Three sections: "Categories with Targets" (main suggestions), "No Target Set", and "Uncategorized". Summary section shows suggested moves. Action text color-coded: green (Buy), red (Sell), gray (No action needed). Empty state with `chart.bar.doc.horizontal` icon.
+- **RebalancingViewModel** (`AssetFlow/ViewModels/RebalancingViewModel.swift`): Loads composite values from latest snapshot via `CarryForwardService` (single call). Groups by category, calls `RebalancingCalculator.calculateAdjustments()`, maps actions to display rows with localized action text. Adjustments under $1 display "No action needed" (SPEC 11.4).
 
 ______________________________________________________________________
 

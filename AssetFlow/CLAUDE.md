@@ -105,7 +105,7 @@ Services are stateless structs or classes with no direct SwiftData dependency:
 String Catalogs (`.xcstrings`) organize localized strings by feature:
 
 - **Views**: String literals in `Text()`, `Label()`, etc. auto-extract into `Localizable.xcstrings`.
-- **ViewModels/Services**: Use `String(localized:table:)` with feature tables (`Asset`, `Snapshot`, `Category`, `Import`, `Services`, `Settings`).
+- **ViewModels/Services**: Use `String(localized:table:)` with feature tables (`Asset`, `Snapshot`, `Category`, `Import`, `Services`, `Settings`, `Platform`, `Rebalancing`).
 - **Enums**: Use `localizedName` for display; `rawValue` is for SwiftData persistence only.
 
 ```swift
@@ -128,6 +128,8 @@ nameValidationMessage = String(localized: "Asset name cannot be empty.", table: 
 | `SettingsViewModel.swift`       | App settings management                                       |
 | `CategoryListViewModel.swift`   | Category listing, creation, editing, deletion with allocation |
 | `CategoryDetailViewModel.swift` | Category detail, value/allocation history, edit/delete        |
+| `PlatformListViewModel.swift`   | Platform listing with values, rename with validation          |
+| `RebalancingViewModel.swift`    | Rebalancing suggestions, allocation comparison, summary text  |
 
 ### Views
 
@@ -140,6 +142,8 @@ nameValidationMessage = String(localized: "Asset name cannot be empty.", table: 
 | `SettingsView.swift`       | App settings screen                                 |
 | `CategoryListView.swift`   | Category list with add sheet and allocation warning |
 | `CategoryDetailView.swift` | Category detail/edit with history charts            |
+| `PlatformListView.swift`   | Platform list with rename sheet and empty state     |
+| `RebalancingView.swift`    | Rebalancing table with suggestions and summary      |
 
 ## Naming Conventions
 
