@@ -2,14 +2,14 @@
 
 ## Directory Structure
 
-| Directory     | Purpose                                                                             |
-| ------------- | ----------------------------------------------------------------------------------- |
-| `Models/`     | SwiftData `@Model` classes (see `Models/README.md` for full reference)              |
-| `Views/`      | SwiftUI view structs                                                                |
-| `ViewModels/` | `@Observable @MainActor` classes for form state and business logic                  |
-| `Services/`   | Stateless utilities: CurrencyService, ExchangeRateService, PortfolioValueCalculator |
-| `Utilities/`  | Extensions and helpers (e.g., `Decimal.formatted(currency:)`)                       |
-| `Resources/`  | Non-code assets (XML data files, etc.)                                              |
+| Directory     | Purpose                                                                |
+| ------------- | ---------------------------------------------------------------------- |
+| `Models/`     | SwiftData `@Model` classes (see `Models/README.md` for full reference) |
+| `Views/`      | SwiftUI view structs                                                   |
+| `ViewModels/` | `@Observable @MainActor` classes for form state and business logic     |
+| `Services/`   | Stateless utilities: CurrencyService, SettingsService                  |
+| `Utilities/`  | Extensions and helpers (e.g., `Decimal.formatted(currency:)`)          |
+| `Resources/`  | Non-code assets (XML data files, etc.)                                 |
 
 ## Patterns
 
@@ -61,22 +61,24 @@ struct FooFormView: View {
 
 Key points:
 
-- `@State var viewModel` (not `@StateObject` — using Observation framework)
+- `@State var viewModel` (not `@StateObject` -- using Observation framework)
 - `@Environment(\.dismiss)` for navigation
-- Platform conditionals with `#if os(macOS)` / `#if os(iOS)`
+- macOS only -- no platform conditionals needed
 
 ### Model
 
 ```swift
 @Model
 final class Foo {
+  #Unique<Foo>([\.someProperty])
+
   var id: UUID
   var amount: Decimal  // Always Decimal for money
 
-  @Relationship(deleteRule: .cascade)
-  var children: [Bar]? = []
+  @Relationship(deleteRule: .cascade, inverse: \Bar.foo)
+  var children: [Bar]?
 
-  @Relationship(deleteRule: .nullify)
+  @Relationship(deleteRule: .nullify, inverse: \Baz.foos)
   var parent: Baz?
 }
 ```
@@ -85,31 +87,28 @@ Key points:
 
 - `@Model` macro, `final class`
 - `Decimal` for all monetary values (never Float/Double)
-- Explicit `@Relationship` with delete rules (`.cascade` or `.nullify`)
+- `#Unique` macro for uniqueness constraints
+- Explicit `@Relationship` with delete rules (`.cascade`, `.deny`, or `.nullify`)
 - Register new models in `AssetFlowApp.swift` `sharedModelContainer` Schema
 
 ### Service
 
 Services are stateless structs or classes with no direct SwiftData dependency:
 
-- **CurrencyService** — singleton (`static let shared`), loads ISO 4217 currency data
-- **ExchangeRateService** — `@Observable @MainActor`, fetches rates from Coinbase API with 1-hour cache
-- **PortfolioValueCalculator** — pure `struct` with static calculation methods
+- **CurrencyService** -- singleton (`static let shared`), loads ISO 4217 currency data
+- **SettingsService** -- `@Observable @MainActor`, manages app-wide settings (currency, financial goal)
 
 ### Localization
 
 String Catalogs (`.xcstrings`) organize localized strings by feature:
 
 - **Views**: String literals in `Text()`, `Label()`, etc. auto-extract into `Localizable.xcstrings`.
-- **ViewModels/Services**: Use `String(localized:table:)` with feature tables (`Asset`, `Portfolio`, `Transaction`, `PriceHistory`, `Services`).
+- **ViewModels/Services**: Use `String(localized:table:)` with feature tables (`Asset`, `Snapshot`, `Category`, `Import`, `Services`).
 - **Enums**: Use `localizedName` for display; `rawValue` is for SwiftData persistence only.
 
 ```swift
 // ViewModel validation message
 nameValidationMessage = String(localized: "Asset name cannot be empty.", table: "Asset")
-
-// Enum display in views
-Text(asset.assetType.localizedName)  // not .rawValue
 ```
 
 ## Naming Conventions
