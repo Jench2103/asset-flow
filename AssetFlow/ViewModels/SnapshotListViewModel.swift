@@ -137,13 +137,13 @@ class SnapshotListViewModel {
   // MARK: - Row Data
 
   /// Computes row data for all snapshots in a single batch, pre-fetching data once.
-  func loadAllSnapshotRowData() -> [Snapshot: SnapshotRowData] {
+  func loadAllSnapshotRowData() -> [UUID: SnapshotRowData] {
     let allSnapshots = fetchAllSnapshots()
     let allAssetValues = fetchAllAssetValues()
 
-    var result: [Snapshot: SnapshotRowData] = [:]
+    var result: [UUID: SnapshotRowData] = [:]
     for snapshot in allSnapshots {
-      result[snapshot] = buildRowData(
+      result[snapshot.id] = buildRowData(
         for: snapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
     }
     return result

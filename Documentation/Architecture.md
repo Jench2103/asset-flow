@@ -67,7 +67,7 @@ struct DashboardView: View {
   - Handles data transformation and validation
   - Form validation with real-time feedback
 
-**ViewModels** (planned for new design):
+**ViewModels** (all 11 implemented and tested):
 
 1. **DashboardViewModel**: Portfolio overview metrics, summary cards, chart data
 1. **SnapshotListViewModel**: Snapshot listing, creation, deletion
@@ -79,7 +79,22 @@ struct DashboardView: View {
 1. **PlatformListViewModel**: Platform listing, rename operations
 1. **RebalancingViewModel**: Rebalancing calculations, current vs. target allocation
 1. **ImportViewModel**: CSV parsing, validation, preview, import execution
-1. **SettingsViewModel**: Display currency, date format, default platform, backup/restore
+1. **SettingsViewModel**: Display currency, date format, default platform
+
+**Views** (all 12 implemented — navigation shell, all sections, all detail views):
+
+1. **ContentView**: Full sidebar navigation with `SidebarSection` enum, list-detail splits, discard confirmation, post-import navigation
+1. **DashboardView**: Summary cards, period performance (1M/3M/1Y), chart placeholders, recent snapshots
+1. **SnapshotListView**: `@Query` live list with carry-forward indicators, New Snapshot sheet
+1. **SnapshotDetailView**: Asset breakdown with carried-forward distinction (SPEC 8.3), category allocation, cash flow CRUD
+1. **AssetListView**: Platform/category grouping, selection binding
+1. **AssetDetailView**: Edit fields, sparkline chart, value history, delete validation
+1. **CategoryListView**: Add sheet, target allocation warning, delete validation
+1. **CategoryDetailView**: Value/allocation history charts, delete validation
+1. **PlatformListView**: Rename sheet, empty state
+1. **RebalancingView**: Suggestions table, no-target section, summary
+1. **ImportView**: CSV import (accepts shared ViewModel from ContentView)
+1. **SettingsView**: Currency, date format, default platform
 
 **Example Structure**:
 

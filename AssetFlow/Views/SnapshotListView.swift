@@ -1,0 +1,310 @@
+//
+//  SnapshotListView.swift
+//  AssetFlow
+//
+//  Created by Claude on 2026/02/15.
+//
+
+import SwiftData
+import SwiftUI
+
+/// Snapshot list view with carry-forward indicators and creation workflow.
+///
+/// Displays all snapshots sorted by date (newest first) with composite totals,
+/// asset counts, and platform indicators. Supports creating new snapshots
+/// (empty or copy-from-latest) and deletion with confirmation.
+struct SnapshotListView: View {
+  @State private var viewModel: SnapshotListViewModel
+  @Binding var selectedSnapshot: Snapshot?
+
+  @Query(sort: \Snapshot.date, order: .reverse) private var snapshots: [Snapshot]
+
+  @State private var showNewSnapshotSheet = false
+  @State private var rowDataMap: [UUID: SnapshotRowData] = [:]
+  @State private var snapshotToDelete: Snapshot?
+  @State private var showDeleteConfirmation = false
+
+  var onNavigateToImport: (() -> Void)?
+
+  init(
+    modelContext: ModelContext,
+    selectedSnapshot: Binding<Snapshot?>,
+    onNavigateToImport: (() -> Void)? = nil
+  ) {
+    _viewModel = State(wrappedValue: SnapshotListViewModel(modelContext: modelContext))
+    _selectedSnapshot = selectedSnapshot
+    self.onNavigateToImport = onNavigateToImport
+  }
+
+  var body: some View {
+    Group {
+      if snapshots.isEmpty {
+        emptyState
+      } else {
+        snapshotList
+      }
+    }
+    .navigationTitle("Snapshots")
+    .toolbar {
+      ToolbarItem(placement: .automatic) {
+        Button {
+          showNewSnapshotSheet = true
+        } label: {
+          Image(systemName: "plus")
+        }
+        .accessibilityIdentifier("New Snapshot Button")
+      }
+    }
+    .onAppear {
+      reloadRowData()
+    }
+    .onChange(of: snapshots) {
+      reloadRowData()
+    }
+    .sheet(isPresented: $showNewSnapshotSheet) {
+      NewSnapshotSheet(viewModel: viewModel) { snapshot in
+        reloadRowData()
+        selectedSnapshot = snapshot
+      }
+    }
+    .confirmationDialog(
+      "Delete Snapshot",
+      isPresented: $showDeleteConfirmation,
+      presenting: snapshotToDelete
+    ) { snapshot in
+      Button("Delete", role: .destructive) {
+        viewModel.deleteSnapshot(snapshot)
+        if selectedSnapshot?.id == snapshot.id {
+          selectedSnapshot = nil
+        }
+        reloadRowData()
+      }
+      Button("Cancel", role: .cancel) {}
+    } message: { snapshot in
+      let data = viewModel.confirmationData(for: snapshot)
+      let dateStr = data.date.formatted(date: .abbreviated, time: .omitted)
+      let assetCount = data.assetCount
+      let cfCount = data.cashFlowCount
+      Text(
+        "Delete snapshot from \(dateStr)? This will remove all \(assetCount) asset values and \(cfCount) cash flow operations. This action cannot be undone."
+      )
+    }
+  }
+
+  // MARK: - Snapshot List
+
+  private var snapshotList: some View {
+    List(selection: $selectedSnapshot) {
+      ForEach(snapshots) { snapshot in
+        snapshotRow(snapshot)
+          .tag(snapshot)
+      }
+    }
+    .accessibilityIdentifier("Snapshot List")
+  }
+
+  private func snapshotRow(_ snapshot: Snapshot) -> some View {
+    let rowData = rowDataMap[snapshot.id]
+
+    return HStack {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(snapshot.date.formatted(date: .abbreviated, time: .omitted))
+          .font(.body)
+
+        if let rowData = rowData {
+          HStack(spacing: 4) {
+            // Direct platforms
+            ForEach(rowData.directPlatforms, id: \.self) { platform in
+              Text(platform)
+                .font(.caption2)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background(.quaternary)
+                .clipShape(Capsule())
+            }
+
+            // Carried-forward platforms
+            ForEach(rowData.carriedForwardPlatforms, id: \.self) { platform in
+              HStack(spacing: 2) {
+                Image(systemName: "arrow.uturn.forward")
+                  .font(.caption2)
+                Text(platform)
+                  .font(.caption2)
+              }
+              .padding(.horizontal, 4)
+              .padding(.vertical, 1)
+              .background(.quaternary.opacity(0.5))
+              .clipShape(Capsule())
+              .foregroundStyle(.secondary)
+              .italic()
+            }
+          }
+        }
+      }
+
+      Spacer()
+
+      HStack(spacing: 12) {
+        if let rowData = rowData {
+          Text(rowData.compositeTotal.formatted(currency: SettingsService.shared.mainCurrency))
+            .font(.body)
+            .monospacedDigit()
+
+          Text("\(rowData.assetCount)")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(.quaternary)
+            .clipShape(Capsule())
+            .accessibilityLabel("\(rowData.assetCount) assets")
+        }
+      }
+    }
+    .contextMenu {
+      Button("Delete", role: .destructive) {
+        snapshotToDelete = snapshot
+        showDeleteConfirmation = true
+      }
+    }
+  }
+
+  // MARK: - Empty State
+
+  private var emptyState: some View {
+    VStack(spacing: 12) {
+      Spacer()
+      Image(systemName: "calendar")
+        .font(.largeTitle)
+        .foregroundStyle(.secondary)
+      Text("No Snapshots")
+        .font(.title3)
+        .foregroundStyle(.secondary)
+      Text("Create a snapshot to start tracking your portfolio, or import CSV data.")
+        .font(.callout)
+        .foregroundStyle(.tertiary)
+        .multilineTextAlignment(.center)
+        .padding(.horizontal)
+      HStack(spacing: 12) {
+        Button("New Snapshot") {
+          showNewSnapshotSheet = true
+        }
+        Button("Import CSV") {
+          onNavigateToImport?()
+        }
+      }
+      Spacer()
+    }
+    .frame(maxWidth: .infinity)
+  }
+
+  // MARK: - Helpers
+
+  private func reloadRowData() {
+    rowDataMap = viewModel.loadAllSnapshotRowData()
+  }
+}
+
+// MARK: - New Snapshot Sheet
+
+private struct NewSnapshotSheet: View {
+  let viewModel: SnapshotListViewModel
+  let onCreate: (Snapshot) -> Void
+
+  @Environment(\.dismiss) private var dismiss
+
+  @Query(sort: \Snapshot.date) private var allSnapshots: [Snapshot]
+
+  @State private var snapshotDate = Date()
+  @State private var copyFromLatest = false
+  @State private var showError = false
+  @State private var errorMessage = ""
+
+  private var hasDateConflict: Bool {
+    allSnapshots.contains(where: {
+      Calendar.current.isDate($0.date, inSameDayAs: snapshotDate)
+    })
+  }
+
+  var body: some View {
+    VStack(spacing: 0) {
+      Text("New Snapshot")
+        .font(.headline)
+        .padding(.top)
+
+      Form {
+        DatePicker(
+          "Snapshot Date",
+          selection: $snapshotDate,
+          in: ...Date(),
+          displayedComponents: .date
+        )
+        .accessibilityIdentifier("Snapshot Date Picker")
+
+        if hasDateConflict {
+          Label(
+            "A snapshot already exists for this date.",
+            systemImage: "exclamationmark.triangle"
+          )
+          .font(.caption)
+          .foregroundStyle(.orange)
+        }
+
+        Toggle("Copy from latest snapshot", isOn: $copyFromLatest)
+          .disabled(!viewModel.canCopyFromLatest(for: snapshotDate))
+
+        if !viewModel.canCopyFromLatest(for: snapshotDate) {
+          Text("No prior snapshots available to copy from.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+      }
+      .formStyle(.grouped)
+
+      HStack {
+        Button("Cancel", role: .cancel) {
+          dismiss()
+        }
+        .keyboardShortcut(.cancelAction)
+
+        Spacer()
+
+        Button("Create") {
+          createSnapshot()
+        }
+        .keyboardShortcut(.defaultAction)
+        .disabled(hasDateConflict)
+      }
+      .padding()
+    }
+    .frame(minWidth: 350, minHeight: 200)
+    .alert("Error", isPresented: $showError) {
+      Button("OK") {}
+    } message: {
+      Text(errorMessage)
+    }
+  }
+
+  private func createSnapshot() {
+    do {
+      let snapshot = try viewModel.createSnapshot(
+        date: snapshotDate, copyFromLatest: copyFromLatest)
+      onCreate(snapshot)
+      dismiss()
+    } catch {
+      errorMessage = error.localizedDescription
+      showError = true
+    }
+  }
+}
+
+// MARK: - Previews
+
+#Preview("Snapshot List") {
+  NavigationStack {
+    SnapshotListView(
+      modelContext: PreviewContainer.container.mainContext,
+      selectedSnapshot: .constant(nil)
+    )
+  }
+}

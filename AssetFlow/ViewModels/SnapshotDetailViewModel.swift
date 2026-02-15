@@ -57,6 +57,11 @@ class SnapshotDetailViewModel {
     }
   }
 
+  /// Cash flow operations sorted by description for stable display order.
+  var sortedCashFlowOperations: [CashFlowOperation] {
+    (snapshot.cashFlowOperations ?? []).sorted { $0.cashFlowDescription < $1.cashFlowDescription }
+  }
+
   /// Category allocation summary for this snapshot.
   var categoryAllocations: [CategoryAllocationData] {
     let total = totalValue
@@ -219,6 +224,11 @@ class SnapshotDetailViewModel {
   }
 
   // MARK: - Delete Snapshot
+
+  /// Deletes this snapshot from the model context.
+  func deleteSnapshot() {
+    modelContext.delete(snapshot)
+  }
 
   /// Returns data for the delete confirmation dialog.
   func deleteConfirmationData() -> SnapshotConfirmationData {

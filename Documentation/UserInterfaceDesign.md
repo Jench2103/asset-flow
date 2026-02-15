@@ -659,3 +659,22 @@ ______________________________________________________________________
 ### Specification Reference
 
 - `SPEC.md` Sections 3, 4, 12 for detailed UI requirements
+
+______________________________________________________________________
+
+## Implementation Status
+
+| View                           | Status      | Notes                                                                                                                 |
+| ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------- |
+| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation     |
+| DashboardView                  | Implemented | Summary cards, period performance (1M/3M/1Y), chart placeholders (Phase 6), recent snapshots                          |
+| SnapshotListView               | Implemented | @Query live list, carry-forward platform indicators, New Snapshot sheet, empty state                                  |
+| SnapshotDetailView             | Implemented | Asset breakdown with carried-forward distinction (SPEC 8.3), category allocation, cash flow CRUD, delete confirmation |
+| AssetListView                  | Implemented | Platform/category grouping, selection binding                                                                         |
+| AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                        |
+| CategoryListView               | Implemented | Add sheet, target allocation warning, delete validation                                                               |
+| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts, delete validation                                                       |
+| PlatformListView               | Implemented | Rename sheet, empty state                                                                                             |
+| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary                                                  |
+| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                       |
+| SettingsView                   | Implemented | Currency, date format, default platform                                                                               |

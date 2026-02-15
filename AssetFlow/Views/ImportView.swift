@@ -21,8 +21,8 @@ struct ImportView: View {
   @State var newCategoryName = ""
   @State var showNewCategoryField = false
 
-  init(modelContext: ModelContext) {
-    _viewModel = State(wrappedValue: ImportViewModel(modelContext: modelContext))
+  init(viewModel: ImportViewModel) {
+    _viewModel = State(wrappedValue: viewModel)
   }
 
   var body: some View {

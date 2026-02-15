@@ -133,17 +133,20 @@ nameValidationMessage = String(localized: "Asset name cannot be empty.", table: 
 
 ### Views
 
-| File                       | Purpose                                             |
-| -------------------------- | --------------------------------------------------- |
-| `ContentView.swift`        | Root navigation structure                           |
-| `AssetListView.swift`      | Asset list with grouping segmented control          |
-| `AssetDetailView.swift`    | Asset detail/edit with sparkline and value history  |
-| `ImportView.swift`         | CSV import screen                                   |
-| `SettingsView.swift`       | App settings screen                                 |
-| `CategoryListView.swift`   | Category list with add sheet and allocation warning |
-| `CategoryDetailView.swift` | Category detail/edit with history charts            |
-| `PlatformListView.swift`   | Platform list with rename sheet and empty state     |
-| `RebalancingView.swift`    | Rebalancing table with suggestions and summary      |
+| File                       | Purpose                                                     |
+| -------------------------- | ----------------------------------------------------------- |
+| `ContentView.swift`        | Full sidebar navigation shell with 7-section SidebarSection |
+| `DashboardView.swift`      | Dashboard with metrics, period performance, chart stubs     |
+| `SnapshotListView.swift`   | Snapshot list with carry-forward indicators and creation    |
+| `SnapshotDetailView.swift` | Snapshot detail with asset/cash flow CRUD                   |
+| `AssetListView.swift`      | Asset list with grouping segmented control                  |
+| `AssetDetailView.swift`    | Asset detail/edit with sparkline and value history          |
+| `ImportView.swift`         | CSV import screen (accepts ViewModel from ContentView)      |
+| `SettingsView.swift`       | App settings screen                                         |
+| `CategoryListView.swift`   | Category list with add sheet and allocation warning         |
+| `CategoryDetailView.swift` | Category detail/edit with history charts                    |
+| `PlatformListView.swift`   | Platform list with rename sheet and empty state             |
+| `RebalancingView.swift`    | Rebalancing table with suggestions and summary              |
 
 ## Naming Conventions
 
