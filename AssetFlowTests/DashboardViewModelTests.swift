@@ -643,4 +643,161 @@ struct DashboardViewModelTests {
     #expect(DashboardPeriod.threeMonths.months == 3)
     #expect(DashboardPeriod.oneYear.months == 12)
   }
+
+  // MARK: - Snapshot Dates
+
+  @Test("snapshotDates returns all dates sorted ascending")
+  func snapshotDatesSortedAscending() {
+    let tc = createTestContext()
+
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 3, day: 1),
+      assets: [("AAPL", "Firstrade", 120_000, nil)]
+    )
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 1),
+      assets: [("AAPL", "Firstrade", 100_000, nil)]
+    )
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 2, day: 1),
+      assets: [("AAPL", "Firstrade", 110_000, nil)]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    #expect(viewModel.snapshotDates.count == 3)
+    #expect(viewModel.snapshotDates[0] == makeDate(year: 2025, month: 1, day: 1))
+    #expect(viewModel.snapshotDates[1] == makeDate(year: 2025, month: 2, day: 1))
+    #expect(viewModel.snapshotDates[2] == makeDate(year: 2025, month: 3, day: 1))
+  }
+
+  @Test("snapshotDates is empty when no snapshots")
+  func snapshotDatesEmptyWhenNoSnapshots() {
+    let tc = createTestContext()
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+    #expect(viewModel.snapshotDates.isEmpty)
+  }
+
+  // MARK: - Category Allocations for Specific Snapshot Date
+
+  @Test(
+    "categoryAllocations(forSnapshotDate:) returns correct allocations for a historical snapshot")
+  func categoryAllocationsForHistoricalSnapshot() {
+    let tc = createTestContext()
+
+    let equities = Category(name: "Equities")
+    let bonds = Category(name: "Bonds")
+    tc.context.insert(equities)
+    tc.context.insert(bonds)
+
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 1),
+      assets: [
+        ("AAPL", "Firstrade", 60_000, equities),
+        ("AGG", "Firstrade", 40_000, bonds),
+      ]
+    )
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 2, day: 1),
+      assets: [
+        ("AAPL", "Firstrade", 80_000, equities),
+        ("AGG", "Firstrade", 20_000, bonds),
+      ]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    // Check allocations for the first snapshot (60/40 split)
+    let allocations = viewModel.categoryAllocations(
+      forSnapshotDate: makeDate(year: 2025, month: 1, day: 1))
+    #expect(allocations.count == 2)
+
+    let equityAlloc = allocations.first { $0.categoryName == "Equities" }
+    #expect(equityAlloc?.percentage == 60)
+
+    let bondAlloc = allocations.first { $0.categoryName == "Bonds" }
+    #expect(bondAlloc?.percentage == 40)
+  }
+
+  @Test("categoryAllocations(forSnapshotDate:) returns empty for non-existent date")
+  func categoryAllocationsForNonExistentDate() {
+    let tc = createTestContext()
+
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 1),
+      assets: [("AAPL", "Firstrade", 100_000, nil)]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    let allocations = viewModel.categoryAllocations(
+      forSnapshotDate: makeDate(year: 2099, month: 1, day: 1))
+    #expect(allocations.isEmpty)
+  }
+
+  // MARK: - Category Value History
+
+  @Test("categoryValueHistory contains one series per category plus Uncategorized")
+  func categoryValueHistoryPerCategory() {
+    let tc = createTestContext()
+
+    let equities = Category(name: "Equities")
+    tc.context.insert(equities)
+
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 1),
+      assets: [
+        ("AAPL", "Firstrade", 75_000, equities),
+        ("BTC", "Coinbase", 25_000, nil),
+      ]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    let history = viewModel.categoryValueHistory
+    #expect(history.count == 2)
+    #expect(history["Equities"] != nil)
+    #expect(history["Uncategorized"] != nil)
+    #expect(history["Equities"]?.first?.value == 75_000)
+    #expect(history["Uncategorized"]?.first?.value == 25_000)
+  }
+
+  @Test("categoryValueHistory tracks values across multiple snapshots")
+  func categoryValueHistoryMultipleSnapshots() {
+    let tc = createTestContext()
+
+    let equities = Category(name: "Equities")
+    tc.context.insert(equities)
+
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 1),
+      assets: [("AAPL", "Firstrade", 100_000, equities)]
+    )
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 2, day: 1),
+      assets: [("AAPL", "Firstrade", 120_000, equities)]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    let equitySeries = viewModel.categoryValueHistory["Equities"]
+    #expect(equitySeries?.count == 2)
+    #expect(equitySeries?[0].value == 100_000)
+    #expect(equitySeries?[1].value == 120_000)
+  }
 }

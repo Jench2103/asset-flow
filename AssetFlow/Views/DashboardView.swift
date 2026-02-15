@@ -5,34 +5,44 @@
 //  Created by Claude on 2026/02/15.
 //
 
+import Charts
 import SwiftData
 import SwiftUI
 
-/// Dashboard home screen with portfolio metrics, performance, and chart placeholders.
+/// Dashboard home screen with portfolio metrics, performance, and interactive charts.
 ///
 /// Provides a high-level overview of the portfolio including total value,
-/// value change, TWR, CAGR, period growth/return rates, and recent snapshots.
-/// Charts are placeholder cards to be implemented in Phase 6.
+/// value change, TWR, CAGR, period growth/return rates, interactive charts
+/// (category allocation, portfolio value, cumulative TWR, category value history),
+/// and recent snapshots.
 struct DashboardView: View {
   @State private var viewModel: DashboardViewModel
 
   @State private var growthRatePeriod: DashboardPeriod = .oneMonth
   @State private var returnRatePeriod: DashboardPeriod = .oneMonth
 
+  @State private var portfolioChartRange: ChartTimeRange = .all
+  @State private var twrChartRange: ChartTimeRange = .all
+  @State private var categoryChartRange: ChartTimeRange = .all
+  @State private var pieChartSelectedDate: Date?
+
   var onNavigateToSnapshots: (() -> Void)?
   var onNavigateToImport: (() -> Void)?
   var onSelectSnapshot: ((Date) -> Void)?
+  var onNavigateToCategory: ((String) -> Void)?
 
   init(
     modelContext: ModelContext,
     onNavigateToSnapshots: (() -> Void)? = nil,
     onNavigateToImport: (() -> Void)? = nil,
-    onSelectSnapshot: ((Date) -> Void)? = nil
+    onSelectSnapshot: ((Date) -> Void)? = nil,
+    onNavigateToCategory: ((String) -> Void)? = nil
   ) {
     _viewModel = State(wrappedValue: DashboardViewModel(modelContext: modelContext))
     self.onNavigateToSnapshots = onNavigateToSnapshots
     self.onNavigateToImport = onNavigateToImport
     self.onSelectSnapshot = onSelectSnapshot
+    self.onNavigateToCategory = onNavigateToCategory
   }
 
   var body: some View {
@@ -80,7 +90,7 @@ struct DashboardView: View {
       VStack(alignment: .leading, spacing: 20) {
         summaryCardsRow
         periodPerformanceRow
-        chartPlaceholders
+        chartsSection
         recentSnapshotsSection
       }
       .padding()
@@ -198,32 +208,51 @@ struct DashboardView: View {
     }
   }
 
-  // MARK: - Chart Placeholders
+  // MARK: - Charts Section
 
-  private var chartPlaceholders: some View {
-    HStack(spacing: 12) {
-      chartPlaceholder(title: "Category Allocation", icon: "chart.pie")
-      chartPlaceholder(title: "Portfolio Value Over Time", icon: "chart.xyaxis.line")
-      chartPlaceholder(title: "Cumulative TWR", icon: "chart.line.uptrend.xyaxis")
+  private var pieChartAllocations: [CategoryAllocationData] {
+    if let selectedDate = pieChartSelectedDate {
+      return viewModel.categoryAllocations(forSnapshotDate: selectedDate)
     }
+    return viewModel.categoryAllocations
   }
 
-  private func chartPlaceholder(title: String, icon: String) -> some View {
-    VStack(spacing: 8) {
-      Image(systemName: icon)
-        .font(.title2)
-        .foregroundStyle(.tertiary)
-      Text(title)
-        .font(.caption)
-        .foregroundStyle(.secondary)
-      Text("Chart will be available in a future update")
-        .font(.caption2)
-        .foregroundStyle(.tertiary)
+  private var chartsSection: some View {
+    VStack(spacing: 12) {
+      // Row 1: Pie chart + Portfolio value line chart
+      HStack(alignment: .top, spacing: 12) {
+        CategoryAllocationPieChart(
+          allocations: pieChartAllocations,
+          snapshotDates: viewModel.snapshotDates,
+          selectedDate: $pieChartSelectedDate,
+          onSelectCategory: { name in
+            onNavigateToCategory?(name)
+          }
+        )
+
+        PortfolioValueLineChart(
+          dataPoints: viewModel.portfolioValueHistory,
+          timeRange: $portfolioChartRange,
+          onSelectSnapshot: { date in
+            onSelectSnapshot?(date)
+          }
+        )
+      }
+
+      // Row 2: TWR line chart + Category value line chart
+      HStack(alignment: .top, spacing: 12) {
+        CumulativeTWRLineChart(
+          dataPoints: viewModel.twrHistory,
+          totalSnapshotCount: viewModel.portfolioValueHistory.count,
+          timeRange: $twrChartRange
+        )
+
+        CategoryValueLineChart(
+          categoryHistory: viewModel.categoryValueHistory,
+          timeRange: $categoryChartRange
+        )
+      }
     }
-    .frame(maxWidth: .infinity)
-    .frame(height: 150)
-    .background(.fill.quaternary)
-    .clipShape(RoundedRectangle(cornerRadius: 8))
   }
 
   // MARK: - Recent Snapshots

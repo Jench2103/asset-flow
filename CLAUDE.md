@@ -141,6 +141,8 @@ This project uses `swift-format` for code formatting and `SwiftLint` for linting
 - Always use `Decimal` for monetary values (never Float/Double)
 - Default display currency: "USD" (cosmetic only, no FX conversion)
 - Extensions in `Utilities/Extensions.swift` provide `.formatted(currency:)` and `.formattedPercentage()`
+- **`formattedPercentage()` expects percentage-scale input** (e.g., `Decimal(60)` for 60%, not `Decimal(0.6)`). It divides by 100 internally before applying `NumberFormatter.percent` style. Raw decimal values like TWR (0.21 for 21%) must be multiplied by 100 first: `(twr * 100).formattedPercentage()`
+- **CarryForwardService requires sorted snapshots.** Always pass `sortedSnapshotsCache` (sorted ascending by date), never the unsorted `allSnapshots` array. Carry-forward resolution depends on chronological ordering.
 
 **Localization:**
 

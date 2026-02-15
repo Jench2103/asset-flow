@@ -94,6 +94,14 @@ The dashboard provides a portfolio overview using the latest snapshot (with carr
    - "View all" link navigates to Snapshots screen
    - Each row is clickable and navigates to snapshot detail
 
+**Implementation notes (Phase 6 — Charts)**:
+
+- **DashboardView** (`AssetFlow/Views/DashboardView.swift`): Replaced chart placeholders with 2x2 grid of interactive charts. Row 1: `CategoryAllocationPieChart` (with snapshot date picker, click-to-navigate to category) + `PortfolioValueLineChart` (with click-to-navigate to snapshot). Row 2: `CumulativeTWRLineChart` + `CategoryValueLineChart` (multi-line with legend toggle). Each line chart has an independent `ChartTimeRange` `@State` that defaults to `.all` and resets on navigation via `dashboardRefreshID`.
+- **DashboardViewModel** (`AssetFlow/ViewModels/DashboardViewModel.swift`): Added `snapshotDates`, `categoryValueHistory` (per-category `[DashboardDataPoint]`), and `categoryAllocations(forSnapshotDate:)` for historical pie chart data. Extracted `computeCategoryAllocationsForSnapshot` helper for reuse.
+- **ChartDataService** (`AssetFlow/ViewModels/ChartDataService.swift`): Stateless `enum` with `ChartTimeRange` (8 cases: 1W/1M/3M/6M/1Y/3Y/5Y/All), `filter()` overloads for `DashboardDataPoint`/`CategoryValueHistoryEntry`/`CategoryAllocationHistoryEntry`, and `abbreviatedLabel(for:)` for K/M/B Y-axis formatting. Filtering uses latest data point's date as reference (not `Date.now`).
+- **Shared chart components** in `AssetFlow/Views/Charts/`: `ChartTimeRangeSelector` (segmented picker), `ChartStyles` (constants and color palette), and 5 chart views. All charts handle empty/edge states per SPEC 12.5.
+- **ContentView** (`AssetFlow/Views/ContentView.swift`): Added `navigateToCategoryByName(_:)` to wire pie chart click → sidebar Categories selection. Guards against "Uncategorized" (not a real Category).
+
 ______________________________________________________________________
 
 ## Snapshots Screen
@@ -194,6 +202,12 @@ ______________________________________________________________________
 - **CategoryListViewModel** (`AssetFlow/ViewModels/CategoryListViewModel.swift`): `CategoryRowData` struct bundles category, target/current allocation, value, and asset count. `loadCategories()` batch-fetches all data and uses `CarryForwardService.compositeValues` for the latest snapshot. `createCategory`/`editCategory`/`deleteCategory` with validation via `CategoryError`.
 - **CategoryDetailView** (`AssetFlow/Views/CategoryDetailView.swift`): Takes `category`, `modelContext`, `onDelete`. Parent must apply `.id(category.id)` for proper state reset. Form sections: Category Details (name + target allocation), Assets in Category (Table), Value History (LineMark + PointMark chart), Allocation History (LineMark + PointMark chart), Danger Zone (delete button).
 - **CategoryDetailViewModel** (`AssetFlow/ViewModels/CategoryDetailViewModel.swift`): `editedName`/`editedTargetAllocation` initialized from category. `loadData()` computes asset list with latest values, value history, and allocation history across all snapshots using `CarryForwardService`. Single snapshot renders as PointMark only.
+
+**Implementation notes (Phase 6 — Charts)**:
+
+- Value history chart now uses `ChartTimeRangeSelector` with `ChartDataService.filter()` for time range zoom. Y-axis uses abbreviated labels (K/M/B).
+- Allocation history chart replaced with reusable `CategoryAllocationLineChart` component from `Views/Charts/`, which includes time range selector and hover tooltips.
+- Both chart time ranges default to `.all` and reset when the selected category changes (via `.id(category.id)` on the parent).
 
 ______________________________________________________________________
 
@@ -667,13 +681,13 @@ ______________________________________________________________________
 | View                           | Status      | Notes                                                                                                                 |
 | ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------- |
 | ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation     |
-| DashboardView                  | Implemented | Summary cards, period performance (1M/3M/1Y), chart placeholders (Phase 6), recent snapshots                          |
+| DashboardView                  | Implemented | Summary cards, period performance (1M/3M/1Y), interactive charts (Phase 6 complete), recent snapshots                 |
 | SnapshotListView               | Implemented | @Query live list, carry-forward platform indicators, New Snapshot sheet, empty state                                  |
 | SnapshotDetailView             | Implemented | Asset breakdown with carried-forward distinction (SPEC 8.3), category allocation, cash flow CRUD, delete confirmation |
 | AssetListView                  | Implemented | Platform/category grouping, selection binding                                                                         |
 | AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                        |
 | CategoryListView               | Implemented | Add sheet, target allocation warning, delete validation                                                               |
-| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts, delete validation                                                       |
+| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls (Phase 6), delete validation                    |
 | PlatformListView               | Implemented | Rename sheet, empty state                                                                                             |
 | RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary                                                  |
 | ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                       |

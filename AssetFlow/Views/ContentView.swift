@@ -165,6 +165,9 @@ struct ContentView: View {
         onNavigateToImport: { navigateToImport() },
         onSelectSnapshot: { date in
           navigateToSnapshotByDate(date)
+        },
+        onNavigateToCategory: { name in
+          navigateToCategoryByName(name)
         }
       )
       .id(dashboardRefreshID)
@@ -288,6 +291,22 @@ struct ContentView: View {
 
     // Navigate to import
     selectedSection = .importCSV
+  }
+
+  /// Navigates to a category by looking up its name.
+  /// Guards against "Uncategorized" which is not a real Category.
+  private func navigateToCategoryByName(_ name: String) {
+    guard name != "Uncategorized" else { return }
+
+    let descriptor = FetchDescriptor<Category>()
+    if let allCategories = try? modelContext.fetch(descriptor),
+      let match = allCategories.first(where: {
+        $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame
+      })
+    {
+      selectedSection = .categories
+      selectedCategory = match
+    }
   }
 
   /// Navigates to a snapshot by looking up its date.

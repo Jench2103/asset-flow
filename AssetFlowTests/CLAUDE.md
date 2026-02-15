@@ -38,7 +38,7 @@ struct ComponentNameTests {
 ## Key Rules
 
 1. Tests are `struct` (not `class`)
-1. Annotate with `@Suite("Name")` and `@MainActor`
+1. Annotate with `@Suite("Name")` and `@MainActor` — even for pure-logic tests (e.g., stateless services). This ensures consistency across the test suite and avoids issues if SwiftData dependencies are added later.
 1. Each test method gets `@Test("Human-readable description")`
 1. Use `#expect(...)` for assertions, `#require(...)` for preconditions that must pass
 1. Follow AAA pattern: Arrange, Act, Assert

@@ -23,6 +23,9 @@ struct CategoryDetailView: View {
   @State private var showDeleteConfirmation = false
   @State private var showSaveError = false
   @State private var saveErrorMessage = ""
+  @State private var valueChartRange: ChartTimeRange = .all
+  @State private var allocationChartRange: ChartTimeRange = .all
+  @State private var hoveredValueDate: Date?
 
   let onDelete: () -> Void
 
@@ -121,23 +124,33 @@ struct CategoryDetailView: View {
 
   // MARK: - Value History Section
 
+  private var filteredValueHistory: [CategoryValueHistoryEntry] {
+    ChartDataService.filter(viewModel.valueHistory, range: valueChartRange)
+  }
+
   private var valueHistorySection: some View {
     Section {
+      ChartTimeRangeSelector(selection: $valueChartRange)
+
+      let points = filteredValueHistory
       if viewModel.valueHistory.isEmpty {
         Text("No value history")
           .foregroundStyle(.secondary)
-      } else if viewModel.valueHistory.count == 1 {
-        singlePointValueChart
+      } else if points.isEmpty {
+        Text("No data for selected period")
+          .foregroundStyle(.secondary)
+      } else if points.count == 1 {
+        singlePointValueChart(points)
       } else {
-        valueLineChart
+        valueLineChart(points)
       }
     } header: {
       Text("Value History")
     }
   }
 
-  private var valueLineChart: some View {
-    Chart(viewModel.valueHistory) { entry in
+  private func valueLineChart(_ points: [CategoryValueHistoryEntry]) -> some View {
+    Chart(points) { entry in
       LineMark(
         x: .value("Date", entry.date),
         y: .value("Value", entry.totalValue.doubleValue)
@@ -148,33 +161,70 @@ struct CategoryDetailView: View {
         y: .value("Value", entry.totalValue.doubleValue)
       )
       .foregroundStyle(.blue)
+
+      if let hoveredValueDate, entry.date == hoveredValueDate {
+        RuleMark(x: .value("Date", hoveredValueDate))
+          .foregroundStyle(.secondary.opacity(0.5))
+          .lineStyle(StrokeStyle(dash: [4, 4]))
+          .annotation(position: .top, alignment: .center) {
+            ChartTooltipView {
+              Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+                .font(.caption2)
+              Text(entry.totalValue.formatted(currency: SettingsService.shared.mainCurrency))
+                .font(.caption.bold())
+            }
+          }
+      }
     }
-    .frame(height: 200)
+    .chartYAxis {
+      AxisMarks { value in
+        AxisGridLine()
+        AxisValueLabel {
+          if let val = value.as(Double.self) {
+            Text(ChartDataService.abbreviatedLabel(for: val))
+          }
+        }
+      }
+    }
+    .chartOverlay { proxy in
+      GeometryReader { _ in
+        Rectangle()
+          .fill(.clear)
+          .contentShape(Rectangle())
+          .onContinuousHover { phase in
+            switch phase {
+            case .active(let location):
+              hoveredValueDate = ChartHelpers.findNearestDate(
+                at: location, in: proxy, points: points, dateKeyPath: \.date)
+
+            case .ended:
+              hoveredValueDate = nil
+            }
+          }
+      }
+    }
+    .frame(height: ChartConstants.standardChartHeight)
   }
 
-  private var singlePointValueChart: some View {
-    Chart(viewModel.valueHistory) { entry in
+  private func singlePointValueChart(_ points: [CategoryValueHistoryEntry]) -> some View {
+    Chart(points) { entry in
       PointMark(
         x: .value("Date", entry.date),
         y: .value("Value", entry.totalValue.doubleValue)
       )
       .foregroundStyle(.blue)
     }
-    .frame(height: 200)
+    .frame(height: ChartConstants.standardChartHeight)
   }
 
   // MARK: - Allocation History Section
 
   private var allocationHistorySection: some View {
     Section {
-      if viewModel.allocationHistory.isEmpty {
-        Text("No allocation history")
-          .foregroundStyle(.secondary)
-      } else if viewModel.allocationHistory.count == 1 {
-        singlePointAllocationChart
-      } else {
-        allocationLineChart
-      }
+      CategoryAllocationLineChart(
+        entries: viewModel.allocationHistory,
+        timeRange: $allocationChartRange
+      )
     } header: {
       VStack(alignment: .leading, spacing: 2) {
         Text("Allocation History")
@@ -183,53 +233,6 @@ struct CategoryDetailView: View {
           .foregroundStyle(.secondary)
       }
     }
-  }
-
-  private var allocationLineChart: some View {
-    Chart(viewModel.allocationHistory) { entry in
-      LineMark(
-        x: .value("Date", entry.date),
-        y: .value("Allocation", entry.allocationPercentage.doubleValue)
-      )
-      .foregroundStyle(.green)
-      PointMark(
-        x: .value("Date", entry.date),
-        y: .value("Allocation", entry.allocationPercentage.doubleValue)
-      )
-      .foregroundStyle(.green)
-    }
-    .chartYScale(domain: 0...100)
-    .chartYAxis {
-      AxisMarks { value in
-        AxisValueLabel {
-          if let val = value.as(Double.self) {
-            Text(Decimal(Int(val.rounded())).formattedPercentage())
-          }
-        }
-      }
-    }
-    .frame(height: 200)
-  }
-
-  private var singlePointAllocationChart: some View {
-    Chart(viewModel.allocationHistory) { entry in
-      PointMark(
-        x: .value("Date", entry.date),
-        y: .value("Allocation", entry.allocationPercentage.doubleValue)
-      )
-      .foregroundStyle(.green)
-    }
-    .chartYScale(domain: 0...100)
-    .chartYAxis {
-      AxisMarks { value in
-        AxisValueLabel {
-          if let val = value.as(Double.self) {
-            Text(Decimal(Int(val.rounded())).formattedPercentage())
-          }
-        }
-      }
-    }
-    .frame(height: 200)
   }
 
   // MARK: - Delete Section
