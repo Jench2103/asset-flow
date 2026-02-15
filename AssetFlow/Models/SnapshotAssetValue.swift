@@ -10,6 +10,8 @@ import SwiftData
 
 @Model
 final class SnapshotAssetValue {
+  #Unique<SnapshotAssetValue>([\.snapshot, \.asset])
+
   var marketValue: Decimal
 
   @Relationship

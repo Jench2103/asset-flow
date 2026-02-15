@@ -292,6 +292,43 @@ struct DashboardViewModelTests {
     #expect(abs(cagr - Decimal(string: "0.1")!) < Decimal(string: "0.01")!)
   }
 
+  @Test("Cumulative TWR and twrHistory are consistent when a period has nil return")
+  func cumulativeTWRConsistentWithHistoryOnNilPeriods() {
+    let tc = createTestContext()
+
+    // Snapshot 1: zero value — Modified Dietz will return nil for this → next period
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 1),
+      assets: [("AAPL", "Firstrade", 0, nil)]
+    )
+
+    // Snapshot 2: now has value
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 2, day: 1),
+      assets: [("AAPL", "Firstrade", 100_000, nil)]
+    )
+
+    // Snapshot 3: grew to 110,000
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 3, day: 1),
+      assets: [("AAPL", "Firstrade", 110_000, nil)]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    // twrHistory treats nil return as 0% (identity), so:
+    //   Period 1 (Jan→Feb): nil → treated as 0%  → cumulative = (1+0) - 1 = 0
+    //   Period 2 (Feb→Mar): 10% → cumulative = (1+0)(1+0.10) - 1 = 0.10
+    // cumulativeTWR should match the last twrHistory point
+    let lastHistoryValue = viewModel.twrHistory.last?.value
+    #expect(lastHistoryValue != nil)
+    #expect(viewModel.cumulativeTWR == lastHistoryValue)
+  }
+
   // MARK: - Period Performance: Growth Rate
 
   @Test("Growth rate for a given period")

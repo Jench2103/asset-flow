@@ -79,6 +79,20 @@ struct CSVParsingServiceTests {
     #expect(result.errors[0].message.contains("Market Value"))
   }
 
+  @Test("Missing both Asset Name and Market Value columns reports 2 errors")
+  func testMissingBothAssetColumns() {
+    let csv = """
+      Platform,Extra
+      Firstrade,ignored
+      """
+    let result = CSVParsingService.parseAssetCSV(data: csvData(csv), importPlatform: nil)
+
+    #expect(result.hasErrors)
+    #expect(result.errors.count == 2)
+    #expect(result.errors.contains(where: { $0.message.contains("Asset Name") }))
+    #expect(result.errors.contains(where: { $0.message.contains("Market Value") }))
+  }
+
   // MARK: - Asset CSV: Row Validation
 
   @Test("Empty asset name returns error")
@@ -319,6 +333,20 @@ struct CSVParsingServiceTests {
 
     #expect(result.hasErrors)
     #expect(result.errors[0].message.contains("Amount"))
+  }
+
+  @Test("Missing both Description and Amount columns reports 2 errors")
+  func testMissingBothCashFlowColumns() {
+    let csv = """
+      Extra
+      ignored
+      """
+    let result = CSVParsingService.parseCashFlowCSV(data: csvData(csv))
+
+    #expect(result.hasErrors)
+    #expect(result.errors.count == 2)
+    #expect(result.errors.contains(where: { $0.message.contains("Description") }))
+    #expect(result.errors.contains(where: { $0.message.contains("Amount") }))
   }
 
   // MARK: - Cash Flow CSV: Row Validation

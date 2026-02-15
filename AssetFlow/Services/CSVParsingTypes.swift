@@ -59,6 +59,11 @@ struct CashFlowCSVHeaders {
   let warnings: [CSVWarning]
 }
 
+/// Error wrapper for header validation, containing all missing column errors.
+struct CSVHeaderValidationError: Error {
+  let errors: [CSVError]
+}
+
 /// Result of parsing a single CSV data row.
 enum RowParseResult<T> {
   case row(T, [CSVWarning])

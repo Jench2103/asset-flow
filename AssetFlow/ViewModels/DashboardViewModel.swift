@@ -233,15 +233,13 @@ class DashboardViewModel {
       valueChangePercentage = nil
     }
 
-    // Cumulative TWR
+    // Cumulative TWR — treat nil returns as 0% (identity) to match twrHistory
     if sortedSnapshots.count >= 2 {
       let periodReturns = computePeriodReturns(sortedSnapshots: sortedSnapshots)
-      let nonNilReturns = periodReturns.compactMap { $0 }
-      if !nonNilReturns.isEmpty {
-        cumulativeTWR = CalculationService.cumulativeTWR(periodReturns: nonNilReturns)
-      } else {
-        cumulativeTWR = nil
+      let product = periodReturns.reduce(Decimal(1)) { acc, r in
+        acc * (1 + (r ?? 0))
       }
+      cumulativeTWR = product - 1
     } else {
       cumulativeTWR = nil
     }

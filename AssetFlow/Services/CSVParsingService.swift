@@ -37,8 +37,8 @@ enum CSVParsingService {
     let validated = validateAssetHeaders(parseCSVRow(headerLine))
 
     switch validated {
-    case .failure(let error):
-      return CSVParseResult(rows: [], errors: [error], warnings: [])
+    case .failure(let validationError):
+      return CSVParseResult(rows: [], errors: validationError.errors, warnings: [])
 
     case .success(let hdr):
       return parseAssetDataRows(
@@ -65,8 +65,8 @@ enum CSVParsingService {
     let validated = validateCashFlowHeaders(parseCSVRow(headerLine))
 
     switch validated {
-    case .failure(let error):
-      return CSVParseResult(rows: [], errors: [error], warnings: [])
+    case .failure(let validationError):
+      return CSVParseResult(rows: [], errors: validationError.errors, warnings: [])
 
     case .success(let hdr):
       return parseCashFlowDataRows(
@@ -81,23 +81,30 @@ extension CSVParsingService {
 
   private static func validateAssetHeaders(
     _ headers: [String]
-  ) -> Result<AssetCSVHeaders, CSVError> {
+  ) -> Result<AssetCSVHeaders, CSVHeaderValidationError> {
     let normalized = headers.map {
       $0.trimmingCharacters(in: .whitespaces).lowercased()
     }
 
-    guard let nameIndex = normalized.firstIndex(of: "asset name") else {
-      return .failure(
+    var errors: [CSVError] = []
+    let nameIndex = normalized.firstIndex(of: "asset name")
+    let valueIndex = normalized.firstIndex(of: "market value")
+
+    if nameIndex == nil {
+      errors.append(
         CSVError(
           row: 1, column: "Asset Name",
           message: "Missing required column: Asset Name"))
     }
-
-    guard let valueIndex = normalized.firstIndex(of: "market value") else {
-      return .failure(
+    if valueIndex == nil {
+      errors.append(
         CSVError(
           row: 1, column: "Market Value",
           message: "Missing required column: Market Value"))
+    }
+
+    guard errors.isEmpty, let nameIndex, let valueIndex else {
+      return .failure(CSVHeaderValidationError(errors: errors))
     }
 
     let knownColumns: Set<String> = [
@@ -116,23 +123,30 @@ extension CSVParsingService {
 
   private static func validateCashFlowHeaders(
     _ headers: [String]
-  ) -> Result<CashFlowCSVHeaders, CSVError> {
+  ) -> Result<CashFlowCSVHeaders, CSVHeaderValidationError> {
     let normalized = headers.map {
       $0.trimmingCharacters(in: .whitespaces).lowercased()
     }
 
-    guard let descIndex = normalized.firstIndex(of: "description") else {
-      return .failure(
+    var errors: [CSVError] = []
+    let descIndex = normalized.firstIndex(of: "description")
+    let amountIndex = normalized.firstIndex(of: "amount")
+
+    if descIndex == nil {
+      errors.append(
         CSVError(
           row: 1, column: "Description",
           message: "Missing required column: Description"))
     }
-
-    guard let amountIndex = normalized.firstIndex(of: "amount") else {
-      return .failure(
+    if amountIndex == nil {
+      errors.append(
         CSVError(
           row: 1, column: "Amount",
           message: "Missing required column: Amount"))
+    }
+
+    guard errors.isEmpty, let descIndex, let amountIndex else {
+      return .failure(CSVHeaderValidationError(errors: errors))
     }
 
     let knownColumns: Set<String> = ["description", "amount"]

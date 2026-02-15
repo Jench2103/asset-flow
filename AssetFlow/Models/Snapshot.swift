@@ -10,6 +10,8 @@ import SwiftData
 
 @Model
 final class Snapshot {
+  #Unique<Snapshot>([\.date])
+
   var id: UUID
   var date: Date
   var createdAt: Date

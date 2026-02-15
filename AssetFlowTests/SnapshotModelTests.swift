@@ -133,6 +133,26 @@ struct SnapshotModelTests {
     #expect(snapshotA.date != snapshotB.date)
   }
 
+  // MARK: - Uniqueness
+
+  @Test("Snapshot enforces date uniqueness via #Unique — duplicate date upserts")
+  func testSnapshotEnforcesDateUniqueness() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let date = Calendar.current.startOfDay(
+      for: Calendar.current.date(from: DateComponents(year: 2025, month: 1, day: 1))!)
+    let snapshot1 = Snapshot(date: date)
+    let snapshot2 = Snapshot(date: date)
+    context.insert(snapshot1)
+    context.insert(snapshot2)
+    try context.save()
+
+    let descriptor = FetchDescriptor<Snapshot>()
+    let fetched = try context.fetch(descriptor)
+    #expect(fetched.count == 1)
+  }
+
   // MARK: - Multiple Snapshots
 
   @Test("Multiple snapshots can be stored in the same context")

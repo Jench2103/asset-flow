@@ -109,6 +109,34 @@ struct SnapshotAssetValueModelTests {
     #expect(fetched.first?.marketValue == Decimal(-500))
   }
 
+  // MARK: - Uniqueness
+
+  @Test("SnapshotAssetValue enforces (snapshot, asset) uniqueness via #Unique — duplicate upserts")
+  func testSnapshotAssetValueEnforcesUniqueness() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let snapshot = Snapshot(date: Date())
+    let asset = Asset(name: "AAPL")
+    context.insert(snapshot)
+    context.insert(asset)
+
+    let value1 = SnapshotAssetValue(marketValue: Decimal(10000))
+    value1.snapshot = snapshot
+    value1.asset = asset
+    context.insert(value1)
+
+    let value2 = SnapshotAssetValue(marketValue: Decimal(20000))
+    value2.snapshot = snapshot
+    value2.asset = asset
+    context.insert(value2)
+    try context.save()
+
+    let descriptor = FetchDescriptor<SnapshotAssetValue>()
+    let fetched = try context.fetch(descriptor)
+    #expect(fetched.count == 1)
+  }
+
   // MARK: - Relationships
 
   @Test("SnapshotAssetValue links to snapshot and asset")
