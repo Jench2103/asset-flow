@@ -145,15 +145,29 @@ ______________________________________________________________________
 - All known assets, grouped by platform (default) or category, switchable via **segmented control**
 - Sort order: alphabetical by asset name within each group
 - When grouped by platform, assets without a platform appear under "(No Platform)" at the end
+- When grouped by category, assets without a category appear under "(Uncategorized)" at the end
 - Each row: Asset Name, Platform, Category, Latest Value
+- Latest value comes from the most recent composite snapshot (including carry-forward)
+- Assets with no snapshot values show "\\u{2014}" for value
 
 **Asset detail view**:
 
 - Value history across snapshots (table and sparkline -- a compact inline line chart for quick trend recognition, non-interactive)
+- Value history shows only directly recorded values (no carry-forward)
 - Asset name (editable)
-- Platform (editable)
-- Category assignment (editable)
+- Platform (editable via picker with existing platforms + "New Platform..." option)
+- Category assignment (editable via picker with existing categories + "None" option)
+- Changes save immediately on field change
+- Renaming an asset updates it retroactively across all snapshots (single record update)
+- Duplicate identity validation: (name, platform) must be unique (case-insensitive, trimmed, collapsed)
 - Delete action: **only enabled when asset has no SnapshotAssetValue records**. When disabled, shows: "This asset cannot be deleted because it has values in snapshot(s). Remove the asset from all snapshots first."
+
+### Implementation Notes (Phase 2)
+
+- **AssetListView** (`AssetFlow/Views/AssetListView.swift`): Uses `AssetListViewModel` with `@State`. Segmented control binds to `viewModel.groupingMode`. List sections iterate over `viewModel.groups`. Context menu on rows provides delete action for eligible assets.
+- **AssetDetailView** (`AssetFlow/Views/AssetDetailView.swift`): Uses `AssetDetailViewModel` with `@State`. Form with `.grouped` style. Platform picker uses `Binding<String>` with sentinel `"__new__"` for inline new-platform creation. Sparkline uses Swift Charts `LineMark` with hidden axes, 40pt height. Delete confirmation dialog before deletion.
+- **AssetListViewModel** (`AssetFlow/ViewModels/AssetListViewModel.swift`): Groups assets by platform or category. Computes latest values via `CarryForwardService.compositeValues()` from the most recent snapshot. "(No Platform)" and "(Uncategorized)" groups always sorted last.
+- **AssetDetailViewModel** (`AssetFlow/ViewModels/AssetDetailViewModel.swift`): Editable fields (`editedName`, `editedPlatform`, `editedCategory`) initialized from asset. `save()` validates normalized identity uniqueness. `loadValueHistory()` returns direct SAVs sorted chronologically.
 
 ______________________________________________________________________
 

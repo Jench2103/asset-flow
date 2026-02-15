@@ -2,14 +2,14 @@
 
 ## Directory Structure
 
-| Directory     | Purpose                                                                |
-| ------------- | ---------------------------------------------------------------------- |
-| `Models/`     | SwiftData `@Model` classes (see `Models/README.md` for full reference) |
-| `Views/`      | SwiftUI view structs                                                   |
-| `ViewModels/` | `@Observable @MainActor` classes for form state and business logic     |
-| `Services/`   | Stateless utilities: CurrencyService, SettingsService                  |
-| `Utilities/`  | Extensions and helpers (e.g., `Decimal.formatted(currency:)`)          |
-| `Resources/`  | Non-code assets (XML data files, etc.)                                 |
+| Directory     | Purpose                                                                                   |
+| ------------- | ----------------------------------------------------------------------------------------- |
+| `Models/`     | SwiftData `@Model` classes (see `Models/README.md` for full reference)                    |
+| `Views/`      | SwiftUI view structs                                                                      |
+| `ViewModels/` | `@Observable @MainActor` classes for form state and business logic                        |
+| `Services/`   | Stateless utilities: CarryForwardService, CurrencyService, SettingsService, BackupService |
+| `Utilities/`  | Extensions and helpers (e.g., `Decimal.formatted(currency:)`)                             |
+| `Resources/`  | Non-code assets (XML data files, etc.)                                                    |
 
 ## Patterns
 
@@ -112,6 +112,30 @@ String Catalogs (`.xcstrings`) organize localized strings by feature:
 // ViewModel validation message
 nameValidationMessage = String(localized: "Asset name cannot be empty.", table: "Asset")
 ```
+
+## Key Files
+
+### ViewModels
+
+| File                            | Purpose                                                      |
+| ------------------------------- | ------------------------------------------------------------ |
+| `SnapshotListViewModel.swift`   | Snapshot creation, deletion, row data with carry-forward     |
+| `SnapshotDetailViewModel.swift` | Snapshot detail editing, asset/cash flow management          |
+| `AssetListViewModel.swift`      | Asset listing with platform/category grouping, latest values |
+| `AssetDetailViewModel.swift`    | Asset editing, value history, delete validation              |
+| `DashboardViewModel.swift`      | Dashboard metrics, charts, portfolio overview                |
+| `ImportViewModel.swift`         | CSV import workflow, validation, preview                     |
+| `SettingsViewModel.swift`       | App settings management                                      |
+
+### Views
+
+| File                    | Purpose                                            |
+| ----------------------- | -------------------------------------------------- |
+| `ContentView.swift`     | Root navigation structure                          |
+| `AssetListView.swift`   | Asset list with grouping segmented control         |
+| `AssetDetailView.swift` | Asset detail/edit with sparkline and value history |
+| `ImportView.swift`      | CSV import screen                                  |
+| `SettingsView.swift`    | App settings screen                                |
 
 ## Naming Conventions
 

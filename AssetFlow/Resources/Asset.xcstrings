@@ -1,7 +1,28 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "(No Platform)" : {
 
+    },
+    "(Uncategorized)" : {
+
+    },
+    "An asset named '%@' already exists without a platform." : {
+
+    },
+    "An asset named '%@' on platform '%@' already exists." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "An asset named '%1$@' on platform '%2$@' already exists."
+          }
+        }
+      }
+    },
+    "This asset cannot be deleted because it has values in %lld snapshot(s). Remove the asset from all snapshots first." : {
+
+    }
   },
   "version" : "1.1"
 }
