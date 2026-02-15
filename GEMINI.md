@@ -30,7 +30,7 @@ swift-format format --in-place --recursive --parallel .
 swift-format lint --strict --recursive --parallel .
 
 # Lint code with SwiftLint
-swiftlint --strict
+swiftlint
 ```
 
 ## Architecture

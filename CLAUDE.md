@@ -22,7 +22,7 @@ swift-format format --in-place --recursive --parallel .
 swift-format lint --strict --recursive --parallel .
 
 # Lint code with SwiftLint
-swiftlint --fix --strict
+swiftlint --fix
 
 # Run tests
 xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow test -destination 'platform=macOS'

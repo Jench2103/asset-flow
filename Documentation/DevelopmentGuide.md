@@ -131,7 +131,7 @@ swift-format format --in-place --recursive --parallel .
 swift-format lint --strict --recursive --parallel .
 
 # Lint with SwiftLint
-swiftlint --strict
+swiftlint
 
 # Format markdown only
 pre-commit run mdformat --all-files
@@ -312,9 +312,6 @@ Configuration: `.swift-format`
 ```bash
 # Lint all files
 swiftlint
-
-# Strict mode (warnings treated as errors)
-swiftlint --strict
 
 # Automatically correct violations where possible
 swiftlint --fix

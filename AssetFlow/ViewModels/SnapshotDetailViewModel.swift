@@ -48,12 +48,12 @@ class SnapshotDetailViewModel {
 
   /// Composite values sorted by platform (alphabetical), then asset name (alphabetical).
   var sortedCompositeValues: [CompositeAssetValue] {
-    compositeValues.sorted { a, b in
-      if a.asset.platform != b.asset.platform {
-        return a.asset.platform.localizedCaseInsensitiveCompare(b.asset.platform)
+    compositeValues.sorted { lhs, rhs in
+      if lhs.asset.platform != rhs.asset.platform {
+        return lhs.asset.platform.localizedCaseInsensitiveCompare(rhs.asset.platform)
           == .orderedAscending
       }
-      return a.asset.name.localizedCaseInsensitiveCompare(b.asset.name) == .orderedAscending
+      return lhs.asset.name.localizedCaseInsensitiveCompare(rhs.asset.name) == .orderedAscending
     }
   }
 
