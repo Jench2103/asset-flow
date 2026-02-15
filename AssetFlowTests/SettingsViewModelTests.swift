@@ -78,11 +78,20 @@ struct SettingsViewModelTests {
     #expect(settingsService.dateFormat == .abbreviated)
   }
 
-  @Test("Available formats has 4 items")
+  @Test("Available formats is non-empty and at most DateFormatStyle.allCases count")
   func testAvailableFormatsCount() {
     let settingsService = SettingsService.createForTesting()
     let viewModel = SettingsViewModel(settingsService: settingsService)
-    #expect(viewModel.availableDateFormats.count == 4)
+    #expect(!viewModel.availableDateFormats.isEmpty)
+    #expect(viewModel.availableDateFormats.count <= DateFormatStyle.allCases.count)
+  }
+
+  @Test("availableDateFormats has no duplicate preview strings")
+  func testAvailableDateFormatsNoDuplicatePreviews() {
+    let viewModel = SettingsViewModel(settingsService: SettingsService.createForTesting())
+    let previews = viewModel.availableDateFormats.map { $0.preview(for: Date()) }
+    let uniquePreviews = Set(previews)
+    #expect(previews.count == uniquePreviews.count)
   }
 
   // MARK: - Default Platform

@@ -42,7 +42,7 @@ struct CategoryAllocationPieChart: View {
     Picker("Snapshot", selection: $selectedDate) {
       Text("Latest").tag(Optional<Date>.none)
       ForEach(snapshotDates.reversed(), id: \.self) { date in
-        Text(date.formatted(date: .abbreviated, time: .omitted))
+        Text(date.settingsFormatted())
           .tag(Optional(date))
       }
     }

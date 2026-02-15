@@ -219,7 +219,7 @@ struct AssetDetailView: View {
 
         Table(viewModel.valueHistory) {
           TableColumn("Date") { entry in
-            Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+            Text(entry.date.settingsFormatted())
           }
           TableColumn("Market Value") { entry in
             Text(entry.marketValue.formatted(currency: SettingsService.shared.mainCurrency))

@@ -46,9 +46,15 @@ final class SettingsViewModel {
     CurrencyService.shared.currencies
   }
 
-  /// Available date formats for picker
+  /// Available date formats for picker, deduplicated by preview output
+  /// (e.g., in Traditional Chinese, abbreviated and long produce identical strings)
   var availableDateFormats: [DateFormatStyle] {
-    DateFormatStyle.allCases
+    let referenceDate = Date()
+    var seenPreviews: Set<String> = []
+    return DateFormatStyle.allCases.filter { format in
+      let preview = format.preview(for: referenceDate)
+      return seenPreviews.insert(preview).inserted
+    }
   }
 
   init(settingsService: SettingsService? = nil) {

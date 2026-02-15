@@ -40,11 +40,6 @@
                BlueprintName = "AssetFlowTests"
                ReferencedContainer = "container:AssetFlow.xcodeproj">
             </BuildableReference>
-            <SkippedTests>
-               <Test
-                  Identifier = "BackupServiceTests">
-               </Test>
-            </SkippedTests>
          </TestableReference>
          <TestableReference
             skipped = "NO"

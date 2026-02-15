@@ -82,8 +82,7 @@ struct SnapshotListView: View {
       Button("Cancel", role: .cancel) {}
     } message: { snapshot in
       let data = viewModel.confirmationData(for: snapshot)
-      let dateStr = data.date.formatted(
-        date: SettingsService.shared.dateFormat.dateStyle, time: .omitted)
+      let dateStr = data.date.settingsFormatted()
       let assetCount = data.assetCount
       let cfCount = data.cashFlowCount
       Text(
@@ -118,7 +117,7 @@ struct SnapshotListView: View {
 
     return HStack {
       VStack(alignment: .leading, spacing: 4) {
-        Text(snapshot.date.formatted(date: .abbreviated, time: .omitted))
+        Text(snapshot.date.settingsFormatted())
           .font(.body)
 
         if let rowData = rowData {
@@ -242,7 +241,7 @@ private struct NewSnapshotSheet: View {
 
         if hasDateConflict {
           Label(
-            "A snapshot already exists for \(snapshotDate.formatted(date: .abbreviated, time: .omitted)). Go to the Snapshots screen to view and edit it.",
+            "A snapshot already exists for \(snapshotDate.settingsFormatted()). Go to the Snapshots screen to view and edit it.",
             systemImage: "exclamationmark.triangle"
           )
           .font(.caption)

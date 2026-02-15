@@ -296,7 +296,7 @@ struct NavigationIntegrationTests {
     let message = error.errorDescription ?? ""
 
     // Non-tautological: verify date interpolation and non-empty message
-    let formatted = testDate.formatted(date: .abbreviated, time: .omitted)
+    let formatted = testDate.settingsFormatted()
     #expect(!message.isEmpty)
     #expect(message.contains(formatted))
   }

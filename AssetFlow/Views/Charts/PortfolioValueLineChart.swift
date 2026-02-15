@@ -139,7 +139,7 @@ struct PortfolioValueLineChart: View {
 
   private func tooltipView(for point: DashboardDataPoint) -> some View {
     ChartTooltipView {
-      Text(point.date.formatted(date: .abbreviated, time: .omitted))
+      Text(point.date.settingsFormatted())
         .font(.caption2)
       Text(point.value.formatted(currency: SettingsService.shared.mainCurrency))
         .font(.caption.bold())

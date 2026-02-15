@@ -119,6 +119,18 @@ extension Date {
     formatted(style: .short)
   }
 
+  /// Formats the date using the shared settings service's date format preference.
+  @MainActor
+  func settingsFormatted() -> String {
+    self.formatted(date: SettingsService.shared.dateFormat.dateStyle, time: .omitted)
+  }
+
+  /// Formats the date using the given settings service's date format preference.
+  @MainActor
+  func settingsFormatted(using service: SettingsService) -> String {
+    self.formatted(date: service.dateFormat.dateStyle, time: .omitted)
+  }
+
   var startOfDay: Date {
     Calendar.current.startOfDay(for: self)
   }

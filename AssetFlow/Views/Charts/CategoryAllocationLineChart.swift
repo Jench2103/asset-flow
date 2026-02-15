@@ -126,7 +126,7 @@ struct CategoryAllocationLineChart: View {
 
   private func tooltipView(for entry: CategoryAllocationHistoryEntry) -> some View {
     ChartTooltipView {
-      Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+      Text(entry.date.settingsFormatted())
         .font(.caption2)
       Text(entry.allocationPercentage.formattedPercentage())
         .font(.caption.bold())

@@ -48,7 +48,7 @@ struct SnapshotDetailView: View {
     }
     .formStyle(.grouped)
     .navigationTitle(
-      viewModel.snapshot.date.formatted(date: .abbreviated, time: .omitted)
+      viewModel.snapshot.date.settingsFormatted()
     )
     .onAppear {
       viewModel.loadCompositeValues()
@@ -108,7 +108,7 @@ struct SnapshotDetailView: View {
       Button("Cancel", role: .cancel) {}
     } message: {
       let data = viewModel.deleteConfirmationData()
-      let dateStr = data.date.formatted(date: .abbreviated, time: .omitted)
+      let dateStr = data.date.settingsFormatted()
       let assetCount = data.assetCount
       let cfCount = data.cashFlowCount
       Text(
@@ -319,6 +319,7 @@ private struct AddAssetSheet: View {
   let onComplete: () -> Void
 
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.modelContext) private var modelContext
 
   @State private var mode: AddAssetMode = .selectExisting
   @State private var showError = false
@@ -602,8 +603,8 @@ private struct AddAssetSheet: View {
   }
 
   private func existingCategories() -> [Category] {
-    let categories = Set(allAssets.compactMap(\.category))
-    return categories.sorted { $0.name < $1.name }
+    let descriptor = FetchDescriptor<Category>(sortBy: [SortDescriptor(\.name)])
+    return (try? modelContext.fetch(descriptor)) ?? []
   }
 }
 

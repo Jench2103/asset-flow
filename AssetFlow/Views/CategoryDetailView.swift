@@ -168,7 +168,7 @@ struct CategoryDetailView: View {
           .lineStyle(StrokeStyle(dash: [4, 4]))
           .annotation(position: .top, alignment: .center) {
             ChartTooltipView {
-              Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+              Text(entry.date.settingsFormatted())
                 .font(.caption2)
               Text(entry.totalValue.formatted(currency: SettingsService.shared.mainCurrency))
                 .font(.caption.bold())

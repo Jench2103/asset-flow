@@ -187,7 +187,7 @@ struct CategoryValueLineChart: View {
   ) -> some View {
     let pointsAtDate = data.filter { $0.date == date }
     return ChartTooltipView {
-      Text(date.formatted(date: .abbreviated, time: .omitted))
+      Text(date.settingsFormatted())
         .font(.caption2)
       ForEach(pointsAtDate, id: \.categoryName) { point in
         HStack(spacing: 4) {

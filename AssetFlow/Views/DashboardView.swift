@@ -101,7 +101,7 @@ struct DashboardView: View {
 
       MetricCard(
         title: "Latest Snapshot",
-        value: viewModel.latestSnapshotDate?.formatted(date: .abbreviated, time: .omitted)
+        value: viewModel.latestSnapshotDate?.settingsFormatted()
           ?? "\u{2014}",
         subtitle: nil
       )
@@ -282,7 +282,7 @@ struct DashboardView: View {
             onSelectSnapshot?(snapshot.date)
           } label: {
             HStack {
-              Text(snapshot.date.formatted(date: .abbreviated, time: .omitted))
+              Text(snapshot.date.settingsFormatted())
                 .font(.body)
 
               Spacer()

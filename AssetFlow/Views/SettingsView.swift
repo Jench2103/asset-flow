@@ -91,7 +91,7 @@ struct SettingsView: View {
     Section {
       Picker("Date Format", selection: $viewModel.selectedDateFormat) {
         ForEach(viewModel.availableDateFormats, id: \.self) { format in
-          Text("\(format.localizedName) — \(format.preview(for: Date()))")
+          Text(format.preview(for: Date()))
             .tag(format)
         }
       }

@@ -133,7 +133,7 @@ struct CumulativeTWRLineChart: View {
 
   private func tooltipView(for point: DashboardDataPoint) -> some View {
     ChartTooltipView {
-      Text(point.date.formatted(date: .abbreviated, time: .omitted))
+      Text(point.date.settingsFormatted())
         .font(.caption2)
       Text((point.value * 100).formattedPercentage())
         .font(.caption.bold())
