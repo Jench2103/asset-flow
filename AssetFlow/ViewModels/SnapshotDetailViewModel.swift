@@ -15,13 +15,6 @@ struct CategoryAllocationData: Sendable {
   let percentage: Decimal
 }
 
-/// Data for snapshot delete confirmation dialog.
-struct SnapshotDeleteConfirmationData {
-  let date: Date
-  let assetCount: Int
-  let cashFlowCount: Int
-}
-
 /// ViewModel for the Snapshot detail screen.
 ///
 /// Manages composite view computation (via CarryForwardService), asset add/edit/remove,
@@ -128,8 +121,8 @@ class SnapshotDetailViewModel {
     marketValue: Decimal
   ) throws {
     // Normalize for matching
-    let normalizedName = normalizeString(name)
-    let normalizedPlatform = normalizeString(platform)
+    let normalizedName = name.normalizedForIdentity
+    let normalizedPlatform = platform.normalizedForIdentity
 
     // Check if this asset identity already exists in the snapshot
     let existingValues = snapshot.assetValues ?? []
@@ -142,7 +135,7 @@ class SnapshotDetailViewModel {
     }
 
     // Find or create the asset record
-    let asset = findOrCreateAsset(name: name, platform: platform)
+    let asset = modelContext.findOrCreateAsset(name: name, platform: platform)
 
     // Assign category if provided
     if let category = category {
@@ -228,8 +221,8 @@ class SnapshotDetailViewModel {
   // MARK: - Delete Snapshot
 
   /// Returns data for the delete confirmation dialog.
-  func deleteConfirmationData() -> SnapshotDeleteConfirmationData {
-    SnapshotDeleteConfirmationData(
+  func deleteConfirmationData() -> SnapshotConfirmationData {
+    SnapshotConfirmationData(
       date: snapshot.date,
       assetCount: snapshot.assetValues?.count ?? 0,
       cashFlowCount: snapshot.cashFlowOperations?.count ?? 0
@@ -240,23 +233,7 @@ class SnapshotDetailViewModel {
 
   /// Resolves a category by name, reusing an existing one (case-insensitive) or creating a new one.
   func resolveCategory(name: String) -> Category? {
-    let trimmed = name.trimmingCharacters(in: .whitespaces)
-    guard !trimmed.isEmpty else { return nil }
-
-    let normalizedInput = trimmed.lowercased()
-
-    // Try to find existing category
-    let descriptor = FetchDescriptor<Category>()
-    let allCategories = (try? modelContext.fetch(descriptor)) ?? []
-
-    if let existing = allCategories.first(where: { $0.name.lowercased() == normalizedInput }) {
-      return existing
-    }
-
-    // Create new category with nil target allocation
-    let newCategory = Category(name: trimmed)
-    modelContext.insert(newCategory)
-    return newCategory
+    modelContext.resolveCategory(name: name)
   }
 
   // MARK: - Private Helpers
@@ -271,30 +248,4 @@ class SnapshotDetailViewModel {
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 
-  /// Finds an existing asset by normalized (name, platform) or creates a new one.
-  private func findOrCreateAsset(name: String, platform: String) -> Asset {
-    let normalizedName = normalizeString(name)
-    let normalizedPlatform = normalizeString(platform)
-
-    let descriptor = FetchDescriptor<Asset>()
-    let allAssets = (try? modelContext.fetch(descriptor)) ?? []
-
-    if let existing = allAssets.first(where: {
-      $0.normalizedName == normalizedName && $0.normalizedPlatform == normalizedPlatform
-    }) {
-      return existing
-    }
-
-    let newAsset = Asset(name: name, platform: platform)
-    modelContext.insert(newAsset)
-    return newAsset
-  }
-
-  /// Normalizes a string for identity comparison (SPEC 6.1).
-  private func normalizeString(_ string: String) -> String {
-    string
-      .trimmingCharacters(in: .whitespaces)
-      .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-      .lowercased()
-  }
 }

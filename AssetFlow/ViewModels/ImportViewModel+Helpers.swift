@@ -28,8 +28,8 @@ extension ImportViewModel {
     var errors: [CSVError] = []
 
     for (index, row) in rows.enumerated() {
-      let normalizedName = normalizeString(row.assetName)
-      let normalizedPlatform = normalizeString(row.platform)
+      let normalizedName = row.assetName.normalizedForIdentity
+      let normalizedPlatform = row.platform.normalizedForIdentity
 
       let isDuplicate = existingValues.contains { sav in
         guard let asset = sav.asset else { return false }
@@ -140,7 +140,7 @@ extension ImportViewModel {
 
     for previewRow in includedRows {
       let row = previewRow.csvRow
-      let asset = findOrCreateAsset(name: row.assetName, platform: row.platform)
+      let asset = modelContext.findOrCreateAsset(name: row.assetName, platform: row.platform)
 
       // Assign category if selected
       if let category = selectedCategory {
@@ -167,24 +167,6 @@ extension ImportViewModel {
     }
   }
 
-  func findOrCreateAsset(name: String, platform: String) -> Asset {
-    let normalizedName = normalizeString(name)
-    let normalizedPlatform = normalizeString(platform)
-
-    let descriptor = FetchDescriptor<Asset>()
-    let allAssets = (try? modelContext.fetch(descriptor)) ?? []
-
-    if let existing = allAssets.first(where: {
-      $0.normalizedName == normalizedName && $0.normalizedPlatform == normalizedPlatform
-    }) {
-      return existing
-    }
-
-    let newAsset = Asset(name: name, platform: platform)
-    modelContext.insert(newAsset)
-    return newAsset
-  }
-
   // MARK: - Helpers
 
   func clearLoadedData() {
@@ -202,10 +184,4 @@ extension ImportViewModel {
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 
-  func normalizeString(_ string: String) -> String {
-    string
-      .trimmingCharacters(in: .whitespaces)
-      .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-      .lowercased()
-  }
 }

@@ -136,11 +136,32 @@ class SnapshotListViewModel {
 
   // MARK: - Row Data
 
-  /// Computes row data for a snapshot, including carry-forward platform information.
-  func snapshotRowData(for snapshot: Snapshot) -> SnapshotRowData {
+  /// Computes row data for all snapshots in a single batch, pre-fetching data once.
+  func loadAllSnapshotRowData() -> [Snapshot: SnapshotRowData] {
     let allSnapshots = fetchAllSnapshots()
     let allAssetValues = fetchAllAssetValues()
 
+    var result: [Snapshot: SnapshotRowData] = [:]
+    for snapshot in allSnapshots {
+      result[snapshot] = buildRowData(
+        for: snapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+    }
+    return result
+  }
+
+  /// Computes row data for a single snapshot, including carry-forward platform information.
+  func snapshotRowData(for snapshot: Snapshot) -> SnapshotRowData {
+    let allSnapshots = fetchAllSnapshots()
+    let allAssetValues = fetchAllAssetValues()
+    return buildRowData(
+      for: snapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+  }
+
+  private func buildRowData(
+    for snapshot: Snapshot,
+    allSnapshots: [Snapshot],
+    allAssetValues: [SnapshotAssetValue]
+  ) -> SnapshotRowData {
     let compositeValues = CarryForwardService.compositeValues(
       for: snapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
 

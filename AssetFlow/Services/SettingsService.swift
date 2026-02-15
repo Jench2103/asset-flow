@@ -11,7 +11,6 @@ import Foundation
 ///
 /// Uses UserDefaults for persistence. Settings include:
 /// - Main currency for displaying portfolio values
-/// - Financial goal (target wealth amount)
 ///
 /// Supports dependency injection for test isolation via `createForTesting()`.
 @Observable
@@ -29,20 +28,6 @@ class SettingsService {
     }
   }
 
-  /// The financial goal (target wealth amount)
-  var financialGoal: Decimal? {
-    didSet {
-      if let goal = financialGoal {
-        // Store as string to preserve Decimal precision
-        userDefaults.set(
-          NSDecimalNumber(decimal: goal).stringValue,
-          forKey: Constants.UserDefaultsKeys.financialGoal)
-      } else {
-        userDefaults.removeObject(forKey: Constants.UserDefaultsKeys.financialGoal)
-      }
-    }
-  }
-
   private init(userDefaults: UserDefaults = .standard) {
     self.userDefaults = userDefaults
 
@@ -50,15 +35,6 @@ class SettingsService {
     self.mainCurrency =
       userDefaults.string(forKey: Constants.UserDefaultsKeys.preferredCurrency)
       ?? Constants.DefaultValues.defaultCurrency
-
-    // Load financial goal from UserDefaults
-    if let goalString = userDefaults.string(
-      forKey: Constants.UserDefaultsKeys.financialGoal)
-    {
-      self.financialGoal = Decimal(string: goalString)
-    } else {
-      self.financialGoal = nil
-    }
   }
 
   /// Creates an isolated instance for testing purposes

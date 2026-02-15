@@ -16,19 +16,10 @@ enum Constants {
 
   enum DefaultValues {
     static let defaultCurrency = "USD"
-    static let minimumPasswordLength = 8
     static let maxDecimalPlaces = 2
   }
 
   enum UserDefaultsKeys {
-    static let hasLaunchedBefore = "hasLaunchedBefore"
     static let preferredCurrency = "preferredCurrency"
-    static let enableBiometricAuth = "enableBiometricAuth"
-    static let lastSyncDate = "lastSyncDate"
-    static let financialGoal = "financialGoal"
-  }
-
-  enum CloudKit {
-    static let containerIdentifier = "iCloud.com.assetflow.AssetFlow"
   }
 }

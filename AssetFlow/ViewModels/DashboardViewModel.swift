@@ -88,6 +88,7 @@ class DashboardViewModel {
   // MARK: - Private cached data
 
   private var allSnapshots: [Snapshot] = []
+  private var sortedSnapshotsCache: [Snapshot] = []
   private var allAssetValues: [SnapshotAssetValue] = []
 
   // MARK: - Init
@@ -116,11 +117,13 @@ class DashboardViewModel {
       portfolioValueHistory = []
       twrHistory = []
       recentSnapshots = []
+      sortedSnapshotsCache = []
       return
     }
 
     isEmpty = false
     let sortedSnapshots = allSnapshots.sorted { $0.date < $1.date }
+    sortedSnapshotsCache = sortedSnapshots
 
     computeSummaryCards(sortedSnapshots: sortedSnapshots)
     computeCategoryAllocations(sortedSnapshots: sortedSnapshots)
@@ -137,9 +140,8 @@ class DashboardViewModel {
   /// Returns nil if no such snapshot exists, or if it's more than 14 days
   /// before the lookback target date.
   func growthRate(for period: DashboardPeriod) -> Decimal? {
-    guard allSnapshots.count >= 2 else { return nil }
-    let sortedSnapshots = allSnapshots.sorted { $0.date < $1.date }
-    guard let latestSnapshot = sortedSnapshots.last else { return nil }
+    guard sortedSnapshotsCache.count >= 2 else { return nil }
+    guard let latestSnapshot = sortedSnapshotsCache.last else { return nil }
 
     guard
       let lookbackDate = Calendar.current.date(
@@ -148,7 +150,7 @@ class DashboardViewModel {
 
     guard
       let beginSnapshot = findSnapshotForLookback(
-        targetDate: lookbackDate, sortedSnapshots: sortedSnapshots,
+        targetDate: lookbackDate, sortedSnapshots: sortedSnapshotsCache,
         excludingLatest: latestSnapshot)
     else { return nil }
 
@@ -163,9 +165,8 @@ class DashboardViewModel {
   /// Uses the same lookback logic as growthRate. Gathers intermediate cash flows
   /// from snapshots strictly after the begin snapshot through the latest.
   func returnRate(for period: DashboardPeriod) -> Decimal? {
-    guard allSnapshots.count >= 2 else { return nil }
-    let sortedSnapshots = allSnapshots.sorted { $0.date < $1.date }
-    guard let latestSnapshot = sortedSnapshots.last else { return nil }
+    guard sortedSnapshotsCache.count >= 2 else { return nil }
+    guard let latestSnapshot = sortedSnapshotsCache.last else { return nil }
 
     guard
       let lookbackDate = Calendar.current.date(
@@ -174,7 +175,7 @@ class DashboardViewModel {
 
     guard
       let beginSnapshot = findSnapshotForLookback(
-        targetDate: lookbackDate, sortedSnapshots: sortedSnapshots,
+        targetDate: lookbackDate, sortedSnapshots: sortedSnapshotsCache,
         excludingLatest: latestSnapshot)
     else { return nil }
 
@@ -189,7 +190,7 @@ class DashboardViewModel {
     guard totalDays > 0 else { return nil }
 
     // Gather cash flows from snapshots strictly after begin through latest (inclusive)
-    let intermediateSnapshots = sortedSnapshots.filter {
+    let intermediateSnapshots = sortedSnapshotsCache.filter {
       $0.date > beginSnapshot.date && $0.date <= latestSnapshot.date
     }
 
@@ -236,8 +237,8 @@ class DashboardViewModel {
     // Cumulative TWR — treat nil returns as 0% (identity) to match twrHistory
     if sortedSnapshots.count >= 2 {
       let periodReturns = computePeriodReturns(sortedSnapshots: sortedSnapshots)
-      let product = periodReturns.reduce(Decimal(1)) { acc, r in
-        acc * (1 + (r ?? 0))
+      let product = periodReturns.reduce(Decimal(1)) { acc, periodReturn in
+        acc * (1 + (periodReturn ?? 0))
       }
       cumulativeTWR = product - 1
     } else {

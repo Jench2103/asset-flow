@@ -11,14 +11,10 @@ import SwiftUI
 ///
 /// Allows users to configure:
 /// - Main currency for displaying portfolio values
-/// - Financial goal (target wealth amount)
 ///
-/// All settings auto-save when input is valid:
-/// - Currency: Saves immediately on change
-/// - Financial goal: Saves after 0.75s debounce, or immediately on Enter/focus loss
+/// Currency saves immediately on change.
 struct SettingsView: View {
   @State private var viewModel: SettingsViewModel
-  @FocusState private var isGoalFieldFocused: Bool
 
   init(settingsService: SettingsService? = nil) {
     _viewModel = State(wrappedValue: SettingsViewModel(settingsService: settingsService))
@@ -27,7 +23,6 @@ struct SettingsView: View {
   var body: some View {
     Form {
       currencySection
-      financialGoalSection
     }
     .formStyle(.grouped)
     .navigationTitle("Settings")
@@ -50,67 +45,6 @@ struct SettingsView: View {
       Text("The currency used to display total portfolio values across the app.")
     }
   }
-
-  // MARK: - Financial Goal Section
-
-  private var financialGoalSection: some View {
-    Section {
-      HStack {
-        TextField("Target amount", text: $viewModel.goalAmountString)
-          .textFieldStyle(.roundedBorder)
-          .focused($isGoalFieldFocused)
-          .onSubmit { viewModel.commitGoal() }
-          .onChange(of: isGoalFieldFocused) { _, isFocused in
-            if !isFocused { viewModel.onFocusLost() }
-          }
-          .accessibilityIdentifier("Financial Goal Input")
-          .frame(maxWidth: 200)
-
-        if !viewModel.goalAmountString.isEmpty {
-          Button {
-            viewModel.clearGoal()
-          } label: {
-            Image(systemName: "xmark.circle.fill")
-              .foregroundStyle(.secondary)
-          }
-          .buttonStyle(.plain)
-          .accessibilityIdentifier("Clear Goal Button")
-        }
-
-        if viewModel.showSavedIndicator {
-          HStack(spacing: 4) {
-            Image(systemName: "checkmark.circle.fill")
-              .foregroundStyle(.green)
-            Text("Saved")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-          }
-          .transition(.opacity.combined(with: .scale))
-          .accessibilityIdentifier("Saved Indicator")
-        }
-      }
-      .animation(.easeInOut(duration: 0.2), value: viewModel.showSavedIndicator)
-
-      if let message = viewModel.goalValidationMessage {
-        HStack {
-          Image(systemName: "exclamationmark.triangle.fill")
-            .foregroundStyle(.orange)
-          Text(message)
-            .foregroundStyle(.secondary)
-            .font(.caption)
-        }
-      }
-    } header: {
-      Text("Financial Goal")
-    } footer: {
-      Text(
-        """
-        Set a target wealth amount. Your progress towards this goal will be shown \
-        on the Dashboard.
-        """
-      )
-    }
-  }
 }
 
 // MARK: - Previews
@@ -118,15 +52,5 @@ struct SettingsView: View {
 #Preview("Settings View") {
   NavigationStack {
     SettingsView(settingsService: SettingsService.createForTesting())
-  }
-}
-
-#Preview("Settings with Goal") {
-  let service = SettingsService.createForTesting()
-  service.mainCurrency = "EUR"
-  service.financialGoal = Decimal(1_000_000)
-
-  return NavigationStack {
-    SettingsView(settingsService: service)
   }
 }

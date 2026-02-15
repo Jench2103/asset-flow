@@ -149,21 +149,7 @@ class ImportViewModel {
 
   /// Resolves a category by name, reusing existing (case-insensitive) or creating new.
   func resolveCategory(name: String) -> Category? {
-    let trimmed = name.trimmingCharacters(in: .whitespaces)
-    guard !trimmed.isEmpty else { return nil }
-
-    let normalizedInput = trimmed.lowercased()
-
-    let descriptor = FetchDescriptor<Category>()
-    let allCategories = (try? modelContext.fetch(descriptor)) ?? []
-
-    if let existing = allCategories.first(where: { $0.name.lowercased() == normalizedInput }) {
-      return existing
-    }
-
-    let newCategory = Category(name: trimmed)
-    modelContext.insert(newCategory)
-    return newCategory
+    modelContext.resolveCategory(name: name)
   }
 
   // MARK: - Queries
@@ -273,8 +259,8 @@ class ImportViewModel {
   private func categoryWarning(for row: AssetCSVRow, existingAssets: [Asset]) -> String? {
     guard let selectedCategory = selectedCategory else { return nil }
 
-    let normalizedName = normalizeString(row.assetName)
-    let normalizedPlatform = normalizeString(row.platform)
+    let normalizedName = row.assetName.normalizedForIdentity
+    let normalizedPlatform = row.platform.normalizedForIdentity
 
     guard
       let existingAsset = existingAssets.first(where: {
