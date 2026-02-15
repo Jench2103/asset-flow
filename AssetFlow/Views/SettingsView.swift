@@ -26,10 +26,7 @@ struct SettingsView: View {
 
   var body: some View {
     Form {
-      // Currency Section
       currencySection
-
-      // Financial Goal Section
       financialGoalSection
     }
     .formStyle(.grouped)
@@ -67,9 +64,7 @@ struct SettingsView: View {
             if !isFocused { viewModel.onFocusLost() }
           }
           .accessibilityIdentifier("Financial Goal Input")
-          #if os(macOS)
-            .frame(maxWidth: 200)
-          #endif
+          .frame(maxWidth: 200)
 
         if !viewModel.goalAmountString.isEmpty {
           Button {
@@ -82,7 +77,6 @@ struct SettingsView: View {
           .accessibilityIdentifier("Clear Goal Button")
         }
 
-        // Saved indicator
         if viewModel.showSavedIndicator {
           HStack(spacing: 4) {
             Image(systemName: "checkmark.circle.fill")
@@ -96,9 +90,7 @@ struct SettingsView: View {
         }
       }
       .animation(.easeInOut(duration: 0.2), value: viewModel.showSavedIndicator)
-      .animation(.easeInOut(duration: 0.2), value: viewModel.conversionMessage)
 
-      // Validation message
       if let message = viewModel.goalValidationMessage {
         HStack {
           Image(systemName: "exclamationmark.triangle.fill")
@@ -108,26 +100,13 @@ struct SettingsView: View {
             .font(.caption)
         }
       }
-
-      // Conversion message
-      if let conversionMsg = viewModel.conversionMessage {
-        HStack {
-          Image(systemName: "arrow.triangle.2.circlepath")
-            .foregroundStyle(.blue)
-          Text(conversionMsg)
-            .foregroundStyle(.secondary)
-            .font(.caption)
-        }
-        .transition(.opacity)
-        .accessibilityIdentifier("Conversion Message")
-      }
     } header: {
       Text("Financial Goal")
     } footer: {
       Text(
         """
         Set a target wealth amount. Your progress towards this goal will be shown \
-        on the Overview page.
+        on the Dashboard.
         """
       )
     }

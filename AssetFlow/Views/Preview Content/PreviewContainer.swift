@@ -14,10 +14,11 @@ class PreviewContainer {
   static let container: ModelContainer = {
     do {
       let schema = Schema([
-        Portfolio.self,
+        Category.self,
         Asset.self,
-        Transaction.self,
-        InvestmentPlan.self,
+        Snapshot.self,
+        SnapshotAssetValue.self,
+        CashFlowOperation.self,
       ])
       let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
       let container = try ModelContainer(for: schema, configurations: [configuration])

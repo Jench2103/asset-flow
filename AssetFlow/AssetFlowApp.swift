@@ -14,23 +14,39 @@ struct AssetFlowApp: App {
 
   init() {
     let schema = Schema([
+      Category.self,
       Asset.self,
-      Portfolio.self,
-      Transaction.self,
-      InvestmentPlan.self,
-      PriceHistory.self,
-      RegularSavingPlan.self,
+      Snapshot.self,
+      SnapshotAssetValue.self,
+      CashFlowOperation.self,
     ])
 
-    // Always use the default, persistent database configuration.
     let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
     do {
-      // Initialize the container for the application.
       sharedModelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
     } catch {
-      // If the container fails to load, something is seriously wrong.
-      fatalError("Could not create ModelContainer: \(error)")
+      // If the existing store is incompatible (e.g., schema changed without migration),
+      // destroy and recreate it. This is acceptable during development.
+      Self.destroyExistingStore()
+      do {
+        sharedModelContainer = try ModelContainer(
+          for: schema, configurations: [modelConfiguration])
+      } catch {
+        fatalError("Could not create ModelContainer: \(error)")
+      }
+    }
+  }
+
+  /// Removes the existing SwiftData store files to allow a fresh start.
+  private static func destroyExistingStore() {
+    let url = URL.applicationSupportDirectory
+      .appending(path: "default.store")
+    let fileManager = FileManager.default
+    for suffix in ["", "-wal", "-shm"] {
+      let fileURL = url.deletingLastPathComponent().appending(
+        path: url.lastPathComponent + suffix)
+      try? fileManager.removeItem(at: fileURL)
     }
   }
 
