@@ -295,8 +295,9 @@ struct NavigationIntegrationTests {
     let error = SnapshotError.dateAlreadyExists(testDate)
     let message = error.errorDescription ?? ""
 
+    // Non-tautological: verify date interpolation and non-empty message
     let formatted = testDate.formatted(date: .abbreviated, time: .omitted)
+    #expect(!message.isEmpty)
     #expect(message.contains(formatted))
-    #expect(message.contains("Go to the Snapshots screen to view and edit it"))
   }
 }

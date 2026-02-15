@@ -63,13 +63,13 @@ The dashboard provides a portfolio overview using the latest snapshot (with carr
    - Number of Assets
    - Cumulative TWR (since first snapshot)
    - CAGR (since first snapshot) -- shown alongside Cumulative TWR, with a tooltip: "CAGR is the annualized rate at which the portfolio's total value has grown since inception, including the effect of deposits and withdrawals. TWR measures pure investment performance by removing cash flow effects."
-   - Each metric card (Total Portfolio Value, TWR, CAGR, Growth, Return) includes an info icon/tooltip explaining what the metric measures and how it differs from related metrics
+   - Metric cards with tooltips use a `tooltipText: String?` parameter on `MetricCard` to display an info icon (`.help()` modifier)
 
 1. **Period performance cards**:
 
    - **Growth Rate** card -- simple percentage change with 1M / 3M / 1Y segmented control. Shows "N/A" if insufficient history.
    - **Return Rate** card -- Modified Dietz return with 1M / 3M / 1Y segmented control. Shows "N/A" if insufficient history.
-   - Each card includes an info icon/tooltip explaining the metric
+   - Each card uses the same `tooltipText` parameter on `MetricCard` for its tooltip
 
 1. **Allocation pie chart**:
 
@@ -279,14 +279,16 @@ ______________________________________________________________________
 
 ## Empty States
 
-| Screen      | Empty State                                                                                                                 |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Dashboard   | Welcome message, prominent "Import your first CSV" button, brief workflow explanation                                       |
-| Snapshots   | "No snapshots yet. Create your first snapshot or import a CSV to get started." with "New Snapshot" and "Import CSV" buttons |
-| Assets      | "No assets yet. Assets are created automatically when you import CSV data."                                                 |
-| Categories  | "No categories yet. Create categories to organize your assets and set target allocations." with "Create Category" button    |
-| Platforms   | "No platforms yet. Platforms are created automatically when you import CSV data or create assets."                          |
-| Rebalancing | "Set target allocations on your categories to use the rebalancing calculator."                                              |
+All empty states use the reusable `EmptyStateView` component (`AssetFlow/Views/Components/EmptyStateView.swift`), which provides a consistent layout: centered SF Symbol icon (size 48, secondary), title (title2), descriptive message (callout, secondary, multiline center), and optional action buttons (primary uses `.borderedProminent`).
+
+| Screen      | Icon                       | Title                | Message                                                                                          | Actions                         |
+| ----------- | -------------------------- | -------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------- |
+| Dashboard   | `chart.bar`                | Welcome to AssetFlow | Start tracking your portfolio by importing CSV data or creating a snapshot.                      | Import your first CSV (primary) |
+| Snapshots   | `calendar`                 | No Snapshots         | No snapshots yet. Create your first snapshot or import a CSV to get started.                     | New Snapshot, Import CSV        |
+| Assets      | `tray`                     | No Assets            | No assets yet. Assets are created automatically when you import CSV data.                        | —                               |
+| Categories  | `folder`                   | No Categories        | No categories yet. Create categories to organize your assets and set target allocations.         | Create Category                 |
+| Platforms   | `building.columns`         | No Platforms         | No platforms yet. Platforms are created automatically when you import CSV data or create assets. | —                               |
+| Rebalancing | `chart.bar.doc.horizontal` | No Rebalancing Data  | Set target allocations on your categories to use the rebalancing calculator.                     | —                               |
 
 ______________________________________________________________________
 
@@ -307,11 +309,43 @@ ______________________________________________________________________
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action                                          |
-| -------- | ----------------------------------------------- |
-| Delete   | Remove selected item (with confirmation dialog) |
+| Shortcut | Context                       | Action                                                           |
+| -------- | ----------------------------- | ---------------------------------------------------------------- |
+| Delete   | Snapshot list (item selected) | Delete selected snapshot (confirmation dialog)                   |
+| Delete   | Asset list (item selected)    | Delete selected asset (error alert if it has snapshot values)    |
+| Delete   | Category list (item selected) | Delete selected category (error alert if it has assigned assets) |
+| Cmd+,    | Global                        | Open Settings window (standard macOS `Settings` scene)           |
+
+**Implementation**: Delete key uses `.onDeleteCommand` on each List view, delegating to the same ViewModel delete methods as the context menu. The Settings shortcut is provided automatically by the SwiftUI `Settings` scene in `AssetFlowApp.swift`.
 
 Additional shortcuts (Cmd+I, Cmd+N, etc.) deferred to future version.
+
+______________________________________________________________________
+
+## Localization
+
+AssetFlow uses Apple String Catalogs (`.xcstrings`) with **English** as the development language and **Traditional Chinese (zh-Hant)** as the additional supported language.
+
+**String catalog organization by feature:**
+
+| Catalog                 | Scope                                           |
+| ----------------------- | ----------------------------------------------- |
+| `Localizable.xcstrings` | All SwiftUI view-level strings (auto-extracted) |
+| `Asset.xcstrings`       | Asset validation and error messages             |
+| `Category.xcstrings`    | Category validation and error messages          |
+| `Platform.xcstrings`    | Platform operation messages                     |
+| `Snapshot.xcstrings`    | Snapshot validation and error messages          |
+| `Import.xcstrings`      | Import workflow messages                        |
+| `Rebalancing.xcstrings` | Rebalancing action text                         |
+| `Services.xcstrings`    | Backup/restore messages                         |
+| `Settings.xcstrings`    | Settings display strings                        |
+
+**Conventions:**
+
+- SwiftUI view strings (in `Text()`, `Label()`, etc.) are auto-extracted into `Localizable.xcstrings`
+- ViewModel and Service strings use `String(localized:table:)` with the appropriate feature table
+- Enum display names use `localizedName` computed properties — never display `rawValue` directly
+- Translation style: idiomatic Traditional Chinese matching Taiwan usage (e.g., 資產, 快照, 類別, 平台, 再平衡, 儀表板, 匯入, 備份)
 
 ______________________________________________________________________
 
@@ -678,17 +712,18 @@ ______________________________________________________________________
 
 ## Implementation Status
 
-| View                           | Status      | Notes                                                                                                                 |
-| ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------- |
-| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation     |
-| DashboardView                  | Implemented | Summary cards, period performance (1M/3M/1Y), interactive charts (Phase 6 complete), recent snapshots                 |
-| SnapshotListView               | Implemented | @Query live list, carry-forward platform indicators, New Snapshot sheet, empty state                                  |
-| SnapshotDetailView             | Implemented | Asset breakdown with carried-forward distinction (SPEC 8.3), category allocation, cash flow CRUD, delete confirmation |
-| AssetListView                  | Implemented | Platform/category grouping, selection binding                                                                         |
-| AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                        |
-| CategoryListView               | Implemented | Add sheet, target allocation warning, delete validation                                                               |
-| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls (Phase 6), delete validation                    |
-| PlatformListView               | Implemented | Rename sheet, empty state                                                                                             |
-| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary                                                  |
-| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                       |
-| SettingsView                   | Implemented | Currency, date format, default platform                                                                               |
+| View                           | Status      | Notes                                                                                                                           |
+| ------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation               |
+| DashboardView                  | Implemented | Summary cards with SPEC-compliant tooltips, period performance (1M/3M/1Y), interactive charts, EmptyStateView, recent snapshots |
+| SnapshotListView               | Implemented | @Query live list, carry-forward indicators, New Snapshot sheet, EmptyStateView, Delete key shortcut                             |
+| SnapshotDetailView             | Implemented | Asset breakdown with carried-forward distinction (SPEC 8.3), category allocation, cash flow CRUD, delete confirmation           |
+| AssetListView                  | Implemented | Platform/category grouping, selection binding, EmptyStateView, Delete key shortcut                                              |
+| AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                                  |
+| CategoryListView               | Implemented | Add sheet, target allocation warning, delete validation, EmptyStateView, Delete key shortcut                                    |
+| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls (Phase 6), delete validation                              |
+| PlatformListView               | Implemented | Rename sheet, EmptyStateView                                                                                                    |
+| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, EmptyStateView                                            |
+| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                 |
+| SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                  |
+| EmptyStateView (Component)     | Implemented | Reusable component with SF Symbol icon, title, message, optional action buttons                                                 |

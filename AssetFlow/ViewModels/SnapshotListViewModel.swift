@@ -22,7 +22,8 @@ enum SnapshotError: LocalizedError, Equatable {
         localized: "Snapshot date cannot be in the future.", table: "Snapshot")
 
     case .dateAlreadyExists(let date):
-      let formatted = date.formatted(date: .abbreviated, time: .omitted)
+      let dateStyle = MainActor.assumeIsolated { SettingsService.shared.dateFormat.dateStyle }
+      let formatted = date.formatted(date: dateStyle, time: .omitted)
       return String(
         localized:
           "A snapshot already exists for \(formatted). Go to the Snapshots screen to view and edit it.",

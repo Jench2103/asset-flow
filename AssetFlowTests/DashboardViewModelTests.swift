@@ -774,6 +774,33 @@ struct DashboardViewModelTests {
     #expect(history["Uncategorized"]?.first?.value == 25_000)
   }
 
+  // MARK: - Percentage Scaling
+
+  @Test("Dashboard percentage metrics require 100x scaling for formattedPercentage")
+  func percentageMetricsRequireScaling() throws {
+    let tc = createTestContext()
+
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 1),
+      assets: [("AAPL", "Firstrade", 1_000, nil)]
+    )
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 2, day: 1),
+      assets: [("AAPL", "Firstrade", 2_000, nil)]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    let pct = try #require(viewModel.valueChangePercentage)
+    // Raw decimal is 1.0 (100% growth). Must scale before formatting.
+    let formatted = (pct * 100).formattedPercentage()
+    // The formatted string should contain "100", not "1" or "0"
+    #expect(formatted.contains("100"))
+  }
+
   @Test("categoryValueHistory tracks values across multiple snapshots")
   func categoryValueHistoryMultipleSnapshots() {
     let tc = createTestContext()

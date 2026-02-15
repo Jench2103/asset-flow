@@ -26,10 +26,10 @@ struct DashboardView: View {
   @State private var categoryChartRange: ChartTimeRange = .all
   @State private var pieChartSelectedDate: Date?
 
-  var onNavigateToSnapshots: (() -> Void)?
-  var onNavigateToImport: (() -> Void)?
-  var onSelectSnapshot: ((Date) -> Void)?
-  var onNavigateToCategory: ((String) -> Void)?
+  let onNavigateToSnapshots: (() -> Void)?
+  let onNavigateToImport: (() -> Void)?
+  let onSelectSnapshot: ((Date) -> Void)?
+  let onNavigateToCategory: ((String) -> Void)?
 
   init(
     modelContext: ModelContext,
@@ -62,25 +62,16 @@ struct DashboardView: View {
   // MARK: - Empty State
 
   private var emptyState: some View {
-    VStack(spacing: 16) {
-      Spacer()
-      Image(systemName: "chart.bar")
-        .font(.system(size: 48))
-        .foregroundStyle(.secondary)
-      Text("Welcome to AssetFlow")
-        .font(.title2)
-      Text("Start tracking your portfolio by importing CSV data or creating a snapshot.")
-        .font(.callout)
-        .foregroundStyle(.secondary)
-        .multilineTextAlignment(.center)
-        .padding(.horizontal, 40)
-      Button("Import your first CSV") {
-        onNavigateToImport?()
-      }
-      .buttonStyle(.borderedProminent)
-      Spacer()
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    EmptyStateView(
+      icon: "chart.bar",
+      title: "Welcome to AssetFlow",
+      message: "Start tracking your portfolio by importing CSV data or creating a snapshot.",
+      actions: [
+        EmptyStateAction(label: "Import your first CSV", isPrimary: true) {
+          onNavigateToImport?()
+        }
+      ]
+    )
   }
 
   // MARK: - Dashboard Content
@@ -123,16 +114,18 @@ struct DashboardView: View {
 
       MetricCard(
         title: "Cumulative TWR",
-        value: viewModel.cumulativeTWR?.formattedPercentage() ?? "N/A",
+        value: viewModel.cumulativeTWR.map { ($0 * 100).formattedPercentage() } ?? "N/A",
         subtitle: nil,
-        showInfoIcon: true
+        tooltipText:
+          "Time-weighted return measures pure investment performance by removing the effect of external cash flows (deposits and withdrawals)."
       )
 
       MetricCard(
         title: "CAGR",
-        value: viewModel.cagr?.formattedPercentage() ?? "N/A",
+        value: viewModel.cagr.map { ($0 * 100).formattedPercentage() } ?? "N/A",
         subtitle: nil,
-        showInfoIcon: true
+        tooltipText:
+          "CAGR is the annualized rate at which the portfolio's total value has grown since inception, including the effect of deposits and withdrawals. TWR measures pure investment performance by removing cash flow effects."
       )
     }
   }
@@ -143,7 +136,8 @@ struct DashboardView: View {
     else { return nil }
     let sign = absolute >= 0 ? "+" : ""
     let currency = SettingsService.shared.mainCurrency
-    return "\(sign)\(absolute.formatted(currency: currency)) (\(percentage.formattedPercentage()))"
+    let pctStr = (percentage * 100).formattedPercentage()
+    return "\(sign)\(absolute.formatted(currency: currency)) (\(pctStr))"
   }
 
   // MARK: - Period Performance
@@ -159,7 +153,9 @@ struct DashboardView: View {
           Image(systemName: "info.circle")
             .font(.caption2)
             .foregroundStyle(.tertiary)
-            .help("Details available in a future update")
+            .help(
+              "Growth rate is the simple percentage change in portfolio value over the selected period, including the effect of deposits and withdrawals. Unlike Return Rate, it does not isolate investment performance."
+            )
         }
 
         Picker("Period", selection: $growthRatePeriod) {
@@ -169,9 +165,12 @@ struct DashboardView: View {
         }
         .pickerStyle(.segmented)
 
-        Text(viewModel.growthRate(for: growthRatePeriod)?.formattedPercentage() ?? "N/A")
-          .font(.title3.bold())
-          .monospacedDigit()
+        Text(
+          viewModel.growthRate(for: growthRatePeriod).map { ($0 * 100).formattedPercentage() }
+            ?? "N/A"
+        )
+        .font(.title3.bold())
+        .monospacedDigit()
       }
       .padding()
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -187,7 +186,9 @@ struct DashboardView: View {
           Image(systemName: "info.circle")
             .font(.caption2)
             .foregroundStyle(.tertiary)
-            .help("Details available in a future update")
+            .help(
+              "Return rate uses the Modified Dietz method to calculate a cash-flow adjusted return, isolating actual investment performance by accounting for the timing and magnitude of deposits and withdrawals."
+            )
         }
 
         Picker("Period", selection: $returnRatePeriod) {
@@ -197,9 +198,12 @@ struct DashboardView: View {
         }
         .pickerStyle(.segmented)
 
-        Text(viewModel.returnRate(for: returnRatePeriod)?.formattedPercentage() ?? "N/A")
-          .font(.title3.bold())
-          .monospacedDigit()
+        Text(
+          viewModel.returnRate(for: returnRatePeriod).map { ($0 * 100).formattedPercentage() }
+            ?? "N/A"
+        )
+        .font(.title3.bold())
+        .monospacedDigit()
       }
       .padding()
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -320,7 +324,7 @@ private struct MetricCard: View {
   let title: String
   let value: String
   var subtitle: String?
-  var showInfoIcon: Bool = false
+  var tooltipText: String?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
@@ -328,11 +332,11 @@ private struct MetricCard: View {
         Text(title)
           .font(.caption)
           .foregroundStyle(.secondary)
-        if showInfoIcon {
+        if let tooltip = tooltipText {
           Image(systemName: "info.circle")
             .font(.caption2)
             .foregroundStyle(.tertiary)
-            .help("Details available in a future update")
+            .help(tooltip)
         }
       }
 

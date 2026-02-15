@@ -82,7 +82,8 @@ struct SnapshotListView: View {
       Button("Cancel", role: .cancel) {}
     } message: { snapshot in
       let data = viewModel.confirmationData(for: snapshot)
-      let dateStr = data.date.formatted(date: .abbreviated, time: .omitted)
+      let dateStr = data.date.formatted(
+        date: SettingsService.shared.dateFormat.dateStyle, time: .omitted)
       let assetCount = data.assetCount
       let cfCount = data.cashFlowCount
       Text(
@@ -100,7 +101,16 @@ struct SnapshotListView: View {
           .tag(snapshot)
       }
     }
+    .onDeleteCommand {
+      deleteSelectedSnapshot()
+    }
     .accessibilityIdentifier("Snapshot List")
+  }
+
+  private func deleteSelectedSnapshot() {
+    guard let snapshot = selectedSnapshot else { return }
+    snapshotToDelete = snapshot
+    showDeleteConfirmation = true
   }
 
   private func snapshotRow(_ snapshot: Snapshot) -> some View {
@@ -172,30 +182,19 @@ struct SnapshotListView: View {
   // MARK: - Empty State
 
   private var emptyState: some View {
-    VStack(spacing: 12) {
-      Spacer()
-      Image(systemName: "calendar")
-        .font(.largeTitle)
-        .foregroundStyle(.secondary)
-      Text("No Snapshots")
-        .font(.title3)
-        .foregroundStyle(.secondary)
-      Text("Create a snapshot to start tracking your portfolio, or import CSV data.")
-        .font(.callout)
-        .foregroundStyle(.tertiary)
-        .multilineTextAlignment(.center)
-        .padding(.horizontal)
-      HStack(spacing: 12) {
-        Button("New Snapshot") {
+    EmptyStateView(
+      icon: "calendar",
+      title: "No Snapshots",
+      message: "No snapshots yet. Create your first snapshot or import a CSV to get started.",
+      actions: [
+        EmptyStateAction(label: "New Snapshot", isPrimary: false) {
           showNewSnapshotSheet = true
-        }
-        Button("Import CSV") {
+        },
+        EmptyStateAction(label: "Import CSV", isPrimary: false) {
           onNavigateToImport?()
-        }
-      }
-      Spacer()
-    }
-    .frame(maxWidth: .infinity)
+        },
+      ]
+    )
   }
 
   // MARK: - Helpers
@@ -243,7 +242,7 @@ private struct NewSnapshotSheet: View {
 
         if hasDateConflict {
           Label(
-            "A snapshot already exists for this date.",
+            "A snapshot already exists for \(snapshotDate.formatted(date: .abbreviated, time: .omitted)). Go to the Snapshots screen to view and edit it.",
             systemImage: "exclamationmark.triangle"
           )
           .font(.caption)

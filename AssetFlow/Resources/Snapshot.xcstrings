@@ -1,62 +1,62 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Abbreviated" : {
+    "Snapshot date cannot be in the future." : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "簡短"
+            "value" : "快照日期不能是未來的日期。"
           }
         }
       }
     },
-    "Backup exported successfully." : {
+    "A snapshot already exists for %@. Go to the Snapshots screen to view and edit it." : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "備份匯出成功。"
+            "value" : "%@ 已存在快照。請前往「快照」畫面檢視和編輯。"
           }
         }
       }
     },
-    "Backup restored successfully." : {
+    "'%@' already exists in this snapshot. Edit its value instead." : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "備份還原成功。"
+            "value" : "「%@」已存在於此快照中，請直接編輯其數值。"
           }
         }
       }
     },
-    "Complete" : {
+    "A cash flow operation with description '%@' already exists in this snapshot." : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "完整"
+            "value" : "描述為「%@」的現金流操作已存在於此快照中。"
           }
         }
       }
     },
-    "Long" : {
+    "Select Existing" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "詳細"
+            "value" : "選擇現有"
           }
         }
       }
     },
-    "Numeric" : {
+    "Create New" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "數字"
+            "value" : "新建"
           }
         }
       }

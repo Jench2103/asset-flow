@@ -242,24 +242,11 @@ struct RebalancingView: View {
   // MARK: - Empty State
 
   private var emptyState: some View {
-    VStack(spacing: 12) {
-      Spacer()
-      Image(systemName: "chart.bar.doc.horizontal")
-        .font(.largeTitle)
-        .foregroundStyle(.secondary)
-      Text("No Rebalancing Data")
-        .font(.title3)
-        .foregroundStyle(.secondary)
-      Text(
-        "Set target allocations on your categories to use the rebalancing calculator."
-      )
-      .font(.callout)
-      .foregroundStyle(.tertiary)
-      .multilineTextAlignment(.center)
-      .padding(.horizontal)
-      Spacer()
-    }
-    .frame(maxWidth: .infinity)
+    EmptyStateView(
+      icon: "chart.bar.doc.horizontal",
+      title: "No Rebalancing Data",
+      message: "Set target allocations on your categories to use the rebalancing calculator."
+    )
   }
 
   // MARK: - Helpers

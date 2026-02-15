@@ -2,13 +2,34 @@
   "sourceLanguage" : "en",
   "strings" : {
     "(No Platform)" : {
-
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（無平台）"
+          }
+        }
+      }
     },
     "(Uncategorized)" : {
-
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（未分類）"
+          }
+        }
+      }
     },
     "An asset named '%@' already exists without a platform." : {
-
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名為「%@」的資產已存在（無平台）。"
+          }
+        }
+      }
     },
     "An asset named '%@' on platform '%@' already exists." : {
       "localizations" : {
@@ -17,11 +38,24 @@
             "state" : "new",
             "value" : "An asset named '%1$@' on platform '%2$@' already exists."
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名為「%1$@」的資產已存在於平台「%2$@」。"
+          }
         }
       }
     },
     "This asset cannot be deleted because it has values in %lld snapshot(s). Remove the asset from all snapshots first." : {
-
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此資產無法刪除，因為它在 %lld 個快照中有紀錄值。請先從所有快照中移除此資產。"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

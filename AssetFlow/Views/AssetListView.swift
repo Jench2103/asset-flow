@@ -78,7 +78,15 @@ struct AssetListView: View {
         }
       }
     }
+    .onDeleteCommand {
+      deleteSelectedAsset()
+    }
     .accessibilityIdentifier("Asset List")
+  }
+
+  private func deleteSelectedAsset() {
+    guard let asset = selectedAsset else { return }
+    deleteAsset(asset)
   }
 
   private func assetRow(_ rowData: AssetRowData) -> some View {
@@ -121,20 +129,11 @@ struct AssetListView: View {
   // MARK: - Empty State
 
   private var emptyState: some View {
-    VStack(spacing: 12) {
-      Spacer()
-      Image(systemName: "tray")
-        .font(.largeTitle)
-        .foregroundStyle(.secondary)
-      Text("No Assets")
-        .font(.title3)
-        .foregroundStyle(.secondary)
-      Text("Import a CSV file or create assets through snapshots.")
-        .font(.callout)
-        .foregroundStyle(.tertiary)
-      Spacer()
-    }
-    .frame(maxWidth: .infinity)
+    EmptyStateView(
+      icon: "tray",
+      title: "No Assets",
+      message: "No assets yet. Assets are created automatically when you import CSV data."
+    )
   }
 
   // MARK: - Actions

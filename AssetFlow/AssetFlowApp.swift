@@ -55,5 +55,10 @@ struct AssetFlowApp: App {
       ContentView()
     }
     .modelContainer(sharedModelContainer)
+
+    Settings {
+      SettingsView()
+    }
+    .modelContainer(sharedModelContainer)
   }
 }

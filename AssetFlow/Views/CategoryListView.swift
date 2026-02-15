@@ -90,7 +90,15 @@ struct CategoryListView: View {
           .tag(rowData.category)
       }
     }
+    .onDeleteCommand {
+      deleteSelectedCategory()
+    }
     .accessibilityIdentifier("Category List")
+  }
+
+  private func deleteSelectedCategory() {
+    guard let category = selectedCategory else { return }
+    deleteCategory(category)
   }
 
   private func categoryRow(_ rowData: CategoryRowData) -> some View {
@@ -161,27 +169,17 @@ struct CategoryListView: View {
   // MARK: - Empty State
 
   private var emptyState: some View {
-    VStack(spacing: 12) {
-      Spacer()
-      Image(systemName: "folder")
-        .font(.largeTitle)
-        .foregroundStyle(.secondary)
-      Text("No Categories")
-        .font(.title3)
-        .foregroundStyle(.secondary)
-      Text(
-        "No categories yet. Create categories to organize your assets and set target allocations."
-      )
-      .font(.callout)
-      .foregroundStyle(.tertiary)
-      .multilineTextAlignment(.center)
-      .padding(.horizontal)
-      Button("Create Category") {
-        showAddSheet = true
-      }
-      Spacer()
-    }
-    .frame(maxWidth: .infinity)
+    EmptyStateView(
+      icon: "folder",
+      title: "No Categories",
+      message:
+        "No categories yet. Create categories to organize your assets and set target allocations.",
+      actions: [
+        EmptyStateAction(label: "Create Category", isPrimary: true) {
+          showAddSheet = true
+        }
+      ]
+    )
   }
 
   // MARK: - Actions

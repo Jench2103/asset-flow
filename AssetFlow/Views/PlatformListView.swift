@@ -90,25 +90,12 @@ struct PlatformListView: View {
   // MARK: - Empty State
 
   private var emptyState: some View {
-    VStack(spacing: 12) {
-      Spacer()
-      Image(systemName: "building.columns")
-        .font(.largeTitle)
-        .foregroundStyle(.secondary)
-      Text("No Platforms")
-        .font(.title3)
-        .foregroundStyle(.secondary)
-      Text(
-        // swiftlint:disable:next line_length
+    EmptyStateView(
+      icon: "building.columns",
+      title: "No Platforms",
+      message:
         "No platforms yet. Platforms are created automatically when you import CSV data or create assets."
-      )
-      .font(.callout)
-      .foregroundStyle(.tertiary)
-      .multilineTextAlignment(.center)
-      .padding(.horizontal)
-      Spacer()
-    }
-    .frame(maxWidth: .infinity)
+    )
   }
 }
 
