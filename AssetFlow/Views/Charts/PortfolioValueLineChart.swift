@@ -33,6 +33,7 @@ struct PortfolioValueLineChart: View {
       chartContent
     }
     .padding()
+    .frame(maxHeight: .infinity, alignment: .topLeading)
     .background(.fill.quaternary)
     .clipShape(RoundedRectangle(cornerRadius: 8))
   }

@@ -345,12 +345,12 @@ private struct MetricCard: View {
         .monospacedDigit()
         .lineLimit(1)
 
-      if let subtitle = subtitle {
-        Text(subtitle)
-          .font(.caption2)
-          .foregroundStyle(.secondary)
-          .lineLimit(1)
-      }
+      // Always reserve space for subtitle line to ensure equal card heights in LazyVGrid
+      Text(subtitle ?? " ")
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .opacity(subtitle != nil ? 1 : 0)
     }
     .padding()
     .frame(maxWidth: .infinity, alignment: .leading)
