@@ -138,6 +138,7 @@ struct SettingsView: View {
 
   // MARK: - Backup Actions
 
+  @MainActor
   private func performExport() {
     let panel = NSSavePanel()
     panel.allowedContentTypes = [.zip]
@@ -163,6 +164,7 @@ struct SettingsView: View {
     }
   }
 
+  @MainActor
   private func openRestorePanel() {
     let panel = NSOpenPanel()
     panel.allowedContentTypes = [.zip]
@@ -174,6 +176,7 @@ struct SettingsView: View {
     showRestoreConfirmation = true
   }
 
+  @MainActor
   private func performRestore() {
     guard let url = pendingRestoreURL else { return }
     pendingRestoreURL = nil
