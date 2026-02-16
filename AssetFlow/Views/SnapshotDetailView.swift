@@ -24,8 +24,6 @@ struct SnapshotDetailView: View {
 
   @State private var editingAssetValue: SnapshotAssetValue?
   @State private var editingCashFlow: CashFlowOperation?
-  @State private var showEditValueSheet = false
-  @State private var showEditCashFlowSheet = false
 
   @State private var showError = false
   @State private var errorMessage = ""
@@ -68,32 +66,28 @@ struct SnapshotDetailView: View {
         viewModel.loadCompositeValues()
       }
     }
-    .sheet(isPresented: $showEditValueSheet) {
-      if let sav = editingAssetValue {
-        EditValueSheet(currentValue: sav.marketValue) { newValue in
-          do {
-            try viewModel.editAssetValue(sav, newValue: newValue)
-            viewModel.loadCompositeValues()
-          } catch {
-            errorMessage = error.localizedDescription
-            showError = true
-          }
+    .sheet(item: $editingAssetValue) { sav in
+      EditValueSheet(currentValue: sav.marketValue) { newValue in
+        do {
+          try viewModel.editAssetValue(sav, newValue: newValue)
+          viewModel.loadCompositeValues()
+        } catch {
+          errorMessage = error.localizedDescription
+          showError = true
         }
       }
     }
-    .sheet(isPresented: $showEditCashFlowSheet) {
-      if let operation = editingCashFlow {
-        EditCashFlowSheet(
-          currentDescription: operation.cashFlowDescription,
-          currentAmount: operation.amount
-        ) { newDescription, newAmount in
-          do {
-            try viewModel.editCashFlow(
-              operation, newDescription: newDescription, newAmount: newAmount)
-          } catch {
-            errorMessage = error.localizedDescription
-            showError = true
-          }
+    .sheet(item: $editingCashFlow) { operation in
+      EditCashFlowSheet(
+        currentDescription: operation.cashFlowDescription,
+        currentAmount: operation.amount
+      ) { newDescription, newAmount in
+        do {
+          try viewModel.editCashFlow(
+            operation, newDescription: newDescription, newAmount: newAmount)
+        } catch {
+          errorMessage = error.localizedDescription
+          showError = true
         }
       }
     }
@@ -192,12 +186,12 @@ struct SnapshotDetailView: View {
         .monospacedDigit()
         .foregroundStyle(cv.isCarriedForward ? .secondary : .primary)
     }
+    .contentShape(Rectangle())
     .contextMenu {
       if !cv.isCarriedForward {
         Button("Edit Value") {
           if let sav = findSnapshotAssetValue(for: cv) {
             editingAssetValue = sav
-            showEditValueSheet = true
           }
         }
         Button("Remove from Snapshot", role: .destructive) {
@@ -263,7 +257,6 @@ struct SnapshotDetailView: View {
           .contextMenu {
             Button("Edit") {
               editingCashFlow = operation
-              showEditCashFlowSheet = true
             }
             Button("Remove", role: .destructive) {
               viewModel.removeCashFlow(operation)
