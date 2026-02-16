@@ -18,7 +18,7 @@
 
 /* Begin PBXFileReference section */
 		FF5D35B92E9A9CE800C50B81 /* AssetFlowTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AssetFlowTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		FFF30E2C2E93982F00AB7EBD /* AssetFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AssetFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFF30E2C2E93982F00AB7EBD /* AssetFlow-Debug.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AssetFlow-Debug.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFF30E3F2E93986000AB7EBD /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -80,7 +80,7 @@
 		FFF30E2D2E93982F00AB7EBD /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				FFF30E2C2E93982F00AB7EBD /* AssetFlow.app */,
+				FFF30E2C2E93982F00AB7EBD /* AssetFlow-Debug.app */,
 				FF5D35B92E9A9CE800C50B81 /* AssetFlowTests.xctest */,
 			);
 			name = Products;
@@ -131,7 +131,7 @@
 			packageProductDependencies = (
 			);
 			productName = AssetFlow;
-			productReference = FFF30E2C2E93982F00AB7EBD /* AssetFlow.app */;
+			productReference = FFF30E2C2E93982F00AB7EBD /* AssetFlow-Debug.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -309,8 +309,8 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = JCChang.AssetFlow;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = JCChang.AssetFlow.debug;
+				PRODUCT_NAME = "$(TARGET_NAME)-$(CONFIGURATION)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
