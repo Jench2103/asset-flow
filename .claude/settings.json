@@ -1,5 +1,7 @@
 {
   "enabledPlugins": {
-    "swift-lsp@claude-plugins-official": true
+    "swift-lsp@claude-plugins-official": true,
+    "swift-engineering@claude-swift-engineering": true,
+    "swiftui-expert@swiftui-expert-skill": true
   }
 }
