@@ -129,9 +129,18 @@ struct RebalancingView: View {
       Text(suggestion.difference.formatted(currency: currency))
         .font(.body).monospacedDigit()
 
-      Text(suggestion.actionText)
-        .font(.body)
-        .foregroundStyle(actionColor(for: suggestion.actionType))
+      HStack(spacing: 4) {
+        if suggestion.actionType != .noAction {
+          Image(
+            systemName: suggestion.actionType == .buy
+              ? "arrow.up.circle.fill" : "arrow.down.circle.fill"
+          )
+          .font(.caption)
+        }
+        Text(suggestion.actionText)
+      }
+      .font(.body)
+      .foregroundStyle(actionColor(for: suggestion.actionType))
     }
   }
 

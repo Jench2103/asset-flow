@@ -30,6 +30,9 @@ struct AssetDetailView: View {
   @State private var newCategoryName = ""
   @State private var showNewCategoryField = false
 
+  @State private var cachedPlatforms: [String] = []
+  @State private var cachedCategories: [Category] = []
+
   let onDelete: () -> Void
 
   init(asset: Asset, modelContext: ModelContext, onDelete: @escaping () -> Void) {
@@ -48,6 +51,8 @@ struct AssetDetailView: View {
     .navigationTitle(viewModel.asset.name)
     .onAppear {
       viewModel.loadValueHistory()
+      cachedPlatforms = viewModel.existingPlatforms()
+      cachedCategories = viewModel.existingCategories()
     }
     .alert("Save Error", isPresented: $showSaveError) {
       Button("OK") {}
@@ -104,7 +109,7 @@ struct AssetDetailView: View {
       } else {
         Picker("Platform", selection: platformBinding) {
           Text("None").tag("")
-          ForEach(viewModel.existingPlatforms(), id: \.self) { platform in
+          ForEach(cachedPlatforms, id: \.self) { platform in
             Text(platform).tag(platform)
           }
           Divider()
@@ -134,7 +139,7 @@ struct AssetDetailView: View {
     let trimmed = newPlatformName.trimmingCharacters(in: .whitespaces)
     guard !trimmed.isEmpty else { return }
 
-    let platforms = viewModel.existingPlatforms()
+    let platforms = cachedPlatforms
     if let match = platforms.first(where: { $0.lowercased() == trimmed.lowercased() }) {
       viewModel.editedPlatform = match
     } else {
@@ -164,7 +169,7 @@ struct AssetDetailView: View {
       } else {
         Picker("Category", selection: categoryBinding) {
           Text("None").tag("")
-          ForEach(viewModel.existingCategories()) { category in
+          ForEach(cachedCategories) { category in
             Text(category.name).tag(category.id.uuidString)
           }
           Divider()
@@ -186,7 +191,7 @@ struct AssetDetailView: View {
           viewModel.editedCategory = nil
           saveChanges()
         } else {
-          let categories = viewModel.existingCategories()
+          let categories = cachedCategories
           viewModel.editedCategory = categories.first { $0.id.uuidString == newValue }
           saveChanges()
         }
@@ -271,6 +276,8 @@ struct AssetDetailView: View {
   private func saveChanges() {
     do {
       try viewModel.save()
+      cachedPlatforms = viewModel.existingPlatforms()
+      cachedCategories = viewModel.existingCategories()
     } catch {
       saveErrorMessage = error.localizedDescription
       showSaveError = true

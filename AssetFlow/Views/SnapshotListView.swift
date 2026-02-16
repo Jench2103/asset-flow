@@ -121,33 +121,7 @@ struct SnapshotListView: View {
           .font(.body)
 
         if let rowData = rowData {
-          HStack(spacing: 4) {
-            // Direct platforms
-            ForEach(rowData.directPlatforms, id: \.self) { platform in
-              Text(platform)
-                .font(.caption2)
-                .padding(.horizontal, 4)
-                .padding(.vertical, 1)
-                .background(.quaternary)
-                .clipShape(Capsule())
-            }
-
-            // Carried-forward platforms
-            ForEach(rowData.carriedForwardPlatforms, id: \.self) { platform in
-              HStack(spacing: 2) {
-                Image(systemName: "arrow.uturn.forward")
-                  .font(.caption2)
-                Text(platform)
-                  .font(.caption2)
-              }
-              .padding(.horizontal, 4)
-              .padding(.vertical, 1)
-              .background(.quaternary.opacity(0.5))
-              .clipShape(Capsule())
-              .foregroundStyle(.secondary)
-              .italic()
-            }
-          }
+          platformBadges(rowData: rowData)
         }
       }
 
@@ -155,9 +129,12 @@ struct SnapshotListView: View {
 
       HStack(spacing: 12) {
         if let rowData = rowData {
-          Text(rowData.compositeTotal.formatted(currency: SettingsService.shared.mainCurrency))
-            .font(.body)
-            .monospacedDigit()
+          Text(
+            rowData.compositeTotal.formatted(
+              currency: SettingsService.shared.mainCurrency)
+          )
+          .font(.body)
+          .monospacedDigit()
 
           Text("\(rowData.assetCount)")
             .font(.caption)
@@ -174,6 +151,50 @@ struct SnapshotListView: View {
       Button("Delete", role: .destructive) {
         snapshotToDelete = snapshot
         showDeleteConfirmation = true
+      }
+    }
+  }
+
+  @ViewBuilder
+  private func platformBadges(
+    rowData: SnapshotRowData
+  ) -> some View {
+    let maxVisible = 3
+    let allDirect = rowData.directPlatforms
+    let allCarried = rowData.carriedForwardPlatforms
+    let totalCount = allDirect.count + allCarried.count
+    let overflow = max(0, totalCount - maxVisible)
+
+    HStack(spacing: 4) {
+      ForEach(allDirect.prefix(maxVisible), id: \.self) { platform in
+        Text(platform)
+          .font(.caption2)
+          .padding(.horizontal, 4)
+          .padding(.vertical, 1)
+          .background(.quaternary)
+          .clipShape(Capsule())
+      }
+
+      let carriedSlots = max(0, maxVisible - allDirect.count)
+      ForEach(allCarried.prefix(carriedSlots), id: \.self) { platform in
+        HStack(spacing: 2) {
+          Image(systemName: "arrow.uturn.forward")
+            .font(.caption2)
+          Text(platform)
+            .font(.caption2)
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 1)
+        .background(.quaternary.opacity(0.5))
+        .clipShape(Capsule())
+        .foregroundStyle(.secondary)
+        .italic()
+      }
+
+      if overflow > 0 {
+        Text("+\(overflow)")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
       }
     }
   }

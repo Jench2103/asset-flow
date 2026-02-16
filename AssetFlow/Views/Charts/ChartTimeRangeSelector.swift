@@ -7,19 +7,29 @@
 
 import SwiftUI
 
-/// Reusable segmented picker for chart time range selection (SPEC 12).
+/// Reusable picker for chart time range selection (SPEC 12).
 ///
 /// Displays all `ChartTimeRange` cases (1W/1M/3M/6M/1Y/3Y/5Y/All)
-/// as a segmented control.
+/// as compact capsule buttons.
 struct ChartTimeRangeSelector: View {
   @Binding var selection: ChartTimeRange
 
   var body: some View {
-    Picker("Time Range", selection: $selection) {
+    HStack(spacing: 4) {
       ForEach(ChartTimeRange.allCases) { range in
-        Text(range.rawValue).tag(range)
+        Button {
+          selection = range
+        } label: {
+          Text(range.rawValue)
+            .font(.caption2)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(selection == range ? Color.accentColor : Color.clear)
+            .foregroundStyle(selection == range ? .white : .secondary)
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
       }
     }
-    .pickerStyle(.segmented)
   }
 }

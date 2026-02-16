@@ -19,22 +19,27 @@ struct EmptyStateView: View {
   var actions: [EmptyStateAction] = []
 
   var body: some View {
-    VStack(spacing: 16) {
+    VStack(spacing: 20) {
       Spacer()
 
       Image(systemName: icon)
-        .font(.system(size: 48))
+        .font(.system(size: 48, weight: .light))
         .foregroundStyle(.secondary)
+        .frame(width: 80, height: 80)
+        .background(.fill.quaternary)
+        .clipShape(Circle())
         .accessibilityHidden(true)
 
-      Text(title)
-        .font(.title2)
+      VStack(spacing: 8) {
+        Text(title)
+          .font(.title2)
 
-      Text(message)
-        .font(.callout)
-        .foregroundStyle(.secondary)
-        .multilineTextAlignment(.center)
-        .padding(.horizontal, 40)
+        Text(message)
+          .font(.callout)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+          .padding(.horizontal, 40)
+      }
 
       if !actions.isEmpty {
         HStack(spacing: 12) {
@@ -51,6 +56,7 @@ struct EmptyStateView: View {
             }
           }
         }
+        .padding(.top, 4)
       }
 
       Spacer()

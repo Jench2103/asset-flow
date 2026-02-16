@@ -118,9 +118,16 @@ struct ImportView: View {
               showFileImporter = true
             }
           }
-          .frame(maxWidth: .infinity, minHeight: 120)
+          .frame(maxWidth: .infinity, minHeight: 180)
           .background(.fill.quaternary)
           .clipShape(RoundedRectangle(cornerRadius: 8))
+          .overlay(
+            RoundedRectangle(cornerRadius: 8)
+              .strokeBorder(
+                style: StrokeStyle(lineWidth: 1.5, dash: [8, 4])
+              )
+              .foregroundStyle(.tertiary)
+          )
           .onDrop(of: [UTType.commaSeparatedText, UTType.fileURL], isTargeted: nil) { providers in
             handleDrop(providers)
           }

@@ -66,7 +66,6 @@ struct ContentView: View {
   @State private var importViewModel: ImportViewModel?
   @State private var pendingSection: SidebarSection?
   @State private var showDiscardConfirmation = false
-  @State private var dashboardRefreshID = UUID()
 
   var body: some View {
     NavigationSplitView {
@@ -110,11 +109,6 @@ struct ContentView: View {
         importViewModel?.importedSnapshot = nil
       }
     }
-    .onChange(of: selectedSection) { _, newValue in
-      if newValue == .dashboard {
-        dashboardRefreshID = UUID()
-      }
-    }
     .onAppear {
       if importViewModel == nil {
         importViewModel = ImportViewModel(modelContext: modelContext)
@@ -126,9 +120,23 @@ struct ContentView: View {
 
   private var sidebar: some View {
     List(selection: sidebarBinding) {
-      ForEach(SidebarSection.allCases) { section in
-        Label(section.label, systemImage: section.systemImage)
-          .tag(section)
+      Section("Overview") {
+        Label(SidebarSection.dashboard.label, systemImage: SidebarSection.dashboard.systemImage)
+          .tag(SidebarSection.dashboard)
+      }
+      Section("Portfolio") {
+        ForEach(
+          [SidebarSection.snapshots, .assets, .categories, .platforms], id: \.self
+        ) { section in
+          Label(section.label, systemImage: section.systemImage)
+            .tag(section)
+        }
+      }
+      Section("Tools") {
+        ForEach([SidebarSection.rebalancing, .importCSV], id: \.self) { section in
+          Label(section.label, systemImage: section.systemImage)
+            .tag(section)
+        }
       }
     }
   }
@@ -170,7 +178,6 @@ struct ContentView: View {
           navigateToCategoryByName(name)
         }
       )
-      .id(dashboardRefreshID)
 
     case .snapshots:
       HStack(spacing: 0) {

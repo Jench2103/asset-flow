@@ -54,6 +54,7 @@ struct DashboardView: View {
       }
     }
     .navigationTitle("Dashboard")
+    .animation(.default, value: viewModel.isEmpty)
     .onAppear {
       viewModel.loadData()
     }
@@ -91,42 +92,55 @@ struct DashboardView: View {
   // MARK: - Summary Cards
 
   private var summaryCardsRow: some View {
-    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220))], spacing: 12) {
-      MetricCard(
+    VStack(spacing: 12) {
+      // Hero card: Total Portfolio Value
+      HeroMetricCard(
         title: "Total Portfolio Value",
         value: viewModel.totalPortfolioValue.formatted(
           currency: SettingsService.shared.mainCurrency),
-        subtitle: valueChangeSubtitle
+        subtitle: valueChangeSubtitle,
+        subtitleColor: valueChangeColor
       )
 
-      MetricCard(
-        title: "Latest Snapshot",
-        value: viewModel.latestSnapshotDate?.settingsFormatted()
-          ?? "\u{2014}",
-        subtitle: nil
-      )
+      // Secondary metrics grid
+      LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220))], spacing: 12) {
+        MetricCard(
+          title: "Latest Snapshot",
+          value: viewModel.latestSnapshotDate?.settingsFormatted()
+            ?? "\u{2014}",
+          subtitle: nil
+        )
 
-      MetricCard(
-        title: "Assets",
-        value: "\(viewModel.assetCount)",
-        subtitle: nil
-      )
+        MetricCard(
+          title: "Assets",
+          value: "\(viewModel.assetCount)",
+          subtitle: nil
+        )
 
-      MetricCard(
-        title: "Cumulative TWR",
-        value: viewModel.cumulativeTWR.map { ($0 * 100).formattedPercentage() } ?? "N/A",
-        subtitle: nil,
-        tooltipText:
-          "Time-weighted return measures pure investment performance by removing the effect of external cash flows (deposits and withdrawals)."
-      )
+        MetricCard(
+          title: "Cumulative TWR",
+          value: viewModel.cumulativeTWR.map { ($0 * 100).formattedPercentage() } ?? "N/A",
+          subtitle: nil,
+          tooltipText: """
+            Time-weighted return measures pure investment \
+            performance by removing the effect of external \
+            cash flows (deposits and withdrawals).
+            """
+        )
 
-      MetricCard(
-        title: "CAGR",
-        value: viewModel.cagr.map { ($0 * 100).formattedPercentage() } ?? "N/A",
-        subtitle: nil,
-        tooltipText:
-          "CAGR is the annualized rate at which the portfolio's total value has grown since inception, including the effect of deposits and withdrawals. TWR measures pure investment performance by removing cash flow effects."
-      )
+        MetricCard(
+          title: "CAGR",
+          value: viewModel.cagr.map { ($0 * 100).formattedPercentage() } ?? "N/A",
+          subtitle: nil,
+          tooltipText: """
+            CAGR is the annualized rate at which the \
+            portfolio's total value has grown since \
+            inception, including the effect of deposits \
+            and withdrawals. TWR measures pure investment \
+            performance by removing cash flow effects.
+            """
+        )
+      }
     }
   }
 
@@ -138,6 +152,20 @@ struct DashboardView: View {
     let currency = SettingsService.shared.mainCurrency
     let pctStr = (percentage * 100).formattedPercentage()
     return "\(sign)\(absolute.formatted(currency: currency)) (\(pctStr))"
+  }
+
+  private var valueChangeColor: Color? {
+    guard let absolute = viewModel.valueChangeAbsolute else { return nil }
+    if absolute > 0 { return .green }
+    if absolute < 0 { return .red }
+    return .secondary
+  }
+
+  private func rateColor(for value: Decimal?) -> Color {
+    guard let value else { return .primary }
+    if value > 0 { return .green }
+    if value < 0 { return .red }
+    return .primary
   }
 
   // MARK: - Period Performance
@@ -154,8 +182,13 @@ struct DashboardView: View {
             .font(.caption2)
             .foregroundStyle(.tertiary)
             .help(
-              "Growth rate is the simple percentage change in portfolio value over the selected period, including the effect of deposits and withdrawals. Unlike Return Rate, it does not isolate investment performance."
-            )
+              """
+              Growth rate is the simple percentage change \
+              in portfolio value over the selected period, \
+              including the effect of deposits and \
+              withdrawals. Unlike Return Rate, it does not \
+              isolate investment performance.
+              """)
         }
 
         Picker("Period", selection: $growthRatePeriod) {
@@ -165,12 +198,12 @@ struct DashboardView: View {
         }
         .pickerStyle(.segmented)
 
-        Text(
-          viewModel.growthRate(for: growthRatePeriod).map { ($0 * 100).formattedPercentage() }
-            ?? "N/A"
-        )
-        .font(.title3.bold())
-        .monospacedDigit()
+        let growthValue = viewModel.growthRate(for: growthRatePeriod)
+        Text(growthValue.map { ($0 * 100).formattedPercentage() } ?? "N/A")
+          .font(.title3.bold())
+          .monospacedDigit()
+          .foregroundStyle(rateColor(for: growthValue))
+          .contentTransition(.numericText())
       }
       .padding()
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -187,8 +220,13 @@ struct DashboardView: View {
             .font(.caption2)
             .foregroundStyle(.tertiary)
             .help(
-              "Return rate uses the Modified Dietz method to calculate a cash-flow adjusted return, isolating actual investment performance by accounting for the timing and magnitude of deposits and withdrawals."
-            )
+              """
+              Return rate uses the Modified Dietz method \
+              to calculate a cash-flow adjusted return, \
+              isolating actual investment performance by \
+              accounting for the timing and magnitude of \
+              deposits and withdrawals.
+              """)
         }
 
         Picker("Period", selection: $returnRatePeriod) {
@@ -198,12 +236,12 @@ struct DashboardView: View {
         }
         .pickerStyle(.segmented)
 
-        Text(
-          viewModel.returnRate(for: returnRatePeriod).map { ($0 * 100).formattedPercentage() }
-            ?? "N/A"
-        )
-        .font(.title3.bold())
-        .monospacedDigit()
+        let returnValue = viewModel.returnRate(for: returnRatePeriod)
+        Text(returnValue.map { ($0 * 100).formattedPercentage() } ?? "N/A")
+          .font(.title3.bold())
+          .monospacedDigit()
+          .foregroundStyle(rateColor(for: returnValue))
+          .contentTransition(.numericText())
       }
       .padding()
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -302,9 +340,11 @@ struct DashboardView: View {
                 .clipShape(Capsule())
                 .accessibilityLabel("\(snapshot.assetCount) assets")
             }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
             .contentShape(Rectangle())
           }
-          .buttonStyle(.plain)
+          .buttonStyle(SnapshotRowButtonStyle())
 
           if snapshot.date != viewModel.recentSnapshots.last?.date {
             Divider()
@@ -315,6 +355,44 @@ struct DashboardView: View {
     .padding()
     .background(.fill.quaternary)
     .clipShape(RoundedRectangle(cornerRadius: 8))
+  }
+}
+
+// MARK: - HeroMetricCard
+
+private struct HeroMetricCard: View {
+  let title: String
+  let value: String
+  var subtitle: String?
+  var subtitleColor: Color?
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text(title)
+        .font(.caption)
+        .foregroundStyle(.secondary)
+
+      Text(value)
+        .font(.title2.bold())
+        .monospacedDigit()
+        .lineLimit(1)
+        .contentTransition(.numericText())
+
+      if let subtitle {
+        Text(subtitle)
+          .font(.callout)
+          .foregroundStyle(subtitleColor ?? .secondary)
+          .contentTransition(.numericText())
+      }
+    }
+    .padding()
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(.tint.opacity(0.06))
+    .clipShape(RoundedRectangle(cornerRadius: 8))
+    .overlay(
+      RoundedRectangle(cornerRadius: 8)
+        .strokeBorder(.tint.opacity(0.15), lineWidth: 1)
+    )
   }
 }
 
@@ -344,6 +422,7 @@ private struct MetricCard: View {
         .font(.title3.bold())
         .monospacedDigit()
         .lineLimit(1)
+        .contentTransition(.numericText())
 
       // Always reserve space for subtitle line to ensure equal card heights in LazyVGrid
       Text(subtitle ?? " ")
@@ -356,6 +435,23 @@ private struct MetricCard: View {
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(.fill.quaternary)
     .clipShape(RoundedRectangle(cornerRadius: 8))
+  }
+}
+
+// MARK: - SnapshotRowButtonStyle
+
+private struct SnapshotRowButtonStyle: ButtonStyle {
+  @State private var isHovered = false
+
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .background(
+        RoundedRectangle(cornerRadius: 4)
+          .fill(isHovered ? Color.primary.opacity(0.06) : Color.clear)
+      )
+      .onHover { hovering in
+        isHovered = hovering
+      }
   }
 }
 
