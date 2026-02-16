@@ -2,7 +2,7 @@
 
 ## Overview
 
-AssetFlow is a macOS desktop application (macOS 14.0+) for snapshot-based portfolio management and asset allocation tracking. It is built with SwiftUI, SwiftData, and Swift Charts, following a local-first architecture with no network dependencies.
+AssetFlow is a macOS desktop application (macOS 15.0+) for snapshot-based portfolio management and asset allocation tracking. It is built with SwiftUI, SwiftData, and Swift Charts, following a local-first architecture with no network dependencies.
 
 ## Architecture Pattern
 
@@ -260,7 +260,7 @@ struct AssetFlowApp: App {
 
 ### macOS Only (v1)
 
-**Platform**: macOS 14.0+
+**Platform**: macOS 15.0+
 
 - Full-featured desktop application
 - Sidebar navigation with list-detail split views
@@ -408,7 +408,7 @@ See [TestingStrategy.md](TestingStrategy.md) for comprehensive testing approach.
 
 ### Targets
 
-- **AssetFlow (macOS)**: Desktop application (macOS 14.0+)
+- **AssetFlow (macOS)**: Desktop application (macOS 15.0+)
 
 ### Build Schemes
 

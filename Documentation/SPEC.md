@@ -28,7 +28,7 @@ A macOS desktop application for long-term asset allocation management.
 - Deterministic rebalancing calculations
 - Structured CSV import workflow
 
-**Platform scope (v1):** macOS only (macOS 14.0+)
+**Platform scope (v1):** macOS only (macOS 15.0+)
 
 ______________________________________________________________________
 
@@ -923,7 +923,7 @@ ______________________________________________________________________
 
 ### Platform
 
-- macOS 14.0+
+- macOS 15.0+
 - SwiftUI
 - Local storage only (no network, no cloud)
 

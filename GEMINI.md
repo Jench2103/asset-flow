@@ -6,13 +6,13 @@ This file provides guidance to Gemini when working with code in this repository.
 
 ## Project Overview
 
-AssetFlow is a multi-platform personal asset allocation and investment tracking application. Platform priority: macOS (primary) → iOS → iPadOS.
+AssetFlow is a macOS desktop application for snapshot-based portfolio management and asset allocation tracking.
 
 **Tech Stack:**
 
 - Swift with SwiftUI
 - SwiftData for persistence
-- Minimum targets: macOS 14.0+, iOS 17.0+, iPadOS 17.0+
+- **Platform**: macOS 15.0+ only
 
 ## Build Commands
 
@@ -148,17 +148,9 @@ This project uses `swift-format` for code formatting and `SwiftLint` for linting
 //
 ```
 
-**Platform-Specific Code:**
+**macOS-Only:**
 
-```swift
-#if os(macOS)
-    // macOS-specific code
-#endif
-
-#if os(iOS)
-    // iOS-specific code
-#endif
-```
+AssetFlow targets macOS 15.0+ only. No `#if os(iOS)` or `#if os(iPadOS)` compiler directives are needed.
 
 ## Code Quality and Linting
 

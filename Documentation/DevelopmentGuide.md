@@ -7,7 +7,7 @@
 Before you begin development, ensure you have the following installed:
 
 - **Xcode 15.0+** (with Command Line Tools)
-- **macOS 14.0+** (for development and running the app)
+- **macOS 15.0+** (for development and running the app)
 - **Git** (for version control)
 - **Homebrew** (recommended for tool installation)
 
@@ -267,7 +267,7 @@ ______________________________________________________________________
 
 ## macOS Development
 
-**Target**: macOS 14.0+
+**Target**: macOS 15.0+
 
 **Key Considerations**:
 

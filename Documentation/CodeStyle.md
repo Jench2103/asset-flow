@@ -439,7 +439,7 @@ ______________________________________________________________________
 
 ## macOS-Specific Code
 
-AssetFlow targets macOS only (14.0+). No `#if os(iOS)` or `#if os(iPadOS)` compiler directives are needed.
+AssetFlow targets macOS only (15.0+). No `#if os(iOS)` or `#if os(iPadOS)` compiler directives are needed.
 
 ```swift
 // macOS window configuration

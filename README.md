@@ -15,7 +15,7 @@ AssetFlow helps you:
 
 ## Platform Support
 
-- **macOS 14.0+** — Full-featured desktop application (local-only, no network dependencies)
+- **macOS 15.0+** — Full-featured desktop application (local-only, no network dependencies)
 
 ## Tech Stack
 
@@ -23,7 +23,7 @@ AssetFlow helps you:
 - **UI Framework**: SwiftUI
 - **Data Persistence**: SwiftData
 - **Data Visualization**: Swift Charts
-- **Minimum Deployment Target**: macOS 14.0+
+- **Minimum Deployment Target**: macOS 15.0+
 
 ## Project Structure
 
@@ -41,8 +41,8 @@ AssetFlow/
 
 ### Prerequisites
 
-- Xcode 26.0 or later
-- macOS 26.0 or later
+- Xcode 16.0 or later
+- macOS 15.0 or later (for development)
 - [swift-format](https://github.com/swiftlang/swift-format/tree/main)
 - [SwiftLint](https://github.com/realm/SwiftLint/tree/main)
 

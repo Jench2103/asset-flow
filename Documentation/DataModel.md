@@ -2,7 +2,7 @@
 
 ## Overview
 
-AssetFlow uses SwiftData for type-safe, modern data persistence on macOS 14.0+. The data model is designed around a **snapshot-based portfolio tracking** approach, where portfolio state is captured at discrete points in time rather than derived from transaction history.
+AssetFlow uses SwiftData for type-safe, modern data persistence on macOS 15.0+. The data model is designed around a **snapshot-based portfolio tracking** approach, where portfolio state is captured at discrete points in time rather than derived from transaction history.
 
 This document provides comprehensive documentation for all data models, including property definitions, relationships, uniqueness constraints, SwiftData configuration, validation rules, and usage examples.
 
