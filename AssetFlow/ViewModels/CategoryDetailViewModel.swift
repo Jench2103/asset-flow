@@ -10,14 +10,14 @@ import SwiftData
 
 /// Value history entry for a category's total value at a snapshot date.
 struct CategoryValueHistoryEntry: Identifiable {
-  let id = UUID()
+  var id: String { "\(date.timeIntervalSince1970)-\(totalValue)" }
   let date: Date
   let totalValue: Decimal
 }
 
 /// Allocation history entry for a category's allocation percentage at a snapshot date.
 struct CategoryAllocationHistoryEntry: Identifiable {
-  let id = UUID()
+  var id: String { "\(date.timeIntervalSince1970)-\(allocationPercentage)" }
   let date: Date
   let allocationPercentage: Decimal
 }

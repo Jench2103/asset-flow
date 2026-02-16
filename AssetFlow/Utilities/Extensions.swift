@@ -14,13 +14,25 @@ extension Decimal {
     NSDecimalNumber(decimal: self).doubleValue
   }
 
+  private static var currencyFormatters: [String: NumberFormatter] = [:]
+
   func formatted(currency: String = "USD", locale: Locale = .current) -> String {
-    let formatter = NumberFormatter()
-    formatter.numberStyle = .currency
-    formatter.currencyCode = currency
-    formatter.locale = locale
+    let key = "\(currency)-\(locale.identifier)"
+    let formatter: NumberFormatter
+    if let cached = Self.currencyFormatters[key] {
+      formatter = cached
+    } else {
+      let f = NumberFormatter()
+      f.numberStyle = .currency
+      f.currencyCode = currency
+      f.locale = locale
+      Self.currencyFormatters[key] = f
+      formatter = f
+    }
     return formatter.string(from: NSDecimalNumber(decimal: self)) ?? "\(self)"
   }
+
+  private static var percentageFormatters: [Int: NumberFormatter] = [:]
 
   /// Formats a percentage value for display.
   ///
@@ -35,10 +47,17 @@ extension Decimal {
   /// - Parameter decimals: Number of decimal places (default: 2)
   /// - Returns: Formatted percentage string
   func formattedPercentage(decimals: Int = 2) -> String {
-    let formatter = NumberFormatter()
-    formatter.numberStyle = .percent
-    formatter.minimumFractionDigits = decimals
-    formatter.maximumFractionDigits = decimals
+    let formatter: NumberFormatter
+    if let cached = Self.percentageFormatters[decimals] {
+      formatter = cached
+    } else {
+      let f = NumberFormatter()
+      f.numberStyle = .percent
+      f.minimumFractionDigits = decimals
+      f.maximumFractionDigits = decimals
+      Self.percentageFormatters[decimals] = f
+      formatter = f
+    }
     return formatter.string(from: NSDecimalNumber(decimal: self / 100)) ?? "\(self)%"
   }
 }
@@ -98,19 +117,38 @@ extension String {
 
 // MARK: - Date Extensions
 extension Date {
+  private static var dateStyleFormatters: [DateFormatter.Style: DateFormatter] = [:]
+
   func formatted(style: DateFormatter.Style = .medium) -> String {
-    let formatter = DateFormatter()
-    formatter.dateStyle = style
-    formatter.timeStyle = .none
+    let formatter: DateFormatter
+    if let cached = Self.dateStyleFormatters[style] {
+      formatter = cached
+    } else {
+      let f = DateFormatter()
+      f.dateStyle = style
+      f.timeStyle = .none
+      Self.dateStyleFormatters[style] = f
+      formatter = f
+    }
     return formatter.string(from: self)
   }
+
+  private static var dateTimeFormatters: [String: DateFormatter] = [:]
 
   func formattedWithTime(
     dateStyle: DateFormatter.Style = .medium, timeStyle: DateFormatter.Style = .short
   ) -> String {
-    let formatter = DateFormatter()
-    formatter.dateStyle = dateStyle
-    formatter.timeStyle = timeStyle
+    let key = "\(dateStyle.rawValue)-\(timeStyle.rawValue)"
+    let formatter: DateFormatter
+    if let cached = Self.dateTimeFormatters[key] {
+      formatter = cached
+    } else {
+      let f = DateFormatter()
+      f.dateStyle = dateStyle
+      f.timeStyle = timeStyle
+      Self.dateTimeFormatters[key] = f
+      formatter = f
+    }
     return formatter.string(from: self)
   }
 

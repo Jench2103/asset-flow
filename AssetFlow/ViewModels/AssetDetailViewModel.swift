@@ -10,7 +10,7 @@ import SwiftData
 
 /// Value history entry for an asset's recorded market value at a snapshot date.
 struct AssetValueHistoryEntry: Identifiable {
-  let id = UUID()
+  var id: String { "\(date.timeIntervalSince1970)-\(marketValue)" }
   let date: Date
   let marketValue: Decimal
 }

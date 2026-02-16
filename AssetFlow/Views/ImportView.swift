@@ -14,12 +14,12 @@ import UniformTypeIdentifiers
 /// Occupies the full content area without a list-detail split (SPEC Section 3.1).
 struct ImportView: View {
   @State var viewModel: ImportViewModel
-  @State var showFileImporter = false
-  @State var showDiscardAlert = false
-  @State var newPlatformName = ""
-  @State var showNewPlatformField = false
-  @State var newCategoryName = ""
-  @State var showNewCategoryField = false
+  @State private var showFileImporter = false
+  @State private var showDiscardAlert = false
+  @State private var newPlatformName = ""
+  @State private var showNewPlatformField = false
+  @State private var newCategoryName = ""
+  @State private var showNewCategoryField = false
 
   init(viewModel: ImportViewModel) {
     _viewModel = State(wrappedValue: viewModel)
