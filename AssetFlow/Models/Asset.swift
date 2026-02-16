@@ -10,122 +10,60 @@ import SwiftData
 
 @Model
 final class Asset {
+  #Unique<Asset>([\.name, \.platform])
+
   var id: UUID
   var name: String
-  var assetType: AssetType
-  var currency: String
-  var notes: String?
+  var platform: String
 
-  // Relationships
-  @Relationship
-  var portfolio: Portfolio?
+  @Relationship(deleteRule: .nullify)
+  var category: Category?
 
-  @Relationship(deleteRule: .cascade, inverse: \Transaction.asset)
-  var transactions: [Transaction]?
-
-  @Relationship(deleteRule: .cascade, inverse: \PriceHistory.asset)
-  var priceHistory: [PriceHistory]?
+  @Relationship(deleteRule: .deny, inverse: \SnapshotAssetValue.asset)
+  var snapshotAssetValues: [SnapshotAssetValue]?
 
   init(
-    id: UUID = UUID(),
     name: String,
-    assetType: AssetType,
-    currency: String = "USD",
-    notes: String? = nil,
-    portfolio: Portfolio? = nil
+    platform: String = ""
   ) {
-    self.id = id
+    self.id = UUID()
     self.name = name
-    self.assetType = assetType
-    self.currency = currency
-    self.notes = notes
-    self.portfolio = portfolio
+    self.platform = platform
+    self.category = nil
+    self.snapshotAssetValues = []
   }
 
-  // Computed Properties
-  //
-  // Note: These computed properties chain together (e.g., currentValue uses quantity
-  // and currentPrice; costBasis uses averageCost which iterates transactions twice).
-  // Accessing a high-level property like unrealizedGainLoss triggers up to 5-6 full
-  // iterations over the transactions/priceHistory arrays. This is acceptable for MVP
-  // dataset sizes but should be revisited with caching or snapshotting if performance
-  // degrades with large portfolios. See Documentation/Architecture.md for details.
-
-  /// Current quantity held, calculated from transactions
-  var quantity: Decimal {
-    transactions?.reduce(0) { $0 + $1.quantityImpact } ?? 0
+  /// Normalized identity for case-insensitive matching.
+  ///
+  /// Applies the SPEC Section 6.1 normalization:
+  /// 1. Trim leading and trailing whitespace
+  /// 2. Collapse multiple consecutive spaces to a single space
+  /// 3. Lowercased for case-insensitive comparison
+  var normalizedName: String {
+    name
+      .trimmingCharacters(in: .whitespaces)
+      .replacingOccurrences(
+        of: "\\s+",
+        with: " ",
+        options: .regularExpression
+      )
+      .lowercased()
   }
 
-  /// The most recent price from price history
-  var currentPrice: Decimal {
-    priceHistory?.max(by: { $0.date < $1.date })?.price ?? 0
+  /// Normalized platform for case-insensitive matching.
+  var normalizedPlatform: String {
+    platform
+      .trimmingCharacters(in: .whitespaces)
+      .replacingOccurrences(
+        of: "\\s+",
+        with: " ",
+        options: .regularExpression
+      )
+      .lowercased()
   }
 
-  /// The date of the most recent price from price history
-  var currentPriceDate: Date? {
-    priceHistory?.max(by: { $0.date < $1.date })?.date
-  }
-
-  /// Current total value of the asset
-  var currentValue: Decimal {
-    quantity * currentPrice
-  }
-
-  /// Average cost per unit, calculated from buy transactions
-  var averageCost: Decimal {
-    let totalCost =
-      transactions?.filter { $0.transactionType == .buy }.reduce(0) { $0 + $1.totalAmount } ?? 0
-    let totalQuantity =
-      transactions?.filter { $0.transactionType == .buy }.reduce(0) { $0 + $1.quantity } ?? 0
-    return totalQuantity > 0 ? totalCost / totalQuantity : 0
-  }
-
-  /// Total cost basis for current holdings
-  var costBasis: Decimal {
-    averageCost * quantity
-  }
-
-  /// Unrealized gain or loss: current market value minus total cost basis
-  var unrealizedGainLoss: Decimal {
-    currentValue - costBasis
-  }
-
-  /// Unrealized gain/loss as a percentage of cost basis
-  var unrealizedGainLossPercentage: Decimal {
-    costBasis > 0 ? (unrealizedGainLoss / costBasis) * 100 : 0
-  }
-
-  /// Whether this asset is locked from editing type/currency
-  /// Assets are locked if they have any associated transactions or price history
-  var isLocked: Bool {
-    (transactions?.isEmpty == false) || (priceHistory?.isEmpty == false)
-  }
-}
-
-enum AssetType: String, Codable, CaseIterable {
-  case stock = "Stock"
-  case bond = "Bond"
-  case crypto = "Cryptocurrency"
-  case realEstate = "Real Estate"
-  case commodity = "Commodity"
-  case cash = "Cash"
-  case mutualFund = "Mutual Fund"
-  case etf = "ETF"
-  case other = "Other"
-}
-
-extension AssetType {
-  var localizedName: String {
-    switch self {
-    case .stock: return String(localized: "Stock")
-    case .bond: return String(localized: "Bond")
-    case .crypto: return String(localized: "Cryptocurrency")
-    case .realEstate: return String(localized: "Real Estate")
-    case .commodity: return String(localized: "Commodity")
-    case .cash: return String(localized: "Cash")
-    case .mutualFund: return String(localized: "Mutual Fund")
-    case .etf: return String(localized: "ETF")
-    case .other: return String(localized: "Other")
-    }
+  /// Combined normalized identity tuple for matching.
+  var normalizedIdentity: String {
+    "\(normalizedName)|\(normalizedPlatform)"
   }
 }

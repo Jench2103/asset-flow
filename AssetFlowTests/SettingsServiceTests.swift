@@ -18,104 +18,122 @@ struct SettingsServiceTests {
 
   @Test("Default main currency is USD when storage is empty")
   func testDefaultMainCurrencyIsUSD() {
-    // Arrange & Act - each test gets fresh isolated storage
     let service = SettingsService.createForTesting()
-
-    // Assert
     #expect(service.mainCurrency == "USD")
-  }
-
-  @Test("Default financial goal is nil when storage is empty")
-  func testDefaultFinancialGoalIsNil() {
-    // Arrange & Act
-    let service = SettingsService.createForTesting()
-
-    // Assert
-    #expect(service.financialGoal == nil)
   }
 
   // MARK: - Main Currency Persistence
 
   @Test("Setting main currency persists the value")
   func testMainCurrencyPersists() {
-    // Arrange
     let service = SettingsService.createForTesting()
-
-    // Act
     service.mainCurrency = "EUR"
-
-    // Assert - value is updated in service
     #expect(service.mainCurrency == "EUR")
   }
 
   @Test("Main currency changes are observable")
   func testMainCurrencyChangesAreObservable() {
-    // Arrange
     let service = SettingsService.createForTesting()
-
-    // Act
     service.mainCurrency = "JPY"
     service.mainCurrency = "GBP"
-
-    // Assert
     #expect(service.mainCurrency == "GBP")
   }
 
-  // MARK: - Financial Goal Persistence
+  // MARK: - Date Format
 
-  @Test("Setting financial goal persists the value")
-  func testFinancialGoalPersists() throws {
-    // Arrange
+  @Test("Default dateFormat is .abbreviated")
+  func testDefaultDateFormatIsAbbreviated() {
     let service = SettingsService.createForTesting()
-    let testValue = try #require(Decimal(string: "100000.50"))
-
-    // Act
-    service.financialGoal = testValue
-
-    // Assert
-    #expect(service.financialGoal == testValue)
+    #expect(service.dateFormat == .abbreviated)
   }
 
-  @Test("Setting financial goal to nil clears the value")
-  func testClearingFinancialGoal() {
-    // Arrange
+  @Test("Setting dateFormat persists the value")
+  func testDateFormatPersists() {
     let service = SettingsService.createForTesting()
-    service.financialGoal = Decimal(10000)
-
-    // Act
-    service.financialGoal = nil
-
-    // Assert
-    #expect(service.financialGoal == nil)
+    service.dateFormat = .long
+    #expect(service.dateFormat == .long)
   }
 
-  @Test("Financial goal preserves Decimal precision")
-  func testFinancialGoalPreservesDecimalPrecision() throws {
-    // Arrange
+  @Test("dateFormat changes are observable")
+  func testDateFormatChangesAreObservable() {
     let service = SettingsService.createForTesting()
-    let preciseValue = try #require(Decimal(string: "123456.789012345"))
+    service.dateFormat = .numeric
+    service.dateFormat = .complete
+    #expect(service.dateFormat == .complete)
+  }
 
-    // Act
-    service.financialGoal = preciseValue
+  // MARK: - Default Platform
 
-    // Assert
-    #expect(service.financialGoal == preciseValue)
+  @Test("Default platform is empty string")
+  func testDefaultPlatformIsEmptyString() {
+    let service = SettingsService.createForTesting()
+    #expect(service.defaultPlatform == "")
+  }
+
+  @Test("Setting defaultPlatform persists the value")
+  func testDefaultPlatformPersists() {
+    let service = SettingsService.createForTesting()
+    service.defaultPlatform = "Interactive Brokers"
+    #expect(service.defaultPlatform == "Interactive Brokers")
+  }
+
+  @Test("defaultPlatform changes are observable")
+  func testDefaultPlatformChangesAreObservable() {
+    let service = SettingsService.createForTesting()
+    service.defaultPlatform = "Schwab"
+    service.defaultPlatform = "Firstrade"
+    #expect(service.defaultPlatform == "Firstrade")
   }
 
   // MARK: - Test Isolation
 
   @Test("Each test instance has isolated storage")
   func testIsolatedStorage() {
-    // Arrange - create two independent services
     let service1 = SettingsService.createForTesting()
     let service2 = SettingsService.createForTesting()
 
-    // Act - modify service1
     service1.mainCurrency = "EUR"
-    service1.financialGoal = Decimal(999999)
 
-    // Assert - service2 should have default values (isolated)
     #expect(service2.mainCurrency == "USD")
-    #expect(service2.financialGoal == nil)
+  }
+
+  @Test("Isolated storage for dateFormat across instances")
+  func testIsolatedDateFormatStorage() {
+    let service1 = SettingsService.createForTesting()
+    let service2 = SettingsService.createForTesting()
+
+    service1.dateFormat = .complete
+
+    #expect(service2.dateFormat == .abbreviated)
+  }
+
+  @Test("Isolated storage for defaultPlatform across instances")
+  func testIsolatedDefaultPlatformStorage() {
+    let service1 = SettingsService.createForTesting()
+    let service2 = SettingsService.createForTesting()
+
+    service1.defaultPlatform = "Schwab"
+
+    #expect(service2.defaultPlatform == "")
+  }
+
+  // MARK: - DateFormatStyle
+
+  @Test("DateFormatStyle has 4 cases with stable raw values")
+  func testDateFormatStyleCases() {
+    let allCases = DateFormatStyle.allCases
+    #expect(allCases.count == 4)
+    #expect(DateFormatStyle.numeric.rawValue == "numeric")
+    #expect(DateFormatStyle.abbreviated.rawValue == "abbreviated")
+    #expect(DateFormatStyle.long.rawValue == "long")
+    #expect(DateFormatStyle.complete.rawValue == "complete")
+  }
+
+  @Test("DateFormatStyle maps to Date.FormatStyle.DateStyle")
+  func testDateFormatStyleMapsToDateStyle() {
+    #expect(DateFormatStyle.numeric.dateStyle == .numeric)
+    #expect(DateFormatStyle.abbreviated.dateStyle == .abbreviated)
+    #expect(DateFormatStyle.long.dateStyle == .long)
+    #expect(DateFormatStyle.complete.dateStyle == .complete)
   }
 }

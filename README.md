@@ -1,40 +1,38 @@
 # AssetFlow
 
-A comprehensive personal asset allocation monitoring and investment planning application for macOS, iOS, and iPadOS.
+A macOS desktop application for snapshot-based portfolio management and asset allocation tracking.
 
 ## Overview
 
 AssetFlow helps you:
 
-- Monitor personal asset allocation across different investment vehicles
-- Record and manage investment planning strategies
-- Track investment effectiveness and performance over time
-- Visualize portfolio composition and trends
+- Track portfolio value over time with snapshot-based recording
+- Import asset data from multiple platforms via CSV
+- Manage asset categories with target allocation percentages
+- Analyze portfolio-level returns (Modified Dietz, TWR, CAGR)
+- Calculate rebalancing actions to reach target allocations
+- Visualize allocation trends and portfolio growth
 
 ## Platform Support
 
-- **macOS** (Primary) - Full-featured desktop application
-- **iOS** - Mobile companion app
-- **iPadOS** - Optimized tablet experience
+- **macOS 15.0+** — Full-featured desktop application (local-only, no network dependencies)
 
 ## Tech Stack
 
 - **Language**: Swift
 - **UI Framework**: SwiftUI
 - **Data Persistence**: SwiftData
-- **Minimum Deployment Targets**:
-  - macOS 14.0+
-  - iOS 17.0+
-  - iPadOS 17.0+
+- **Data Visualization**: Swift Charts
+- **Minimum Deployment Target**: macOS 15.0+
 
 ## Project Structure
 
 ```
 AssetFlow/
-├── Models/          # Data models and entities
+├── Models/          # SwiftData models and entities
 ├── Views/           # SwiftUI views and UI components
 ├── ViewModels/      # View models and business logic
-├── Services/        # Data services and API integrations
+├── Services/        # Stateless calculation services
 ├── Utilities/       # Helper functions and extensions
 └── Resources/       # Assets, localization files
 ```
@@ -43,8 +41,8 @@ AssetFlow/
 
 ### Prerequisites
 
-- Xcode 26.0 or later
-- macOS 26.0 or later
+- Xcode 16.0 or later
+- macOS 15.0 or later (for development)
 - [swift-format](https://github.com/swiftlang/swift-format/tree/main)
 - [SwiftLint](https://github.com/realm/SwiftLint/tree/main)
 
@@ -91,20 +89,22 @@ Configurations for these tools can be found in `.swift-format` and `.swiftlint.y
 
 The application follows the MVVM (Model-View-ViewModel) architecture pattern:
 
-- **Models**: Define data structures and SwiftData schemas
+- **Models**: SwiftData models (Category, Asset, Snapshot, SnapshotAssetValue, CashFlowOperation)
 - **Views**: SwiftUI components for UI presentation
-- **ViewModels**: Business logic and state management
-- **Services**: Data operations and external integrations
+- **ViewModels**: `@Observable @MainActor` classes for business logic and state management
+- **Services**: Stateless calculation utilities (CarryForwardService, CSVParsingService, RebalancingCalculator)
 
-## Features (Planned)
+## Features
 
-- [ ] Multi-asset portfolio tracking
-- [ ] Investment planning tools
-- [ ] Performance analytics and reporting
-- [ ] Data visualization and charts
-- [ ] Multi-platform sync via iCloud
-- [ ] Export capabilities (PDF, CSV)
-- [ ] Security and encryption for sensitive data
+- Snapshot-based portfolio tracking with carry-forward for partial imports
+- CSV import for assets and cash flows with validation and duplicate detection
+- Category management with target allocation percentages
+- Portfolio-level return analysis (growth rate, Modified Dietz, cumulative TWR, CAGR)
+- Rebalancing calculator with suggested buy/sell actions
+- Data visualization with pie charts, line charts, and cumulative TWR charts
+- Backup and restore via ZIP archive
+- Settings for display currency, date format, and default platform
+- Localization support (English and Traditional Chinese)
 
 ## Contributing
 

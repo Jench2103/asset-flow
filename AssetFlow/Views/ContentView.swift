@@ -8,82 +8,110 @@
 import SwiftData
 import SwiftUI
 
-/// Main content view with sidebar navigation for macOS
+// MARK: - SidebarSection
+
+/// Sidebar navigation sections for the main app window.
+enum SidebarSection: String, CaseIterable, Identifiable {
+  case dashboard
+  case snapshots
+  case assets
+  case categories
+  case platforms
+  case rebalancing
+  case importCSV
+
+  var id: String { rawValue }
+
+  var label: String {
+    switch self {
+    case .dashboard: return String(localized: "Dashboard")
+    case .snapshots: return String(localized: "Snapshots")
+    case .assets: return String(localized: "Assets")
+    case .categories: return String(localized: "Categories")
+    case .platforms: return String(localized: "Platforms")
+    case .rebalancing: return String(localized: "Rebalancing")
+    case .importCSV: return String(localized: "Import CSV")
+    }
+  }
+
+  var systemImage: String {
+    switch self {
+    case .dashboard: return "chart.bar"
+    case .snapshots: return "calendar"
+    case .assets: return "tray"
+    case .categories: return "folder"
+    case .platforms: return "building.columns"
+    case .rebalancing: return "chart.bar.doc.horizontal"
+    case .importCSV: return "square.and.arrow.down"
+    }
+  }
+}
+
+// MARK: - ContentView
+
+/// Root navigation shell with sidebar and detail pane.
 ///
-/// Provides sidebar navigation with:
-/// - Overview (default page)
-/// - All Portfolios collection
-/// - Individual portfolio items
+/// Provides a 7-section sidebar (Dashboard, Snapshots, Assets, Categories,
+/// Platforms, Rebalancing, Import CSV) with list-detail splits for Snapshots,
+/// Assets, and Categories. Manages import discard confirmation and post-import
+/// navigation to the created snapshot.
 struct ContentView: View {
   @Environment(\.modelContext) private var modelContext
-  @Query(sort: \Portfolio.name) private var portfolios: [Portfolio]
 
-  @State private var selectedSidebarItem: SidebarItem? = .overview
-  @State private var portfolioToEdit: Portfolio?
-  @State private var viewModel: PortfolioManagementViewModel?
+  @State private var selectedSection: SidebarSection? = .dashboard
+  @State private var selectedSnapshot: Snapshot?
+  @State private var selectedAsset: Asset?
+  @State private var selectedCategory: Category?
 
-  init() {
-    // ViewModel will be initialized in body when modelContext is available
-  }
+  @State private var importViewModel: ImportViewModel?
+  @State private var pendingSection: SidebarSection?
+  @State private var showDiscardConfirmation = false
 
   var body: some View {
     NavigationSplitView {
-      // Sidebar
       sidebar
+        .navigationTitle("AssetFlow")
+        .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 260)
     } detail: {
-      // Detail view based on selection
-      NavigationStack {
-        detailView
+      detailPane
+    }
+    .frame(minWidth: 900, minHeight: 600)
+    .toolbar {
+      ToolbarItem(placement: .automatic) {
+        Button {
+          navigateToImport()
+        } label: {
+          Label("Import CSV", systemImage: "square.and.arrow.down")
+        }
+      }
+    }
+    .confirmationDialog(
+      "Discard import?",
+      isPresented: $showDiscardConfirmation
+    ) {
+      Button("Discard", role: .destructive) {
+        importViewModel?.reset()
+        if let pending = pendingSection {
+          selectedSection = pending
+          pendingSection = nil
+        }
+      }
+      Button("Cancel", role: .cancel) {
+        pendingSection = nil
+      }
+    } message: {
+      Text("The selected file has not been imported yet.")
+    }
+    .onChange(of: importViewModel?.importedSnapshot?.id) { _, newValue in
+      if newValue != nil, let snapshot = importViewModel?.importedSnapshot {
+        selectedSection = .snapshots
+        selectedSnapshot = snapshot
+        importViewModel?.importedSnapshot = nil
       }
     }
     .onAppear {
-      // Initialize viewModel when modelContext becomes available
-      if viewModel == nil {
-        viewModel = PortfolioManagementViewModel(modelContext: modelContext)
-      }
-    }
-    .sheet(item: $portfolioToEdit) { portfolio in
-      NavigationStack {
-        let formViewModel = PortfolioFormViewModel(modelContext: modelContext, portfolio: portfolio)
-        PortfolioFormView(viewModel: formViewModel)
-      }
-    }
-    .alert(
-      "Delete Portfolio?",
-      isPresented: Binding(
-        get: { viewModel?.showingDeleteConfirmation ?? false },
-        set: { if !$0 { viewModel?.cancelDelete() } }
-      ),
-      presenting: viewModel?.portfolioToDelete
-    ) { _ in
-      Button("Cancel", role: .cancel) {
-        viewModel?.cancelDelete()
-      }
-      Button("Delete", role: .destructive) {
-        viewModel?.confirmDelete()
-      }
-    } message: { portfolio in
-      Text("Are you sure you want to delete '\(portfolio.name)'? This action cannot be undone.")
-    }
-    .alert(
-      "Cannot Delete Portfolio",
-      isPresented: Binding(
-        get: { viewModel?.showingDeletionError ?? false },
-        set: { if !$0 { viewModel?.deletionError = nil } }
-      ),
-      presenting: viewModel?.deletionError
-    ) { _ in
-      Button("OK", role: .cancel) {
-        viewModel?.deletionError = nil
-      }
-    } message: { error in
-      VStack {
-        if let description = error.errorDescription {
-          Text(description)
-        }
-        if let suggestion = error.recoverySuggestion {
-          Text("\n\(suggestion)")
-        }
+      if importViewModel == nil {
+        importViewModel = ImportViewModel(modelContext: modelContext)
       }
     }
   }
@@ -91,137 +119,212 @@ struct ContentView: View {
   // MARK: - Sidebar
 
   private var sidebar: some View {
-    List(selection: $selectedSidebarItem) {
-      // Overview section
-      Section {
-        NavigationLink(value: SidebarItem.overview) {
-          Label("Overview", systemImage: "chart.pie.fill")
-        }
-        .accessibilityIdentifier("Overview Sidebar Item")
+    List(selection: sidebarBinding) {
+      Section("Overview") {
+        Label(SidebarSection.dashboard.label, systemImage: SidebarSection.dashboard.systemImage)
+          .tag(SidebarSection.dashboard)
       }
-
-      // Portfolios section
-      Section("Portfolios") {
-        ForEach(portfolios) { portfolio in
-          NavigationLink(value: SidebarItem.portfolio(portfolio)) {
-            Label(portfolio.name, systemImage: "folder")
-          }
-          .accessibilityIdentifier("Portfolio Sidebar Item-\(portfolio.name)")
-          .contextMenu {
-            Button {
-              portfolioToEdit = portfolio
-            } label: {
-              Label("Edit Portfolio", systemImage: "pencil")
-            }
-            .accessibilityIdentifier("Edit Portfolio Sidebar Context Menu-\(portfolio.name)")
-
-            Button(role: .destructive) {
-              viewModel?.initiateDelete(portfolio: portfolio)
-            } label: {
-              Label("Delete Portfolio", systemImage: "trash")
-            }
-            .accessibilityIdentifier("Delete Portfolio Sidebar Context Menu-\(portfolio.name)")
-          }
+      Section("Portfolio") {
+        ForEach(
+          [SidebarSection.snapshots, .assets, .categories, .platforms], id: \.self
+        ) { section in
+          Label(section.label, systemImage: section.systemImage)
+            .tag(section)
         }
       }
-
-      // Settings section
-      Section {
-        NavigationLink(value: SidebarItem.settings) {
-          Label("Settings", systemImage: "gearshape")
+      Section("Tools") {
+        ForEach([SidebarSection.rebalancing, .importCSV], id: \.self) { section in
+          Label(section.label, systemImage: section.systemImage)
+            .tag(section)
         }
-        .accessibilityIdentifier("Settings Sidebar Item")
       }
     }
-    .navigationTitle("AssetFlow")
-    .accessibilityIdentifier("Sidebar")
   }
 
-  // MARK: - Detail View
+  /// Custom binding that intercepts sidebar selection changes to check for unsaved import data.
+  private var sidebarBinding: Binding<SidebarSection?> {
+    Binding(
+      get: { selectedSection },
+      set: { newSection in
+        guard newSection != selectedSection else { return }
+
+        // Check if navigating away from import with unsaved changes
+        if selectedSection == .importCSV,
+          importViewModel?.hasUnsavedChanges == true
+        {
+          pendingSection = newSection
+          showDiscardConfirmation = true
+        } else {
+          selectedSection = newSection
+        }
+      }
+    )
+  }
+
+  // MARK: - Detail Pane
 
   @ViewBuilder
-  private var detailView: some View {
-    if let selectedSidebarItem {
-      switch selectedSidebarItem {
-      case .overview:
-        OverviewView()
+  private var detailPane: some View {
+    switch selectedSection {
+    case .dashboard:
+      DashboardView(
+        modelContext: modelContext,
+        onNavigateToSnapshots: { selectedSection = .snapshots },
+        onNavigateToImport: { navigateToImport() },
+        onSelectSnapshot: { date in
+          navigateToSnapshotByDate(date)
+        },
+        onNavigateToCategory: { name in
+          navigateToCategoryByName(name)
+        }
+      )
 
-      case .portfolio(let portfolio):
-        let viewModel = PortfolioDetailViewModel(portfolio: portfolio, modelContext: modelContext)
-        let assetManagementViewModel = AssetManagementViewModel(modelContext: modelContext)
-        PortfolioDetailView(
-          viewModel: viewModel, assetManagementViewModel: assetManagementViewModel
+    case .snapshots:
+      HStack(spacing: 0) {
+        SnapshotListView(
+          modelContext: modelContext,
+          selectedSnapshot: $selectedSnapshot,
+          onNavigateToImport: { navigateToImport() }
         )
-        .id(portfolio.id)
+        .frame(minWidth: 250, idealWidth: 300)
 
-      case .settings:
-        SettingsView()
+        Divider()
+
+        if let snapshot = selectedSnapshot {
+          SnapshotDetailView(
+            snapshot: snapshot,
+            modelContext: modelContext,
+            onDelete: {
+              selectedSnapshot = nil
+            }
+          )
+          .id(snapshot.id)
+          .frame(maxWidth: .infinity)
+        } else {
+          placeholderText("Select a snapshot")
+        }
       }
-    } else {
-      // Default to overview if nothing selected
-      OverviewView()
+
+    case .assets:
+      HStack(spacing: 0) {
+        AssetListView(
+          modelContext: modelContext,
+          selectedAsset: $selectedAsset
+        )
+        .frame(minWidth: 250, idealWidth: 300)
+
+        Divider()
+
+        if let asset = selectedAsset {
+          AssetDetailView(
+            asset: asset,
+            modelContext: modelContext,
+            onDelete: {
+              selectedAsset = nil
+            }
+          )
+          .id(asset.id)
+          .frame(maxWidth: .infinity)
+        } else {
+          placeholderText("Select an asset")
+        }
+      }
+
+    case .categories:
+      HStack(spacing: 0) {
+        CategoryListView(
+          modelContext: modelContext,
+          selectedCategory: $selectedCategory
+        )
+        .frame(minWidth: 250, idealWidth: 300)
+
+        Divider()
+
+        if let category = selectedCategory {
+          CategoryDetailView(
+            category: category,
+            modelContext: modelContext,
+            onDelete: {
+              selectedCategory = nil
+            }
+          )
+          .id(category.id)
+          .frame(maxWidth: .infinity)
+        } else {
+          placeholderText("Select a category")
+        }
+      }
+
+    case .platforms:
+      PlatformListView(modelContext: modelContext)
+
+    case .rebalancing:
+      RebalancingView(modelContext: modelContext)
+
+    case .importCSV:
+      if let viewModel = importViewModel {
+        ImportView(viewModel: viewModel)
+      } else {
+        ProgressView()
+      }
+
+    case nil:
+      placeholderText("Select a section")
     }
   }
-}
 
-// MARK: - Sidebar Item
+  // MARK: - Helpers
 
-enum SidebarItem: Hashable {
-  case overview
-  case portfolio(Portfolio)
-  case settings
+  private func placeholderText(_ text: String) -> some View {
+    Text(text)
+      .font(.title2)
+      .foregroundStyle(.secondary)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+  }
 
-  // Make Portfolio hashable for this enum
-  func hash(into hasher: inout Hasher) {
-    switch self {
-    case .overview:
-      hasher.combine("overview")
+  /// Navigates to the import section, checking for unsaved changes if already there.
+  private func navigateToImport() {
+    // If already on import with unsaved changes, offer to discard and restart
+    if selectedSection == .importCSV,
+      importViewModel?.hasUnsavedChanges == true
+    {
+      pendingSection = .importCSV
+      showDiscardConfirmation = true
+      return
+    }
 
-    case .portfolio(let portfolio):
-      hasher.combine("portfolio")
-      hasher.combine(portfolio.id)
+    // If already on import without unsaved changes, nothing to do
+    if selectedSection == .importCSV { return }
 
-    case .settings:
-      hasher.combine("settings")
+    // Navigate to import
+    selectedSection = .importCSV
+  }
+
+  /// Navigates to a category by looking up its name.
+  /// Guards against "Uncategorized" which is not a real Category.
+  private func navigateToCategoryByName(_ name: String) {
+    guard name != "Uncategorized" else { return }
+
+    let descriptor = FetchDescriptor<Category>()
+    if let allCategories = try? modelContext.fetch(descriptor),
+      let match = allCategories.first(where: {
+        $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame
+      })
+    {
+      selectedSection = .categories
+      selectedCategory = match
     }
   }
 
-  static func == (lhs: SidebarItem, rhs: SidebarItem) -> Bool {
-    switch (lhs, rhs) {
-    case (.overview, .overview):
-      return true
-
-    case (.portfolio(let lhsPortfolio), .portfolio(let rhsPortfolio)):
-      return lhsPortfolio.id == rhsPortfolio.id
-
-    case (.settings, .settings):
-      return true
-
-    default:
-      return false
+  /// Navigates to a snapshot by looking up its date.
+  private func navigateToSnapshotByDate(_ date: Date) {
+    let targetDate = Calendar.current.startOfDay(for: date)
+    let descriptor = FetchDescriptor<Snapshot>()
+    if let allSnapshots = try? modelContext.fetch(descriptor),
+      let match = allSnapshots.first(where: { $0.date == targetDate })
+    {
+      selectedSection = .snapshots
+      selectedSnapshot = match
     }
   }
-}
-
-// MARK: - Previews
-
-#Preview("With Portfolios") {
-  let container = PreviewContainer.container
-  let context = container.mainContext
-
-  // Create sample portfolios
-  let tech = Portfolio(name: "Tech Stocks", portfolioDescription: "High-growth tech portfolio")
-  let realestate = Portfolio(name: "Real Estate", portfolioDescription: "Residential properties")
-  context.insert(tech)
-  context.insert(realestate)
-
-  return ContentView()
-    .modelContainer(container)
-}
-
-#Preview("Empty") {
-  let container = PreviewContainer.container
-
-  return ContentView()
-    .modelContainer(container)
 }

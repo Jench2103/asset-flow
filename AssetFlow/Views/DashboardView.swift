@@ -1,0 +1,466 @@
+//
+//  DashboardView.swift
+//  AssetFlow
+//
+//  Created by Claude on 2026/02/15.
+//
+
+import Charts
+import SwiftData
+import SwiftUI
+
+/// Dashboard home screen with portfolio metrics, performance, and interactive charts.
+///
+/// Provides a high-level overview of the portfolio including total value,
+/// value change, TWR, CAGR, period growth/return rates, interactive charts
+/// (category allocation, portfolio value, cumulative TWR, category value history),
+/// and recent snapshots.
+struct DashboardView: View {
+  @State private var viewModel: DashboardViewModel
+
+  @State private var growthRatePeriod: DashboardPeriod = .oneMonth
+  @State private var returnRatePeriod: DashboardPeriod = .oneMonth
+
+  @State private var portfolioChartRange: ChartTimeRange = .all
+  @State private var twrChartRange: ChartTimeRange = .all
+  @State private var categoryChartRange: ChartTimeRange = .all
+  @State private var pieChartSelectedDate: Date?
+
+  let onNavigateToSnapshots: (() -> Void)?
+  let onNavigateToImport: (() -> Void)?
+  let onSelectSnapshot: ((Date) -> Void)?
+  let onNavigateToCategory: ((String) -> Void)?
+
+  init(
+    modelContext: ModelContext,
+    onNavigateToSnapshots: (() -> Void)? = nil,
+    onNavigateToImport: (() -> Void)? = nil,
+    onSelectSnapshot: ((Date) -> Void)? = nil,
+    onNavigateToCategory: ((String) -> Void)? = nil
+  ) {
+    _viewModel = State(wrappedValue: DashboardViewModel(modelContext: modelContext))
+    self.onNavigateToSnapshots = onNavigateToSnapshots
+    self.onNavigateToImport = onNavigateToImport
+    self.onSelectSnapshot = onSelectSnapshot
+    self.onNavigateToCategory = onNavigateToCategory
+  }
+
+  var body: some View {
+    Group {
+      if viewModel.isEmpty {
+        emptyState
+      } else {
+        dashboardContent
+      }
+    }
+    .navigationTitle("Dashboard")
+    .animation(.default, value: viewModel.isEmpty)
+    .onAppear {
+      viewModel.loadData()
+    }
+  }
+
+  // MARK: - Empty State
+
+  private var emptyState: some View {
+    EmptyStateView(
+      icon: "chart.bar",
+      title: "Welcome to AssetFlow",
+      message: "Start tracking your portfolio by importing CSV data or creating a snapshot.",
+      actions: [
+        EmptyStateAction(label: "Import your first CSV", isPrimary: true) {
+          onNavigateToImport?()
+        }
+      ]
+    )
+  }
+
+  // MARK: - Dashboard Content
+
+  private var dashboardContent: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 20) {
+        summaryCardsRow
+        periodPerformanceRow
+        chartsSection
+        recentSnapshotsSection
+      }
+      .padding()
+    }
+  }
+
+  // MARK: - Summary Cards
+
+  private var summaryCardsRow: some View {
+    VStack(spacing: 12) {
+      // Hero card: Total Portfolio Value
+      HeroMetricCard(
+        title: "Total Portfolio Value",
+        value: viewModel.totalPortfolioValue.formatted(
+          currency: SettingsService.shared.mainCurrency),
+        subtitle: valueChangeSubtitle,
+        subtitleColor: valueChangeColor
+      )
+
+      // Secondary metrics grid
+      LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220))], spacing: 12) {
+        MetricCard(
+          title: "Latest Snapshot",
+          value: viewModel.latestSnapshotDate?.settingsFormatted()
+            ?? "\u{2014}",
+          subtitle: nil
+        )
+
+        MetricCard(
+          title: "Assets",
+          value: "\(viewModel.assetCount)",
+          subtitle: nil
+        )
+
+        MetricCard(
+          title: "Cumulative TWR",
+          value: viewModel.cumulativeTWR.map { ($0 * 100).formattedPercentage() } ?? "N/A",
+          subtitle: nil,
+          tooltipText: """
+            Time-weighted return measures pure investment \
+            performance by removing the effect of external \
+            cash flows (deposits and withdrawals).
+            """
+        )
+
+        MetricCard(
+          title: "CAGR",
+          value: viewModel.cagr.map { ($0 * 100).formattedPercentage() } ?? "N/A",
+          subtitle: nil,
+          tooltipText: """
+            CAGR is the annualized rate at which the \
+            portfolio's total value has grown since \
+            inception, including the effect of deposits \
+            and withdrawals. TWR measures pure investment \
+            performance by removing cash flow effects.
+            """
+        )
+      }
+    }
+  }
+
+  private var valueChangeSubtitle: String? {
+    guard let absolute = viewModel.valueChangeAbsolute,
+      let percentage = viewModel.valueChangePercentage
+    else { return nil }
+    let sign = absolute >= 0 ? "+" : ""
+    let currency = SettingsService.shared.mainCurrency
+    let pctStr = (percentage * 100).formattedPercentage()
+    return "\(sign)\(absolute.formatted(currency: currency)) (\(pctStr))"
+  }
+
+  private var valueChangeColor: Color? {
+    guard let absolute = viewModel.valueChangeAbsolute else { return nil }
+    if absolute > 0 { return .green }
+    if absolute < 0 { return .red }
+    return .secondary
+  }
+
+  private func rateColor(for value: Decimal?) -> Color {
+    guard let value else { return .primary }
+    if value > 0 { return .green }
+    if value < 0 { return .red }
+    return .primary
+  }
+
+  // MARK: - Period Performance
+
+  private var periodPerformanceRow: some View {
+    HStack(spacing: 12) {
+      // Growth Rate card
+      VStack(alignment: .leading, spacing: 8) {
+        HStack {
+          Text("Growth Rate")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+          Image(systemName: "info.circle")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .help(
+              """
+              Growth rate is the simple percentage change \
+              in portfolio value over the selected period, \
+              including the effect of deposits and \
+              withdrawals. Unlike Return Rate, it does not \
+              isolate investment performance.
+              """)
+        }
+
+        Picker("Period", selection: $growthRatePeriod) {
+          Text("1M").tag(DashboardPeriod.oneMonth)
+          Text("3M").tag(DashboardPeriod.threeMonths)
+          Text("1Y").tag(DashboardPeriod.oneYear)
+        }
+        .pickerStyle(.segmented)
+
+        let growthValue = viewModel.growthRate(for: growthRatePeriod)
+        Text(growthValue.map { ($0 * 100).formattedPercentage() } ?? "N/A")
+          .font(.title3.bold())
+          .monospacedDigit()
+          .foregroundStyle(rateColor(for: growthValue))
+          .contentTransition(.numericText())
+      }
+      .padding()
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(.fill.quaternary)
+      .clipShape(RoundedRectangle(cornerRadius: 8))
+
+      // Return Rate card
+      VStack(alignment: .leading, spacing: 8) {
+        HStack {
+          Text("Return Rate")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+          Image(systemName: "info.circle")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .help(
+              """
+              Return rate uses the Modified Dietz method \
+              to calculate a cash-flow adjusted return, \
+              isolating actual investment performance by \
+              accounting for the timing and magnitude of \
+              deposits and withdrawals.
+              """)
+        }
+
+        Picker("Period", selection: $returnRatePeriod) {
+          Text("1M").tag(DashboardPeriod.oneMonth)
+          Text("3M").tag(DashboardPeriod.threeMonths)
+          Text("1Y").tag(DashboardPeriod.oneYear)
+        }
+        .pickerStyle(.segmented)
+
+        let returnValue = viewModel.returnRate(for: returnRatePeriod)
+        Text(returnValue.map { ($0 * 100).formattedPercentage() } ?? "N/A")
+          .font(.title3.bold())
+          .monospacedDigit()
+          .foregroundStyle(rateColor(for: returnValue))
+          .contentTransition(.numericText())
+      }
+      .padding()
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(.fill.quaternary)
+      .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+  }
+
+  // MARK: - Charts Section
+
+  private var pieChartAllocations: [CategoryAllocationData] {
+    if let selectedDate = pieChartSelectedDate {
+      return viewModel.categoryAllocations(forSnapshotDate: selectedDate)
+    }
+    return viewModel.categoryAllocations
+  }
+
+  private var chartsSection: some View {
+    VStack(spacing: 12) {
+      // Row 1: Pie chart + Portfolio value line chart
+      HStack(alignment: .top, spacing: 12) {
+        CategoryAllocationPieChart(
+          allocations: pieChartAllocations,
+          snapshotDates: viewModel.snapshotDates,
+          selectedDate: $pieChartSelectedDate,
+          onSelectCategory: { name in
+            onNavigateToCategory?(name)
+          }
+        )
+
+        PortfolioValueLineChart(
+          dataPoints: viewModel.portfolioValueHistory,
+          timeRange: $portfolioChartRange,
+          onSelectSnapshot: { date in
+            onSelectSnapshot?(date)
+          }
+        )
+      }
+
+      // Row 2: TWR line chart + Category value line chart
+      HStack(alignment: .top, spacing: 12) {
+        CumulativeTWRLineChart(
+          dataPoints: viewModel.twrHistory,
+          totalSnapshotCount: viewModel.portfolioValueHistory.count,
+          timeRange: $twrChartRange
+        )
+
+        CategoryValueLineChart(
+          categoryHistory: viewModel.categoryValueHistory,
+          timeRange: $categoryChartRange
+        )
+      }
+    }
+  }
+
+  // MARK: - Recent Snapshots
+
+  private var recentSnapshotsSection: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack {
+        Text("Recent Snapshots")
+          .font(.headline)
+        Spacer()
+        Button("View All") {
+          onNavigateToSnapshots?()
+        }
+        .font(.callout)
+      }
+
+      if viewModel.recentSnapshots.isEmpty {
+        Text("No snapshots yet")
+          .foregroundStyle(.secondary)
+      } else {
+        ForEach(viewModel.recentSnapshots, id: \.date) { snapshot in
+          Button {
+            onSelectSnapshot?(snapshot.date)
+          } label: {
+            HStack {
+              Text(snapshot.date.settingsFormatted())
+                .font(.body)
+
+              Spacer()
+
+              Text(
+                snapshot.compositeTotal.formatted(currency: SettingsService.shared.mainCurrency)
+              )
+              .font(.body)
+              .monospacedDigit()
+
+              Text("\(snapshot.assetCount)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.quaternary)
+                .clipShape(Capsule())
+                .accessibilityLabel("\(snapshot.assetCount) assets")
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .contentShape(Rectangle())
+          }
+          .buttonStyle(SnapshotRowButtonStyle())
+
+          if snapshot.date != viewModel.recentSnapshots.last?.date {
+            Divider()
+          }
+        }
+      }
+    }
+    .padding()
+    .background(.fill.quaternary)
+    .clipShape(RoundedRectangle(cornerRadius: 8))
+  }
+}
+
+// MARK: - HeroMetricCard
+
+private struct HeroMetricCard: View {
+  let title: String
+  let value: String
+  var subtitle: String?
+  var subtitleColor: Color?
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text(title)
+        .font(.caption)
+        .foregroundStyle(.secondary)
+
+      Text(value)
+        .font(.title2.bold())
+        .monospacedDigit()
+        .lineLimit(1)
+        .contentTransition(.numericText())
+
+      if let subtitle {
+        Text(subtitle)
+          .font(.callout)
+          .foregroundStyle(subtitleColor ?? .secondary)
+          .contentTransition(.numericText())
+      }
+    }
+    .padding()
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(.tint.opacity(0.06))
+    .clipShape(RoundedRectangle(cornerRadius: 8))
+    .overlay(
+      RoundedRectangle(cornerRadius: 8)
+        .strokeBorder(.tint.opacity(0.15), lineWidth: 1)
+    )
+  }
+}
+
+// MARK: - MetricCard
+
+private struct MetricCard: View {
+  let title: String
+  let value: String
+  var subtitle: String?
+  var tooltipText: String?
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack(spacing: 4) {
+        Text(title)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+        if let tooltip = tooltipText {
+          Image(systemName: "info.circle")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .help(tooltip)
+        }
+      }
+
+      Text(value)
+        .font(.title3.bold())
+        .monospacedDigit()
+        .lineLimit(1)
+        .contentTransition(.numericText())
+
+      // Always reserve space for subtitle line to ensure equal card heights in LazyVGrid
+      Text(subtitle ?? " ")
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .opacity(subtitle != nil ? 1 : 0)
+    }
+    .padding()
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(.fill.quaternary)
+    .clipShape(RoundedRectangle(cornerRadius: 8))
+  }
+}
+
+// MARK: - SnapshotRowButtonStyle
+
+private struct SnapshotRowButtonStyle: ButtonStyle {
+  @State private var isHovered = false
+
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .background(
+        RoundedRectangle(cornerRadius: 4)
+          .fill(isHovered ? Color.primary.opacity(0.06) : Color.clear)
+      )
+      .onHover { hovering in
+        isHovered = hovering
+      }
+  }
+}
+
+// MARK: - Previews
+
+#Preview("Dashboard - Empty") {
+  NavigationStack {
+    DashboardView(
+      modelContext: PreviewContainer.container.mainContext
+    )
+  }
+}

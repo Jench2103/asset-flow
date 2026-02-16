@@ -6,34 +6,65 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Settings View - App-wide settings configuration
 ///
 /// Allows users to configure:
 /// - Main currency for displaying portfolio values
-/// - Financial goal (target wealth amount)
+/// - Date display format
+/// - Default platform for imports
+/// - Data management (backup/restore)
 ///
-/// All settings auto-save when input is valid:
-/// - Currency: Saves immediately on change
-/// - Financial goal: Saves after 0.75s debounce, or immediately on Enter/focus loss
+/// All settings save immediately on change.
 struct SettingsView: View {
   @State private var viewModel: SettingsViewModel
-  @FocusState private var isGoalFieldFocused: Bool
+  @Environment(\.modelContext) private var modelContext
+
+  @State private var showRestoreConfirmation = false
+  @State private var showResultAlert = false
+  @State private var resultMessage = ""
+  @State private var isError = false
+  @State private var pendingRestoreURL: URL?
+
+  private let settingsService: SettingsService
 
   init(settingsService: SettingsService? = nil) {
-    _viewModel = State(wrappedValue: SettingsViewModel(settingsService: settingsService))
+    let resolved = settingsService ?? SettingsService.shared
+    self.settingsService = resolved
+    _viewModel = State(wrappedValue: SettingsViewModel(settingsService: resolved))
   }
 
   var body: some View {
     Form {
-      // Currency Section
       currencySection
-
-      // Financial Goal Section
-      financialGoalSection
+      dateFormatSection
+      importDefaultsSection
+      dataManagementSection
     }
     .formStyle(.grouped)
     .navigationTitle("Settings")
+    .alert(
+      isError ? "Error" : "Success",
+      isPresented: $showResultAlert
+    ) {
+      Button("OK") {}
+    } message: {
+      Text(resultMessage)
+    }
+    .confirmationDialog(
+      "Restore from Backup",
+      isPresented: $showRestoreConfirmation
+    ) {
+      Button("Restore", role: .destructive) {
+        performRestore()
+      }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text(
+        "Restoring from backup will replace ALL existing data. This cannot be undone. Continue?"
+      )
+    }
   }
 
   // MARK: - Currency Section
@@ -54,82 +85,113 @@ struct SettingsView: View {
     }
   }
 
-  // MARK: - Financial Goal Section
+  // MARK: - Date Format Section
 
-  private var financialGoalSection: some View {
+  private var dateFormatSection: some View {
     Section {
-      HStack {
-        TextField("Target amount", text: $viewModel.goalAmountString)
-          .textFieldStyle(.roundedBorder)
-          .focused($isGoalFieldFocused)
-          .onSubmit { viewModel.commitGoal() }
-          .onChange(of: isGoalFieldFocused) { _, isFocused in
-            if !isFocused { viewModel.onFocusLost() }
-          }
-          .accessibilityIdentifier("Financial Goal Input")
-          #if os(macOS)
-            .frame(maxWidth: 200)
-          #endif
-
-        if !viewModel.goalAmountString.isEmpty {
-          Button {
-            viewModel.clearGoal()
-          } label: {
-            Image(systemName: "xmark.circle.fill")
-              .foregroundStyle(.secondary)
-          }
-          .buttonStyle(.plain)
-          .accessibilityIdentifier("Clear Goal Button")
-        }
-
-        // Saved indicator
-        if viewModel.showSavedIndicator {
-          HStack(spacing: 4) {
-            Image(systemName: "checkmark.circle.fill")
-              .foregroundStyle(.green)
-            Text("Saved")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-          }
-          .transition(.opacity.combined(with: .scale))
-          .accessibilityIdentifier("Saved Indicator")
+      Picker("Date Format", selection: $viewModel.selectedDateFormat) {
+        ForEach(viewModel.availableDateFormats, id: \.self) { format in
+          Text(format.preview(for: Date()))
+            .tag(format)
         }
       }
-      .animation(.easeInOut(duration: 0.2), value: viewModel.showSavedIndicator)
-      .animation(.easeInOut(duration: 0.2), value: viewModel.conversionMessage)
-
-      // Validation message
-      if let message = viewModel.goalValidationMessage {
-        HStack {
-          Image(systemName: "exclamationmark.triangle.fill")
-            .foregroundStyle(.orange)
-          Text(message)
-            .foregroundStyle(.secondary)
-            .font(.caption)
-        }
-      }
-
-      // Conversion message
-      if let conversionMsg = viewModel.conversionMessage {
-        HStack {
-          Image(systemName: "arrow.triangle.2.circlepath")
-            .foregroundStyle(.blue)
-          Text(conversionMsg)
-            .foregroundStyle(.secondary)
-            .font(.caption)
-        }
-        .transition(.opacity)
-        .accessibilityIdentifier("Conversion Message")
-      }
+      .accessibilityIdentifier("Date Format Picker")
     } header: {
-      Text("Financial Goal")
+      Text("Date Format")
     } footer: {
-      Text(
-        """
-        Set a target wealth amount. Your progress towards this goal will be shown \
-        on the Overview page.
-        """
-      )
+      Text("How dates are displayed throughout the app.")
+    }
+  }
+
+  // MARK: - Import Defaults Section
+
+  private var importDefaultsSection: some View {
+    Section {
+      TextField("Default Platform", text: $viewModel.defaultPlatformString)
+        .accessibilityIdentifier("Default Platform Field")
+    } header: {
+      Text("Import Defaults")
+    } footer: {
+      Text("Pre-fills the platform field when importing CSV files. Leave empty for no default.")
+    }
+  }
+
+  // MARK: - Data Management Section
+
+  private var dataManagementSection: some View {
+    Section {
+      Button("Export Backup...") {
+        performExport()
+      }
+      .accessibilityIdentifier("Export Backup Button")
+
+      Button("Restore from Backup...") {
+        openRestorePanel()
+      }
+      .accessibilityIdentifier("Restore Backup Button")
+    } header: {
+      Text("Data Management")
+    } footer: {
+      Text("Export all data as a ZIP archive or restore from a previous backup.")
+    }
+  }
+
+  // MARK: - Backup Actions
+
+  private func performExport() {
+    let panel = NSSavePanel()
+    panel.allowedContentTypes = [.zip]
+    let dateFormatter = DateFormatter()
+    dateFormatter.dateFormat = "yyyy-MM-dd"
+    panel.nameFieldStringValue =
+      "AssetFlow-Backup-\(dateFormatter.string(from: Date())).zip"
+
+    guard panel.runModal() == .OK, let url = panel.url else { return }
+
+    do {
+      try BackupService.exportBackup(
+        to: url, modelContext: modelContext,
+        settingsService: settingsService)
+      resultMessage = String(
+        localized: "Backup exported successfully.", table: "Settings")
+      isError = false
+      showResultAlert = true
+    } catch {
+      resultMessage = error.localizedDescription
+      isError = true
+      showResultAlert = true
+    }
+  }
+
+  private func openRestorePanel() {
+    let panel = NSOpenPanel()
+    panel.allowedContentTypes = [.zip]
+    panel.allowsMultipleSelection = false
+
+    guard panel.runModal() == .OK, let url = panel.url else { return }
+
+    pendingRestoreURL = url
+    showRestoreConfirmation = true
+  }
+
+  private func performRestore() {
+    guard let url = pendingRestoreURL else { return }
+    pendingRestoreURL = nil
+
+    do {
+      try BackupService.restoreFromBackup(
+        at: url, modelContext: modelContext,
+        settingsService: settingsService)
+      // Sync ViewModel with restored settings
+      viewModel = SettingsViewModel(settingsService: settingsService)
+      resultMessage = String(
+        localized: "Backup restored successfully.", table: "Settings")
+      isError = false
+      showResultAlert = true
+    } catch {
+      resultMessage = error.localizedDescription
+      isError = true
+      showResultAlert = true
     }
   }
 }
@@ -139,15 +201,5 @@ struct SettingsView: View {
 #Preview("Settings View") {
   NavigationStack {
     SettingsView(settingsService: SettingsService.createForTesting())
-  }
-}
-
-#Preview("Settings with Goal") {
-  let service = SettingsService.createForTesting()
-  service.mainCurrency = "EUR"
-  service.financialGoal = Decimal(1_000_000)
-
-  return NavigationStack {
-    SettingsView(settingsService: service)
   }
 }

@@ -1,8 +1,8 @@
 //
 //  SwiftDataRelationshipTests.swift
-//  AssetFlowTests
+//  AssetFlow
 //
-//  Created by Gemini on 2025/10/12.
+//  Created by Claude on 2026/02/14.
 //
 
 import Foundation
@@ -15,124 +15,308 @@ import Testing
 @MainActor
 struct SwiftDataRelationshipTests {
 
-  @Test("Portfolio deletion nullifies asset relationships")
-  func deletePortfolio_NullifiesAssetRelationships() throws {
-    // NOTE: Portfolio uses .nullify delete rule (not .deny) because SwiftData's
-    // .deny rule has known bugs and doesn't work reliably as of 2024-2025.
-    // Business logic MUST check portfolio.isEmpty before allowing deletion.
+  // MARK: - Category-Asset Relationship
 
-    // Arrange
+  @Test("Assigning asset to category updates both sides of relationship")
+  func testCategoryAssetBidirectional() {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
 
-    let portfolio = Portfolio(name: "Test Portfolio")
-    let asset1 = Asset(name: "Asset 1", assetType: .cash, portfolio: portfolio)
-    let asset2 = Asset(name: "Asset 2", assetType: .cash, portfolio: portfolio)
+    let category = Category(name: "Stocks")
+    let asset = Asset(name: "AAPL")
 
-    context.insert(portfolio)
+    context.insert(category)
+    context.insert(asset)
+
+    asset.category = category
+
+    #expect(asset.category === category)
+    #expect(category.assets?.contains(where: { $0.name == "AAPL" }) == true)
+  }
+
+  @Test("Multiple assets can belong to the same category")
+  func testMultipleAssetsInCategory() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let category = Category(name: "Stocks")
+    let apple = Asset(name: "AAPL")
+    let google = Asset(name: "GOOGL")
+
+    context.insert(category)
+    context.insert(apple)
+    context.insert(google)
+
+    apple.category = category
+    google.category = category
+
+    #expect(category.assets?.count == 2)
+  }
+
+  @Test("Deleting asset with .nullify removes it from category")
+  func testDeletingAssetNullifiesCategory() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let category = Category(name: "Stocks")
+    let asset = Asset(name: "AAPL")
+
+    context.insert(category)
+    context.insert(asset)
+    asset.category = category
+
+    // Remove the asset from the category first, then delete
+    asset.category = nil
+    context.delete(asset)
+
+    let categories = try context.fetch(FetchDescriptor<AssetFlow.Category>())
+    #expect(categories.count == 1)
+    #expect(categories.first?.assets?.isEmpty ?? true)
+  }
+
+  // MARK: - Snapshot-SnapshotAssetValue Cascade Delete
+
+  @Test("Deleting snapshot cascades to SnapshotAssetValues")
+  func testSnapshotCascadesToAssetValues() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let snapshot = Snapshot(date: Date())
+    let asset = Asset(name: "AAPL")
+    let value = SnapshotAssetValue(marketValue: Decimal(15000))
+
+    context.insert(snapshot)
+    context.insert(asset)
+    context.insert(value)
+
+    value.snapshot = snapshot
+    value.asset = asset
+
+    // Delete the snapshot — asset value should cascade
+    context.delete(snapshot)
+    try context.save()
+
+    let values = try context.fetch(FetchDescriptor<SnapshotAssetValue>())
+    #expect(values.isEmpty)
+
+    // Asset should still exist
+    let assets = try context.fetch(FetchDescriptor<Asset>())
+    #expect(assets.count == 1)
+  }
+
+  // MARK: - Snapshot-CashFlowOperation Cascade Delete
+
+  @Test("Deleting snapshot cascades to CashFlowOperations")
+  func testSnapshotCascadesToCashFlowOperations() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let snapshot = Snapshot(date: Date())
+    let op = CashFlowOperation(cashFlowDescription: "Deposit", amount: Decimal(5000))
+
+    context.insert(snapshot)
+    context.insert(op)
+    op.snapshot = snapshot
+
+    context.delete(snapshot)
+    try context.save()
+
+    let operations = try context.fetch(FetchDescriptor<CashFlowOperation>())
+    #expect(operations.isEmpty)
+  }
+
+  // MARK: - Asset Delete Rule Verification
+
+  @Test("Deleting all snapshot values allows asset deletion")
+  func testAssetCanBeDeletedAfterRemovingSnapshotValues() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let snapshot = Snapshot(date: Date())
+    let asset = Asset(name: "AAPL")
+    let value = SnapshotAssetValue(marketValue: Decimal(15000))
+
+    context.insert(snapshot)
+    context.insert(asset)
+    context.insert(value)
+
+    value.snapshot = snapshot
+    value.asset = asset
+    try context.save()
+
+    // First remove the snapshot value, then delete the asset
+    context.delete(value)
+    try context.save()
+
+    context.delete(asset)
+    try context.save()
+
+    let assets = try context.fetch(FetchDescriptor<Asset>())
+    #expect(assets.isEmpty)
+  }
+
+  // MARK: - Complex Relationship Scenarios
+
+  @Test("Snapshot with multiple asset values and cash flows")
+  func testSnapshotWithMultipleRelationships() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let snapshot = Snapshot(date: Date())
+    let asset1 = Asset(name: "AAPL")
+    let asset2 = Asset(name: "BTC", platform: "Binance")
+
+    context.insert(snapshot)
     context.insert(asset1)
     context.insert(asset2)
-    try context.save()
 
-    // Verify portfolio state - business logic should check this before deletion
-    #expect(portfolio.assetCount == 2)
-    #expect(!portfolio.isEmpty)
+    let value1 = SnapshotAssetValue(marketValue: Decimal(10000))
+    let value2 = SnapshotAssetValue(marketValue: Decimal(50000))
+    let deposit = CashFlowOperation(cashFlowDescription: "Deposit", amount: Decimal(5000))
 
-    // Act: Delete portfolio (business logic should prevent this, but testing the behavior)
-    context.delete(portfolio)
-    try context.save()
+    context.insert(value1)
+    context.insert(value2)
+    context.insert(deposit)
 
-    // Assert: Assets remain but their portfolio reference is nullified
-    let remainingAssets = try context.fetch(FetchDescriptor<Asset>())
-    #expect(remainingAssets.count == 2, "Assets should not be deleted")
-    #expect(
-      remainingAssets.allSatisfy { $0.portfolio == nil },
-      "Asset portfolio references should be nullified")
+    value1.snapshot = snapshot
+    value1.asset = asset1
+    value2.snapshot = snapshot
+    value2.asset = asset2
+    deposit.snapshot = snapshot
+
+    #expect(snapshot.assetValues?.count == 2)
+    #expect(snapshot.cashFlowOperations?.count == 1)
   }
 
-  @Test("Deleting an empty Portfolio succeeds")
-  func deletePortfolio_WithoutAssets_Succeeds() throws {
-    // Arrange
+  @Test("Asset across multiple snapshots")
+  func testAssetAcrossMultipleSnapshots() throws {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
 
-    let portfolio = Portfolio(name: "Empty Portfolio")
-    context.insert(portfolio)
-    try context.save()
+    var jan = DateComponents()
+    jan.year = 2025
+    jan.month = 1
+    jan.day = 1
+    let janDate = Calendar.current.date(from: jan)!
 
-    #expect(portfolio.isEmpty)
-    #expect(portfolio.assetCount == 0)
+    var feb = DateComponents()
+    feb.year = 2025
+    feb.month = 2
+    feb.day = 1
+    let febDate = Calendar.current.date(from: feb)!
 
-    // Act
-    context.delete(portfolio)
-    try context.save()
+    let snapshot1 = Snapshot(date: janDate)
+    let snapshot2 = Snapshot(date: febDate)
+    let asset = Asset(name: "AAPL")
 
-    // Assert
-    let remainingPortfolios = try context.fetch(FetchDescriptor<Portfolio>())
-    #expect(remainingPortfolios.isEmpty, "Empty portfolio should be deleted successfully.")
-  }
-
-  @Test("Deleting an Asset cascades to delete its Transactions")
-  func deleteAsset_CascadesDeleteToTransactions() throws {
-    // Arrange
-    let container = TestDataManager.createInMemoryContainer()
-    let context = container.mainContext
-
-    let asset = Asset(name: "Test Asset", assetType: .stock)
-    let transaction1 = Transaction(
-      transactionType: .buy, transactionDate: Date(), quantity: 10, pricePerUnit: 50,
-      totalAmount: 500, asset: asset)
-    let transaction2 = Transaction(
-      transactionType: .sell, transactionDate: Date(), quantity: 5, pricePerUnit: 60,
-      totalAmount: 300, asset: asset)
-
+    context.insert(snapshot1)
+    context.insert(snapshot2)
     context.insert(asset)
-    context.insert(transaction1)
-    context.insert(transaction2)
 
-    // Verify initial state
-    #expect(transaction1.asset?.name == "Test Asset")
-    #expect(transaction2.asset?.name == "Test Asset")
+    let value1 = SnapshotAssetValue(marketValue: Decimal(10000))
+    let value2 = SnapshotAssetValue(marketValue: Decimal(12000))
 
-    // Act
-    context.delete(asset)
-    try context.save()
+    context.insert(value1)
+    context.insert(value2)
 
-    // Assert
-    // The delete rule is .cascade, so transactions should be deleted when asset is deleted
-    let finalTransactions = try context.fetch(FetchDescriptor<Transaction>())
-    #expect(
-      finalTransactions.isEmpty,
-      "Transactions should be cascade-deleted when their asset is deleted.")
+    value1.snapshot = snapshot1
+    value1.asset = asset
+    value2.snapshot = snapshot2
+    value2.asset = asset
+
+    #expect(asset.snapshotAssetValues?.count == 2)
+    #expect(snapshot1.assetValues?.count == 1)
+    #expect(snapshot2.assetValues?.count == 1)
   }
 
-  @Test("Deleting an Asset cascades to delete its PriceHistory")
-  func deleteAsset_CascadesDeleteToPriceHistory() throws {
-    // Arrange
+  @Test("Deleting one snapshot does not affect other snapshots")
+  func testDeletingOneSnapshotDoesNotAffectOthers() throws {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
 
-    let asset = Asset(name: "Test Asset", assetType: .stock)
-    let price1 = PriceHistory(date: Date(), price: 100.0, asset: asset)
-    let price2 = PriceHistory(date: Date().addingTimeInterval(-86400), price: 95.0, asset: asset)
+    var jan = DateComponents()
+    jan.year = 2025
+    jan.month = 1
+    jan.day = 1
+    let janDate = Calendar.current.date(from: jan)!
 
+    var feb = DateComponents()
+    feb.year = 2025
+    feb.month = 2
+    feb.day = 1
+    let febDate = Calendar.current.date(from: feb)!
+
+    let snapshot1 = Snapshot(date: janDate)
+    let snapshot2 = Snapshot(date: febDate)
+    let asset = Asset(name: "AAPL")
+
+    context.insert(snapshot1)
+    context.insert(snapshot2)
     context.insert(asset)
-    context.insert(price1)
-    context.insert(price2)
 
-    // Verify initial state
-    #expect(price1.asset?.name == "Test Asset")
-    #expect(price2.asset?.name == "Test Asset")
+    let value1 = SnapshotAssetValue(marketValue: Decimal(10000))
+    let value2 = SnapshotAssetValue(marketValue: Decimal(12000))
 
-    // Act
-    context.delete(asset)
+    context.insert(value1)
+    context.insert(value2)
+
+    value1.snapshot = snapshot1
+    value1.asset = asset
+    value2.snapshot = snapshot2
+    value2.asset = asset
+
+    // Delete snapshot1 — snapshot2 and its value should survive
+    context.delete(snapshot1)
     try context.save()
 
-    // Assert
-    // The delete rule is .cascade, so price history should be deleted when asset is deleted
-    let finalPriceHistory = try context.fetch(FetchDescriptor<PriceHistory>())
-    #expect(
-      finalPriceHistory.isEmpty,
-      "Price history should be cascade-deleted when their asset is deleted.")
+    let snapshots = try context.fetch(FetchDescriptor<Snapshot>())
+    #expect(snapshots.count == 1)
+    #expect(snapshots.first?.date == Calendar.current.startOfDay(for: febDate))
+
+    let values = try context.fetch(FetchDescriptor<SnapshotAssetValue>())
+    #expect(values.count == 1)
+    #expect(values.first?.marketValue == Decimal(12000))
+  }
+
+  // MARK: - Category Deny Delete When Has Assets
+
+  @Test("Removing assets from category allows category deletion")
+  func testCategoryCanBeDeletedAfterRemovingAssets() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let category = Category(name: "Stocks")
+    let asset = Asset(name: "AAPL")
+
+    context.insert(category)
+    context.insert(asset)
+    asset.category = category
+    try context.save()
+
+    // First remove the asset from the category, then delete the category
+    asset.category = nil
+    try context.save()
+
+    context.delete(category)
+    try context.save()
+
+    let categories = try context.fetch(FetchDescriptor<AssetFlow.Category>())
+    #expect(categories.isEmpty)
+  }
+
+  @Test("Category without assets can be deleted")
+  func testCategoryWithoutAssetsCanBeDeleted() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let category = Category(name: "Empty Category")
+    context.insert(category)
+    try context.save()
+
+    context.delete(category)
+    try context.save()
+
+    let categories = try context.fetch(FetchDescriptor<AssetFlow.Category>())
+    #expect(categories.isEmpty)
   }
 }

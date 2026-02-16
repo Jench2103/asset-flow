@@ -1,0 +1,130 @@
+{
+  "fill": {
+    "linear-gradient": [
+      "display-p3:0.85490,0.98039,1.00000,1.00000",
+      "srgb:0.74902,0.88627,0.90980,1.00000"
+    ],
+    "orientation": {
+      "start": {
+        "x": 0.5,
+        "y": 0
+      },
+      "stop": {
+        "x": 0.5,
+        "y": 0.7
+      }
+    }
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "fill-specializations": [
+            {
+              "appearance": "tinted",
+              "value": "automatic"
+            }
+          ],
+          "image-name": "Subtract-1.svg",
+          "name": "Subtract_1",
+          "position-specializations": [
+            {
+              "value": {
+                "scale": 1,
+                "translation-in-points": [
+                  -30,
+                  0
+                ]
+              }
+            },
+            {
+              "idiom": "watchOS",
+              "value": {
+                "scale": 1,
+                "translation-in-points": [
+                  -30,
+                  -20
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
+      }
+    },
+    {
+      "layers": [
+        {
+          "fill-specializations": [
+            {
+              "appearance": "tinted",
+              "value": {
+                "solid": "gray:0.40379,1.00000"
+              }
+            }
+          ],
+          "image-name": "Subtract.svg",
+          "name": "Subtract_2",
+          "position-specializations": [
+            {
+              "value": {
+                "scale": 1,
+                "translation-in-points": [
+                  31,
+                  0
+                ]
+              }
+            },
+            {
+              "idiom": "watchOS",
+              "value": {
+                "scale": 1,
+                "translation-in-points": [
+                  31,
+                  -20
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "shadow-specializations": [
+        {
+          "appearance": "dark",
+          "value": {
+            "kind": "layer-color",
+            "opacity": 0.5
+          }
+        }
+      ],
+      "translucency-specializations": [
+        {
+          "value": {
+            "enabled": false,
+            "value": 0.5
+          }
+        },
+        {
+          "appearance": "dark",
+          "value": {
+            "enabled": true,
+            "value": 0.5
+          }
+        }
+      ]
+    }
+  ],
+  "supported-platforms": {
+    "circles": [
+      "watchOS"
+    ],
+    "squares": "shared"
+  }
+}

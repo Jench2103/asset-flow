@@ -1,3 +1,11 @@
+//
+//  TestDataManager.swift
+//  AssetFlow
+//
+//  Created by Jen-Chien Chang on 2025/10/6.
+//
+
+import Foundation
 import SwiftData
 
 @testable import AssetFlow
@@ -12,14 +20,20 @@ class TestDataManager {
   /// - Returns: A new `ModelContainer` configured for in-memory storage.
   static func createInMemoryContainer() -> ModelContainer {
     let schema = Schema([
-      Portfolio.self,
+      Category.self,
       Asset.self,
-      Transaction.self,
-      InvestmentPlan.self,
-      PriceHistory.self,
-      RegularSavingPlan.self,
+      Snapshot.self,
+      SnapshotAssetValue.self,
+      CashFlowOperation.self,
     ])
-    let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+    // Use a unique name per container to ensure true isolation.
+    // Without a unique name, ModelConfiguration(isStoredInMemoryOnly: true) may
+    // share the same backing store across calls, causing test interference.
+    let configuration = ModelConfiguration(
+      UUID().uuidString,
+      schema: schema,
+      isStoredInMemoryOnly: true
+    )
 
     do {
       let container = try ModelContainer(for: schema, configurations: [configuration])

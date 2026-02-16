@@ -2,154 +2,109 @@
 
 This directory contains the core SwiftData models for AssetFlow.
 
-📖 **For comprehensive documentation, see [Documentation/DataModel.md](../../Documentation/DataModel.md)**
+**For comprehensive documentation, see [Documentation/DataModel.md](../../Documentation/DataModel.md)**
 
 ## Models Overview
 
+### Category
+
+Asset categorization with optional target allocation percentage.
+
+**Key Properties:**
+
+- `name` - Display name (unique, case-insensitive)
+- `targetAllocationPercentage` - Optional target allocation (0-100, Decimal)
+
+**Relationships:**
+
+- Assets (many children, `.deny` delete rule -- must reassign assets before deleting)
+
 ### Asset
 
-Individual investment or asset in a portfolio. Defined by its transactions and price history; holds minimal state.
+Individual investment identified by (name, platform) tuple.
 
 **Key Properties:**
 
 - `name` - Display name
-- `assetType` - Category (stock, bond, crypto, etc.)
-- `currency` - Currency code (default: "USD")
-- `notes` - Optional user notes
+- `platform` - Platform/broker (optional, default: "")
 
 **Computed Properties:**
 
-- `quantity` - Calculated from transactions
-- `currentPrice` - Most recent price from price history
-- `currentValue` - Quantity × current price
-- `averageCost` - Average cost per unit from buy transactions
-- `costBasis` - Total cost basis for current holdings
+- `normalizedName` - Trimmed, collapsed spaces, lowercased
+- `normalizedPlatform` - Trimmed, collapsed spaces, lowercased
+- `normalizedIdentity` - Combined `normalizedName|normalizedPlatform` for matching
 
 **Relationships:**
 
-- Portfolio (optional parent, `.nullify`)
-- Transactions (many children, `.cascade`)
-- PriceHistory (many children, `.cascade`)
+- Category (optional parent, `.nullify`)
+- SnapshotAssetValues (many children, `.deny` -- must delete values before deleting asset)
 
-### Portfolio
+### Snapshot
 
-Collection of assets grouped for organizational/strategic purposes.
+Portfolio state at a specific date.
 
 **Key Properties:**
 
-- `name` - Display name
-- `targetAllocation` - Target percentages by asset type
-- `isActive` - Active status
-
-**Computed:**
-
-- `totalValue` - Sum of all asset values
+- `date` - Snapshot date (unique, normalized to start of day)
+- `createdAt` - Timestamp when the snapshot was created
 
 **Relationships:**
 
-- Assets (many children)
+- SnapshotAssetValues (many children, `.cascade`)
+- CashFlowOperations (many children, `.cascade`)
 
-### Transaction
+### SnapshotAssetValue
 
-Single financial transaction related to an asset.
+Market value of an asset within a specific snapshot (join entity).
 
 **Key Properties:**
 
-- `transactionType` - Type (buy, sell, transferIn, transferOut, adjustment, dividend, interest)
-- `transactionDate` - When it occurred
-- `quantity` - Units involved
-- `pricePerUnit` - Price per unit
-- `totalAmount` - Total transaction value
-- `currency` - Currency code
-- `fees` - Optional transaction fees
-
-**Computed Properties:**
-
-- `quantityImpact` - Impact on asset quantity (negative for sell/transferOut)
+- `marketValue` - Market value at the snapshot date (Decimal)
 
 **Relationships:**
 
-- `asset` - The asset whose quantity is changing (`.nullify`)
-- `sourceAsset` - Asset generating income (for dividends/interest)
-- `relatedTransaction` - Linked transaction for swaps
+- Snapshot (parent)
+- Asset (parent)
 
-### InvestmentPlan
+### CashFlowOperation
 
-Investment strategy or goal with defined parameters.
+External cash flow event (deposit/withdrawal) associated with a snapshot.
 
 **Key Properties:**
 
-- `name` - Plan name
-- `targetAmount` - Goal amount
-- `monthlyContribution` - Planned monthly investment
-- `riskTolerance` - Risk level (veryLow to veryHigh)
-- `status` - Current status (active, paused, completed, cancelled)
+- `cashFlowDescription` - Description of the cash flow (unique per snapshot, case-insensitive)
+- `amount` - Amount (Decimal, positive=inflow, negative=outflow)
 
 **Relationships:**
 
-- Currently standalone (no relationships)
-
-### PriceHistory
-
-Represents the price of an asset at a specific point in time.
-
-**Key Properties:**
-
-- `date` - When the price was recorded
-- `price` - The price of one unit of the asset
-
-**Relationships:**
-
-- `asset` - The parent asset (`.nullify`)
-
-### RegularSavingPlan
-
-Represents a recurring investment plan for automated or reminder-based savings.
-
-**Key Properties:**
-
-- `name` - Plan name
-- `amount` - Investment amount per occurrence
-- `frequency` - How often to invest (daily, weekly, biweekly, monthly)
-- `startDate` - When the plan begins
-- `nextDueDate` - Next scheduled investment date
-- `executionMethod` - Automatic or manual execution
-- `isActive` - Active status
-
-**Relationships:**
-
-- `asset` - The asset to purchase (`.nullify`)
-- `sourceAsset` - The asset to withdraw from (`.nullify`, optional)
+- Snapshot (parent)
 
 ## Relationships
 
 ```
-Portfolio (1:Many) → Asset (1:Many) → Transaction
-                     Asset (1:Many) → PriceHistory
-                     Transaction → sourceAsset (Asset)
-                     Transaction → relatedTransaction (self)
-RegularSavingPlan (1:1) → asset (Asset)
-RegularSavingPlan (1:1) → sourceAsset (Asset)
-InvestmentPlan (standalone)
+Category (1:Many) -> Asset
+Asset (Many:Many via SnapshotAssetValue) -> Snapshot
+Snapshot (1:Many) -> SnapshotAssetValue
+Snapshot (1:Many) -> CashFlowOperation
 ```
 
 Delete Rules:
 
-- Portfolio → Assets: `.nullify` (assets remain, portfolio ref set to nil; **business logic must prevent deletion of non-empty portfolios**)
-- Asset → Transactions: `.cascade` (transactions deleted with asset)
-- Asset → PriceHistory: `.cascade` (price history deleted with asset)
-- Transaction → Asset: (no delete rule, default behavior)
-- RegularSavingPlan → Asset: `.nullify` (asset reference set to nil when asset deleted)
+- Category -> Assets: `.deny` (must reassign assets before deleting category)
+- Asset -> Category: `.nullify` (category ref set to nil when asset deleted)
+- Asset -> SnapshotAssetValues: `.deny` (must delete values before deleting asset)
+- Snapshot -> SnapshotAssetValues: `.cascade` (values deleted with snapshot)
+- Snapshot -> CashFlowOperations: `.cascade` (operations deleted with snapshot)
 
 ## Critical Conventions
 
 ### Financial Data
 
-⚠️ **Always use `Decimal` for monetary values** (never Float/Double)
+**Always use `Decimal` for monetary values** (never Float/Double)
 
 ```swift
-var currentValue: Decimal  // ✅ Correct
-var currentValue: Double   // ❌ Never do this
+var marketValue: Decimal  // Correct
+var marketValue: Double   // Never do this
 ```
 
 ### Schema Registration
@@ -158,12 +113,11 @@ All models must be registered in `AssetFlowApp.swift`:
 
 ```swift
 let schema = Schema([
+    Category.self,
     Asset.self,
-    Portfolio.self,
-    Transaction.self,
-    InvestmentPlan.self,
-    PriceHistory.self,
-    RegularSavingPlan.self,
+    Snapshot.self,
+    SnapshotAssetValue.self,
+    CashFlowOperation.self,
 ])
 ```
 
@@ -177,22 +131,21 @@ let schema = Schema([
 
 ## Quick Links
 
-- 📐 [Architecture Documentation](../../Documentation/Architecture.md)
-- 🗄️ [Complete Data Model Documentation](../../Documentation/DataModel.md)
-- 🛠️ [Development Guide](../../Documentation/DevelopmentGuide.md)
-- 🎨 [Code Style Guide](../../Documentation/CodeStyle.md)
+- [Architecture Documentation](../../Documentation/Architecture.md)
+- [Complete Data Model Documentation](../../Documentation/DataModel.md)
+- [Development Guide](../../Documentation/DevelopmentGuide.md)
+- [Code Style Guide](../../Documentation/CodeStyle.md)
 
 ## File Organization
 
 ```
 Models/
 ├── README.md (this file)
+├── Category.swift
 ├── Asset.swift
-├── Portfolio.swift
-├── Transaction.swift
-├── InvestmentPlan.swift
-├── PriceHistory.swift
-└── RegularSavingPlan.swift
+├── Snapshot.swift
+├── SnapshotAssetValue.swift
+└── CashFlowOperation.swift
 ```
 
 ______________________________________________________________________
@@ -200,7 +153,7 @@ ______________________________________________________________________
 For detailed information on:
 
 - Complete property tables
-- Enumerations (AssetType, TransactionType, RiskLevel, etc.)
+- Uniqueness constraints
 - Computed properties
 - Validation rules
 - SwiftData configuration

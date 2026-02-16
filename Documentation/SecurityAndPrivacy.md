@@ -4,33 +4,12 @@
 
 **Purpose of this Document**
 
-This document outlines the security and privacy considerations for AssetFlow, a personal finance application handling sensitive financial data. It describes the measures taken to protect user data, ensure privacy, and maintain secure operation across macOS, iOS, and iPadOS platforms.
-
-**What This Document Covers**
-
-- **Data Security**: Encryption, storage security, secure communication
-- **Privacy Principles**: What data is collected, how it's used, and user control
-- **Platform Security**: Leveraging Apple platform security features
-- **Threat Model**: Potential risks and mitigations
-- **Compliance**: Best practices and regulatory considerations (if applicable)
-- **Incident Response**: Handling security issues
-
-**What This Document Does NOT Cover**
-
-- Authentication/authorization (currently single-user, local app)
-- Network security (no current network features)
-- Multi-user access control (future feature)
-
-**Current Status**
-
-🚧 **This document establishes the security and privacy framework.** AssetFlow is a **local-first, single-user application** with data stored exclusively on the user's device. Many security concerns are inherently mitigated by this architecture, but best practices are still followed.
+This document outlines the security and privacy considerations for AssetFlow, a personal finance application handling sensitive financial data. It describes the measures taken to protect user data, ensure privacy, and maintain secure operation on macOS.
 
 **Philosophy**
 
-AssetFlow's security and privacy approach:
-
 1. **Privacy by Design**: Minimal data collection, user owns all data
-1. **Local-First**: Data stays on user's device by default
+1. **Local-Only**: Data stays on user's device -- no network, no cloud, no APIs
 1. **Platform Trust**: Leverage Apple's security infrastructure
 1. **Transparency**: Clear communication about data handling
 1. **User Control**: Users can export, delete, or back up their data
@@ -39,6 +18,7 @@ AssetFlow's security and privacy approach:
 
 - [Architecture.md](Architecture.md) - System architecture and data flow
 - [DataModel.md](DataModel.md) - Data structures and relationships
+- [APIDesign.md](APIDesign.md) - Backup/restore format and validation
 
 ______________________________________________________________________
 
@@ -46,82 +26,51 @@ ______________________________________________________________________
 
 ### Assets to Protect
 
-**Sensitive Data**
+**Sensitive Data**:
 
-- Financial asset values and holdings
-- Transaction history (purchase prices, amounts, dates)
-- Portfolio composition
-- Investment plans and goals
-- Personal financial strategy
+- Portfolio composition and asset values
+- Snapshot history (reveals wealth trajectory over time)
+- Category allocations and target allocations
+- Cash flow operations (deposits, withdrawals)
+- Backup files (contain all of the above)
 
 **Sensitivity Level**: **High**
 
-- Exposure could reveal user's wealth, investment decisions, financial situation
-- Not authentication credentials, but valuable for profiling or identity theft context
-
-______________________________________________________________________
+- Exposure could reveal user's wealth, investment strategy, and financial situation
+- Not authentication credentials, but valuable for profiling
 
 ### Potential Threats
 
-**Local Device Threats**
+**Local Device Threats**:
 
-1. **Physical Device Access**
+1. **Physical Device Access**: Unauthorized person accesses unlocked Mac
+1. **Device Theft**: Lost or stolen Mac
+1. **Malware**: Malicious software on the device
+1. **Backup Exposure**: Unencrypted backup files accessible to others
 
-   - Risk: Unauthorized person accesses unlocked device
-   - Impact: View sensitive financial data
+**Backup File Threats**:
 
-1. **Device Theft**
-
-   - Risk: Lost or stolen device
-   - Impact: Access to data if device not protected
-
-1. **Malware/Malicious Apps**
-
-   - Risk: Malicious software on device
-   - Impact: Data exfiltration, tampering
-
-1. **Backup Exposure**
-
-   - Risk: Unencrypted backups accessible
-   - Impact: Data leaked through backup files
-
-**Future Threats** (with network features)
-
-5. **Network Interception**
-
-   - Risk: Man-in-the-middle attacks on network traffic
-   - Impact: Data exposure during sync/API calls
-
-1. **Cloud Storage Breach**
-
-   - Risk: iCloud account compromised
-   - Impact: Access to synced data
-
-**Insider Threats**
-
-7. **Developer Access** (minimal risk - local app)
-   - Risk: Developer could theoretically access diagnostic data
-   - Mitigation: No analytics/telemetry by default
-
-______________________________________________________________________
+5. **Unsecured Export Files**: ZIP backup files stored in unprotected locations
+1. **Shared Storage**: Backup files on shared drives, cloud storage, or email
 
 ### Mitigations
 
-**Device-Level Security** (Apple Platform Features)
+**Device-Level Security** (Apple Platform Features):
 
-1. **Device Encryption**: All modern iOS/macOS devices encrypt storage by default
-1. **Device Passcode/Biometrics**: Enforced by OS, protects device access
-1. **App Sandbox**: macOS/iOS sandbox isolates app data from other apps
-1. **Keychain**: Secure storage for sensitive data (if needed in future)
+1. **File System Encryption**: FileVault encrypts the entire disk
+1. **App Sandbox**: macOS sandbox isolates app data from other apps
 1. **Code Signing**: App signed by developer, ensures integrity
+1. **Hardened Runtime**: Prevents code injection and memory tampering
+1. **Gatekeeper**: macOS verifies signed apps before launch
 
-**Application-Level Security**
+**Application-Level Security**:
 
-1. **Local Data Only**: No network transmission of financial data (Phase 1-3)
-1. **SwiftData Encryption**: Leverage platform database encryption
-1. **No Logging of Sensitive Data**: Financial values not logged to console
-1. **Input Validation**: Prevent malformed data injection
-1. **Secure Deletion**: Properly delete data when user requests
+1. **No Network Access**: No data transmission of any kind -- no APIs, no telemetry, no analytics
+1. **No API Keys**: No secrets to manage or leak
+1. **SwiftData Encryption**: Leverages platform database encryption (FileVault)
+1. **No Logging of Sensitive Data**: Financial values never logged to console
+1. **Input Validation**: All user inputs validated before processing
+1. **Secure Deletion**: SwiftData removes data when user requests
 
 ______________________________________________________________________
 
@@ -129,73 +78,41 @@ ______________________________________________________________________
 
 ### Data Storage
 
-**SwiftData Persistence**
+**SwiftData Persistence**:
 
 - **Location**: App sandbox directory (isolated from other apps)
-- **Encryption**: Encrypted at rest by iOS/macOS file system
-  - iOS: All files encrypted by default (Data Protection)
-  - macOS: Encrypted if FileVault enabled (recommended)
+- **Encryption**: Encrypted at rest when FileVault is enabled (recommended)
 
-**Backup Security**
+**No Network Storage**:
 
-- **iOS Backups**:
-  - iCloud backup: Encrypted in transit and at rest
-  - iTunes/Finder backup: Can be encrypted (user setting)
-- **macOS Time Machine**:
-  - Encrypted if Time Machine encryption enabled (user setting)
+- No cloud sync, no iCloud, no remote servers
+- All data resides exclusively on the user's Mac
 
-**Recommendation to Users**
+### Backup File Security
 
-- Enable device passcode/password
-- Enable FileVault (macOS)
-- Enable encrypted backups
+**Export Format**: ZIP archive containing CSV files and a manifest.json.
 
-______________________________________________________________________
+**Implementation**: Uses macOS built-in `/usr/bin/ditto` command for ZIP creation and extraction. No external dependencies or third-party libraries.
 
-### Data at Rest
+**Security Characteristics**:
 
-**File System Encryption**
+- Backup files are **not encrypted** by the application
+- They contain all financial data in human-readable CSV format
+- User is responsible for storing backup files securely
 
-- **iOS**: Automatic, uses hardware-based encryption
-- **macOS**: FileVault (user must enable)
+**Recommendations to Users**:
 
-**SwiftData Encryption**
+- Store backup files in an encrypted volume or directory
+- Do not share backup files via unencrypted channels (email, public cloud)
+- Delete old backup files when no longer needed
+- Consider encrypting backup files with a third-party tool if storing on shared media
 
-- SwiftData uses SQLite under the hood
-- Encrypted by file system encryption
-- No additional app-level encryption needed (redundant)
+**Restore Security**:
 
-**Future Enhancement**: SQLite Encryption Extension (SQLCipher)
-
-- If extra layer desired (defense in depth)
-- Adds complexity, key management
-- Not necessary for Phase 1-3
-
-______________________________________________________________________
-
-### Data in Transit (Future)
-
-**Current State**: No network features, no data transmission
-
-**Future (Phase 4+): API Calls for Price Updates**
-
-**Requirements**
-
-- HTTPS only (TLS 1.2+)
-- Certificate pinning (optional, for critical APIs)
-- No transmission of user's portfolio data to third parties
-- API calls: Only asset symbols/tickers for price lookup
-
-**Privacy Consideration**
-
-- Price lookup reveals which assets user tracks
-- Mitigation: Use privacy-respecting APIs or batch requests
-
-**Future: iCloud Sync**
-
-- Use Apple's CloudKit or SwiftData iCloud sync
-- End-to-end encrypted by Apple
-- User must opt-in to iCloud sync
+- Restore operation validates file integrity before modifying data
+- Validation includes CSV structure, column headers, and foreign key references
+- If validation fails, no data is modified
+- Restore requires explicit confirmation: "Restoring from backup will replace ALL existing data. This cannot be undone."
 
 ______________________________________________________________________
 
@@ -203,77 +120,48 @@ ______________________________________________________________________
 
 ### Data Collection
 
-**What Data is Collected**
+**What Data is Collected**: None by the developer.
 
-- **User-Entered Financial Data**: Assets, portfolios, transactions, investment plans
-- **Computed Data**: Calculations, allocations (derived from user data)
+- All data is user-entered and stored locally
+- No analytics, telemetry, or usage tracking
+- No crash reporting sent to the developer
 
-**What Data is NOT Collected**
+**What Data is NOT Collected**:
 
 - No personal identifiers (name, email, phone)
-- No analytics or telemetry (no tracking)
-- No usage data sent to developer or third parties
+- No usage patterns or behavior data
 - No location data
-- No contacts or photos access
+- No network traffic (the app makes no network requests)
 
-**Data Ownership**
+**Data Ownership**:
 
-- **User owns 100% of their data**
-- Data stored only on user's device (and their iCloud, if they opt in)
+- User owns 100% of their data
+- Data stored only on user's device
 - No server-side storage by developer
-
-______________________________________________________________________
 
 ### Data Usage
 
-**Within the App**
+**Within the App**:
 
-- Data used solely for app functionality (calculations, displays, reports)
-- No secondary use (e.g., no ads, no profiling)
+- Data used solely for app functionality (calculations, displays, charts)
+- No secondary use (no ads, no profiling, no recommendations)
 
-**With Third Parties**
+**With Third Parties**:
 
-- **Phase 1-3**: No third-party data sharing (no network features)
-- **Phase 4+ (API for prices)**: Only asset symbols sent, not user's holdings or values
-- No data sold or shared with advertisers, brokers, or other entities
-
-______________________________________________________________________
+- **No third-party data sharing** -- the app has no network access
+- No data sold or shared with any entity
 
 ### User Control
 
-**Data Export**
+**Data Export**:
 
-- User can export data to CSV or JSON (future feature)
-- Enables backup, migration to other tools
-- User can manage exported files securely
+- User can export all data via the backup feature (ZIP archive)
+- Enables backup and migration to other tools
 
-**Data Deletion**
+**Data Deletion**:
 
-- User can delete individual assets, portfolios, transactions
-- User can delete all data (reset app)
-- Uninstalling app removes all local data
-
-**Data Portability**
-
-- Export format should be standard (CSV, JSON)
-- Enables switching to other financial tools
-
-______________________________________________________________________
-
-### Privacy Policy
-
-**Requirement**
-
-- If app distributed via App Store, privacy policy may be required
-- Even if no data is collected, App Store requires privacy disclosure
-
-**AssetFlow Privacy Disclosure** (Draft)
-
-> AssetFlow does not collect, transmit, or share any personal or financial data. All data you enter is stored locally on your device and optionally in your iCloud account (if you enable iCloud sync). We do not track your usage, run analytics, or share any information with third parties. You own your data completely.
-
-**Future (with network features)**
-
-> AssetFlow may retrieve current asset prices from third-party financial data providers. Only the asset symbols (e.g., "AAPL") are sent to these providers to obtain prices; your holdings, values, or personal information are never transmitted.
+- User can delete individual snapshots, assets, categories, and cash flow operations
+- Uninstalling app removes all local data (app sandbox is deleted)
 
 ______________________________________________________________________
 
@@ -281,68 +169,33 @@ ______________________________________________________________________
 
 ### macOS Security
 
-**App Sandbox**
+**App Sandbox**:
 
-- Enabled: Yes (App Store requirement)
+- Enabled (App Store requirement)
 - Restricts file system access to app's container
-- Restricts network access (can be enabled when needed)
-- Restricts system resources
+- No network access entitlement needed (no network features)
 
-**Hardened Runtime**
+**Hardened Runtime**:
 
 - Enabled for distribution
 - Prevents code injection, memory tampering
-- Required for notarization (App Store/distribution)
+- Required for notarization
 
-**Code Signing**
+**Code Signing**:
 
 - App signed with Developer ID
-- Ensures integrity, verifies developer
+- Ensures integrity and verifies developer
 
-**Gatekeeper**
+**Gatekeeper**:
 
 - macOS checks signed apps before launch
 - Prevents running tampered or malicious apps
 
-______________________________________________________________________
+**FileVault**:
 
-### iOS/iPadOS Security
-
-**App Sandbox**
-
-- All iOS apps sandboxed by default
-- Strict isolation from other apps
-
-**Data Protection**
-
-- Files encrypted by default
-- Encryption keys tied to device passcode
-- Highest protection level: "Complete Protection" (file inaccessible when device locked)
-
-**App Transport Security (ATS)**
-
-- Enforces HTTPS for network connections
-- Prevents insecure HTTP (future network features)
-
-**Code Signing**
-
-- All apps signed
-- iOS verifies signature on every launch
-
-______________________________________________________________________
-
-### Keychain (Future Use)
-
-**Purpose**
-
-- Secure storage for passwords, API keys, encryption keys
-- Encrypted, access controlled by OS
-
-**Potential Use in AssetFlow**
-
-- Store API keys for price data services (Phase 4+)
-- Store encryption keys (if app-level encryption added)
-- NOT needed for user's financial data (SwiftData sufficient)
+- Encrypts entire disk when enabled by user
+- All SwiftData files encrypted at rest
+- Strongly recommended for users storing financial data
 
 ______________________________________________________________________
 
@@ -350,64 +203,47 @@ ______________________________________________________________________
 
 ### Input Validation
 
-**Financial Inputs**
+**Financial Inputs**:
 
-- Validate all user inputs (amounts, quantities, dates)
-- Use `Decimal` type (no string-to-float injection risks)
-- Reject invalid formats, negative values where inappropriate
-- Sanitize text inputs (names, descriptions) to prevent issues
+- Validate all user inputs (market values, amounts, dates)
+- Use `Decimal` type (prevents floating-point injection risks)
+- Reject invalid formats during CSV parsing
+- Enforce uniqueness constraints (asset identity, snapshot dates, cash flow descriptions)
 
-**Transaction Validation**
+**CSV Import Validation**:
 
-- Enforce business rules (see [BusinessLogic.md](BusinessLogic.md))
-- Prevent inconsistent state (e.g., selling more than owned)
-
-______________________________________________________________________
+- Validate file encoding (UTF-8)
+- Validate required columns exist
+- Validate number formatting per row
+- Detect duplicates within CSV and against existing data
+- Block entire import if validation errors exist (no partial imports)
 
 ### No Sensitive Data Logging
 
-**Prohibition**: Never log financial values, transaction details, or user data to console
+**Prohibition**: Never log financial values, asset names, or portfolio data to console.
 
-**Custom Rule** (SwiftLint enforced)
-
-- No `print()` statements allowed
-- Use `os.log` with appropriate log levels
-- Avoid logging sensitive data even in `os.log`
-
-**Example**
+**SwiftLint Rule**: `print()` statements are prohibited.
 
 ```swift
 // BAD
-print("User bought \(quantity) shares at \(price)")
+print("Portfolio value: \(totalValue)")
 
 // GOOD
-logger.info("Transaction recorded") // No values logged
+logger.info("Portfolio value calculated successfully")
 ```
-
-**Debug Logging**
-
-- If debug logging needed, use `#if DEBUG` and generic messages
-- Never log production user data
-
-______________________________________________________________________
 
 ### Secure Deletion
 
-**Data Deletion**
+**Data Deletion**:
 
-- When user deletes asset/transaction/portfolio, SwiftData removes from database
-- OS handles secure file deletion (SQLite journal, etc.)
+- When user deletes a snapshot, SwiftData removes all associated SnapshotAssetValues and CashFlowOperations (cascade)
+- When user deletes an asset (if allowed), SwiftData removes all associated SnapshotAssetValues (cascade)
+- OS handles secure file deletion at the SQLite level
 
-**App Uninstall**
+**App Uninstall**:
 
 - Uninstalling app removes app sandbox (all data deleted)
-- User data in iCloud sync persists (user must delete from iCloud separately)
-
-**Future: "Erase All Data" Feature**
-
-- Clear all SwiftData models
-- Reset app to initial state
-- Confirmation dialog to prevent accidental deletion
+- Backup files stored outside the sandbox persist (user must delete manually)
 
 ______________________________________________________________________
 
@@ -415,162 +251,40 @@ ______________________________________________________________________
 
 ### GDPR (General Data Protection Regulation)
 
-**Applicability**
+**Applicability**: Minimal obligations since no data is collected by the developer.
 
-- If app used by EU users, GDPR may apply
-- AssetFlow: No data collected by developer → minimal GDPR obligations
-- User controls their data fully → compliant with data ownership principles
-
-**GDPR-Ready**
+**GDPR-Ready**:
 
 - Right to access: User has full access to their data
-- Right to erasure: User can delete data
-- Right to portability: Export feature (future)
+- Right to erasure: User can delete all data
+- Right to portability: Backup export feature
 - Data minimization: No unnecessary data collected
-
-______________________________________________________________________
 
 ### CCPA (California Consumer Privacy Act)
 
-**Applicability**
-
-- If app used by California residents
-- AssetFlow: No data collection/sale → minimal CCPA obligations
-
-**CCPA-Ready**
+**CCPA-Ready**:
 
 - No sale of personal information
 - No data sharing with third parties
 - User has full control and transparency
 
-______________________________________________________________________
-
 ### Financial Regulations
 
-**Not Applicable**
+**Not Applicable**:
 
 - AssetFlow is a personal tracking tool, not a financial service
 - No banking, trading, or investment advice features
-- User manually enters data (no institutional connections)
-- Not subject to financial industry regulations (e.g., SOX, PCI-DSS)
-
-**Disclaimers** (to include in app)
-
-> AssetFlow is a personal financial tracking tool. It does not provide investment advice, tax advice, or financial planning services. Consult a qualified financial advisor for personalized guidance.
+- Not subject to financial industry regulations
 
 ______________________________________________________________________
 
-## Incident Response
+## Privacy Nutrition Label (App Store)
 
-### Security Vulnerability Discovery
+**Data Not Collected**: No data collected by this app.
 
-**If Vulnerability Found**
+**Data Linked to You**: None.
 
-1. **Assess Severity**
-
-   - Critical: Data exposure, data loss risk
-   - High: Potential for exploitation
-   - Medium: Minor issues, limited impact
-   - Low: Theoretical, hard to exploit
-
-1. **Develop Fix**
-
-   - Prioritize based on severity
-   - Test thoroughly
-
-1. **Release Update**
-
-   - App Store update (fast review for security fixes)
-   - Include clear release notes (without revealing exploit details)
-
-1. **User Communication**
-
-   - For critical issues: In-app notification or alert
-   - Recommend immediate update
-
-**Responsible Disclosure**
-
-- If third-party reports vulnerability, acknowledge and respond promptly
-- Credit reporter (if desired)
-- Fix before public disclosure
-
-______________________________________________________________________
-
-### Data Breach (Unlikely for Local App)
-
-**Scenario**: If iCloud sync used and Apple suffers breach (extremely unlikely)
-
-**Response**
-
-1. Monitor Apple security announcements
-1. If breach confirmed, notify users (via app update or release notes)
-1. Recommend changing iCloud password, enabling 2FA
-1. Evaluate whether to continue iCloud sync feature
-
-______________________________________________________________________
-
-## User Security Best Practices
-
-### Recommendations to Users
-
-**Device Security**
-
-- Enable device passcode/password (strong, unique)
-- Enable Touch ID / Face ID (biometric lock)
-- Enable FileVault (macOS)
-- Keep OS updated (security patches)
-
-**Backup Security**
-
-- Enable encrypted backups (iTunes/Finder, Time Machine)
-- Use iCloud with 2FA enabled
-
-**App Usage**
-
-- Keep AssetFlow updated (security fixes)
-- Do not share device access with untrusted persons
-- Regularly review and back up financial data (export feature)
-
-**Export File Security**
-
-- If exporting data (CSV, JSON), store export files securely
-- Delete export files when no longer needed
-- Do not share exports publicly (contain sensitive data)
-
-______________________________________________________________________
-
-## Future Security Enhancements
-
-### Phase 4+
-
-**Multi-Device Sync Security**
-
-- End-to-end encryption for iCloud sync
-- Conflict resolution without data loss
-- Sync audit log (view sync history)
-
-**Biometric Unlock** (Optional)
-
-- Require Face ID/Touch ID to open app
-- Optional feature, user preference
-- Lock app after inactivity
-
-**Export File Encryption**
-
-- Encrypt CSV/JSON exports with password
-- Use standard encryption (AES-256)
-
-**API Key Security**
-
-- Store third-party API keys in Keychain
-- Rotate keys periodically
-- Use least-privilege API permissions
-
-**Security Audit**
-
-- Periodic review of codebase for vulnerabilities
-- Static analysis tools (already using SwiftLint)
-- Penetration testing (if app gains network features)
+**Data Used to Track You**: None.
 
 ______________________________________________________________________
 
@@ -582,76 +296,50 @@ ______________________________________________________________________
 - [ ] No `print()` statements with sensitive data
 - [ ] Input validation on all user inputs
 - [ ] Business logic prevents invalid states
-- [ ] SwiftLint checks pass (security rules)
-- [ ] No hardcoded API keys or secrets
+- [ ] SwiftLint checks pass
+- [ ] No hardcoded secrets (none needed -- no APIs)
 - [ ] Code signed with valid developer certificate
 
 ### Pre-Release
 
-- [ ] App sandboxed (macOS)
-- [ ] Hardened Runtime enabled (macOS)
-- [ ] App Transport Security enforced (network features)
+- [ ] App sandboxed
+- [ ] Hardened Runtime enabled
+- [ ] No network entitlements
 - [ ] Privacy disclosures accurate
-- [ ] User-facing disclaimers included
-- [ ] Security review completed
+- [ ] Backup/restore validation thoroughly tested
 
-### Post-Release
+### User Recommendations
 
-- [ ] Monitor for security issues
-- [ ] Respond to vulnerability reports
-- [ ] Release security updates promptly
-- [ ] Keep dependencies updated (SwiftData, SwiftUI, etc.)
+- [ ] Enable FileVault for disk encryption
+- [ ] Keep macOS updated (security patches)
+- [ ] Store backup files securely
+- [ ] Delete old backup files when no longer needed
+- [ ] Enable strong login password
 
 ______________________________________________________________________
 
-## Privacy Nutrition Label (App Store)
+## Incident Response
 
-Apple requires privacy "nutrition label" for App Store submissions.
+### Security Vulnerability Discovery
 
-**AssetFlow's Expected Label** (Phase 1-3)
-
-**Data Not Collected**
-
-- No data collected by this app
-
-**Data Linked to You**
-
-- None
-
-**Data Used to Track You**
-
-- None
-
-**Phase 4+ (with network features)**
-
-**Data Not Collected**
-
-- Financial data: Not collected (stays local)
-- Identifiers: Not collected
-
-**Data Used for Functionality** (not linked to user)
-
-- Usage Data: Asset symbols for price lookup (not tied to user identity)
+1. **Assess Severity** (Critical/High/Medium/Low)
+1. **Develop Fix** (prioritize based on severity)
+1. **Release Update** (App Store fast review for security fixes)
+1. **User Communication** (release notes, in-app notification for critical issues)
 
 ______________________________________________________________________
 
 ## Conclusion
 
-AssetFlow's **local-first, privacy-by-design architecture** inherently mitigates many security and privacy risks. By leveraging Apple platform security features and following secure coding practices, AssetFlow protects user financial data effectively.
+AssetFlow's **local-only, privacy-by-design architecture** inherently mitigates many security and privacy risks. With no network access, no external APIs, and no data collection, the primary security concerns are limited to local device protection and backup file security.
 
-**Key Principles**
+**Key Principles**:
 
-- User data stays on their device (and their iCloud, if opted in)
+- All data stays on the user's device
+- No network communication of any kind
 - No third-party data sharing or collection
-- Transparent about data handling
 - User has full control and ownership
-
-**Ongoing Commitment**
-
-- Regular security reviews
-- Prompt response to vulnerabilities
-- User education on best practices
-- Continuous improvement of security posture
+- Backup files are the user's responsibility to secure
 
 ______________________________________________________________________
 
@@ -661,8 +349,7 @@ ______________________________________________________________________
 
 - [Apple Platform Security](https://support.apple.com/guide/security/welcome/web)
 - [App Sandbox](https://developer.apple.com/documentation/security/app_sandbox)
-- [Keychain Services](https://developer.apple.com/documentation/security/keychain_services)
-- [Data Protection](https://developer.apple.com/documentation/uikit/protecting_the_user_s_privacy)
+- [Hardened Runtime](https://developer.apple.com/documentation/security/hardened_runtime)
 
 ### Privacy Regulations
 
@@ -673,11 +360,3 @@ ______________________________________________________________________
 
 - [OWASP Mobile Security](https://owasp.org/www-project-mobile-security/)
 - [Apple Privacy Guidelines](https://developer.apple.com/app-store/user-privacy-and-data-use/)
-
-______________________________________________________________________
-
-**Document Status**: ✅ Initial framework complete
-
-**Last Updated**: 2025-10-09
-
-**Next Review**: When network features (API calls, iCloud sync) are implemented

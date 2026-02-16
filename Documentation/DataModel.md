@@ -1,551 +1,298 @@
 # Data Model Documentation
 
-📋 **Looking for a quick reference?** See [AssetFlow/Models/README.md](../AssetFlow/Models/README.md) for a concise overview.
-
 ## Overview
 
-AssetFlow uses SwiftData for type-safe, modern data persistence across macOS, iOS, and iPadOS. The data model is designed for financial precision, relationship integrity, and extensibility.
+AssetFlow uses SwiftData for type-safe, modern data persistence on macOS 15.0+. The data model is designed around a **snapshot-based portfolio tracking** approach, where portfolio state is captured at discrete points in time rather than derived from transaction history.
 
-This document provides comprehensive documentation for all data models, including detailed property tables, relationships, SwiftData configuration, validation rules, and usage examples.
+This document provides comprehensive documentation for all data models, including property definitions, relationships, uniqueness constraints, SwiftData configuration, validation rules, and usage examples.
 
 ## Core Principles
+
+### Snapshot-Based Design
+
+The data model captures portfolio state through snapshots rather than transactions:
+
+- **Snapshots** represent the best-known portfolio state at a specific date
+- **SnapshotAssetValues** record market values of assets within a snapshot
+- **Carry-forward** computes missing platform values from prior snapshots at query time (not stored)
+- **CashFlowOperations** record external money flows for return calculations
 
 ### Financial Data Precision
 
 - **Always use `Decimal`** for monetary values (never `Float` or `Double`)
 - Prevents floating-point rounding errors in financial calculations
-- Default currency: `"USD"`
+- Default display currency: `"USD"` (cosmetic only, no FX conversion)
 - Currency-aware formatting via extensions
+- `Decimal` is natively supported by SwiftData (via Foundation's `NSDecimalNumber` bridging) -- no explicit `@Attribute(.transformable)` annotation is needed
 
 ### Relationship Design
 
 - Clear parent-child relationships
-- Optional relationships where appropriate
-- Cascade delete rules for data integrity
-- Inverse relationships for bidirectional navigation
+- Cascade delete rules for snapshot data integrity
+- SwiftData relationships for entity references
+- Uniqueness constraints enforced at the model level
 
 ### Schema Management
 
 - All models registered in `AssetFlowApp.swift` `sharedModelContainer`
-- Schema versioning for migration support
+- SwiftData lightweight migration relied upon for schema evolution
+- Initial data model designed to minimize future breaking changes
 - When adding models, update both Schema and this documentation
 
 ## Model Entities
 
+### Category
+
+Represents a user-defined grouping for assets (e.g., "Equities", "Bonds", "Cash") with an optional target allocation percentage for rebalancing.
+
+**File**: `AssetFlow/Models/Category.swift`
+
+#### Properties
+
+| Property                     | Type       | Description                             | Required |
+| ---------------------------- | ---------- | --------------------------------------- | -------- |
+| `id`                         | `UUID`     | Primary key                             | Yes      |
+| `name`                       | `String`   | Display name (unique, case-insensitive) | Yes      |
+| `targetAllocationPercentage` | `Decimal?` | Target allocation (0-100), optional     | No       |
+
+#### Relationships
+
+```swift
+@Relationship(deleteRule: .deny, inverse: \Asset.category)
+var assets: [Asset]?
+```
+
+- **Assets**: Assets assigned to this category (`.deny` on delete -- category cannot be deleted if assets are assigned)
+
+#### Uniqueness Constraints
+
+```swift
+#Unique<Category>([\.name])
+```
+
+- `name` must be unique (case-insensitive comparison)
+- **Note**: The `#Unique` macro enforces uniqueness at the SwiftData level, but case-insensitive uniqueness must be handled in business logic (ViewModel validation).
+
+#### Validation Rules
+
+- `name` must not be empty
+- `targetAllocationPercentage`, if provided, must be between 0 and 100
+- Target allocations across all categories should sum to 100% (warning if not, but not blocked)
+- Categories without a target allocation are excluded from rebalancing calculations
+
+#### Usage Example
+
+```swift
+let category = Category(
+    name: "Equities",
+    targetAllocationPercentage: 60.0
+)
+```
+
+______________________________________________________________________
+
 ### Asset
 
-Represents an individual investment or asset in a portfolio. An Asset is defined by its transactions and price history; it holds very little state itself.
+Represents an individual investment identified by the tuple (name, platform). Assets persist across snapshots and are created during import if they don't already exist.
 
 **File**: `AssetFlow/Models/Asset.swift`
 
 #### Properties
 
-| Property    | Type        | Description                       | Required |
-| ----------- | ----------- | --------------------------------- | -------- |
-| `id`        | `UUID`      | Unique identifier                 | ✓        |
-| `name`      | `String`    | Display name (e.g., "Apple Inc.") | ✓        |
-| `assetType` | `AssetType` | Asset category                    | ✓        |
-| `currency`  | `String`    | Currency code (default: "USD")    | ✓        |
-| `notes`     | `String?`   | User notes/comments               | ✗        |
+| Property   | Type     | Description                                                                                              | Required           |
+| ---------- | -------- | -------------------------------------------------------------------------------------------------------- | ------------------ |
+| `id`       | `UUID`   | Primary key                                                                                              | Yes                |
+| `name`     | `String` | Asset name (e.g., "AAPL", "Bitcoin", "Savings Account")                                                  | Yes                |
+| `platform` | `String` | Platform/brokerage name. Always present as `String`, but may be an empty string to indicate no platform. | Yes (may be empty) |
 
 #### Relationships
 
 ```swift
-@Relationship(deleteRule: .nullify, inverse: \Portfolio.assets)
-var portfolio: Portfolio?
+@Relationship(deleteRule: .nullify, inverse: \Category.assets)
+var category: Category?
 
-@Relationship(deleteRule: .cascade, inverse: \Transaction.asset)
-var transactions: [Transaction]?
-
-@Relationship(deleteRule: .cascade, inverse: \PriceHistory.asset)
-var priceHistory: [PriceHistory]?
+@Relationship(deleteRule: .deny, inverse: \SnapshotAssetValue.asset)
+var snapshotAssetValues: [SnapshotAssetValue]?
 ```
 
-- **Portfolio**: Optional parent (`.nullify` on delete).
-- **Transactions**: Child records of all quantity changes (`.cascade` on delete).
-- **PriceHistory**: Child records of all price changes (`.cascade` on delete).
+- **Category**: Optional assignment (`.nullify` -- if the category is deleted, this becomes nil)
+- **SnapshotAssetValues**: All value records across snapshots (`.deny` -- asset cannot be deleted while it has snapshot values)
 
-#### Asset Types
+**Note on SwiftData relationships vs. SPEC field names**: The SPEC defines `categoryID: UUID?` as a field on Asset. In SwiftData, this is modeled using a direct relationship property (`category: Category?`) rather than a manual UUID foreign key. SwiftData manages the underlying foreign key automatically. Access the category's UUID via `asset.category?.id` when needed (e.g., for backup serialization).
+
+#### Uniqueness Constraints
 
 ```swift
-enum AssetType: String, Codable {
-    case stock          // Publicly traded stocks
-    case bond           // Government or corporate bonds
-    case crypto         // Cryptocurrencies
-    case realEstate     // Real estate properties
-    case commodity      // Gold, silver, oil, etc.
-    case cash           // Cash holdings and savings
-    case mutualFund     // Mutual fund investments
-    case etf            // Exchange-traded funds
-    case other          // Other asset types
-}
+#Unique<Asset>([\.name, \.platform])
 ```
 
-#### Computed Properties
+- `(name, platform)` must be unique (case-insensitive, using normalized identity comparison)
+- **Note**: The `#Unique` macro enforces uniqueness at the SwiftData level, but case-insensitive uniqueness cannot be enforced by the macro alone and must be handled in business logic (ViewModel validation).
 
-```swift
-// Current quantity held, calculated from transactions
-var quantity: Decimal {
-    transactions?.reduce(0) { $0 + $1.quantityImpact } ?? 0
-}
+#### Identity Matching
 
-// The most recent price from price history
-var currentPrice: Decimal {
-    priceHistory?.sorted(by: { $0.date > $1.date }).first?.price ?? 0
-}
+During import or manual operations, assets are matched using **normalized identity comparison**:
 
-// Current total value of the asset
-var currentValue: Decimal {
-    quantity * currentPrice
-}
+1. Trim leading and trailing whitespace
+1. Collapse multiple consecutive spaces to a single space
+1. Case-insensitive comparison (Unicode-aware, using `caseInsensitiveCompare` or equivalent)
 
-// Average cost per unit, calculated from buy transactions
-var averageCost: Decimal {
-    let totalCost = transactions?.filter { $0.transactionType == .buy }.reduce(0) { $0 + $1.totalAmount } ?? 0
-    let totalQuantity = transactions?.filter { $0.transactionType == .buy }.reduce(0) { $0 + $1.quantity } ?? 0
-    return totalQuantity > 0 ? totalCost / totalQuantity : 0
-}
+#### Deletion Rules
 
-// Total cost basis for current holdings
-var costBasis: Decimal {
-    averageCost * quantity
-}
-
-// Whether this asset is locked from editing type/currency
-// Assets are locked if they have any associated transactions or price history
-var isLocked: Bool {
-    (transactions?.isEmpty == false) || (priceHistory?.isEmpty == false)
-}
-```
-
-#### Edit Restrictions
-
-**Asset Type and Currency Immutability**: Once an asset has transactions or price history, its `assetType` and `currency` fields become read-only and cannot be modified.
-
-**Implementation**:
-
-- The `isLocked` computed property checks if the asset has any associated transactions or price history
-- `isLocked == true` prevents editing of these fields
-- This prevents data integrity issues in financial calculations (cost basis, gains/losses, allocations)
-- Users can edit type/currency during initial creation (before any transactions)
-- If a mistake occurs after saving, users must delete and recreate the asset with the correct values
-
-**View Model Support**:
-
-- `AssetFormViewModel` provides `canEditAssetType` and `canEditCurrency` computed properties
-- These disable the corresponding UI pickers when `false`
-- Explanatory text is shown to users when fields are locked
+An asset can only be deleted when it has **no SnapshotAssetValue records** in any snapshot. When associations exist, the delete action is disabled with explanatory text: "This asset cannot be deleted because it has values in [N] snapshot(s). Remove the asset from all snapshots first."
 
 #### Usage Example
 
 ```swift
 let asset = Asset(
-    name: "Apple Inc.",
-    assetType: .stock,
-    currency: "USD"
+    name: "AAPL",
+    platform: "Interactive Brokers"
 )
-
-// Before saving with transactions - can edit type and currency
-// asset.isLocked == false
-
-// After adding transaction:
-let transaction = Transaction(
-    transactionType: .buy,
-    transactionDate: Date(),
-    quantity: 10,
-    pricePerUnit: 150.0,
-    totalAmount: 1500.0,
-    asset: asset
-)
-
-// Now asset is locked
-// asset.isLocked == true
-// Cannot change assetType or currency anymore
+asset.category = equitiesCategory
 ```
 
 ______________________________________________________________________
 
-### PriceHistory
+### Snapshot
 
-Represents the price of an asset at a specific point in time. Price history enables users to track how asset prices have changed and provides the basis for calculating `Asset.currentPrice`.
+Represents the best-known portfolio state at a specific date. A snapshot is uniquely identified by its date. Multiple imports on the same date add SnapshotAssetValues to the existing snapshot.
 
-**File**: `AssetFlow/Models/PriceHistory.swift`
+**File**: `AssetFlow/Models/Snapshot.swift`
 
 #### Properties
 
-| Property | Type      | Description                        | Required |
-| -------- | --------- | ---------------------------------- | -------- |
-| `id`     | `UUID`    | Unique identifier                  | ✓        |
-| `date`   | `Date`    | The date the price was recorded    | ✓        |
-| `price`  | `Decimal` | The price of one unit of the asset | ✓        |
+| Property    | Type   | Description                                                                                | Required |
+| ----------- | ------ | ------------------------------------------------------------------------------------------ | -------- |
+| `id`        | `UUID` | Primary key                                                                                | Yes      |
+| `date`      | `Date` | Calendar date (normalized to local midnight, no time component). Must be today or earlier. | Yes      |
+| `createdAt` | `Date` | Auto-set creation timestamp                                                                | Yes      |
 
 #### Relationships
 
 ```swift
-@Relationship(deleteRule: .nullify)
-var asset: Asset?
+@Relationship(deleteRule: .cascade, inverse: \SnapshotAssetValue.snapshot)
+var assetValues: [SnapshotAssetValue]?
+
+@Relationship(deleteRule: .cascade, inverse: \CashFlowOperation.snapshot)
+var cashFlowOperations: [CashFlowOperation]?
 ```
 
-- **Asset**: The parent asset this price point belongs to
+- **SnapshotAssetValues**: Asset values recorded in this snapshot (`.cascade` on delete)
+- **CashFlowOperations**: Cash flow events associated with this snapshot (`.cascade` on delete)
 
-#### Constraints
+#### Uniqueness Constraints
 
-- **Unique Date per Asset**: An asset cannot have multiple price records for the same date
-- **No Future Dates**: Price records cannot have dates in the future
-- **Non-negative Price**: Price must be >= 0
-- **Minimum Price History**: An asset must maintain at least one price history record (deletion prevented if last record)
+- Only one Snapshot may exist per `date`
 
-#### Usage
+#### Important Notes
 
-Price history records are created:
+- `totalPortfolioValue` is **not stored** -- it is always derived by summing SnapshotAssetValues (including carry-forward)
+- Future dates are not allowed
+- The `date` field stores only the calendar date (no time component), normalized to local midnight
 
-1. Automatically when a new asset is created with an initial price
-1. Manually by users via the Price History modal
-1. Future: Automatically via price data API integrations
-
-#### Computed Property on Asset
+#### Usage Example
 
 ```swift
-// The most recent price from price history
-var currentPrice: Decimal {
-    priceHistory?.sorted(by: { $0.date > $1.date }).first?.price ?? 0
-}
-
-// The date of the most recent price (future)
-var currentPriceDate: Date? {
-    priceHistory?.sorted(by: { $0.date > $1.date }).first?.date
-}
+let snapshot = Snapshot(
+    date: Calendar.current.startOfDay(for: Date())
+)
 ```
-
-#### CRUD Operations
-
-- **Create**: New price records added via Price History modal or during asset creation
-- **Read**: All price records accessible via `asset.priceHistory` relationship
-- **Update**: Existing price records can be edited (date and/or price)
-- **Delete**: Price records can be deleted with cascade cleanup when asset is deleted
-
-See [BusinessLogic.md](BusinessLogic.md#price-history-management) for detailed CRUD operations and validation rules.
 
 ______________________________________________________________________
 
-### Portfolio
+### SnapshotAssetValue
 
-Represents a collection of assets grouped for organizational or strategic purposes.
+Records the market value of a specific asset within a specific snapshot. This is the core join entity connecting snapshots to assets with their values.
 
-**File**: `AssetFlow/Models/Portfolio.swift`
+**File**: `AssetFlow/Models/SnapshotAssetValue.swift`
 
 #### Properties
 
-| Property               | Type                 | Description            | Required |
-| ---------------------- | -------------------- | ---------------------- | -------- |
-| `id`                   | `UUID`               | Unique identifier      | ✓        |
-| `name`                 | `String`             | Display name           | ✓        |
-| `portfolioDescription` | `String?`            | Detailed description   | ✗        |
-| `createdDate`          | `Date`               | Creation timestamp     | ✓        |
-| `targetAllocation`     | `[String: Decimal]?` | Target % by asset type | ✗        |
-| `isActive`             | `Bool`               | Active status          | ✓        |
+| Property      | Type      | Description               | Required |
+| ------------- | --------- | ------------------------- | -------- |
+| `marketValue` | `Decimal` | Market value of the asset | Yes      |
+
+**Note on SPEC field names**: The SPEC defines `snapshotID` and `assetID` as UUID foreign keys. In SwiftData, these are modeled as relationship properties (`snapshot` and `asset`) rather than manual UUID fields. SwiftData manages the underlying foreign keys automatically. Access UUIDs via `snapshot?.id` and `asset?.id` when needed (e.g., for backup serialization). Do not store both a relationship property and a manual UUID field for the same reference.
 
 #### Relationships
 
 ```swift
-@Relationship(deleteRule: .deny, inverse: \Asset.portfolio)
-var assets: [Asset]?
+var snapshot: Snapshot?  // Inverse of Snapshot.assetValues
+var asset: Asset?        // Inverse of Asset.snapshotAssetValues
 ```
 
-- **Assets**: Child assets (`.deny` on delete - prevents portfolio deletion if it contains assets)
+- **Snapshot**: Parent snapshot. Deletion is governed by the parent's delete rule (Snapshot -> assetValues uses `.cascade`, so deleting a Snapshot cascades to its SnapshotAssetValues).
+- **Asset**: The asset being valued. Deletion is governed by the parent's delete rule (Asset -> snapshotAssetValues uses `.deny`, so the asset cannot be deleted while SnapshotAssetValues reference it).
 
-#### Target Allocation
+**Note**: The child-side delete rule is not meaningful in SwiftData -- deletion behavior is controlled by the parent-side rule. The inverse relationships here exist to satisfy SwiftData's relationship modeling requirements.
 
-Dictionary mapping asset type to percentage:
+#### Uniqueness Constraints
 
-```swift
-[
-    "Stock": 60.0,
-    "Bond": 30.0,
-    "Cash": 10.0
-]
-```
+- `(snapshot, asset)` must be unique (one value per asset per snapshot). Enforced in business logic since compound uniqueness across relationships requires ViewModel validation.
 
-#### Computed Properties
+#### Notes
 
-```swift
-// Sum of all asset values
-var totalValue: Decimal {
-    assets?.reduce(0) { $0 + $1.currentValue } ?? 0
-}
-
-// Current allocation percentages
-var currentAllocation: [String: Decimal] {
-    // Calculate actual allocation by asset type
-}
-
-// Allocation drift from target
-var allocationDrift: [String: Decimal] {
-    // Compare current vs target allocation
-}
-```
+- Negative market values are allowed (for liabilities or short positions)
+- Zero market values are allowed (with a warning during import)
+- Carry-forward values are NOT stored as SnapshotAssetValue records -- they are computed at query time
 
 #### Usage Example
 
 ```swift
-let portfolio = Portfolio(
-    name: "Retirement Portfolio",
-    portfolioDescription: "Long-term retirement savings",
-    createdDate: Date(),
-    targetAllocation: [
-        "Stock": 60.0,
-        "Bond": 30.0,
-        "Cash": 10.0
-    ],
-    isActive: true
-)
+let value = SnapshotAssetValue(marketValue: 15000)
+value.snapshot = snapshot
+value.asset = asset
+context.insert(value)
 ```
 
 ______________________________________________________________________
 
-### Transaction
+### CashFlowOperation
 
-Represents a single financial transaction related to an asset.
+Records an external money flow (deposit or withdrawal) associated with a snapshot. Cash flows are needed for accurate Modified Dietz return calculations.
 
-**File**: `AssetFlow/Models/Transaction.swift`
+**File**: `AssetFlow/Models/CashFlowOperation.swift`
 
 #### Properties
 
-| Property          | Type              | Description             | Required |
-| ----------------- | ----------------- | ----------------------- | -------- |
-| `id`              | `UUID`            | Unique identifier       | ✓        |
-| `transactionType` | `TransactionType` | Transaction category    | ✓        |
-| `transactionDate` | `Date`            | When it occurred        | ✓        |
-| `quantity`        | `Decimal`         | Units involved          | ✓        |
-| `pricePerUnit`    | `Decimal`         | Unit price              | ✓        |
-| `totalAmount`     | `Decimal`         | Total transaction value | ✓        |
-| `currency`        | `String`          | Currency code           | ✓        |
-| `fees`            | `Decimal?`        | Transaction fees        | ✗        |
-| `notes`           | `String?`         | Additional notes        | ✗        |
+| Property              | Type      | Description                                           | Required |
+| --------------------- | --------- | ----------------------------------------------------- | -------- |
+| `id`                  | `UUID`    | Primary key                                           | Yes      |
+| `cashFlowDescription` | `String`  | Description of the cash flow (e.g., "Salary deposit") | Yes      |
+| `amount`              | `Decimal` | Positive = inflow, negative = outflow                 | Yes      |
+
+**Note on property naming**: The property is named `cashFlowDescription` (not `description`) to avoid conflict with Swift's built-in `CustomStringConvertible` protocol requirement. This is an implementation detail — the SPEC uses "description" in CSV columns and documentation.
+
+**Note on SPEC field names**: The SPEC defines `snapshotID` as a UUID foreign key. In SwiftData, this is modeled as a relationship property (`snapshot`) rather than a manual UUID field. Access the snapshot UUID via `snapshot?.id` when needed (e.g., for backup serialization).
 
 #### Relationships
 
 ```swift
-@Relationship(deleteRule: .nullify, inverse: \Asset.transactions)
-var asset: Asset?
-
-// For dividends or interest, this specifies which asset generated the income.
-var sourceAsset: Asset?
-
-// For linking two sides of a swap transaction.
-var relatedTransaction: Transaction?
+var snapshot: Snapshot?  // Inverse of Snapshot.cashFlowOperations
 ```
 
-- **asset**: The asset whose quantity is directly changing.
-- **sourceAsset**: The asset that generated the income (for `dividend` or `interest` types).
-- **relatedTransaction**: The other transaction that is part of the same logical swap.
+- **Snapshot**: Parent snapshot. Deletion governed by Snapshot -> cashFlowOperations `.cascade` rule.
 
-#### Transaction Types
+#### Uniqueness Constraints
 
-```swift
-enum TransactionType: String, Codable {
-    case buy
-    case sell
-    case transferIn
-    case transferOut
-    case adjustment
-    case dividend
-    case interest
-}
-```
+- `(snapshotID, cashFlowDescription)` must be unique (case-insensitive comparison on cashFlowDescription)
 
-#### Computed Properties
+#### Notes
 
-```swift
-// The impact on asset quantity. Sells and transfers out decrease quantity.
-var quantityImpact: Decimal {
-    switch transactionType {
-    case .sell, .transferOut:
-        return -quantity
-    case .buy, .transferIn, .adjustment, .dividend, .interest:
-        return quantity
-    }
-}
-```
+- The net cash flow for a snapshot is always derived: `netCashFlow = sum(CashFlowOperation.amount)` for all operations associated with that snapshot
+- If a snapshot has no cash flow operations, net cash flow = 0 (assumes all value changes are due to investment returns)
+- All cash flow operations within a snapshot are assumed to occur at the snapshot date for Modified Dietz time-weighting purposes
+- Portfolio-level only in v1 (category-level cash flow tracking deferred)
 
 #### Usage Example
 
 ```swift
-let transaction = Transaction(
-    transactionType: .buy,
-    transactionDate: Date(),
-    quantity: 10,
-    pricePerUnit: 150.00,
-    totalAmount: 1500.00,
-    currency: "USD",
-    fees: 4.95
+let cashFlow = CashFlowOperation(
+    cashFlowDescription: "Salary deposit",
+    amount: 50000
 )
-```
-
-______________________________________________________________________
-
-### InvestmentPlan
-
-Represents an investment strategy or goal with defined parameters.
-
-**File**: `AssetFlow/Models/InvestmentPlan.swift`
-
-#### Properties
-
-| Property              | Type         | Description                | Required |
-| --------------------- | ------------ | -------------------------- | -------- |
-| `id`                  | `UUID`       | Unique identifier          | ✓        |
-| `name`                | `String`     | Display name               | ✓        |
-| `planDescription`     | `String?`    | Detailed objectives        | ✗        |
-| `startDate`           | `Date`       | Plan start date            | ✓        |
-| `endDate`             | `Date?`      | Target completion date     | ✗        |
-| `targetAmount`        | `Decimal?`   | Goal amount                | ✗        |
-| `monthlyContribution` | `Decimal?`   | Planned monthly investment | ✗        |
-| `riskTolerance`       | `RiskLevel`  | Risk acceptance level      | ✓        |
-| `status`              | `PlanStatus` | Current status             | ✓        |
-| `notes`               | `String?`    | Strategy details           | ✗        |
-| `createdDate`         | `Date`       | Creation timestamp         | ✓        |
-| `lastUpdated`         | `Date`       | Last modification          | ✓        |
-
-#### Risk Levels
-
-```swift
-enum RiskLevel: String, Codable {
-    case veryLow    // Minimal risk (conservative)
-    case low        // Low risk
-    case moderate   // Balanced
-    case high       // High risk
-    case veryHigh   // Maximum risk (aggressive)
-}
-```
-
-#### Plan Status
-
-```swift
-enum PlanStatus: String, Codable {
-    case active     // Currently being followed
-    case paused     // Temporarily suspended
-    case completed  // Goal achieved
-    case cancelled  // No longer pursuing
-}
-```
-
-#### Computed Properties
-
-```swift
-// Projected total if following contribution plan
-var projectedTotal: Decimal {
-    // Calculate based on monthlyContribution and time to endDate
-}
-
-// Progress percentage toward goal
-var progressPercentage: Decimal {
-    // Current value vs targetAmount
-}
-
-// Time remaining
-var daysRemaining: Int {
-    // Days until endDate
-}
-```
-
-#### Usage Example
-
-```swift
-let plan = InvestmentPlan(
-    name: "Retirement by 2050",
-    planDescription: "Build retirement nest egg",
-    startDate: Date(),
-    endDate: Calendar.current.date(byAdding: .year, value: 25, to: Date()),
-    targetAmount: 1_000_000.00,
-    monthlyContribution: 2000.00,
-    riskTolerance: .moderate,
-    status: .active
-)
-```
-
-______________________________________________________________________
-
-### RegularSavingPlan
-
-Represents a recurring investment plan to automate or remind users of regular savings.
-
-**File**: `AssetFlow/Models/RegularSavingPlan.swift` (to be created)
-
-#### Properties
-
-| Property          | Type                        | Description                                         | Required |
-| ----------------- | --------------------------- | --------------------------------------------------- | -------- |
-| `id`              | `UUID`                      | Unique identifier                                   | ✓        |
-| `name`            | `String`                    | Display name for the plan                           | ✓        |
-| `amount`          | `Decimal`                   | The amount to invest on each occasion               | ✓        |
-| `frequency`       | `SavingPlanFrequency`       | How often the investment occurs                     | ✓        |
-| `startDate`       | `Date`                      | The date the plan begins                            | ✓        |
-| `nextDueDate`     | `Date`                      | The next date the investment is scheduled for       | ✓        |
-| `executionMethod` | `SavingPlanExecutionMethod` | Whether to execute automatically or send a reminder | ✓        |
-| `isActive`        | `Bool`                      | Whether the plan is currently active                | ✓        |
-
-#### Relationships
-
-```swift
-// The asset to purchase
-@Relationship(deleteRule: .nullify)
-var asset: Asset?
-
-// The asset to sell/withdraw from (e.g., Cash)
-@Relationship(deleteRule: .nullify)
-var sourceAsset: Asset?
-```
-
-- **asset**: The asset to be purchased as part of the plan. If the asset is deleted, the plan is not deleted.
-- **sourceAsset**: The asset from which funds are drawn. If `nil`, the transaction is treated as a `transferIn` from an external source.
-
-#### Enums
-
-**SavingPlanFrequency**
-
-```swift
-enum SavingPlanFrequency: String, Codable {
-    case daily
-    case weekly
-    case biweekly
-    case monthly
-}
-```
-
-**SavingPlanExecutionMethod**
-
-```swift
-enum SavingPlanExecutionMethod: String, Codable {
-    case automatic
-    case manual
-}
-```
-
-#### Usage Example
-
-```swift
-// With a source asset (a swap)
-let savingPlanWithSource = RegularSavingPlan(
-    name: "Weekly Bitcoin Buy",
-    amount: 50.00,
-    frequency: .weekly,
-    startDate: Date(),
-    executionMethod: .automatic,
-    asset: bitcoinAsset,
-    sourceAsset: cashAsset
-)
-
-// Without a source asset (a deposit/transfer)
-let savingPlanWithoutSource = RegularSavingPlan(
-    name: "Monthly Deposit to Brokerage",
-    amount: 500.00,
-    frequency: .monthly,
-    startDate: Date(),
-    executionMethod: .automatic,
-    asset: cashAsset,
-    sourceAsset: nil
-)
+cashFlow.snapshot = snapshot
+context.insert(cashFlow)
 ```
 
 ______________________________________________________________________
@@ -555,74 +302,69 @@ ______________________________________________________________________
 ### Relationship Diagram
 
 ```
-┌──────────────┐
-│  Portfolio   │
-└──────┬───────┘
-       │ 1:Many
-       ↓
-┌──────────────┐   1:Many   ┌──────────────┐
-│    Asset     ├───────────>│ PriceHistory │
-└──────┬───────┘            └──────────────┘
-       │ 1:Many
-       ↓
-┌──────────────┐
-│ Transaction  │───> sourceAsset (Asset)
-└──────┬───────┘
-       │ 1:1 (optional)
-       └─────────> relatedTransaction (self)
-
-┌──────────────┐
-│InvestmentPlan│  (Currently independent)
-└──────────────┘
-
-┌───────────────────┐
-│ RegularSavingPlan │
-└─────────┬─────────┘
-          │
-          └────> Asset (1:1)
-          └────> sourceAsset (1:1)
++-----------+
+| Category  |
++-----+-----+
+      | 1:Many
+      v
++-----------+   1:Many   +--------------------+
+|   Asset   +----------->| SnapshotAssetValue |
++-----------+            +----------+---------+
+                                    |
+                                    | Many:1
+                                    v
+                              +-----------+   1:Many   +--------------------+
+                              |  Snapshot  +----------->| CashFlowOperation |
+                              +-----------+            +--------------------+
 ```
 
 ### Delete Rules
 
-| Relationship              | Delete Rule | Behavior                                                   |
-| ------------------------- | ----------- | ---------------------------------------------------------- |
-| Portfolio → Assets        | `.nullify`  | Assets remain, `portfolio` reference set to `nil`          |
-| Asset → Transactions      | `.cascade`  | Deleting asset deletes all its transactions                |
-| Asset → PriceHistory      | `.cascade`  | Deleting asset deletes all its price history records       |
-| Transaction → Asset       | (default)   | Deleting transaction doesn't affect asset                  |
-| RegularSavingPlan → Asset | `.nullify`  | Asset deletion sets saving plan's asset reference to `nil` |
+| Relationship                    | Delete Rule | Behavior                                       |
+| ------------------------------- | ----------- | ---------------------------------------------- |
+| Category -> Assets              | `.deny`     | Cannot delete category if assets are assigned  |
+| Asset -> SnapshotAssetValues    | `.deny`     | Cannot delete asset if snapshot values exist   |
+| Snapshot -> SnapshotAssetValues | `.cascade`  | Deleting snapshot removes all its asset values |
+| Snapshot -> CashFlowOperations  | `.cascade`  | Deleting snapshot removes all its cash flows   |
 
-**Important: Portfolio Deletion Protection**
+**Note**: Delete behavior is controlled by the parent-side rule. Child-side inverse relationships do not independently define delete behavior in SwiftData.
 
-SwiftData's `.deny` delete rule has known bugs and does not work reliably (as of 2024-2025). Therefore, Portfolio uses `.nullify` instead. **Business logic MUST enforce deletion prevention** by checking `portfolio.isEmpty` before allowing deletion:
+**Important: Category Deletion Protection**
+
+SwiftData's `.deny` delete rule has known bugs and may not work reliably. **Business logic MUST enforce deletion prevention** by checking whether the category has any assigned assets before allowing deletion:
 
 ```swift
-// In ViewModel/Service layer
-func deletePortfolio(_ portfolio: Portfolio) throws {
-    guard portfolio.isEmpty else {
-        throw PortfolioError.cannotDeleteNonEmptyPortfolio
+func deleteCategory(_ category: Category) throws {
+    guard category.assets?.isEmpty ?? true else {
+        throw CategoryError.cannotDeleteWithAssignedAssets
     }
-    modelContext.delete(portfolio)
+    modelContext.delete(category)
 }
 ```
 
-Use the helper properties provided by Portfolio:
+**Important: Asset Deletion Protection**
 
-- `portfolio.isEmpty` - Returns `true` if portfolio has no assets (safe to delete)
-- `portfolio.assetCount` - Number of assets in portfolio
+Asset deletion is blocked at the SwiftData level via the `.deny` delete rule. Additionally, business logic MUST enforce deletion prevention and provide a clear error message:
+
+```swift
+func deleteAsset(_ asset: Asset) throws {
+    guard asset.snapshotAssetValues?.isEmpty ?? true else {
+        throw AssetError.cannotDeleteWithSnapshotValues(
+            count: asset.snapshotAssetValues?.count ?? 0
+        )
+    }
+    modelContext.delete(asset)
+}
+```
 
 ### Relationship Constraints
 
-- An Asset can belong to **0 or 1** Portfolio.
-- A Portfolio can contain **0 to many** Assets.
-- An Asset can have **0 to many** Transactions.
-- An Asset can have **0 to many** PriceHistory records.
-- A Transaction must relate to **0 or 1** Asset (the asset being modified).
-- A Transaction can optionally relate to **0 or 1** source Asset (for dividends/interest).
-- A Transaction can optionally relate to **1 other** Transaction (for swaps).
-- A RegularSavingPlan relates to **1** Asset (the destination) and **0 or 1** source Asset.
-- InvestmentPlan is currently **standalone** (future: link to Portfolio).
+- An Asset can belong to **0 or 1** Category
+- A Category can contain **0 to many** Assets
+- A Snapshot can have **0 to many** SnapshotAssetValues
+- A Snapshot can have **0 to many** CashFlowOperations
+- An Asset can have **0 to many** SnapshotAssetValues (across different snapshots)
+- A SnapshotAssetValue belongs to exactly **1** Snapshot and **1** Asset
 
 ______________________________________________________________________
 
@@ -635,12 +377,11 @@ ______________________________________________________________________
 ```swift
 var sharedModelContainer: ModelContainer = {
     let schema = Schema([
+        Category.self,
         Asset.self,
-        Portfolio.self,
-        Transaction.self,
-        InvestmentPlan.self,
-        PriceHistory.self,
-        RegularSavingPlan.self
+        Snapshot.self,
+        SnapshotAssetValue.self,
+        CashFlowOperation.self,
     ])
 
     let modelConfiguration = ModelConfiguration(
@@ -675,11 +416,14 @@ When adding a new model to the schema:
 Using SwiftUI's `@Query`:
 
 ```swift
-@Query(sort: \Portfolio.createdDate, order: .reverse)
-private var portfolios: [Portfolio]
+@Query(sort: \Snapshot.date, order: .reverse)
+private var snapshots: [Snapshot]
 
-@Query(filter: #Predicate<Asset> { $0.portfolio?.id == portfolioId })
+@Query(sort: \Asset.name)
 private var assets: [Asset]
+
+@Query(sort: \Category.name)
+private var categories: [Category]
 ```
 
 ### Manual Context Access
@@ -688,10 +432,10 @@ private var assets: [Asset]
 @Environment(\.modelContext) private var modelContext
 
 // Insert
-modelContext.insert(newAsset)
+modelContext.insert(newSnapshot)
 
 // Delete
-modelContext.delete(asset)
+modelContext.delete(snapshot)
 
 // Save (usually automatic)
 try? modelContext.save()
@@ -703,32 +447,66 @@ ______________________________________________________________________
 
 ### Model-Level Validation
 
-Validation logic should be in models or ViewModels:
+Validation logic resides in ViewModels (not models):
 
 ```swift
-extension Asset {
-    var isValid: Bool {
-        !name.isEmpty &&
-        currentValue >= 0 &&
-        quantity >= 0
-    }
+// In ImportViewModel
+func validateAssetCSV(_ rows: [CSVRow]) -> [ValidationError] {
+    var errors: [ValidationError] = []
 
-    func validate() throws {
-        guard isValid else {
-            throw ValidationError.invalidAsset
+    for (index, row) in rows.enumerated() {
+        if row.assetName.trimmingCharacters(in: .whitespaces).isEmpty {
+            errors.append(.emptyAssetName(row: index + 1))
+        }
+        if Decimal(string: row.marketValue) == nil {
+            errors.append(.invalidMarketValue(row: index + 1))
         }
     }
+
+    return errors
 }
 ```
 
 ### Business Rules
 
-1. **Asset Values**: Must be non-negative
-1. **Quantities**: Must be positive for owned assets
-1. **Dates**: `purchaseDate` cannot be in future
-1. **Allocation**: Portfolio target allocation should sum to 100%
-1. **Currency**: Valid ISO 4217 currency codes
-1. **Transactions**: Sell quantity ≤ current holdings
+1. **Market Values**: Use `Decimal` for all monetary values
+1. **Dates**: Snapshot dates cannot be in the future; normalized to local midnight
+1. **Uniqueness**: (Asset name, Platform) must be unique; Snapshot date must be unique; (Snapshot, Asset) must be unique per SnapshotAssetValue; (Snapshot, Description) must be unique for cash flows
+1. **Category Deletion**: Only allowed if no assets are assigned
+1. **Asset Deletion**: Only allowed if no SnapshotAssetValue records exist
+1. **Snapshot Deletion**: Always allowed (with confirmation dialog); cascades to all asset values and cash flow operations
+
+______________________________________________________________________
+
+## Carry-Forward Behavior
+
+Carry-forward is a **query-time computation**, not a storage operation:
+
+1. When computing the composite total value of Snapshot N:
+   - Sum all directly-recorded SnapshotAssetValues in Snapshot N
+   - Identify platforms present in Snapshot N (platforms with at least one direct SnapshotAssetValue)
+   - For each platform NOT present in Snapshot N, find the most recent prior snapshot containing that platform
+   - Include those carried-forward platform values in the total
+1. Carry-forward values are **never stored** as new SnapshotAssetValue records
+1. Carry-forward operates at the **platform level**: if a platform appears in a snapshot (has any directly-recorded asset), no individual asset carry-forward occurs for that platform
+1. Assets absent from a platform's import are treated as disposed (not individually carried forward)
+
+See [BusinessLogic.md](BusinessLogic.md) for detailed carry-forward resolution logic.
+
+______________________________________________________________________
+
+## Backup Data Format
+
+When exporting a backup, each entity is serialized to CSV with the following rules:
+
+- Column headers match field names from this data model
+- UUID fields serialized as standard UUID strings
+- Decimal fields serialized at full precision
+- Date fields use ISO 8601 format (YYYY-MM-DD)
+- Optional/nullable fields use an empty string for null values
+- A `manifest.json` file includes format version, export timestamp, and app version
+
+See [APIDesign.md](APIDesign.md) for detailed backup format specification.
 
 ______________________________________________________________________
 
@@ -736,18 +514,11 @@ ______________________________________________________________________
 
 ### Schema Versioning
 
-Future migrations will use SwiftData's migration support:
+Future migrations will use SwiftData's lightweight migration support:
 
 ```swift
 // Example migration (future)
 let schema = Schema(versionedSchema: SchemaV1.self)
-
-let configuration = ModelConfiguration(
-    schema: schema,
-    migrationPlan: MigrationPlan(
-        [MigrationStage.v1ToV2]
-    )
-)
 ```
 
 ### Migration Strategy
@@ -756,9 +527,23 @@ let configuration = ModelConfiguration(
 1. **Transformations**: Property renames or type changes (migration required)
 1. **Relationship Changes**: Modify delete rules or cardinality (migration required)
 
+The initial data model is designed to minimize future breaking changes by:
+
+- Using UUID primary keys
+- Keeping relationships simple
+- Avoiding complex computed stored properties
+
 ______________________________________________________________________
 
 ## Performance Considerations
+
+### Efficient Historical Queries
+
+The data model must support efficient queries for:
+
+- Fetching all snapshots (ordered by date)
+- Fetching asset values across multiple snapshots (for charts)
+- Carry-forward resolution (pre-fetch snapshot history, resolve in memory)
 
 ### Indexing
 
@@ -766,57 +551,20 @@ Consider adding indices for frequently queried properties:
 
 ```swift
 @Attribute(.index)
-var name: String
+var date: Date  // On Snapshot
+
+@Attribute(.index)
+var name: String  // On Asset
 ```
 
-### Lazy Loading
+### Carry-Forward Performance
 
-Use relationships judiciously to avoid loading entire object graphs:
+Carry-forward computation must be efficient:
 
-```swift
-// Only load when needed
-if let transactions = asset.transactions {
-    // Process transactions
-}
-```
-
-### Batch Operations
-
-For bulk operations, use batch context:
-
-```swift
-let backgroundContext = ModelContext(modelContainer)
-await backgroundContext.performInBackground {
-    // Bulk operations
-}
-```
-
-______________________________________________________________________
-
-## Future Enhancements
-
-### Planned Model Extensions
-
-1. **Historical Snapshots**: Time-series data for portfolio values
-1. **Price History**: Track asset price changes over time
-1. **Categories/Tags**: Flexible asset categorization
-1. **Goals**: Link InvestmentPlan to Portfolio
-1. **Benchmarks**: Track performance vs indices
-1. **Tax Lots**: Capital gains tracking
-1. **Multi-Currency**: Exchange rate support
-1. **Recurring Transactions**: Automated dividend/contribution tracking
-
-### Data Sync
-
-- CloudKit integration for cross-device sync
-- Conflict resolution strategies
-- Privacy-preserving sync
-
-### External Integration
-
-- API models for market data services
-- Import/Export DTOs for data portability
-- Third-party service adapters
+1. Pre-fetch all relevant snapshot data into memory
+1. Build platform-to-latest-values index
+1. Resolve carry-forward from in-memory data
+1. Avoid per-asset or per-platform database queries during resolution
 
 ______________________________________________________________________
 
@@ -825,4 +573,5 @@ ______________________________________________________________________
 - Source: `AssetFlow/Models/`
 - Extensions: `AssetFlow/Utilities/Extensions.swift`
 - App Configuration: `AssetFlow/AssetFlowApp.swift`
-- Original Documentation: `AssetFlow/Models/README.md`
+- Quick Reference: `AssetFlow/Models/README.md`
+- Specification: `SPEC.md` Section 7

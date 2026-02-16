@@ -5,6 +5,7 @@ disabled_rules:
   - trailing_whitespace
   - todo
   - opening_brace
+  - trailing_comma
 
 # Opt-in Rules
 opt_in_rules:
@@ -77,10 +78,6 @@ nesting:
     warning: 2
   function_level:
     warning: 5
-
-# Trailing Commas in Arrays and Dictionaries
-trailing_comma:
-  mandatory_comma: true
 
 # File Header
 file_header:

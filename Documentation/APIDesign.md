@@ -4,1040 +4,540 @@
 
 **Purpose of this Document**
 
-This document describes the design of external integrations and internal API patterns for AssetFlow. It covers both **external APIs** (third-party services for data) and **internal APIs** (how components communicate within the app).
+This document describes the design of internal service APIs and data format specifications for AssetFlow. As a **local-only application with no external API dependencies**, this document focuses exclusively on internal service interfaces, CSV import/export formats, and the backup/restore system.
 
 **What This Document Covers**
 
-- **External API Integrations**: Third-party services for asset prices, market data, etc.
-- **Internal API Design**: Service layer interfaces, ViewModel contracts, data access patterns
-- **Data Import/Export**: File formats and integration with other financial tools
-- **Future Integration Points**: Planned external connections
+- **Internal Service APIs**: Service layer interfaces for CSV parsing, carry-forward resolution, calculations, and backup/restore
+- **CSV Import Format**: Asset CSV and Cash Flow CSV schemas, parsing rules, and validation
+- **Backup Format**: ZIP archive structure, CSV serialization, and manifest specification
+- **Error Handling**: Service-level error types and handling patterns
 
 **What This Document Does NOT Cover**
 
 - User interface design (see [UserInterfaceDesign.md](UserInterfaceDesign.md))
 - Business logic calculations (see [BusinessLogic.md](BusinessLogic.md))
 - Data model structure (see [DataModel.md](DataModel.md))
-
-**Current Status**
-
-🚧 **This document is a work in progress.** AssetFlow is currently a **standalone, offline application** with no external API dependencies. This document establishes the framework for future integrations while documenting internal API patterns as they are developed.
+- External API integrations (none in v1)
 
 **Design Philosophy**
 
-- **Offline-First**: App fully functional without internet
-- **Optional Integrations**: External APIs are convenience features, not requirements
-- **Fail Gracefully**: If API unavailable, fall back to manual entry or cached data
-- **Privacy-Preserving**: Minimize data sent to third parties
-- **Standard Formats**: Use open formats for import/export (CSV, JSON)
+- **Local-Only**: No network access, no external APIs, no API keys
+- **Standard Formats**: CSV for import/export, ZIP for backup archives
+- **Deterministic**: All operations produce the same output for the same input
+- **Fail-Safe**: Validation before execution; rejected operations leave no partial state
 
 **Related Documentation**
 
-- [Architecture.md](Architecture.md) - MVVM layers and data flow
-- [SecurityAndPrivacy.md](SecurityAndPrivacy.md) - Data security and privacy
-- [DataModel.md](DataModel.md) - Data structures
+- [Architecture.md](Architecture.md) - MVVM layers and service patterns
+- [BusinessLogic.md](BusinessLogic.md) - Calculation formulas and business rules
+- [DataModel.md](DataModel.md) - Data structures and relationships
 
 ______________________________________________________________________
 
-## Development Phases
+## Internal Service APIs
 
-### Phase 1-2: Exchange Rate Integration (Current)
+### CSVParsingService
 
-**Status**: ✅ Coinbase exchange rate API integrated
+**Purpose**: Parse CSV files according to the asset and cash flow schemas defined in SPEC Section 4.2.
 
-**External Integration**: Coinbase API for currency exchange rates
+```swift
+enum CSVParsingService {
+    /// Parse an asset CSV file into structured rows
+    static func parseAssetCSV(
+        url: URL,
+        importPlatform: String?,
+        importCategory: Category?
+    ) throws -> AssetCSVResult
 
-**Internal APIs**:
+    /// Parse a cash flow CSV file into structured rows
+    static func parseCashFlowCSV(url: URL) throws -> CashFlowCSVResult
+}
 
-- Direct SwiftData access via `@Query` and `@Environment(\.modelContext)`
-- `ExchangeRateService` for currency conversion
-- `PortfolioValueCalculator` for multi-currency portfolio totals
-- `CurrencyService` for ISO 4217 currency information
+struct AssetCSVResult {
+    let rows: [AssetCSVRow]
+    let warnings: [CSVWarning]
+    let unrecognizedColumns: [String]
+}
 
-**Network Requirements**:
+struct AssetCSVRow {
+    let rowNumber: Int
+    let assetName: String
+    let marketValue: Decimal
+    let platform: String  // Resolved via platform handling rules
+}
 
-- Requires `com.apple.security.network.client` entitlement for API access
-- 1-hour caching reduces network calls
-- Graceful degradation with cached rates if API unavailable
+struct CashFlowCSVResult {
+    let rows: [CashFlowCSVRow]
+    let warnings: [CSVWarning]
+    let unrecognizedColumns: [String]
+}
 
-______________________________________________________________________
-
-### Phase 3: Asset Price Updates (Planned)
-
-**External Integration**: Financial data API for current prices
-
-**Use Cases**
-
-- Automatically update stock prices
-- Automatically update cryptocurrency prices
-- Display current market data
-
-**Requirements**
-
-- HTTPS only
-- API key management
-- Rate limiting and caching
-- Error handling (fallback to manual entry)
-
-______________________________________________________________________
-
-### Phase 4+: Advanced Integrations (Future)
-
-**Potential Integrations**
-
-- Historical price data (charting)
-- News and market data
-- Brokerage connections (read-only, view holdings)
-- Data sync across devices (iCloud)
-- Export to tax software
-
-______________________________________________________________________
-
-## External API Integrations
-
-### Coinbase Exchange Rate API (Implemented)
-
-**Purpose**: Fetch current exchange rates for multi-currency portfolio calculations
-
-**Provider**: Coinbase (https://api.coinbase.com)
-
-**API Endpoint**: `GET https://api.coinbase.com/v2/exchange-rates?currency={baseCurrency}`
-
-**Authentication**: None required (public API)
-
-**Required Headers**:
-
-- `CB-VERSION: 2018-01-01` (API version)
-
-**Rate Limits**: Not strictly enforced, but we implement 1-hour caching
-
-**Response Format**:
-
-```json
-{
-  "data": {
-    "currency": "USD",
-    "rates": {
-      "EUR": "0.85",
-      "GBP": "0.73",
-      "JPY": "110.25",
-      ...
-    }
-  }
+struct CashFlowCSVRow {
+    let rowNumber: Int
+    let description: String  // Maps to CashFlowOperation.cashFlowDescription in the model
+    let amount: Decimal
 }
 ```
 
-**Implementation**:
+**Note**: `CashFlowCSVRow.description` represents the "Description" column from the CSV file. When creating `CashFlowOperation` entities, this value is assigned to the `cashFlowDescription` property (not `description`) to avoid conflicts with Swift's built-in `CustomStringConvertible` protocol.
 
-- Service: `ExchangeRateService`
-- Caching: 1 hour in-memory cache
-- Error handling: Categorized errors (network, timeout, parsing)
-- Fallback: Uses cached rates if API unavailable
+**Parsing Rules**:
 
-**Usage in App**:
+- Encoding: UTF-8 (with BOM tolerance)
+- Delimiter: comma only
+- Number parsing: strip whitespace, currency symbols ($), thousand separators (commas in numbers), parse as `Decimal`
+- Empty rows: silently skipped
+- Header row: required as first row
 
-- PortfolioDetailView: Calculate total value in USD
-- OverviewView: Aggregate portfolio values across currencies
-- AssetFormView: Currency picker with ISO 4217 codes
+**Error Cases**:
 
-______________________________________________________________________
-
-### Asset Price Data API (Phase 3 - Planned)
-
-**Purpose**: Fetch current market prices for stocks, cryptocurrencies, and other assets
-
-______________________________________________________________________
-
-#### Provider Selection
-
-**Evaluation Criteria**
-
-- Free tier or affordable pricing
-- Reliable uptime
-- Comprehensive coverage (stocks, crypto, forex, etc.)
-- API rate limits
-- Privacy policy (data usage)
-
-**Candidate Providers**
-
-1. **Alpha Vantage**
-
-   - Free tier: 5 requests/min, 500 requests/day
-   - Coverage: Stocks, forex, crypto
-   - HTTPS, JSON API
-
-1. **Yahoo Finance API** (unofficial)
-
-   - Free (unofficial scrapers available)
-   - Coverage: Stocks, ETFs, crypto
-   - Risk: Unofficial, may break
-
-1. **CoinGecko API** (for crypto)
-
-   - Free tier: 50 calls/min
-   - Coverage: Comprehensive crypto
-   - Reliable, well-documented
-
-1. **IEX Cloud**
-
-   - Free tier: 50,000 messages/month
-   - Coverage: Stocks, ETFs
-   - Official, reliable
-
-**Recommendation** (to be decided during implementation)
-
-- Use multiple providers based on asset type
-  - Stocks: IEX Cloud or Alpha Vantage
-  - Crypto: CoinGecko
-  - Forex: Alpha Vantage
-- Fallback: Manual entry if API unavailable
-
-______________________________________________________________________
-
-#### API Request Pattern
-
-**Request Flow**
-
-1. User opens asset detail or refreshes data
-1. App checks cache (timestamp)
-1. If cache stale (>15 minutes), fetch from API
-1. Update asset's `currentValue` in SwiftData
-1. Display updated value with timestamp ("Updated 5 min ago")
-
-**Batching**
-
-- Fetch multiple asset prices in single request (if API supports)
-- Reduces API calls, faster updates
-
-**Rate Limiting**
-
-- Track API calls per minute/day
-- Display warning if approaching limit
-- Disable auto-refresh if limit reached, require manual refresh
-
-______________________________________________________________________
-
-#### API Response Handling
-
-**Success Response** (Example: IEX Cloud)
-
-```json
-{
-  "symbol": "AAPL",
-  "latestPrice": 175.43,
-  "latestUpdate": 1672531200000,
-  "currency": "USD"
+```swift
+enum CSVParsingError: LocalizedError {
+    case fileCannotBeOpened
+    case missingRequiredColumns([String])
+    case emptyFile
+    case noDataRows
+    case invalidNumber(row: Int, column: String, value: String)
+    case emptyRequiredField(row: Int, column: String)
 }
 ```
 
-**Mapping to AssetFlow**
+______________________________________________________________________
 
-- Parse `latestPrice`
-- Convert to `Decimal`
-- Update asset's `currentValue`
-- Store `latestUpdate` timestamp (for staleness indicator)
+### Duplicate Detection
 
-**Error Handling**
+**Purpose**: Detect duplicates within a CSV and between CSV data and existing snapshot records.
 
-- HTTP errors (500, 503): Retry with exponential backoff
-- 404 (symbol not found): Notify user, suggest checking symbol
-- 429 (rate limit): Display message, disable auto-refresh
-- Network unreachable: Use cached value, notify user app is offline
+**Implementation**: AssetFlow handles duplicate detection in two layers:
+
+1. **CSV-Internal Duplicates** (handled by `CSVParsingService`):
+
+   - Detected during CSV parsing
+   - Asset duplicates: Same (name, platform) within the CSV file (normalized: trim whitespace, collapse spaces, case-insensitive)
+   - Cash flow duplicates: Same description within the CSV file (case-insensitive)
+   - Returns parsing errors with row numbers for duplicates found
+
+1. **CSV-vs-Snapshot Duplicates** (handled by `ImportViewModel`):
+
+   - Detected when loading preview in import workflow
+   - Compares parsed CSV rows against existing snapshot data
+   - Asset conflicts: CSV row matches an asset already in the target snapshot
+   - Cash flow conflicts: CSV row description matches a cash flow operation already in the target snapshot
+   - Surfaces conflicts in the import preview UI for user resolution
+
+**Asset Duplicate Detection**: Two records share the same (Asset Name, Platform) identity using normalized comparison (trim whitespace, collapse spaces, case-insensitive).
+
+**Cash Flow Duplicate Detection**: Two records share the same Description (case-insensitive comparison).
 
 ______________________________________________________________________
 
-#### Privacy Considerations
+### CarryForwardService
 
-**Data Sent to API**
+**Purpose**: Resolve composite portfolio values by combining direct snapshot data with carried-forward platform values from prior snapshots.
 
-- Asset symbols/tickers (e.g., "AAPL", "BTC")
-- No user identifiable information
-- No portfolio values or quantities
+```swift
+enum CarryForwardService {
+    /// Compute the composite view for a snapshot (direct + carried-forward values)
+    static func resolveCompositeView(
+        for snapshot: Snapshot,
+        allSnapshots: [Snapshot],
+        allAssetValues: [SnapshotAssetValue]
+    ) -> CompositeSnapshotView
 
-**Minimization**
+    /// Compute composite views for all snapshots (batch, for charts)
+    static func resolveAllCompositeViews(
+        snapshots: [Snapshot],
+        allAssetValues: [SnapshotAssetValue]
+    ) -> [CompositeSnapshotView]
+}
 
-- Only send symbols user explicitly added
-- Batch requests to reduce identifiable patterns
+struct CompositeSnapshotView {
+    let snapshot: Snapshot
+    let directValues: [SnapshotAssetValue]
+    let carriedForwardValues: [CarriedForwardValue]
+    let totalValue: Decimal
+}
 
-**Transparency**
+struct CarriedForwardValue {
+    let asset: Asset
+    let marketValue: Decimal
+    let sourceSnapshotDate: Date  // Which snapshot this was carried from
+}
+```
 
-- Inform user that symbols are sent to third-party API
-- Privacy setting: "Enable automatic price updates" (opt-in)
-
-______________________________________________________________________
-
-#### API Key Management
-
-**Storage**
-
-- Store API keys in **Keychain** (secure, OS-managed)
-- Never hardcode keys in source code
-
-**User-Provided Keys** (Optional)
-
-- Allow advanced users to provide their own API keys
-- Documented in settings screen
-- Benefits: Higher rate limits, user control
-
-**Default Keys**
-
-- Developer provides default API key (free tier)
-- Shared across all users (rate limit shared)
-- User encouraged to get own key if heavy usage
+**Implementation Requirement**: Must operate on pre-fetched data in memory. The caller pre-fetches all snapshots and asset values, then passes them to the service. No database queries inside the service.
 
 ______________________________________________________________________
 
-#### Caching Strategy
+### CalculationService
 
-**Cache Duration**
+**Purpose**: Unified calculation engine for all financial metrics. All methods are pure functions operating on `Decimal` values.
 
-- Stock prices: 15 minutes during market hours, 1 hour after close
-- Crypto prices: 5 minutes (24/7 markets)
-- Forex: 15 minutes
+**File**: `AssetFlow/Services/CalculationService.swift`
 
-**Cache Storage**
+```swift
+enum CalculationService {
+    /// Calculate simple growth rate between two values (SPEC Section 10.3)
+    /// Formula: (endValue - beginValue) / beginValue
+    /// - Returns: Growth rate as a decimal (e.g., 0.10 for 10%), or nil if
+    ///   beginning value is zero or negative
+    static func growthRate(
+        beginValue: Decimal,
+        endValue: Decimal
+    ) -> Decimal?
 
-- Store in SwiftData alongside asset (add `lastPriceUpdate: Date?` field)
-- Or: In-memory cache (lost on app restart)
+    /// Calculate Modified Dietz return (SPEC Section 10.4)
+    /// Formula: R = (EMV - BMV - CF) / (BMV + sum(wi * CFi))
+    /// Where wi = (totalDays - daysSinceStart) / totalDays
+    /// - Parameters:
+    ///   - beginValue: Beginning composite portfolio value (BMV)
+    ///   - endValue: Ending composite portfolio value (EMV)
+    ///   - cashFlows: Array of (amount, daysSinceStart) tuples for intermediate cash flows
+    ///   - totalDays: Total calendar days in the period
+    /// - Returns: Modified Dietz return as a decimal, or nil if denominator is <= 0
+    ///   or beginning value is zero/negative
+    static func modifiedDietzReturn(
+        beginValue: Decimal,
+        endValue: Decimal,
+        cashFlows: [(amount: Decimal, daysSinceStart: Int)],
+        totalDays: Int
+    ) -> Decimal?
 
-**Cache Invalidation**
+    /// Calculate cumulative time-weighted return by chaining period returns (SPEC Section 10.5)
+    /// Formula: TWR = (1 + r1) * (1 + r2) * ... * (1 + rn) - 1
+    /// - Parameter periodReturns: Array of Modified Dietz returns for consecutive periods
+    /// - Returns: Cumulative TWR as a decimal
+    static func cumulativeTWR(
+        periodReturns: [Decimal]
+    ) -> Decimal
 
-- Manual refresh: Always fetch fresh data
-- Auto-refresh: Respect cache duration
-- User preference: Adjust cache duration in settings
+    /// Calculate compound annual growth rate (SPEC Section 10.6)
+    /// Formula: CAGR = (endValue / beginValue) ^ (1 / years) - 1
+    /// - Parameters:
+    ///   - beginValue: Beginning portfolio value
+    ///   - endValue: Ending portfolio value
+    ///   - years: Number of years (can be fractional)
+    /// - Returns: CAGR as a decimal, or nil if beginning value is zero/negative
+    ///   or years is zero/negative
+    static func cagr(
+        beginValue: Decimal,
+        endValue: Decimal,
+        years: Double
+    ) -> Decimal?
+
+    /// Calculate category allocation percentage (SPEC Section 10.2)
+    /// Formula: categoryValue / totalValue * 100
+    /// - Returns: Allocation percentage, or 0 if total value is zero
+    static func categoryAllocation(
+        categoryValue: Decimal,
+        totalValue: Decimal
+    ) -> Decimal
+}
+```
+
+### RebalancingCalculator
+
+**Purpose**: Computes rebalancing adjustments for portfolio allocation.
+
+**File**: `AssetFlow/Services/RebalancingCalculator.swift`
+
+```swift
+enum RebalancingCalculator {
+    /// Calculate the adjustment amount needed to reach target allocation
+    /// - Parameters:
+    ///   - currentAllocation: Current allocation percentage (0-100)
+    ///   - targetAllocation: Target allocation percentage (0-100)
+    ///   - totalPortfolioValue: Total portfolio value
+    /// - Returns: Signed Decimal (positive = buy, negative = sell)
+    static func adjustment(
+        currentAllocation: Decimal,
+        targetAllocation: Decimal,
+        totalPortfolioValue: Decimal
+    ) -> Decimal
+}
+```
+
+**Return Value Convention**: All calculation methods return `nil` (not throwing) when the result is N/A (insufficient data, division by zero, etc.). The ViewModel maps `nil` to the appropriate display text ("N/A", "Cannot calculate", etc.).
 
 ______________________________________________________________________
 
-### Historical Price Data API (Phase 4)
+### BackupService
 
-**Purpose**: Fetch historical prices for performance charting
+**Purpose**: Export all application data to a ZIP archive and restore from a backup archive.
 
-**Data Required**
+**Note**: BackupService requires `@MainActor` because it accepts `ModelContext`, which is `@MainActor`-isolated. This is an exception to the general service layer principle that services are not `@MainActor`.
 
-- Date range
-- Daily closing prices
-- Volume (optional)
+```swift
+@MainActor
+enum BackupService {
+    /// Export all data to a ZIP archive at the specified URL
+    static func exportBackup(
+        to url: URL,
+        modelContext: ModelContext,
+        settingsService: SettingsService
+    ) throws
 
-**Provider**: Same as current price API (Alpha Vantage, IEX Cloud)
+    /// Validate a backup archive without modifying data
+    static func validateBackup(
+        at url: URL
+    ) throws -> BackupManifest
 
-**Storage**
+    /// Restore all data from a backup archive (replaces ALL existing data)
+    static func restoreFromBackup(
+        at url: URL,
+        modelContext: ModelContext,
+        settingsService: SettingsService
+    ) throws
+}
 
-- Option 1: Store historical data in SwiftData (new model: `PriceHistory`)
-- Option 2: Fetch on-demand, cache temporarily
+struct BackupManifest: Codable {
+    let formatVersion: Int
+    let exportTimestamp: String  // ISO 8601
+    let appVersion: String
+}
+```
 
-**Use Case**
+**Export Format**: ZIP archive containing:
 
-- Display performance chart over time
-- Calculate time-weighted returns
+- `manifest.json` -- format version, export timestamp, app version
+- `categories.csv` -- all Category records
+- `assets.csv` -- all Asset records
+- `snapshots.csv` -- all Snapshot records
+- `snapshot_asset_values.csv` -- all SnapshotAssetValue records
+- `cash_flow_operations.csv` -- all CashFlowOperation records
+- `settings.csv` -- user preferences with columns: `key`, `value`. Keys: `displayCurrency` (e.g., "USD"), `dateFormat` (e.g., "abbreviated"), `defaultPlatform` (e.g., "" or "Interactive Brokers")
+
+**ZIP Implementation**: Uses `/usr/bin/ditto` via `Process` for ZIP creation (`-c -k --sequesterRsrc`) and extraction (`-x -k`). No external dependencies required — `ditto` is built into macOS.
+
+**CSV Serialization Rules**:
+
+- Column headers match data model field names (see [DataModel.md](DataModel.md))
+- UUID fields: standard UUID string format
+- Decimal fields: full precision (no rounding)
+- Date fields: ISO 8601 format (YYYY-MM-DD)
+- Optional/nullable fields: empty string for null
+- These CSV files are internal to the backup format, not intended for user editing
+
+**Restore Validation**:
+
+Before modifying any data, the restore operation validates:
+
+1. All expected CSV files are present in the archive
+1. All CSV files are parseable with correct column headers
+1. All foreign key references are valid across files:
+   - Every `assetID` in `snapshot_asset_values.csv` exists in `assets.csv`
+   - Every `snapshotID` in `snapshot_asset_values.csv` exists in `snapshots.csv`
+   - Every `snapshotID` in `cash_flow_operations.csv` exists in `snapshots.csv`
+   - Every `categoryID` in `assets.csv` references an existing Category or is null
+
+If validation fails, the restore is rejected with a detailed error listing all violations. No data is modified.
+
+**Error Cases**:
+
+```swift
+enum BackupError: LocalizedError {
+    case invalidArchive
+    case missingFile(String)
+    case invalidCSVHeaders(file: String, expected: [String], found: [String])
+    case invalidForeignKey(file: String, row: Int, field: String, value: String)
+    case corruptedData(details: String)
+}
+```
 
 ______________________________________________________________________
 
-### Brokerage Integration (Phase 4+)
+### SettingsService
 
-**Purpose**: Automatically import holdings from brokerage accounts
+**Purpose**: Manage app-wide user preferences with `@Observable` reactivity.
 
-**Challenges**
-
-- Requires OAuth or API credentials
-- Each brokerage has different API
-- Security and privacy concerns (user credentials)
-
-**Potential Solutions**
-
-- Use aggregator services (Plaid, Yodlee)
-- Read-only access
-- Explicit user consent
-
-**Decision**: Defer to Phase 4+, high complexity
-
-______________________________________________________________________
-
-## Internal API Design
-
-### Service Layer (Implemented)
-
-**Purpose**: Encapsulate business logic and external integrations
-
-**Pattern**: Service pattern with static methods for pure functions
-
-**Benefits**
-
-- Separate business logic from models and ViewModels
-- NOT marked as `@MainActor` (pure functions where possible)
-- Testable (mock data can be passed to services)
-- Reusable logic across ViewModels
-
-**Implemented Services**:
-
-1. **ExchangeRateService**: Exchange rate API integration
-1. **PortfolioValueCalculator**: Portfolio value calculations
-1. **CurrencyService**: ISO 4217 currency data
-
-______________________________________________________________________
-
-#### Implemented Service APIs
-
-**ExchangeRateService**
-
-Fetches and caches exchange rates from Coinbase API.
+SettingsService is an `@Observable @MainActor class` with a shared singleton and support for test isolation via `createForTesting()`. Properties use `didSet` to persist to UserDefaults immediately:
 
 ```swift
 @Observable
 @MainActor
-class ExchangeRateService {
-    static let shared: ExchangeRateService
+class SettingsService {
+    static let shared = SettingsService()
 
-    let baseCurrency: String  // Configured at init (default: "USD")
-    var rates: [String: Decimal]
-    var isLoading: Bool
-    var lastError: String?
+    var mainCurrency: String       // Default: "USD"
+    var dateFormat: DateFormatStyle // Default: .abbreviated
+    var defaultPlatform: String    // Default: ""
 
-    // Fetch rates from API (async, MainActor)
-    func fetchRates() async
-
-    // Convert using instance rates (MainActor)
-    func convert(amount: Decimal, from: String, to: String) -> Decimal
-
-    // Static conversion (nonisolated - can be called from any context)
-    static func convert(
-        amount: Decimal,
-        from: String,
-        to: String,
-        using rates: [String: Decimal],
-        baseCurrency: String
-    ) -> Decimal
+    static func createForTesting() -> SettingsService
 }
 ```
 
-**Usage**:
+**DateFormatStyle**: A `String`-backed `CaseIterable` enum with cases `.numeric`, `.abbreviated`, `.long`, `.complete`. Maps to `Date.FormatStyle.DateStyle` for rendering and provides `localizedName` and `preview(for:)`.
 
-- Singleton pattern with `shared` instance
-- 1-hour caching to reduce API calls
-- Handles network errors with categorized messages
-- CB-VERSION header included for Coinbase API compatibility
-
-**PortfolioValueCalculator**
-
-Calculates portfolio values with currency conversion.
+**Usage in ViewModels**:
 
 ```swift
-struct PortfolioValueCalculator {
-    // Pure calculation (nonisolated - can be called from any context)
-    static func calculateTotalValue(
-        for assets: [Asset],
-        using exchangeRates: [String: Decimal],
-        targetCurrency: String,
-        ratesBaseCurrency: String
-    ) -> Decimal
-}
+let service = settingsService ?? SettingsService.shared
+self.selectedCurrency = service.mainCurrency
 ```
 
-**Usage**:
+Changes are applied immediately via `didSet` and persisted to UserDefaults.
 
-- Stateless pure function
-- NOT marked as `@MainActor` (can run on any thread)
-- Takes assets array directly (caller handles SwiftData access)
-- Testable with mock data
+______________________________________________________________________
 
-**CurrencyService**
+### CurrencyService
 
-Provides ISO 4217 currency information.
+**Purpose**: Provides ISO 4217 currency information.
 
 ```swift
 class CurrencyService {
-    static let shared: CurrencyService
+    static let shared = CurrencyService()
 
-    var currencies: [Currency]  // Loaded from ISO 4217 XML
+    var currencies: [Currency]
 
     struct Currency: Identifiable {
-        let code: String  // e.g., "USD"
-        let name: String  // e.g., "US Dollar"
-        var flag: String  // e.g., "🇺🇸"
-        var displayName: String  // e.g., "🇺🇸 USD - US Dollar"
+        let code: String   // e.g., "USD"
+        let name: String   // e.g., "US Dollar"
+        var flag: String   // e.g., flag emoji
+        var displayName: String  // e.g., "USD - US Dollar"
     }
 }
 ```
 
-**Usage**:
-
-- Parses bundled ISO 4217 XML file
-- Filters duplicates and fund currencies
-- Generates flag emojis from country codes
+Parses bundled ISO 4217 XML file. Filters duplicates and fund currencies.
 
 ______________________________________________________________________
 
-#### Planned Service Interfaces (Future)
+### ChartDataService
 
-**AssetService**
+**Purpose**: Stateless service for chart data filtering by time range and Y-axis label abbreviation.
+
+**File**: `AssetFlow/ViewModels/ChartDataService.swift`
 
 ```swift
-protocol AssetServiceProtocol {
-    func fetchAssets() -> [Asset]
-    func createAsset(_ asset: Asset) throws
-    func updateAsset(_ asset: Asset) throws
-    func deleteAsset(_ asset: Asset) throws
-    func refreshAssetPrice(_ asset: Asset) async throws
+enum ChartTimeRange: String, CaseIterable, Identifiable {
+    case oneWeek = "1W"
+    case oneMonth = "1M"
+    case threeMonths = "3M"
+    case sixMonths = "6M"
+    case oneYear = "1Y"
+    case threeYears = "3Y"
+    case fiveYears = "5Y"
+    case all = "All"
+
+    /// Returns the start date for this range relative to a reference date,
+    /// or nil for `.all` (no filtering)
+    func startDate(from referenceDate: Date) -> Date?
+}
+
+protocol ChartFilterable {
+    var chartDate: Date { get }
+}
+
+enum ChartDataService {
+    /// Filters chart data points by time range
+    /// Uses the latest data point's date as reference, not Date.now
+    static func filter<T: ChartFilterable>(_ items: [T], range: ChartTimeRange) -> [T]
+
+    /// Returns abbreviated string for large numeric values
+    /// Examples: 3,000,000,000 → "3B", 2,000,000 → "2M", 5,000 → "5K"
+    static func abbreviatedLabel(for value: Decimal) -> String
 }
 ```
 
-**TransactionService**
+**Usage**: Chart views use `ChartDataService.filter()` to apply time range selection before rendering. `ChartFilterable` protocol is conformed to by all chart data point types (`DashboardDataPoint`, `CategoryValueHistoryEntry`, `CategoryAllocationHistoryEntry`).
 
-```swift
-protocol TransactionServiceProtocol {
-    func fetchTransactions(for asset: Asset) -> [Transaction]
-    func recordTransaction(_ transaction: Transaction) throws
-    func validateTransaction(_ transaction: Transaction) -> ValidationResult
-}
-```
-
-**PortfolioService**
-
-```swift
-protocol PortfolioServiceProtocol {
-    func fetchPortfolios() -> [Portfolio]
-    func createPortfolio(_ portfolio: Portfolio) throws
-    func calculateAllocation(for portfolio: Portfolio) -> [String: Decimal]
-    func suggestRebalancing(for portfolio: Portfolio) -> [RebalancingAction]
-}
-```
+**Axis Labels**: Y-axis labels use `abbreviatedLabel(for:)` to format large values (K/M/B) for readability in compact chart layouts.
 
 ______________________________________________________________________
 
-#### Implementation Pattern
+## CSV Import Format Specification
 
-**Service Implementation** (Example: AssetService)
+### Asset CSV
 
-```swift
-class AssetService: AssetServiceProtocol {
-    private let modelContext: ModelContext
-    private let priceAPI: PriceAPIClient
+**Required columns** (exact header names):
 
-    init(modelContext: ModelContext, priceAPI: PriceAPIClient) {
-        self.modelContext = modelContext
-        self.priceAPI = priceAPI
-    }
+| Column         | Description                      |
+| -------------- | -------------------------------- |
+| `Asset Name`   | Name of the asset                |
+| `Market Value` | Current market value as a number |
 
-    func fetchAssets() -> [Asset] {
-        // Use SwiftData to fetch
-    }
+**Optional columns**:
 
-    func refreshAssetPrice(_ asset: Asset) async throws {
-        let price = try await priceAPI.fetchPrice(symbol: asset.symbol)
-        // Create a new price history entry instead of mutating the asset
-        let newPriceRecord = PriceHistory(date: Date(), price: price, asset: asset)
-        modelContext.insert(newPriceRecord)
-        // SwiftData will auto-save the new record
-    }
-}
-```
+| Column     | Description                                                          |
+| ---------- | -------------------------------------------------------------------- |
+| `Platform` | Platform/brokerage name (overridden by import-level platform if set) |
 
-**ViewModel Usage**
-
-```swift
-class AssetListViewModel: ObservableObject {
-    private let assetService: AssetServiceProtocol
-    @Published var assets: [Asset] = []
-
-    init(assetService: AssetServiceProtocol) {
-        self.assetService = assetService
-    }
-
-    func loadAssets() {
-        assets = assetService.fetchAssets()
-    }
-
-    func refreshPrices() async {
-        for asset in assets {
-            try? await assetService.refreshAssetPrice(asset)
-        }
-    }
-}
-```
-
-______________________________________________________________________
-
-### ViewModel Contracts
-
-**Purpose**: Define ViewModel responsibilities and interfaces
-
-**Pattern**: ViewModel exposes `@Published` properties for View binding
-
-**Example: AssetDetailViewModel**
-
-```swift
-class AssetDetailViewModel: ObservableObject {
-    @Published var asset: Asset
-    @Published var transactions: [Transaction]
-    @Published var unrealizedGain: Decimal
-    @Published var isLoading: Bool = false
-    @Published var errorMessage: String?
-
-    func loadData()
-    func refreshPrice() async
-    func deleteAsset() throws
-}
-```
-
-**View Binding**
-
-```swift
-struct AssetDetailView: View {
-    @StateObject var viewModel: AssetDetailViewModel
-
-    var body: some View {
-        // Bind to viewModel.asset, viewModel.unrealizedGain, etc.
-    }
-}
-```
-
-______________________________________________________________________
-
-### Data Access Patterns
-
-**Direct SwiftData Access** (Current - Phase 1-2)
-
-```swift
-@Query var assets: [Asset]
-@Environment(\.modelContext) var modelContext
-```
-
-**Pros**: Simple, direct, minimal boilerplate
-
-**Cons**: View tied to SwiftData, harder to test, logic in View
-
-______________________________________________________________________
-
-**Service Layer Access** (Phase 3+)
-
-```swift
-@StateObject var viewModel: AssetListViewModel
-```
-
-**Pros**: Testable, separation of concerns, reusable logic
-
-**Cons**: More code, more complexity
-
-**Decision**: Use direct SwiftData for Phase 1-2, introduce services in Phase 3 when external API needed
-
-______________________________________________________________________
-
-## Data Import/Export
-
-### Export Formats
-
-**CSV Export** (Phase 2+)
-
-**Purpose**: Backup, use in Excel/Google Sheets
-
-**Assets CSV**
+**Sample**:
 
 ```csv
-Name,Type,Symbol,Quantity,Current Value,Cost Basis,Portfolio
-Apple Inc.,Stock,AAPL,10,1650.00,1500.00,Tech
-Bitcoin,Cryptocurrency,BTC,0.5,12500.00,10000.00,Crypto
+Asset Name,Market Value,Platform
+AAPL,15000,Interactive Brokers
+VTI,28000,Interactive Brokers
+Bitcoin,5000,Coinbase
+Savings Account,20000,Chase Bank
 ```
 
-**Transactions CSV**
+### Cash Flow CSV
+
+**Required columns** (exact header names):
+
+| Column        | Description                           |
+| ------------- | ------------------------------------- |
+| `Description` | Description of the cash flow          |
+| `Amount`      | Positive = inflow, negative = outflow |
+
+**Sample**:
 
 ```csv
-Date,Type,Asset,Quantity,Price,Total,Notes
-2025-01-15,Buy,AAPL,10,150.00,1500.00,"Initial purchase"
-2025-02-01,Dividend,AAPL,,,25.50,"Quarterly dividend"
+Description,Amount
+Salary deposit,50000
+Emergency fund transfer,-10000
+Dividend reinvestment,1500
 ```
 
-**Implementation**
+### Column Mapping
 
-- Generate CSV from SwiftData models
-- Use standard CSV library or manual string building
-- Offer "Export All" or "Export Selected Portfolio"
+Column mapping is deferred to a future version. For v1, CSV files must use the exact column names specified above. The app must display the expected schema and provide downloadable sample CSVs.
 
 ______________________________________________________________________
 
-**JSON Export** (Phase 3+)
+## Error Handling Patterns
 
-**Purpose**: Structured data, easier to re-import or use in other apps
+### Service Error Strategy
 
-**Schema**
+- Services throw typed errors (enums conforming to `LocalizedError`)
+- ViewModels catch errors and map to user-facing messages
+- All errors include context (which file, which row, which field)
 
-```json
-{
-  "version": "1.0",
-  "exportDate": "2025-10-09T12:00:00Z",
-  "portfolios": [
-    {
-      "name": "Tech Portfolio",
-      "assets": [
-        {
-          "name": "Apple Inc.",
-          "type": "Stock",
-          "symbol": "AAPL",
-          "quantity": 10,
-          "currentValue": 1650.00,
-          "costBasis": 1500.00,
-          "transactions": [...]
-        }
-      ]
-    }
-  ]
-}
-```
+### User-Facing Error Display
 
-**Implementation**
+- Import errors: Inline in the import preview (per-row indicators)
+- Backup/restore errors: Alert dialog with detailed error description
+- Calculation errors: "N/A" or "Cannot calculate" inline text
 
-- Use `Codable` to serialize models
-- Pretty-print JSON for readability
-
-______________________________________________________________________
-
-### Import Formats
-
-**CSV Import** (Phase 3+)
-
-**Purpose**: Bulk import from other tools (Mint, Personal Capital, spreadsheet)
-
-**Challenges**
-
-- Different tools use different CSV formats
-- Mapping columns to AssetFlow fields
-- Validation and error handling
-
-**Approach**
-
-- Define standard template (user fills in)
-- Provide column mapping UI (advanced)
-- Validate each row, report errors
-- Preview before import
-
-**Example Template**
-
-```csv
-AssetName,AssetType,Symbol,Quantity,CostBasis
-Apple Inc.,Stock,AAPL,10,1500.00
-```
-
-______________________________________________________________________
-
-**JSON Import** (Phase 3+)
-
-**Purpose**: Re-import AssetFlow export or import from compatible tools
-
-**Schema Versioning**
-
-- Include `version` field in JSON
-- Handle schema migrations if format changes
-
-**Validation**
-
-- Parse JSON
-- Validate structure and required fields
-- Check for duplicates (merge or skip)
-- Import in transaction (all-or-nothing)
-
-______________________________________________________________________
-
-### iCloud Sync (Phase 4)
-
-**Approach**: Use SwiftData built-in iCloud sync or CloudKit
-
-**SwiftData iCloud Sync**
-
-- Enable in Xcode project settings
-- Automatic sync across devices
-- Minimal code changes
-
-**Considerations**
-
-- Conflict resolution (if edited on multiple devices)
-- Privacy (data in iCloud, encrypted by Apple)
-- User must opt-in (settings toggle)
-
-**Implementation**
-
-- Add iCloud capability to project
-- Configure `ModelContainer` with CloudKit option
-- Test with multiple devices
-
-______________________________________________________________________
-
-## API Error Handling
-
-### Error Types
-
-**Network Errors**
-
-- No internet connection
-- Timeout
-- Server unreachable
-
-**API Errors**
-
-- 400 Bad Request (invalid symbol)
-- 401 Unauthorized (invalid API key)
-- 429 Too Many Requests (rate limit)
-- 500 Server Error
-
-**Data Errors**
-
-- Malformed response (invalid JSON)
-- Missing required fields
-- Unexpected data types
-
-______________________________________________________________________
-
-### Error Handling Strategy
-
-**User-Facing Errors**
-
-- Display clear, actionable error messages
-- Suggest solutions (e.g., "Check your internet connection")
-- Provide retry option
-
-**Example**
-
-```
-Failed to update prices
-Unable to reach the price data service. Check your internet connection and try again.
-[Retry] [Dismiss]
-```
-
-**Developer Errors**
+### Developer Logging
 
 - Log errors with `os.log` (not `print()`)
-- Include context (which API, which asset)
-- No sensitive data in logs
-
-**Graceful Degradation**
-
-- If API fails, use cached/manual data
-- Display staleness indicator ("Price as of 2 hours ago")
-- App remains functional without API
+- Include context (which service, which operation)
+- No sensitive data in logs (no financial values)
 
 ______________________________________________________________________
 
-## Rate Limiting and Performance
-
-### API Rate Limit Management
-
-**Track Usage**
-
-- Count API calls per minute/day
-- Store in UserDefaults or in-memory
-- Reset counters at appropriate intervals
-
-**Throttle Requests**
-
-- Batch updates (fetch multiple assets in one call)
-- Delay between requests if approaching limit
-- Disable auto-refresh if limit reached
-
-**User Notification**
-
-- Warn when nearing limit (e.g., 80% of daily quota)
-- Display remaining quota in settings
-
-______________________________________________________________________
-
-### Caching Strategy
-
-Fetched prices are not cached temporarily; they are persisted as a permanent record of the asset's value at a point in time.
-
-**Storage**
-
-- When a price is fetched from an external API, a new `PriceHistory` record is created and stored in SwiftData.
-- This creates a complete, auditable log of all price data, whether entered manually or fetched automatically.
-
-**Staleness**
-
-- The "current" price is simply the latest entry in the `PriceHistory` for a given asset.
-- The app can decide whether to fetch a new price based on the timestamp of the latest `PriceHistory` record (e.g., if it's more than 15 minutes old).
-
-______________________________________________________________________
-
-## Testing External APIs
-
-### Mocking API Responses
-
-**Purpose**: Test app behavior without hitting real API
-
-**Approach**
-
-- Define API client protocol
-- Implement mock client for tests
-- Inject mock client into services/ViewModels
-
-**Example**
-
-```swift
-protocol PriceAPIClient {
-    func fetchPrice(symbol: String) async throws -> Decimal
-}
-
-class MockPriceAPIClient: PriceAPIClient {
-    var priceToReturn: Decimal = 100.0
-    var shouldThrowError: Bool = false
-
-    func fetchPrice(symbol: String) async throws -> Decimal {
-        if shouldThrowError { throw APIError.networkError }
-        return priceToReturn
-    }
-}
-```
-
-**Test**
-
-```swift
-func testRefreshPriceSuccess() async throws {
-    let mockAPI = MockPriceAPIClient()
-    mockAPI.priceToReturn = 150.0
-    let service = AssetService(modelContext: context, priceAPI: mockAPI)
-
-    try await service.refreshAssetPrice(asset)
-    XCTAssertEqual(asset.currentValue, 150.0)
-}
-```
-
-______________________________________________________________________
-
-### Integration Testing
-
-**Purpose**: Verify real API integration works
-
-**Approach**
-
-- Use real API client in integration tests
-- Require API key (environment variable or test config)
-- Run periodically (not on every commit)
-- Handle rate limits (use separate test API key)
-
-**Example**
-
-```swift
-func testRealAPIIntegration() async throws {
-    let apiKey = ProcessInfo.processInfo.environment["API_KEY"]!
-    let apiClient = RealPriceAPIClient(apiKey: apiKey)
-
-    let price = try await apiClient.fetchPrice(symbol: "AAPL")
-    XCTAssertGreaterThan(price, 0)
-}
-```
-
-______________________________________________________________________
-
-## Future API Enhancements
-
-### Webhooks/Push Notifications (Phase 4+)
-
-**Purpose**: Real-time price alerts
-
-**Approach**
-
-- Subscribe to price changes for tracked assets
-- Receive push notification when threshold met (e.g., "AAPL crossed $200")
-
-**Requirements**
-
-- Push notification capability
-- Backend service (or third-party notification service)
-- User opt-in
-
-______________________________________________________________________
-
-### Open Banking / Brokerage APIs (Phase 4+)
-
-**Purpose**: Automatically sync holdings from brokerage
-
-**Challenges**
-
-- Each brokerage has different API (if any)
-- Requires user credentials (security risk)
-- OAuth flows, API rate limits
-
-**Solutions**
-
-- Use aggregator (Plaid, Yodlee) - easier but adds dependency
-- Direct integrations with major brokerages (Robinhood, Fidelity, etc.)
-- Read-only access, explicit user consent
-
-**Privacy**
-
-- User credentials never stored by AssetFlow
-- OAuth tokens stored in Keychain
-- User can revoke access anytime
-
-______________________________________________________________________
-
-## API Documentation
-
-### Internal API Documentation
-
-**Approach**
-
-- Inline code documentation with Xcode comments (`///`)
-- Protocol documentation (expected behavior)
-- Example usage in comments
-
-**Example**
-
-```swift
-/// Fetches the current market price for the given asset symbol.
-/// - Parameter symbol: The ticker symbol (e.g., "AAPL", "BTC-USD")
-/// - Returns: The current price as a `Decimal`
-/// - Throws: `APIError.networkError` if network unreachable,
-///           `APIError.invalidSymbol` if symbol not found
-func fetchPrice(symbol: String) async throws -> Decimal
-```
-
-______________________________________________________________________
-
-### External API Integration Docs
-
-**Document in This File**
-
-- Which APIs used
-- How to obtain API keys
-- Rate limits and pricing
-- Example requests/responses
-- Error codes and handling
-
-**Update When**
-
-- New API added
-- API provider changed
-- API endpoints/format changed
+## Explicit Non-Goals (v1)
+
+The following are NOT implemented:
+
+- Real-time market price fetching
+- Brokerage API integration
+- Exchange rate API
+- Cloud sync / iCloud integration
+- Multi-currency FX conversion
+- Column mapping for CSV import
+- Data export for reporting (CSV, PDF) -- backup/restore IS supported
+- Webhooks or push notifications
+- Any network communication
 
 ______________________________________________________________________
 
 ## References
 
-### External API Documentation
-
-**Financial Data APIs**
-
-- [Alpha Vantage](https://www.alphavantage.co/documentation/)
-- [IEX Cloud](https://iexcloud.io/docs/)
-- [CoinGecko API](https://www.coingecko.com/en/api/documentation)
-- [Yahoo Finance API](https://www.yahoofinanceapi.com/) (unofficial)
-
-**Aggregation Services**
-
-- [Plaid](https://plaid.com/docs/) - Brokerage and bank data
-- [Yodlee](https://developer.yodlee.com/) - Financial data aggregation
-
-### Apple Documentation
-
-- [URLSession](https://developer.apple.com/documentation/foundation/urlsession) - Networking
-- [Keychain Services](https://developer.apple.com/documentation/security/keychain_services) - API key storage
-- [CloudKit](https://developer.apple.com/documentation/cloudkit) - iCloud sync
-
-### Best Practices
-
-- [RESTful API Design](https://restfulapi.net/)
-- [API Security Best Practices](https://owasp.org/www-project-api-security/)
-
-______________________________________________________________________
-
-**Document Status**: 🚧 Initial framework - update when APIs are integrated
-
-**Last Updated**: 2025-10-09
-
-**Next Action**: Implement Phase 3 price API integration (select provider, implement client, add caching)
+- [Architecture.md](Architecture.md) - Service layer design
+- [BusinessLogic.md](BusinessLogic.md) - Calculation formulas
+- [DataModel.md](DataModel.md) - Entity definitions for CSV serialization
+- Specification: `SPEC.md` Sections 3.10, 4, 7, 13, 14, 15

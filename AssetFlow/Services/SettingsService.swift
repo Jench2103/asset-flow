@@ -11,7 +11,6 @@ import Foundation
 ///
 /// Uses UserDefaults for persistence. Settings include:
 /// - Main currency for displaying portfolio values
-/// - Financial goal (target wealth amount)
 ///
 /// Supports dependency injection for test isolation via `createForTesting()`.
 @Observable
@@ -29,36 +28,38 @@ class SettingsService {
     }
   }
 
-  /// The financial goal (target wealth amount)
-  var financialGoal: Decimal? {
+  /// The date display format
+  var dateFormat: DateFormatStyle {
     didSet {
-      if let goal = financialGoal {
-        // Store as string to preserve Decimal precision
-        userDefaults.set(
-          NSDecimalNumber(decimal: goal).stringValue,
-          forKey: Constants.UserDefaultsKeys.financialGoal)
-      } else {
-        userDefaults.removeObject(forKey: Constants.UserDefaultsKeys.financialGoal)
-      }
+      userDefaults.set(dateFormat.rawValue, forKey: Constants.UserDefaultsKeys.dateFormat)
+    }
+  }
+
+  /// The default platform pre-filled in import
+  var defaultPlatform: String {
+    didSet {
+      userDefaults.set(defaultPlatform, forKey: Constants.UserDefaultsKeys.defaultPlatform)
     }
   }
 
   private init(userDefaults: UserDefaults = .standard) {
     self.userDefaults = userDefaults
 
-    // Load main currency from UserDefaults or use default
     self.mainCurrency =
       userDefaults.string(forKey: Constants.UserDefaultsKeys.preferredCurrency)
       ?? Constants.DefaultValues.defaultCurrency
 
-    // Load financial goal from UserDefaults
-    if let goalString = userDefaults.string(
-      forKey: Constants.UserDefaultsKeys.financialGoal)
+    if let rawFormat = userDefaults.string(forKey: Constants.UserDefaultsKeys.dateFormat),
+      let format = DateFormatStyle(rawValue: rawFormat)
     {
-      self.financialGoal = Decimal(string: goalString)
+      self.dateFormat = format
     } else {
-      self.financialGoal = nil
+      self.dateFormat = Constants.DefaultValues.defaultDateFormat
     }
+
+    self.defaultPlatform =
+      userDefaults.string(forKey: Constants.UserDefaultsKeys.defaultPlatform)
+      ?? Constants.DefaultValues.defaultPlatform
   }
 
   /// Creates an isolated instance for testing purposes

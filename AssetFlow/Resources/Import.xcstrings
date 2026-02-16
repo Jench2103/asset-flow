@@ -1,0 +1,68 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Could not open file. Please check the file is a valid CSV." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法開啟檔案。請確認該檔案為有效的 CSV 格式。"
+          }
+        }
+      }
+    },
+    "Asset '%@' (platform: '%@') already exists in the snapshot for this date." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Asset '%1$@' (platform: '%2$@') already exists in the snapshot for this date."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "資產「%1$@」（平台：%2$@）已存在於此日期的快照中。"
+          }
+        }
+      }
+    },
+    "Cash flow '%@' already exists in the snapshot for this date." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現金流「%@」已存在於此日期的快照中。"
+          }
+        }
+      }
+    },
+    "Snapshot date cannot be in the future." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快照日期不能是未來的日期。"
+          }
+        }
+      }
+    },
+    "This asset is currently assigned to %@. Importing will reassign it to %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "This asset is currently assigned to %1$@. Importing will reassign it to %2$@."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此資產目前歸類於「%1$@」。匯入後將重新歸類至「%2$@」。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.1"
+}

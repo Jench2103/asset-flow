@@ -7,7 +7,7 @@
 Before you begin development, ensure you have the following installed:
 
 - **Xcode 15.0+** (with Command Line Tools)
-- **macOS 14.0+** (for development)
+- **macOS 15.0+** (for development and running the app)
 - **Git** (for version control)
 - **Homebrew** (recommended for tool installation)
 
@@ -46,13 +46,13 @@ Before you begin development, ensure you have the following installed:
 
 1. **Build the Project**
 
-   - In Xcode: `⌘+B`
+   - In Xcode: Cmd+B
    - Command line: `xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow build`
 
 1. **Run the Application**
 
-   - In Xcode: `⌘+R`
-   - Select target platform (macOS, iOS Simulator, iPad Simulator)
+   - In Xcode: Cmd+R
+   - Target platform: macOS only
 
 ______________________________________________________________________
 
@@ -60,23 +60,26 @@ ______________________________________________________________________
 
 ```
 AssetFlow/
-├── AssetFlow/                  # Main application code
-│   ├── Models/                 # SwiftData models
-│   ├── Views/                  # SwiftUI views
-│   ├── ViewModels/             # ViewModels (to be implemented)
-│   ├── Services/               # Data services (to be implemented)
-│   ├── Utilities/              # Helper functions and extensions
-│   ├── Resources/              # Assets, localization
-│   └── AssetFlowApp.swift      # App entry point
-├── AssetFlow.xcodeproj/        # Xcode project
-├── Documentation/              # Design documents (this folder)
-├── .gitignore                  # Git ignore rules
-├── .swiftlint.yml              # SwiftLint configuration
-├── .swift-format               # swift-format configuration
-├── .editorconfig               # Editor settings
-├── .pre-commit-config.yaml     # Pre-commit hooks
-├── CLAUDE.md                   # AI assistant instructions
-└── README.md                   # Project overview
++-- AssetFlow/                  # Main application code
+|   +-- Models/                 # SwiftData models
+|   +-- Views/                  # SwiftUI views
+|   |   +-- Charts/             # Chart components (7 interactive charts)
+|   |   +-- Components/         # Reusable view components (EmptyStateView)
+|   +-- ViewModels/             # ViewModels and ChartDataService
+|   +-- Services/               # Stateless services and utilities
+|   +-- Utilities/              # Helper functions and extensions
+|   +-- Resources/              # Assets, localization
+|   +-- AssetFlowApp.swift      # App entry point
++-- AssetFlowTests/             # Test target (468+ tests across 27 files)
++-- AssetFlow.xcodeproj/        # Xcode project
++-- Documentation/              # Design documents (this folder)
++-- .gitignore                  # Git ignore rules
++-- .swiftlint.yml              # SwiftLint configuration
++-- .swift-format               # swift-format configuration
++-- .editorconfig               # Editor settings
++-- .pre-commit-config.yaml     # Pre-commit hooks
++-- CLAUDE.md                   # AI assistant instructions
++-- README.md                   # Project overview
 ```
 
 ______________________________________________________________________
@@ -98,31 +101,27 @@ git checkout -b feature/your-feature-name
 
 1. Plan the feature (update models, views, services as needed)
 1. Write code following style guidelines
-1. Add tests (when testing framework is set up)
-1. Test manually on all target platforms
+1. Add tests (Swift Testing framework)
+1. Test manually on macOS
 1. Run linting and formatting
 1. Commit with descriptive messages
-1. Create pull request (if collaborating)
 
-### 2. Code → Build → Test Cycle
-
-**Development Cycle**
+### 2. Code -> Build -> Test Cycle
 
 1. Make code changes
-1. Run pre-commit checks (formatting, linting, etc.)
+1. Run pre-commit checks:
    ```bash
    pre-commit run --all-files
    ```
-1. Build
+1. Build:
    ```bash
    xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow build
    ```
-1. Run tests (when available)
+1. Run tests:
    ```bash
-   xcodebuild test -project AssetFlow.xcodeproj -scheme AssetFlow
+   xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow test -destination 'platform=macOS'
    ```
-1. Run the app
-   - Use Xcode or xcodebuild run
+1. Run the app (Xcode Cmd+R)
 
 **Manual tool usage** (if needed):
 
@@ -130,28 +129,31 @@ git checkout -b feature/your-feature-name
 # Format Swift code only
 swift-format format --in-place --recursive --parallel .
 
+# Lint Swift code
+swift-format lint --strict --recursive --parallel .
+
+# Lint with SwiftLint
+swiftlint
+
 # Format markdown only
 pre-commit run mdformat --all-files
-
-# Lint Swift code only
-swiftlint
 ```
 
 ### 3. Pre-Commit Checks
 
-Pre-commit hooks are configured in `.pre-commit-config.yaml` and automatically run on `git commit`:
+Pre-commit hooks are configured in `.pre-commit-config.yaml` and run automatically on `git commit`:
 
-**Automated Checks:**
+**Automated Checks**:
 
 - **Swift formatting**: Formats Swift code with swift-format
 - **Swift linting**: Checks code style with SwiftLint
-- **Markdown formatting**: Formats Markdown files with mdformat (120 char line wrap)
+- **Markdown formatting**: Formats Markdown files with mdformat
 - **Trailing whitespace**: Removes trailing whitespace
 - **Case conflicts**: Checks for case-sensitive filename conflicts
 - **Merge conflicts**: Prevents committing merge conflict markers
 - **JSON formatting**: Formats JSON files with 2-space indent
 
-**Setup Pre-commit Hooks:**
+**Setup Pre-commit Hooks**:
 
 ```bash
 # Install pre-commit (if not already installed)
@@ -162,15 +164,6 @@ pre-commit install
 
 # Run hooks manually on all files
 pre-commit run --all-files
-
-# Run specific hook
-pre-commit run mdformat --all-files
-```
-
-**Manual Override** (use sparingly):
-
-```bash
-git commit --no-verify -m "message"
 ```
 
 ### 4. Committing Changes
@@ -178,11 +171,7 @@ git commit --no-verify -m "message"
 **Commit Message Format**
 
 ```
-<type>: <subject>
-
-<optional body>
-
-<optional footer>
+<type>(<scope>): <subject>
 ```
 
 **Types**:
@@ -198,7 +187,7 @@ git commit --no-verify -m "message"
 **Example**:
 
 ```bash
-git commit -m "feat: Add portfolio allocation chart view"
+git commit -m "feat(import): Add CSV parsing for asset import"
 ```
 
 ______________________________________________________________________
@@ -207,12 +196,7 @@ ______________________________________________________________________
 
 ### Model Creation
 
-1. **Create Model File**
-
-   ```bash
-   # Add new file in AssetFlow/Models/
-   touch AssetFlow/Models/YourModel.swift
-   ```
+1. **Create Model File** in `AssetFlow/Models/`
 
 1. **Define Model**
 
@@ -221,26 +205,28 @@ ______________________________________________________________________
    import Foundation
 
    @Model
-   final class YourModel {
+   final class Category {
        var id: UUID
        var name: String
+       var targetAllocationPercentage: Decimal?
 
-       init(name: String) {
+       init(name: String, targetAllocationPercentage: Decimal? = nil) {
            self.id = UUID()
            self.name = name
+           self.targetAllocationPercentage = targetAllocationPercentage
        }
    }
    ```
 
-1. **Register in Schema** Update `AssetFlowApp.swift`:
+1. **Register in Schema** (update `AssetFlowApp.swift`):
 
    ```swift
    let schema = Schema([
+       Category.self,
        Asset.self,
-       Portfolio.self,
-       Transaction.self,
-       InvestmentPlan.self,
-       YourModel.self  // Add here
+       Snapshot.self,
+       SnapshotAssetValue.self,
+       CashFlowOperation.self,
    ])
    ```
 
@@ -254,15 +240,15 @@ ______________________________________________________________________
 **In SwiftUI Views**:
 
 ```swift
-@Query(sort: \YourModel.name)
-private var items: [YourModel]
+@Query(sort: \Snapshot.date, order: .reverse)
+private var snapshots: [Snapshot]
 ```
 
 **With Predicates**:
 
 ```swift
-@Query(filter: #Predicate<YourModel> { $0.isActive })
-private var activeItems: [YourModel]
+@Query(filter: #Predicate<Asset> { $0.platform == "Interactive Brokers" })
+private var ibAssets: [Asset]
 ```
 
 **Manual Context Access**:
@@ -270,110 +256,48 @@ private var activeItems: [YourModel]
 ```swift
 @Environment(\.modelContext) private var modelContext
 
-func addItem() {
-    let item = YourModel(name: "Test")
-    modelContext.insert(item)
+func addSnapshot() {
+    let snapshot = Snapshot(date: Calendar.current.startOfDay(for: Date()))
+    modelContext.insert(snapshot)
     // Save is automatic
 }
 ```
 
 ______________________________________________________________________
 
-## Platform-Specific Development
+## macOS Development
 
-### macOS Development
-
-**Target**: macOS 14.0+
+**Target**: macOS 15.0+
 
 **Key Considerations**:
 
-- Full keyboard navigation
-- Window management
-- Menu bar integration
-- Toolbar items
-- Multi-window support
+- Sidebar navigation with `NavigationSplitView`
+- List-detail split for data browsing screens
+- Minimum window size: 900 x 600 points
+- Menu bar integration (Settings via Cmd+,)
+- Keyboard shortcuts for common actions
+- Right-click context menus
+- Toolbar with import button
+- Light and dark mode support
 
-**Platform Check**:
+**Window Configuration**:
 
 ```swift
-#if os(macOS)
-.frame(minWidth: 800, minHeight: 600)
+.frame(minWidth: 900, minHeight: 600)
 .toolbar {
-    // macOS-specific toolbar items
+    ToolbarItem(placement: .primaryAction) {
+        Button("Import", systemImage: "square.and.arrow.down") { /* action */ }
+    }
 }
-#endif
 ```
 
-### iOS Development
-
-**Target**: iOS 17.0+
-
-**Key Considerations**:
-
-- Touch-first interface
-- Navigation patterns (NavigationStack)
-- Safe area handling
-- Dynamic Type support
-- Haptic feedback
-
-**Platform Check**:
-
-```swift
-#if os(iOS)
-.navigationBarTitleDisplayMode(.large)
-.navigationBarItems(/* ... */)
-#endif
-```
-
-### iPadOS Development
-
-**Target**: iPadOS 17.0+
-
-**Key Considerations**:
-
-- Split view support
-- Drag and drop
-- Keyboard shortcuts
-- Apple Pencil (if applicable)
-- Size classes for adaptive layouts
-
-**Platform Check**:
-
-```swift
-#if os(iOS)
-.sheet(isPresented: $showDetail) {
-    DetailView()
-        .presentationDetents([.medium, .large])
-}
-#endif
-```
-
-### Testing on Simulators
-
-```bash
-# List available simulators
-xcrun simctl list devices
-
-# Boot specific simulator
-xcrun simctl boot "iPhone 15 Pro"
-
-# Run on specific simulator
-xcodebuild test -project AssetFlow.xcodeproj \
-  -scheme AssetFlow \
-  -destination 'platform=iOS Simulator,name=iPhone 15 Pro'
-```
+**No iOS or iPadOS development** -- the app targets macOS only in v1.
 
 ______________________________________________________________________
 
 ## Code Formatting and Linting
 
-This project uses two primary tools to ensure code quality, both of which are managed by pre-commit hooks.
-
 ### swift-format (for Formatting)
-
-`swift-format` is used to automatically format all Swift code to a consistent style.
-
-**Manual Commands**:
 
 ```bash
 # Format all files in place
@@ -383,27 +307,23 @@ swift-format format --in-place --recursive --parallel .
 swift-format lint --strict --recursive --parallel .
 ```
 
-**Configuration**: The rules (indentation, line length, etc.) are defined in the `.swift-format` file.
+Configuration: `.swift-format`
 
 ### SwiftLint (for Linting)
 
-`SwiftLint` is used to enforce a wide range of stylistic and convention-based rules that go beyond simple formatting. This includes rules for naming, complexity, and potential bugs.
-
-**Manual Commands**:
-
 ```bash
-# Lint all files and show warnings/errors
+# Lint all files
 swiftlint
 
-# Automatically correct lint violations where possible
+# Automatically correct violations where possible
 swiftlint --fix
 ```
 
-**Configuration**: The rules are defined in the `.swiftlint.yml` file. Key rules include:
+Configuration: `.swiftlint.yml`. Key rules:
 
 - Sorted imports
-- No force unwrapping (generates warning)
-- No `print()` statements (use proper logging)
+- No force unwrapping (warning)
+- No `print()` statements (use `os.log`)
 - Required file headers
 
 ______________________________________________________________________
@@ -421,11 +341,6 @@ ______________________________________________________________________
 //
 ```
 
-**Xcode Template**:
-
-1. Xcode Preferences → Text Editing → File Header
-1. Set custom header template
-
 ______________________________________________________________________
 
 ## Localization
@@ -438,45 +353,41 @@ AssetFlow uses Apple's **String Catalogs** (`.xcstrings`) for localization. Engl
 
 Strings are organized into feature-scoped tables:
 
-| Table file                         | Used by                                                    | Scope                             |
-| ---------------------------------- | ---------------------------------------------------------- | --------------------------------- |
-| `Resources/Localizable.xcstrings`  | SwiftUI views (auto-extracted), enum `localizedName`       | Default table                     |
-| `Resources/Asset.xcstrings`        | AssetFormViewModel, AssetManagementViewModel               | Asset validation & errors         |
-| `Resources/Portfolio.xcstrings`    | PortfolioFormViewModel, PortfolioManagementViewModel       | Portfolio validation & errors     |
-| `Resources/Transaction.xcstrings`  | TransactionFormViewModel, TransactionManagementViewModel   | Transaction validation & errors   |
-| `Resources/PriceHistory.xcstrings` | PriceHistoryFormViewModel, PriceHistoryManagementViewModel | Price history validation & errors |
-| `Resources/Services.xcstrings`     | ExchangeRateService                                        | Service error messages            |
+| Table file                        | Used by                                              | Scope                          |
+| --------------------------------- | ---------------------------------------------------- | ------------------------------ |
+| `Resources/Localizable.xcstrings` | SwiftUI views (auto-extracted), enum `localizedName` | Default table                  |
+| `Resources/Snapshot.xcstrings`    | SnapshotDetailViewModel, SnapshotListViewModel       | Snapshot validation and errors |
+| `Resources/Asset.xcstrings`       | AssetDetailViewModel, AssetListViewModel             | Asset validation and errors    |
+| `Resources/Category.xcstrings`    | CategoryListViewModel, CategoryDetailViewModel       | Category validation and errors |
+| `Resources/Import.xcstrings`      | ImportViewModel                                      | Import validation and errors   |
+| `Resources/Services.xcstrings`    | BackupService, SettingsService                       | Service error messages         |
 
 ### How Strings Are Localized
 
 1. **SwiftUI views**: String literals in `Text()`, `Label()`, etc. are automatically extracted into `Localizable.xcstrings` by Xcode at build time.
 1. **ViewModels and Services**: Use `String(localized:table:)` with the appropriate feature table:
    ```swift
-   nameValidationMessage = String(localized: "Asset name cannot be empty.", table: "Asset")
+   errorMessage = String(localized: "Category name cannot be empty.", table: "Category")
    ```
-1. **Enums**: Use the `localizedName` computed property for user-facing display. Never display `rawValue` directly (it is used for SwiftData persistence).
-   ```swift
-   Text(asset.assetType.localizedName) // Correct
-   Text(asset.assetType.rawValue)      // Wrong for UI display
-   ```
+1. **Enums**: Use the `localizedName` computed property. Never display `rawValue` in UI.
 
 ### Adding New Strings
 
-1. **In SwiftUI views**: Just use string literals — Xcode auto-extracts them on build.
-1. **In ViewModels/Services**: Wrap with `String(localized:table:)` specifying the correct table.
+1. **In SwiftUI views**: Just use string literals -- Xcode auto-extracts them.
+1. **In ViewModels/Services**: Wrap with `String(localized:table:)`.
 1. **Build the project** to populate the String Catalogs.
 1. **Open the `.xcstrings` file** in Xcode to add translations for `zh-Hant`.
 
 ### Adding a New Language
 
 1. Open `AssetFlow.xcodeproj/project.pbxproj` and add the language code to `knownRegions`.
-1. Build the project — Xcode adds a column for the new language in each String Catalog.
+1. Build the project.
 1. Open each `.xcstrings` file in Xcode and provide translations.
 
 ### Exporting/Importing Translations
 
 ```bash
-# Export for translators (creates .xliff files)
+# Export for translators
 xcodebuild -exportLocalizations -project AssetFlow.xcodeproj -localizationPath ./Localizations
 
 # Import translated .xliff files
@@ -485,66 +396,30 @@ xcodebuild -importLocalizations -project AssetFlow.xcodeproj -localizationPath .
 
 ______________________________________________________________________
 
-## Adding Dependencies
-
-### Swift Package Manager
-
-1. **Open Xcode** → File → Add Package Dependencies
-1. Enter package URL
-1. Select version/branch
-1. Add to appropriate targets
-
-**Example** (adding a chart library):
-
-```swift
-// In Package.swift (if using SPM standalone)
-dependencies: [
-    .package(url: "https://github.com/example/Charts.git", from: "1.0.0")
-]
-```
-
-### CocoaPods / Carthage
-
-**Not currently used** - Prefer Swift Package Manager for this project.
-
-______________________________________________________________________
-
 ## Debugging
 
 ### Xcode Debugging
 
-**Breakpoints**:
-
-- Click gutter to add breakpoint
-- Right-click for conditional breakpoints
-- `po` command in LLDB console to print objects
-
-**View Debugging**:
-
-- Debug → View Debugging → Capture View Hierarchy
-- Inspect SwiftUI view tree and layout
-
-**Memory Graph**:
-
-- Debug → Memory Graph
-- Identify retain cycles
+- **Breakpoints**: Click gutter to add; right-click for conditional breakpoints
+- **View Debugging**: Debug > View Debugging > Capture View Hierarchy
+- **Memory Graph**: Debug > Memory Graph
 
 ### Logging
 
-**Recommended** (instead of `print()`):
+Use `os.log` (not `print()`):
 
 ```swift
 import os.log
 
-let logger = Logger(subsystem: "com.yourname.AssetFlow", category: "Portfolio")
+let logger = Logger(subsystem: "com.yourname.AssetFlow", category: "Import")
 
-logger.info("Portfolio loaded: \(portfolio.name)")
-logger.error("Failed to save: \(error.localizedDescription)")
+logger.info("CSV import started for file: \(url.lastPathComponent)")
+logger.error("Failed to parse CSV: \(error.localizedDescription)")
 ```
 
 ### SwiftData Debugging
 
-**Enable SQL Logging**: Add launch argument in scheme:
+Enable SQL logging via launch argument in scheme:
 
 ```
 -com.apple.CoreData.SQLDebug 1
@@ -556,29 +431,17 @@ ______________________________________________________________________
 
 ### Build Configuration
 
-**Debug vs Release**:
+- **Debug**: Full symbols, assertions enabled
+- **Release**: Optimized, symbols stripped
 
-- **Debug**: Full symbols, assertions enabled, slower
-- **Release**: Optimized, symbols stripped, faster
+### macOS Distribution
 
-### Archive for Distribution
-
-1. **Xcode**: Product → Archive
+1. **Xcode**: Product > Archive
 1. Organizer opens with archive
-1. Distribute App → Choose method
-1. Follow platform-specific steps
-
-### macOS Signing
-
-- Developer ID application certificate
-- Notarization required for distribution
-- Hardened Runtime enabled
-
-### iOS/iPadOS Signing
-
-- App Store distribution certificate
-- Provisioning profiles
-- TestFlight for beta testing
+1. Distribute App > Choose method
+1. Sign with Developer ID certificate
+1. Notarize for distribution
+1. Hardened Runtime enabled
 
 ______________________________________________________________________
 
@@ -588,20 +451,20 @@ ______________________________________________________________________
 
 **SwiftData not persisting**:
 
-- Check ModelContainer is injected
+- Check ModelContainer is injected at app root
 - Verify schema registration
-- Check for SwiftData errors in console
+- Check console for SwiftData errors
 
 **UI not updating**:
 
-- Ensure ViewModel uses `@Published`
-- Verify View uses `@ObservedObject` or `@StateObject`
+- Ensure ViewModel uses `@Observable`
+- Verify View uses `@State` for ViewModel
 - Check `@Query` predicate
 
 **Build failures**:
 
-- Clean build folder: `⇧⌘K`
-- Derived data: `~/Library/Developer/Xcode/DerivedData/`
+- Clean build folder: Shift+Cmd+K
+- Delete derived data: `~/Library/Developer/Xcode/DerivedData/`
 - Restart Xcode
 
 **Linting errors**:
@@ -621,20 +484,20 @@ ______________________________________________________________________
 
 ## Code Review Checklist
 
-Before submitting code for review:
+Before submitting code:
 
 - [ ] Code follows style guidelines
 - [ ] File headers are correct
 - [ ] No `print()` statements (use logging)
 - [ ] SwiftLint passes without warnings
 - [ ] swift-format applied
-- [ ] Financial values use `Decimal` (not Float/Double)
-- [ ] Platform-specific code uses `#if os()` properly
+- [ ] Financial values use `Decimal`
 - [ ] Documentation updated (if applicable)
 - [ ] Models registered in Schema (if new)
-- [ ] Tested on all target platforms
+- [ ] Tested on macOS
 - [ ] No force unwrapping without good reason
 - [ ] Commit messages are descriptive
+- [ ] Build produces zero warnings
 
 ______________________________________________________________________
 
@@ -643,46 +506,24 @@ ______________________________________________________________________
 ### SwiftUI
 
 - Use `@State` for simple local state
-- Use `@StateObject` for ViewModel ownership
 - Minimize view body complexity
 - Extract subviews for reusability
 - Use `.task()` for async operations
+- Use `#Preview` macro with traits for macOS-specific preview sizing:
+  ```swift
+  #Preview(traits: .fixedLayout(width: 900, height: 600)) {
+      DashboardView()
+          .modelContainer(PreviewContainer.shared)
+  }
+  ```
+- Use `@Previewable` macro for preview-specific state injection
 
 ### SwiftData
 
 - Use predicates to filter queries
 - Avoid loading entire relationship graphs
-- Batch operations when possible
+- Batch operations for CSV imports
 - Profile with Instruments
-
-### Memory
-
-- Weak references to avoid cycles
-- Lazy initialization for heavy objects
-- Release resources in deinit
-
-______________________________________________________________________
-
-## Continuous Integration (Future)
-
-### GitHub Actions (Planned)
-
-```yaml
-# Example workflow
-name: CI
-on: [push, pull_request]
-jobs:
-  build:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Build
-        run: xcodebuild build
-      - name: Lint
-        run: swiftlint
-      - name: Test
-        run: xcodebuild test
-```
 
 ______________________________________________________________________
 
@@ -700,6 +541,7 @@ ______________________________________________________________________
 - [Swift.org](https://swift.org/documentation/)
 - [SwiftUI Documentation](https://developer.apple.com/documentation/swiftui/)
 - [SwiftData Documentation](https://developer.apple.com/documentation/swiftdata/)
+- [Swift Charts Documentation](https://developer.apple.com/documentation/charts)
 - [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/)
 
 ### Tools
@@ -707,18 +549,3 @@ ______________________________________________________________________
 - [SwiftLint](https://github.com/realm/SwiftLint)
 - [swift-format](https://github.com/apple/swift-format)
 - [SF Symbols](https://developer.apple.com/sf-symbols/) - Icon library
-
-______________________________________________________________________
-
-## Next Steps
-
-Once you're familiar with the basics:
-
-1. Review existing models in `AssetFlow/Models/`
-1. Explore SwiftUI views in `AssetFlow/Views/`
-1. Implement ViewModels in `AssetFlow/ViewModels/`
-1. Build Services in `AssetFlow/Services/`
-1. Add tests as you go
-1. Contribute features incrementally
-
-Happy coding! 🚀

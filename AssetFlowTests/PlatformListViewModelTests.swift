@@ -1,0 +1,320 @@
+//
+//  PlatformListViewModelTests.swift
+//  AssetFlow
+//
+//  Created by Claude on 2026/02/15.
+//
+
+import Foundation
+import SwiftData
+import Testing
+
+@testable import AssetFlow
+
+@Suite("PlatformListViewModel Tests")
+@MainActor
+struct PlatformListViewModelTests {
+
+  // MARK: - Test Helpers
+
+  private struct TestContext {
+    let container: ModelContainer
+    let context: ModelContext
+  }
+
+  private func makeTestContext() -> TestContext {
+    let container = TestDataManager.createInMemoryContainer()
+    return TestContext(container: container, context: container.mainContext)
+  }
+
+  private func makeDate(year: Int, month: Int, day: Int) -> Date {
+    var components = DateComponents()
+    components.year = year
+    components.month = month
+    components.day = day
+    return Calendar.current.date(from: components)!
+  }
+
+  @discardableResult
+  private func createAsset(
+    name: String, platform: String, in context: ModelContext
+  ) -> Asset {
+    let asset = Asset(name: name, platform: platform)
+    context.insert(asset)
+    return asset
+  }
+
+  @discardableResult
+  private func createAssetWithValue(
+    name: String,
+    platform: String,
+    category: AssetFlow.Category? = nil,
+    marketValue: Decimal,
+    snapshot: Snapshot,
+    context: ModelContext
+  ) -> (Asset, SnapshotAssetValue) {
+    let asset = Asset(name: name, platform: platform)
+    asset.category = category
+    context.insert(asset)
+    let sav = SnapshotAssetValue(marketValue: marketValue)
+    sav.snapshot = snapshot
+    sav.asset = asset
+    context.insert(sav)
+    return (asset, sav)
+  }
+
+  // MARK: - Listing
+
+  @Test("Lists platforms alphabetically")
+  func listsPlatformsAlphabetically() {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    createAsset(name: "AAPL", platform: "Firstrade", in: context)
+    createAsset(name: "BND", platform: "Vanguard", in: context)
+    createAsset(name: "BTC", platform: "Coinbase", in: context)
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+    viewModel.loadPlatforms()
+
+    #expect(viewModel.platformRows.count == 3)
+    #expect(viewModel.platformRows[0].name == "Coinbase")
+    #expect(viewModel.platformRows[1].name == "Firstrade")
+    #expect(viewModel.platformRows[2].name == "Vanguard")
+  }
+
+  @Test("Computes asset count per platform")
+  func computesAssetCountPerPlatform() {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    createAsset(name: "AAPL", platform: "Firstrade", in: context)
+    createAsset(name: "MSFT", platform: "Firstrade", in: context)
+    createAsset(name: "BND", platform: "Vanguard", in: context)
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+    viewModel.loadPlatforms()
+
+    let firstrade = viewModel.platformRows.first { $0.name == "Firstrade" }
+    let vanguard = viewModel.platformRows.first { $0.name == "Vanguard" }
+    #expect(firstrade?.assetCount == 2)
+    #expect(vanguard?.assetCount == 1)
+  }
+
+  @Test("Computes total value from latest composite snapshot")
+  func computesTotalValueFromLatestCompositeSnapshot() {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    let snapshot = Snapshot(date: makeDate(year: 2025, month: 6, day: 1))
+    context.insert(snapshot)
+
+    createAssetWithValue(
+      name: "AAPL", platform: "Firstrade",
+      marketValue: 5000, snapshot: snapshot, context: context)
+    createAssetWithValue(
+      name: "MSFT", platform: "Firstrade",
+      marketValue: 3000, snapshot: snapshot, context: context)
+    createAssetWithValue(
+      name: "BND", platform: "Vanguard",
+      marketValue: 2000, snapshot: snapshot, context: context)
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+    viewModel.loadPlatforms()
+
+    let firstrade = viewModel.platformRows.first { $0.name == "Firstrade" }
+    let vanguard = viewModel.platformRows.first { $0.name == "Vanguard" }
+    #expect(firstrade?.totalValue == 8000)
+    #expect(vanguard?.totalValue == 2000)
+  }
+
+  // MARK: - Rename
+
+  @Test("Rename updates all assets with old platform name")
+  func renameUpdatesAllAssetsWithOldPlatformName() throws {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    let asset1 = createAsset(name: "AAPL", platform: "Firstrade", in: context)
+    let asset2 = createAsset(name: "MSFT", platform: "Firstrade", in: context)
+    createAsset(name: "BND", platform: "Vanguard", in: context)
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+    try viewModel.renamePlatform(from: "Firstrade", to: "Interactive Brokers")
+
+    #expect(asset1.platform == "Interactive Brokers")
+    #expect(asset2.platform == "Interactive Brokers")
+  }
+
+  @Test("Rename rejects existing name (case-insensitive)")
+  func renameRejectsExistingNameCaseInsensitive() throws {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    createAsset(name: "AAPL", platform: "Firstrade", in: context)
+    createAsset(name: "BND", platform: "Vanguard", in: context)
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+
+    #expect(throws: PlatformError.duplicateName("vanguard")) {
+      try viewModel.renamePlatform(from: "Firstrade", to: "vanguard")
+    }
+  }
+
+  @Test("Rename trims and normalizes whitespace")
+  func renameTrimsAndNormalizesWhitespace() throws {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    let asset = createAsset(name: "AAPL", platform: "Firstrade", in: context)
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+    try viewModel.renamePlatform(from: "Firstrade", to: "  Interactive  Brokers  ")
+
+    #expect(asset.platform == "Interactive Brokers")
+  }
+
+  @Test("Platform disappears when all assets renamed away")
+  func platformDisappearsWhenAllAssetsRenamedAway() throws {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    createAsset(name: "AAPL", platform: "Firstrade", in: context)
+    createAsset(name: "BND", platform: "Vanguard", in: context)
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+    try viewModel.renamePlatform(from: "Firstrade", to: "Interactive Brokers")
+
+    viewModel.loadPlatforms()
+
+    #expect(viewModel.platformRows.count == 2)
+    #expect(viewModel.platformRows.contains { $0.name == "Interactive Brokers" })
+    #expect(viewModel.platformRows.contains { $0.name == "Vanguard" })
+    #expect(!viewModel.platformRows.contains { $0.name == "Firstrade" })
+  }
+
+  @Test("Empty platform excluded from list")
+  func emptyPlatformExcludedFromList() {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    createAsset(name: "AAPL", platform: "Firstrade", in: context)
+    createAsset(name: "Unknown", platform: "", in: context)
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+    viewModel.loadPlatforms()
+
+    #expect(viewModel.platformRows.count == 1)
+    #expect(viewModel.platformRows[0].name == "Firstrade")
+  }
+
+  @Test("Empty state when no platforms")
+  func emptyStateWhenNoPlatforms() {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+    viewModel.loadPlatforms()
+
+    #expect(viewModel.platformRows.isEmpty)
+  }
+
+  @Test("Handles assets across multiple platforms")
+  func handlesAssetsAcrossMultiplePlatforms() {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    let snapshot = Snapshot(date: makeDate(year: 2025, month: 6, day: 1))
+    context.insert(snapshot)
+
+    createAssetWithValue(
+      name: "AAPL", platform: "Firstrade",
+      marketValue: 5000, snapshot: snapshot, context: context)
+    createAssetWithValue(
+      name: "MSFT", platform: "Firstrade",
+      marketValue: 3000, snapshot: snapshot, context: context)
+    createAssetWithValue(
+      name: "BND", platform: "Vanguard",
+      marketValue: 2000, snapshot: snapshot, context: context)
+    createAssetWithValue(
+      name: "BTC", platform: "Coinbase",
+      marketValue: 10000, snapshot: snapshot, context: context)
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+    viewModel.loadPlatforms()
+
+    #expect(viewModel.platformRows.count == 3)
+
+    let coinbase = viewModel.platformRows.first { $0.name == "Coinbase" }
+    let firstrade = viewModel.platformRows.first { $0.name == "Firstrade" }
+    let vanguard = viewModel.platformRows.first { $0.name == "Vanguard" }
+
+    #expect(coinbase?.assetCount == 1)
+    #expect(coinbase?.totalValue == 10000)
+    #expect(firstrade?.assetCount == 2)
+    #expect(firstrade?.totalValue == 8000)
+    #expect(vanguard?.assetCount == 1)
+    #expect(vanguard?.totalValue == 2000)
+  }
+
+  @Test("Self-rename with different casing succeeds")
+  func selfRenameWithDifferentCasingSucceeds() throws {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    let asset = createAsset(name: "AAPL", platform: "Firstrade", in: context)
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+    try viewModel.renamePlatform(from: "Firstrade", to: "FIRSTRADE")
+
+    #expect(asset.platform == "FIRSTRADE")
+  }
+
+  @Test("Total value includes carry-forward assets")
+  func totalValueIncludesCarryForwardAssets() {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    // Snapshot 1: Firstrade and Vanguard both have values
+    let snap1 = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
+    context.insert(snap1)
+    createAssetWithValue(
+      name: "AAPL", platform: "Firstrade",
+      marketValue: 5000, snapshot: snap1, context: context)
+    createAssetWithValue(
+      name: "BND", platform: "Vanguard",
+      marketValue: 3000, snapshot: snap1, context: context)
+
+    // Snapshot 2: Only Firstrade updated (Vanguard carries forward)
+    let snap2 = Snapshot(date: makeDate(year: 2025, month: 2, day: 1))
+    context.insert(snap2)
+    createAssetWithValue(
+      name: "AAPL", platform: "Firstrade",
+      marketValue: 7000, snapshot: snap2, context: context)
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+    viewModel.loadPlatforms()
+
+    let firstrade = viewModel.platformRows.first { $0.name == "Firstrade" }
+    let vanguard = viewModel.platformRows.first { $0.name == "Vanguard" }
+
+    #expect(firstrade?.totalValue == 7000)
+    #expect(vanguard?.totalValue == 3000)  // Carried forward from snap1
+  }
+
+  // MARK: - Rename Validation
+
+  @Test("Rename rejects empty name")
+  func renameRejectsEmptyName() {
+    let tc = makeTestContext()
+    let context = tc.context
+
+    createAsset(name: "AAPL", platform: "Firstrade", in: context)
+
+    let viewModel = PlatformListViewModel(modelContext: context)
+
+    #expect(throws: PlatformError.emptyName) {
+      try viewModel.renamePlatform(from: "Firstrade", to: "   ")
+    }
+  }
+}
