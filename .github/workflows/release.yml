@@ -7,7 +7,9 @@ on:
 
 jobs:
   release:
-    runs-on: macos-15
+    runs-on: macos-26
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -46,5 +48,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ github.ref_name }}
           generate_release_notes: true
           files: build/AssetFlow-*.zip
