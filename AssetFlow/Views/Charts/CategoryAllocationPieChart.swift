@@ -60,6 +60,14 @@ struct CategoryAllocationPieChart: View {
   }
 
   private var pieChart: some View {
+    HStack(alignment: .top, spacing: 12) {
+      chartView
+      legendPanel
+    }
+    .frame(height: ChartConstants.dashboardChartHeight)
+  }
+
+  private var chartView: some View {
     Chart(allocations, id: \.categoryName) { allocation in
       SectorMark(
         angle: .value("Value", allocation.value.doubleValue),
@@ -70,6 +78,7 @@ struct CategoryAllocationPieChart: View {
       .opacity(
         hoveredCategory == nil || hoveredCategory == allocation.categoryName ? 1.0 : 0.5)
     }
+    .chartLegend(.hidden)
     .chartBackground { _ in
       // Center label for hovered category
       if let hoveredCategory,
@@ -120,37 +129,45 @@ struct CategoryAllocationPieChart: View {
         onSelectCategory?(name)
       }
     }
-    .frame(height: ChartConstants.dashboardChartHeight)
-    .overlay {
-      legendOverlay
-    }
   }
 
-  private var legendOverlay: some View {
-    VStack(alignment: .leading, spacing: 3) {
-      ForEach(Array(allocations.enumerated()), id: \.element.categoryName) { _, allocation in
-        Button {
-          onSelectCategory?(allocation.categoryName)
-        } label: {
-          HStack(spacing: 4) {
-            Circle()
-              .fill(colorForCategory(allocation.categoryName))
-              .frame(width: 8, height: 8)
-            Text(allocation.categoryName)
-              .font(.caption2)
-            Text(allocation.percentage.formattedPercentage())
-              .font(.caption2)
-              .foregroundStyle(.secondary)
+  private var legendPanel: some View {
+    ScrollView(.vertical, showsIndicators: false) {
+      VStack(alignment: .leading, spacing: 4) {
+        ForEach(allocations, id: \.categoryName) { allocation in
+          Button {
+            if allocation.categoryName != "Uncategorized" {
+              onSelectCategory?(allocation.categoryName)
+            }
+          } label: {
+            HStack(spacing: 4) {
+              Circle()
+                .fill(colorForCategory(allocation.categoryName))
+                .frame(width: 8, height: 8)
+                .fixedSize()
+              VStack(alignment: .leading, spacing: 0) {
+                Text(allocation.categoryName)
+                  .font(.caption2)
+                  .lineLimit(1)
+                  .truncationMode(.tail)
+                Text(allocation.percentage.formattedPercentage())
+                  .font(.caption2)
+                  .foregroundStyle(.secondary)
+              }
+            }
           }
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovering in
-          hoveredCategory = isHovering ? allocation.categoryName : nil
+          .buttonStyle(.plain)
+          .opacity(
+            hoveredCategory == nil || hoveredCategory == allocation.categoryName
+              ? 1.0 : 0.5
+          )
+          .onHover { isHovering in
+            hoveredCategory = isHovering ? allocation.categoryName : nil
+          }
         }
       }
     }
-    .padding(8)
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+    .frame(width: 150)
   }
 
   /// Maps a cumulative angle value to the category at that position in the pie chart.
