@@ -34,8 +34,7 @@ struct PortfolioValueLineChart: View {
     }
     .padding()
     .frame(maxHeight: .infinity, alignment: .topLeading)
-    .background(.fill.quaternary)
-    .clipShape(RoundedRectangle(cornerRadius: 8))
+    .glassCard()
   }
 
   @ViewBuilder

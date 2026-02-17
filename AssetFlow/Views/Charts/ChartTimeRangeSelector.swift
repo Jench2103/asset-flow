@@ -20,13 +20,26 @@ struct ChartTimeRangeSelector: View {
         Button {
           selection = range
         } label: {
+          let isSelected = selection == range
           Text(range.rawValue)
             .font(.caption2)
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
-            .background(selection == range ? Color.accentColor : Color.clear)
-            .foregroundStyle(selection == range ? .white : .secondary)
+            .background(
+              isSelected
+                ? AnyShapeStyle(.tint.opacity(0.15))
+                : AnyShapeStyle(.clear)
+            )
+            .foregroundStyle(isSelected ? .primary : .secondary)
             .clipShape(Capsule())
+            .overlay(
+              Capsule()
+                .stroke(
+                  isSelected
+                    ? AnyShapeStyle(.tint.opacity(0.3))
+                    : AnyShapeStyle(.clear),
+                  lineWidth: 0.5)
+            )
         }
         .buttonStyle(.plain)
       }

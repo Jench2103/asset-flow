@@ -141,7 +141,7 @@ struct SnapshotListView: View {
     let rowData = rowDataMap[snapshot.id]
 
     return HStack {
-      VStack(alignment: .leading, spacing: 4) {
+      VStack(alignment: .leading, spacing: 2) {
         Text(snapshot.date.settingsFormatted())
           .font(.body)
 
@@ -164,8 +164,8 @@ struct SnapshotListView: View {
           Text("\(rowData.assetCount)")
             .font(.caption)
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
+            .padding(.horizontal, ChartConstants.badgePaddingH)
+            .padding(.vertical, ChartConstants.badgePaddingV)
             .background(.quaternary)
             .clipShape(Capsule())
             .accessibilityLabel("\(rowData.assetCount) assets")
@@ -194,8 +194,8 @@ struct SnapshotListView: View {
       ForEach(allDirect.prefix(maxVisible), id: \.self) { platform in
         Text(platform)
           .font(.caption2)
-          .padding(.horizontal, 4)
-          .padding(.vertical, 1)
+          .padding(.horizontal, ChartConstants.compactBadgePaddingH)
+          .padding(.vertical, ChartConstants.compactBadgePaddingV)
           .background(.quaternary)
           .clipShape(Capsule())
       }
@@ -208,8 +208,8 @@ struct SnapshotListView: View {
           Text(platform)
             .font(.caption2)
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 1)
+        .padding(.horizontal, ChartConstants.compactBadgePaddingH)
+        .padding(.vertical, ChartConstants.compactBadgePaddingV)
         .background(.quaternary.opacity(0.5))
         .clipShape(Capsule())
         .foregroundStyle(.secondary)
@@ -274,7 +274,8 @@ private struct NewSnapshotSheet: View {
     VStack(spacing: 0) {
       Text("New Snapshot")
         .font(.headline)
-        .padding(.top)
+        .padding(.top, 16)
+        .padding(.horizontal)
 
       Form {
         DatePicker(
@@ -321,7 +322,7 @@ private struct NewSnapshotSheet: View {
       }
       .padding()
     }
-    .frame(minWidth: 350, minHeight: 200)
+    .frame(minWidth: 350, minHeight: 220)
     .alert("Error", isPresented: $showError) {
       Button("OK") {}
     } message: {

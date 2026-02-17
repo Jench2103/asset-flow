@@ -151,8 +151,8 @@ struct CategoryListView: View {
         Text("\(rowData.assetCount)")
           .font(.caption)
           .foregroundStyle(.secondary)
-          .padding(.horizontal, 6)
-          .padding(.vertical, 2)
+          .padding(.horizontal, ChartConstants.badgePaddingH)
+          .padding(.vertical, ChartConstants.badgePaddingV)
           .background(.quaternary)
           .clipShape(Capsule())
       }
@@ -212,6 +212,11 @@ private struct AddCategorySheet: View {
 
   var body: some View {
     VStack(spacing: 0) {
+      Text("New Category")
+        .font(.headline)
+        .padding(.top, 16)
+        .padding(.horizontal)
+
       Form {
         TextField("Category Name", text: $name)
           .accessibilityIdentifier("Category Name Field")
@@ -241,7 +246,7 @@ private struct AddCategorySheet: View {
       }
       .padding()
     }
-    .frame(minWidth: 350, minHeight: 200)
+    .frame(minWidth: 350, minHeight: 220)
     .alert("Error", isPresented: $showError) {
       Button("OK") {}
     } message: {

@@ -356,7 +356,8 @@ private struct AddAssetSheet: View {
     VStack(spacing: 0) {
       Text("Add Asset")
         .font(.headline)
-        .padding(.top)
+        .padding(.top, 16)
+        .padding(.horizontal)
 
       Picker("Mode", selection: $mode) {
         ForEach(AddAssetMode.allCases, id: \.self) { mode in
@@ -626,7 +627,8 @@ private struct AddCashFlowSheet: View {
     VStack(spacing: 0) {
       Text("Add Cash Flow")
         .font(.headline)
-        .padding(.top)
+        .padding(.top, 16)
+        .padding(.horizontal)
 
       Form {
         TextField("Description", text: $description)
@@ -697,7 +699,8 @@ private struct EditValueSheet: View {
     VStack(spacing: 0) {
       Text("Edit Market Value")
         .font(.headline)
-        .padding(.top)
+        .padding(.top, 16)
+        .padding(.horizontal)
 
       Form {
         TextField("Market Value", text: $valueText)
@@ -724,7 +727,7 @@ private struct EditValueSheet: View {
       }
       .padding()
     }
-    .frame(minWidth: 300, minHeight: 150)
+    .frame(minWidth: 350, minHeight: 180)
   }
 }
 
@@ -756,7 +759,8 @@ private struct EditCashFlowSheet: View {
     VStack(spacing: 0) {
       Text("Edit Cash Flow")
         .font(.headline)
-        .padding(.top)
+        .padding(.top, 16)
+        .padding(.horizontal)
 
       Form {
         TextField("Description", text: $description)

@@ -35,8 +35,7 @@ struct CategoryAllocationPieChart: View {
     }
     .padding()
     .frame(maxHeight: .infinity, alignment: .topLeading)
-    .background(.fill.quaternary)
-    .clipShape(RoundedRectangle(cornerRadius: 8))
+    .glassCard()
   }
 
   private var snapshotDatePicker: some View {

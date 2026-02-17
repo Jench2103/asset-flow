@@ -22,9 +22,49 @@ enum ChartConstants {
     .cyan, .pink, .brown, .mint, .indigo,
   ]
 
+  /// Standard card corner radius for dashboard cards.
+  static let cardCornerRadius: CGFloat = 12
+
+  /// Compact badge horizontal padding (for platform badges).
+  static let compactBadgePaddingH: CGFloat = 5
+
+  /// Compact badge vertical padding (for platform badges).
+  static let compactBadgePaddingV: CGFloat = 2
+
+  /// Standard badge horizontal padding (for asset count badges).
+  static let badgePaddingH: CGFloat = 6
+
+  /// Standard badge vertical padding (for asset count badges).
+  static let badgePaddingV: CGFloat = 2
+
   /// Returns a color for a category at the given index, cycling through the palette.
   static func color(forIndex index: Int) -> Color {
     categoryColors[index % categoryColors.count]
+  }
+}
+
+// MARK: - Glass Card Modifier
+
+/// Applies a frosted glass material background with subtle shadows and border,
+/// following the Liquid Glass design system.
+struct GlassCardModifier: ViewModifier {
+  func body(content: Content) -> some View {
+    content
+      .background(.ultraThinMaterial)
+      .clipShape(RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius))
+      .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+      .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+      .overlay(
+        RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
+          .stroke(.white.opacity(0.2), lineWidth: 0.5)
+      )
+  }
+}
+
+extension View {
+  /// Applies the glass card treatment: material background, rounded corners, shadows, and border.
+  func glassCard() -> some View {
+    modifier(GlassCardModifier())
   }
 }
 

@@ -27,8 +27,7 @@ struct AssetListView: View {
   var body: some View {
     VStack(spacing: 0) {
       groupingPicker
-        .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding(12)
 
       if viewModel.groups.isEmpty {
         emptyState

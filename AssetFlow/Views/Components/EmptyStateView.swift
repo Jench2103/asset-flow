@@ -38,7 +38,8 @@ struct EmptyStateView: View {
           .font(.callout)
           .foregroundStyle(.secondary)
           .multilineTextAlignment(.center)
-          .padding(.horizontal, 40)
+          .frame(maxWidth: 400)
+          .padding(.horizontal)
       }
 
       if !actions.isEmpty {

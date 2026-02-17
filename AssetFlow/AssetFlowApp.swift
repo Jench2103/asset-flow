@@ -55,6 +55,7 @@ struct AssetFlowApp: App {
       ContentView()
     }
     .modelContainer(sharedModelContainer)
+    .windowToolbarStyle(.unified)
 
     Settings {
       SettingsView()

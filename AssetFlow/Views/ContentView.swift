@@ -201,7 +201,7 @@ struct ContentView: View {
           .id(snapshot.id)
           .frame(maxWidth: .infinity)
         } else {
-          placeholderText("Select a snapshot")
+          placeholderView("Select a snapshot", systemImage: "calendar")
         }
       }
 
@@ -226,7 +226,7 @@ struct ContentView: View {
           .id(asset.id)
           .frame(maxWidth: .infinity)
         } else {
-          placeholderText("Select an asset")
+          placeholderView("Select an asset", systemImage: "tray")
         }
       }
 
@@ -251,7 +251,7 @@ struct ContentView: View {
           .id(category.id)
           .frame(maxWidth: .infinity)
         } else {
-          placeholderText("Select a category")
+          placeholderView("Select a category", systemImage: "folder")
         }
       }
 
@@ -269,16 +269,14 @@ struct ContentView: View {
       }
 
     case nil:
-      placeholderText("Select a section")
+      placeholderView("Select a section", systemImage: "sidebar.left")
     }
   }
 
   // MARK: - Helpers
 
-  private func placeholderText(_ text: String) -> some View {
-    Text(text)
-      .font(.title2)
-      .foregroundStyle(.secondary)
+  private func placeholderView(_ title: String, systemImage: String) -> some View {
+    ContentUnavailableView(title, systemImage: systemImage)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 

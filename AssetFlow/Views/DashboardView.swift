@@ -54,7 +54,7 @@ struct DashboardView: View {
       }
     }
     .navigationTitle("Dashboard")
-    .animation(.default, value: viewModel.isEmpty)
+    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: viewModel.isEmpty)
     .onAppear {
       viewModel.loadData()
     }
@@ -207,8 +207,7 @@ struct DashboardView: View {
       }
       .padding()
       .frame(maxWidth: .infinity, alignment: .leading)
-      .background(.fill.quaternary)
-      .clipShape(RoundedRectangle(cornerRadius: 8))
+      .glassCard()
 
       // Return Rate card
       VStack(alignment: .leading, spacing: 8) {
@@ -245,8 +244,7 @@ struct DashboardView: View {
       }
       .padding()
       .frame(maxWidth: .infinity, alignment: .leading)
-      .background(.fill.quaternary)
-      .clipShape(RoundedRectangle(cornerRadius: 8))
+      .glassCard()
     }
   }
 
@@ -334,8 +332,8 @@ struct DashboardView: View {
               Text("\(snapshot.assetCount)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
+                .padding(.horizontal, ChartConstants.badgePaddingH)
+                .padding(.vertical, ChartConstants.badgePaddingV)
                 .background(.quaternary)
                 .clipShape(Capsule())
                 .accessibilityLabel("\(snapshot.assetCount) assets")
@@ -353,8 +351,7 @@ struct DashboardView: View {
       }
     }
     .padding()
-    .background(.fill.quaternary)
-    .clipShape(RoundedRectangle(cornerRadius: 8))
+    .glassCard()
   }
 }
 
@@ -387,10 +384,17 @@ private struct HeroMetricCard: View {
     }
     .padding()
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(.tint.opacity(0.06))
-    .clipShape(RoundedRectangle(cornerRadius: 8))
+    .background {
+      ZStack {
+        Rectangle().fill(.ultraThinMaterial)
+        Rectangle().fill(.tint.opacity(0.06))
+      }
+    }
+    .clipShape(RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius))
+    .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+    .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
     .overlay(
-      RoundedRectangle(cornerRadius: 8)
+      RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
         .strokeBorder(.tint.opacity(0.15), lineWidth: 1)
     )
   }
@@ -433,8 +437,7 @@ private struct MetricCard: View {
     }
     .padding()
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(.fill.quaternary)
-    .clipShape(RoundedRectangle(cornerRadius: 8))
+    .glassCard()
   }
 }
 

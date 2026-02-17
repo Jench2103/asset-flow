@@ -70,8 +70,8 @@ struct PlatformListView: View {
         Text("\(rowData.assetCount)")
           .font(.caption)
           .foregroundStyle(.secondary)
-          .padding(.horizontal, 6)
-          .padding(.vertical, 2)
+          .padding(.horizontal, ChartConstants.badgePaddingH)
+          .padding(.vertical, ChartConstants.badgePaddingV)
           .background(.quaternary)
           .clipShape(Capsule())
       }
@@ -121,7 +121,8 @@ private struct RenamePlatformSheet: View {
     VStack(spacing: 0) {
       Text("Rename Platform")
         .font(.headline)
-        .padding(.top)
+        .padding(.top, 16)
+        .padding(.horizontal)
 
       Form {
         TextField("Platform Name", text: $newName)
@@ -145,7 +146,7 @@ private struct RenamePlatformSheet: View {
       }
       .padding()
     }
-    .frame(minWidth: 350, minHeight: 150)
+    .frame(minWidth: 350, minHeight: 180)
     .alert("Error", isPresented: $showError) {
       Button("OK") {}
     } message: {
