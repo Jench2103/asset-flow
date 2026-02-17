@@ -43,6 +43,49 @@ enum SnapshotError: LocalizedError, Equatable {
   }
 }
 
+/// Relative time bucket for grouping snapshots in the list.
+///
+/// Boundaries are based on calendar month starts relative to the reference date.
+/// Empty buckets are hidden at the view layer.
+enum SnapshotTimeBucket: Int, CaseIterable, Hashable {
+  case thisMonth
+  case past3Months
+  case past6Months
+  case pastYear
+  case older
+
+  var localizedName: String {
+    switch self {
+    case .thisMonth: return String(localized: "This Month", table: "Snapshot")
+    case .past3Months: return String(localized: "Previous 3 Months", table: "Snapshot")
+    case .past6Months: return String(localized: "Previous 6 Months", table: "Snapshot")
+    case .pastYear: return String(localized: "Previous Year", table: "Snapshot")
+    case .older: return String(localized: "Older", table: "Snapshot")
+    }
+  }
+
+  static func bucket(for date: Date, relativeTo now: Date = Date()) -> SnapshotTimeBucket {
+    let calendar = Calendar.current
+    guard
+      let startOfCurrentMonth = calendar.date(
+        from: calendar.dateComponents([.year, .month], from: now)),
+      let threeMonthsAgo = calendar.date(
+        byAdding: .month, value: -3, to: startOfCurrentMonth),
+      let sixMonthsAgo = calendar.date(
+        byAdding: .month, value: -6, to: startOfCurrentMonth),
+      let oneYearAgo = calendar.date(
+        byAdding: .year, value: -1, to: startOfCurrentMonth)
+    else { return .older }
+
+    if date >= startOfCurrentMonth { return .thisMonth }
+    if date >= threeMonthsAgo { return .past3Months }
+    if date >= sixMonthsAgo { return .past6Months }
+    if date >= oneYearAgo { return .pastYear }
+
+    return .older
+  }
+}
+
 /// Data for a snapshot list row, including carry-forward information.
 struct SnapshotRowData {
   let date: Date

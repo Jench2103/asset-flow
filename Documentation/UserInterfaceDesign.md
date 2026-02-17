@@ -123,7 +123,9 @@ ______________________________________________________________________
 
 **List view**:
 
-- Chronological list of all snapshots (newest first)
+- Chronological list of all snapshots (newest first), grouped into collapsible relative time buckets
+- Time buckets: **This Month**, **Previous 3 Months**, **Previous 6 Months**, **Previous Year**, **Older** — boundaries based on calendar month starts relative to today; empty buckets are hidden
+- Uses `.listStyle(.sidebar)` for native macOS collapsible `Section(isExpanded:)` disclosure triangles; all sections expanded by default
 - Each row: date, total value (composite), platforms included, number of assets
 - Carried-forward indicators: visual marker showing imported vs. carried-forward platforms
 - "New Snapshot" button
@@ -727,18 +729,18 @@ ______________________________________________________________________
 
 ## Implementation Status
 
-| View                           | Status      | Notes                                                                                                                           |
-| ------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation               |
-| DashboardView                  | Implemented | Summary cards with SPEC-compliant tooltips, period performance (1M/3M/1Y), interactive charts, EmptyStateView, recent snapshots |
-| SnapshotListView               | Implemented | @Query live list, carry-forward indicators, New Snapshot sheet, EmptyStateView, Delete key shortcut                             |
-| SnapshotDetailView             | Implemented | Asset breakdown with carried-forward distinction (SPEC 8.3), category allocation, cash flow CRUD, delete confirmation           |
-| AssetListView                  | Implemented | Platform/category grouping, selection binding, EmptyStateView, Delete key shortcut                                              |
-| AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                                  |
-| CategoryListView               | Implemented | Add sheet, target allocation warning, delete validation, EmptyStateView, Delete key shortcut                                    |
-| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                        |
-| PlatformListView               | Implemented | Rename sheet, EmptyStateView                                                                                                    |
-| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, EmptyStateView                                            |
-| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                 |
-| SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                  |
-| EmptyStateView (Component)     | Implemented | Reusable component with SF Symbol icon, title, message, optional action buttons                                                 |
+| View                           | Status      | Notes                                                                                                                                                     |
+| ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation                                         |
+| DashboardView                  | Implemented | Summary cards with SPEC-compliant tooltips, period performance (1M/3M/1Y), interactive charts, EmptyStateView, recent snapshots                           |
+| SnapshotListView               | Implemented | @Query live list, relative time bucket grouping (collapsible sections), carry-forward indicators, New Snapshot sheet, EmptyStateView, Delete key shortcut |
+| SnapshotDetailView             | Implemented | Asset breakdown with carried-forward distinction (SPEC 8.3), category allocation, cash flow CRUD, delete confirmation                                     |
+| AssetListView                  | Implemented | Platform/category grouping, selection binding, EmptyStateView, Delete key shortcut                                                                        |
+| AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                                                            |
+| CategoryListView               | Implemented | Add sheet, target allocation warning, delete validation, EmptyStateView, Delete key shortcut                                                              |
+| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                                                  |
+| PlatformListView               | Implemented | Rename sheet, EmptyStateView                                                                                                                              |
+| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, EmptyStateView                                                                      |
+| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                                           |
+| SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                                            |
+| EmptyStateView (Component)     | Implemented | Reusable component with SF Symbol icon, title, message, optional action buttons                                                                           |

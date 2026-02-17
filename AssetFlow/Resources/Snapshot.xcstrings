@@ -60,6 +60,56 @@
           }
         }
       }
+    },
+    "This Month" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本月"
+          }
+        }
+      }
+    },
+    "Previous 3 Months" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前 3 個月"
+          }
+        }
+      }
+    },
+    "Previous 6 Months" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前 6 個月"
+          }
+        }
+      }
+    },
+    "Previous Year" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前一年"
+          }
+        }
+      }
+    },
+    "Older" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更早"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

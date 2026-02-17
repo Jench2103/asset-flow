@@ -23,6 +23,7 @@ struct SnapshotListView: View {
   @State private var rowDataMap: [UUID: SnapshotRowData] = [:]
   @State private var snapshotToDelete: Snapshot?
   @State private var showDeleteConfirmation = false
+  @State private var expandedSections: Set<SnapshotTimeBucket> = Set(SnapshotTimeBucket.allCases)
 
   var onNavigateToImport: (() -> Void)?
 
@@ -93,13 +94,37 @@ struct SnapshotListView: View {
 
   // MARK: - Snapshot List
 
+  private var groupedSnapshots: [(bucket: SnapshotTimeBucket, snapshots: [Snapshot])] {
+    let grouped = Dictionary(grouping: snapshots) { SnapshotTimeBucket.bucket(for: $0.date) }
+    return SnapshotTimeBucket.allCases.compactMap { bucket in
+      guard let items = grouped[bucket], !items.isEmpty else { return nil }
+      return (bucket: bucket, snapshots: items)
+    }
+  }
+
+  private func sectionBinding(for bucket: SnapshotTimeBucket) -> Binding<Bool> {
+    Binding(
+      get: { expandedSections.contains(bucket) },
+      set: { isExpanded in
+        if isExpanded { expandedSections.insert(bucket) } else { expandedSections.remove(bucket) }
+      }
+    )
+  }
+
   private var snapshotList: some View {
     List(selection: $selectedSnapshot) {
-      ForEach(snapshots) { snapshot in
-        snapshotRow(snapshot)
-          .tag(snapshot)
+      ForEach(groupedSnapshots, id: \.bucket) { group in
+        Section(isExpanded: sectionBinding(for: group.bucket)) {
+          ForEach(group.snapshots) { snapshot in
+            snapshotRow(snapshot)
+              .tag(snapshot)
+          }
+        } header: {
+          Text(group.bucket.localizedName)
+        }
       }
     }
+    .listStyle(.sidebar)
     .onDeleteCommand {
       deleteSelectedSnapshot()
     }
