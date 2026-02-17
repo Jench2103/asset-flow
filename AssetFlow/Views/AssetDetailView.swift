@@ -219,7 +219,9 @@ struct AssetDetailView: View {
         Text("No recorded values")
           .foregroundStyle(.secondary)
       } else {
-        sparklineChart
+        if viewModel.valueHistory.count >= 2 {
+          sparklineChart
+        }
 
         Table(viewModel.valueHistory) {
           TableColumn("Date") { entry in
