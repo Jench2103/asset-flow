@@ -358,7 +358,7 @@ struct DashboardView: View {
 // MARK: - HeroMetricCard
 
 private struct HeroMetricCard: View {
-  let title: String
+  let title: LocalizedStringKey
   let value: String
   var subtitle: String?
   var subtitleColor: Color?
@@ -403,10 +403,10 @@ private struct HeroMetricCard: View {
 // MARK: - MetricCard
 
 private struct MetricCard: View {
-  let title: String
+  let title: LocalizedStringKey
   let value: String
   var subtitle: String?
-  var tooltipText: String?
+  var tooltipText: LocalizedStringKey?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
