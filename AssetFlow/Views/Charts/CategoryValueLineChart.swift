@@ -18,6 +18,7 @@ struct CategoryValueLineChart: View {
 
   @State private var disabledCategories: Set<String> = []
   @State private var hoveredDate: Date?
+  @State private var hoveredX: CGFloat?
 
   /// Category names sorted alphabetically, with Uncategorized last.
   private var sortedCategoryNames: [String] {
@@ -112,25 +113,33 @@ struct CategoryValueLineChart: View {
         }
         .chartLegend(.hidden)
         .chartOverlay { proxy in
-          GeometryReader { _ in
-            Rectangle()
-              .fill(.clear)
+          GeometryReader { geometry in
+            Color.clear
               .contentShape(Rectangle())
               .onContinuousHover { phase in
                 switch phase {
                 case .active(let location):
                   hoveredDate = ChartHelpers.findNearestDate(
                     at: location, in: proxy, points: data, dateKeyPath: \.date)
+                  hoveredX = location.x
 
                 case .ended:
                   hoveredDate = nil
+                  hoveredX = nil
                 }
               }
-          }
-        }
-        .overlay(alignment: .top) {
-          if let hoveredDate {
-            categoryTooltipView(for: hoveredDate, data: data)
+
+            if let hoveredDate, let xPos = hoveredX {
+              let tooltipMaxWidth: CGFloat = 180
+              let halfWidth = tooltipMaxWidth / 2
+              let clampedX = min(
+                max(xPos, halfWidth), geometry.size.width - halfWidth)
+              categoryTooltipView(for: hoveredDate, data: data)
+                .frame(maxWidth: tooltipMaxWidth)
+                .fixedSize(horizontal: false, vertical: true)
+                .allowsHitTesting(false)
+                .position(x: clampedX, y: 40)
+            }
           }
         }
         .frame(height: ChartConstants.dashboardChartHeight)

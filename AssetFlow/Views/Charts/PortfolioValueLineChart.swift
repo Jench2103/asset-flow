@@ -53,7 +53,9 @@ struct PortfolioValueLineChart: View {
   }
 
   private func lineChart(_ points: [DashboardDataPoint]) -> some View {
-    Chart(points, id: \.date) { point in
+    let firstDate = points.first!.date
+    let lastDate = points.last!.date
+    return Chart(points, id: \.date) { point in
       LineMark(
         x: .value("Date", point.date),
         y: .value("Value", point.value.doubleValue)
@@ -71,11 +73,17 @@ struct PortfolioValueLineChart: View {
         RuleMark(x: .value("Date", hoveredDate))
           .foregroundStyle(.secondary.opacity(0.5))
           .lineStyle(StrokeStyle(dash: [4, 4]))
-          .annotation(position: .top, alignment: .center) {
+          .annotation(
+            position: .top,
+            alignment: point.date == firstDate
+              ? .leading
+              : point.date == lastDate ? .trailing : .center
+          ) {
             tooltipView(for: point)
           }
       }
     }
+    .chartXScale(domain: firstDate...lastDate)
     .chartYAxis {
       AxisMarks { value in
         AxisGridLine()

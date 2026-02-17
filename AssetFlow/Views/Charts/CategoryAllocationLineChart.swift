@@ -45,7 +45,9 @@ struct CategoryAllocationLineChart: View {
   }
 
   private func lineChart(_ points: [CategoryAllocationHistoryEntry]) -> some View {
-    Chart(points) { entry in
+    let firstDate = points.first!.date
+    let lastDate = points.last!.date
+    return Chart(points) { entry in
       LineMark(
         x: .value("Date", entry.date),
         y: .value("Allocation", entry.allocationPercentage.doubleValue)
@@ -62,11 +64,17 @@ struct CategoryAllocationLineChart: View {
         RuleMark(x: .value("Date", hoveredDate))
           .foregroundStyle(.secondary.opacity(0.5))
           .lineStyle(StrokeStyle(dash: [4, 4]))
-          .annotation(position: .top, alignment: .center) {
+          .annotation(
+            position: .top,
+            alignment: entry.date == firstDate
+              ? .leading
+              : entry.date == lastDate ? .trailing : .center
+          ) {
             tooltipView(for: entry)
           }
       }
     }
+    .chartXScale(domain: firstDate...lastDate)
     .chartYScale(domain: 0...100)
     .chartYAxis {
       AxisMarks { value in
