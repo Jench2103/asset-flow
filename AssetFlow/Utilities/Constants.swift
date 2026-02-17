@@ -18,7 +18,7 @@ enum Constants {
     static let developerName = "Jen-Chien Chang"
     static let copyright = "Copyright © 2026 Jen-Chien Chang"
     static let license = "Apache License 2.0"
-    static let repositoryURL = URL(string: "https://github.com/Jench2103/asset-flow-swift")!
+    static let repositoryURL = URL(string: "https://github.com/Jench2103/asset-flow")!
   }
 
   enum DefaultValues {
