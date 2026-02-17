@@ -103,7 +103,7 @@ struct DashboardView: View {
       )
 
       // Secondary metrics grid
-      LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220))], spacing: 12) {
+      HStack(spacing: 12) {
         MetricCard(
           title: "Latest Snapshot",
           value: viewModel.latestSnapshotDate?.settingsFormatted()
@@ -174,7 +174,7 @@ struct DashboardView: View {
     HStack(spacing: 12) {
       // Growth Rate card
       VStack(alignment: .leading, spacing: 8) {
-        HStack {
+        HStack(alignment: .center) {
           Text("Growth Rate")
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -189,29 +189,33 @@ struct DashboardView: View {
               withdrawals. Unlike Return Rate, it does not \
               isolate investment performance.
               """)
+          Spacer()
+          Picker("Period", selection: $growthRatePeriod) {
+            Text("1M").tag(DashboardPeriod.oneMonth)
+            Text("3M").tag(DashboardPeriod.threeMonths)
+            Text("1Y").tag(DashboardPeriod.oneYear)
+          }
+          .pickerStyle(.segmented)
+          .labelsHidden()
+          .controlSize(.small)
+          .fixedSize()
         }
-
-        Picker("Period", selection: $growthRatePeriod) {
-          Text("1M").tag(DashboardPeriod.oneMonth)
-          Text("3M").tag(DashboardPeriod.threeMonths)
-          Text("1Y").tag(DashboardPeriod.oneYear)
-        }
-        .pickerStyle(.segmented)
 
         let growthValue = viewModel.growthRate(for: growthRatePeriod)
         Text(growthValue.map { ($0 * 100).formattedPercentage() } ?? "N/A")
-          .font(.title3.bold())
+          .font(.title2.bold())
           .monospacedDigit()
+          .frame(maxWidth: .infinity, alignment: .trailing)
           .foregroundStyle(rateColor(for: growthValue))
           .contentTransition(.numericText())
       }
       .padding()
-      .frame(maxWidth: .infinity, alignment: .leading)
+      .frame(maxWidth: .infinity)
       .glassCard()
 
       // Return Rate card
       VStack(alignment: .leading, spacing: 8) {
-        HStack {
+        HStack(alignment: .center) {
           Text("Return Rate")
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -226,24 +230,28 @@ struct DashboardView: View {
               accounting for the timing and magnitude of \
               deposits and withdrawals.
               """)
+          Spacer()
+          Picker("Period", selection: $returnRatePeriod) {
+            Text("1M").tag(DashboardPeriod.oneMonth)
+            Text("3M").tag(DashboardPeriod.threeMonths)
+            Text("1Y").tag(DashboardPeriod.oneYear)
+          }
+          .pickerStyle(.segmented)
+          .labelsHidden()
+          .controlSize(.small)
+          .fixedSize()
         }
-
-        Picker("Period", selection: $returnRatePeriod) {
-          Text("1M").tag(DashboardPeriod.oneMonth)
-          Text("3M").tag(DashboardPeriod.threeMonths)
-          Text("1Y").tag(DashboardPeriod.oneYear)
-        }
-        .pickerStyle(.segmented)
 
         let returnValue = viewModel.returnRate(for: returnRatePeriod)
         Text(returnValue.map { ($0 * 100).formattedPercentage() } ?? "N/A")
-          .font(.title3.bold())
+          .font(.title2.bold())
           .monospacedDigit()
+          .frame(maxWidth: .infinity, alignment: .trailing)
           .foregroundStyle(rateColor(for: returnValue))
           .contentTransition(.numericText())
       }
       .padding()
-      .frame(maxWidth: .infinity, alignment: .leading)
+      .frame(maxWidth: .infinity)
       .glassCard()
     }
   }
@@ -364,26 +372,33 @@ private struct HeroMetricCard: View {
   var subtitleColor: Color?
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      Text(title)
-        .font(.caption)
-        .foregroundStyle(.secondary)
+    HStack(alignment: .bottom, spacing: 0) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(title)
+          .font(.caption)
+          .foregroundStyle(.secondary)
 
-      Text(value)
-        .font(.title2.bold())
-        .monospacedDigit()
-        .lineLimit(1)
-        .contentTransition(.numericText())
+        Text(value)
+          .font(.largeTitle.bold())
+          .monospacedDigit()
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+          .contentTransition(.numericText())
+      }
+
+      Spacer(minLength: 12)
 
       if let subtitle {
         Text(subtitle)
           .font(.callout)
           .foregroundStyle(subtitleColor ?? .secondary)
+          .multilineTextAlignment(.trailing)
           .contentTransition(.numericText())
+          .padding(.bottom, 2)
       }
     }
     .padding()
-    .frame(maxWidth: .infinity, alignment: .leading)
+    .frame(maxWidth: .infinity)
     .background {
       ZStack {
         Rectangle().fill(.ultraThinMaterial)
@@ -409,7 +424,7 @@ private struct MetricCard: View {
   var tooltipText: LocalizedStringKey?
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
+    VStack(alignment: .leading, spacing: 0) {
       HStack(spacing: 4) {
         Text(title)
           .font(.caption)
@@ -422,21 +437,25 @@ private struct MetricCard: View {
         }
       }
 
+      Spacer(minLength: 10)
+
       Text(value)
         .font(.title3.bold())
         .monospacedDigit()
         .lineLimit(1)
+        .frame(maxWidth: .infinity, alignment: .trailing)
         .contentTransition(.numericText())
 
-      // Always reserve space for subtitle line to ensure equal card heights in LazyVGrid
-      Text(subtitle ?? " ")
-        .font(.caption2)
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-        .opacity(subtitle != nil ? 1 : 0)
+      if let subtitle {
+        Text(subtitle)
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+          .frame(maxWidth: .infinity, alignment: .trailing)
+      }
     }
     .padding()
-    .frame(maxWidth: .infinity, alignment: .leading)
+    .frame(maxWidth: .infinity, minHeight: 80)
     .glassCard()
   }
 }
