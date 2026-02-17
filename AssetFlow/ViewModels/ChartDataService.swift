@@ -68,6 +68,10 @@ extension CategoryAllocationHistoryEntry: ChartFilterable {
   var chartDate: Date { date }
 }
 
+extension PlatformValueHistoryEntry: ChartFilterable {
+  var chartDate: Date { date }
+}
+
 /// Stateless chart data filtering and formatting service.
 ///
 /// Filters data points by time range using the latest point's date as reference.

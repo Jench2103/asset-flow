@@ -35,7 +35,6 @@ All core screens and features are **implemented**:
 Minor features deferred to future versions:
 
 - Additional keyboard shortcuts (Cmd+I for import, Cmd+N for new snapshot)
-- Platform detail view (currently list-only with rename functionality)
 
 ______________________________________________________________________
 
@@ -251,8 +250,23 @@ Assets with no platform are NOT shown on the Platforms screen.
 
 ### Implementation Notes
 
-- **PlatformListView** (`AssetFlow/Views/PlatformListView.swift`): List-only layout (no list-detail split). Rename via context menu → popover anchored to the row with TextField. Empty state with `building.columns` icon. Platform detail view is deferred to a future phase.
+**Layout**: 3-column split (sidebar | platform list | platform detail), consistent with Snapshots, Assets, and Categories. `ContentView` uses an `HStack(spacing: 0)` with `PlatformListView`, a `Divider`, and `PlatformDetailView` (or a "Select a platform" placeholder when nothing is selected). `PlatformDetailView` uses `.id(platform)` for forced recreation on rename.
+
+**Rename-propagation flow**:
+
+1. User edits name in `PlatformDetailView` → hits Return
+1. `PlatformDetailViewModel.save()` validates and renames all matching `Asset.platform` values
+1. `save()` updates internal `platformName` state
+1. Detail view calls `onRename(newName)` callback
+1. `ContentView` sets `selectedPlatform = newName` (triggers `.id()` recreation of detail view)
+1. `PlatformListView.onChange(of: selectedPlatform)` fires → `viewModel.loadPlatforms()` refreshes list
+
+**Platforms are not SwiftData model objects** — they are derived from distinct non-empty `Asset.platform` string values. Selection binding is `String?` (not a model ID), and rename mutates all `Asset` records with the old platform name.
+
+- **PlatformListView** (`AssetFlow/Views/PlatformListView.swift`): List-detail split with `List(selection: $selectedPlatform)`. Row context menu retains rename popover for quick renaming. `.onChange(of: selectedPlatform)` reloads platforms after rename propagation. Empty state with `building.columns` icon.
+- **PlatformDetailView** (`AssetFlow/Views/PlatformDetailView.swift`): `Form(.grouped)` with three sections: Platform Details (editable name `TextField`), Assets on Platform (`Table` with Name, Category, Value columns), and Value History (line chart with `ChartTimeRangeSelector` and hover tooltip). No delete section — platforms disappear when all assets are reassigned.
 - **PlatformListViewModel** (`AssetFlow/ViewModels/PlatformListViewModel.swift`): Derives platforms from `Asset.platform` values. `loadPlatforms()` computes totals from latest composite snapshot via `CarryForwardService`. `renamePlatform(from:to:)` validates uniqueness (case-insensitive), trims and normalizes whitespace, then updates all matching assets.
+- **PlatformDetailViewModel** (`AssetFlow/ViewModels/PlatformDetailViewModel.swift`): Tracks `platformName` (updated after rename), `assets` (filtered to this platform, sorted alphabetically), `totalValue` (sum of latest values), and `valueHistory` (platform total per snapshot). `save()` validates and renames all matching Asset records.
 
 ______________________________________________________________________
 
@@ -770,7 +784,8 @@ ______________________________________________________________________
 | AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                                                            |
 | CategoryListView               | Implemented | Add sheet, target allocation warning, delete validation, EmptyStateView, Delete key shortcut                                                              |
 | CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                                                  |
-| PlatformListView               | Implemented | Rename popover, EmptyStateView                                                                                                                            |
+| PlatformListView               | Implemented | List-detail split with selection binding, rename popover, EmptyStateView, onChange reload after rename                                                    |
+| PlatformDetailView             | Implemented | Editable name, assets table (Name/Category/Value), value history chart with time range controls and hover tooltip                                         |
 | RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, EmptyStateView                                                                      |
 | ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                                           |
 | SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                                            |

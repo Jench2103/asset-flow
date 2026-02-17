@@ -8,20 +8,23 @@
 import SwiftData
 import SwiftUI
 
-/// Platform list view with rename sheet and empty state.
+/// Platform list view with selection binding, rename popover, and empty state.
 ///
 /// Displays all platforms derived from asset data with their asset count
-/// and total value. Supports renaming via context menu.
+/// and total value. Supports selection for list-detail navigation and
+/// renaming via context menu.
 struct PlatformListView: View {
   @State private var viewModel: PlatformListViewModel
+  @Binding var selectedPlatform: String?
 
   @State private var renamingPlatform: String?
 
   @State private var showError = false
   @State private var errorMessage = ""
 
-  init(modelContext: ModelContext) {
+  init(modelContext: ModelContext, selectedPlatform: Binding<String?>) {
     _viewModel = State(wrappedValue: PlatformListViewModel(modelContext: modelContext))
+    _selectedPlatform = selectedPlatform
   }
 
   var body: some View {
@@ -36,6 +39,9 @@ struct PlatformListView: View {
     .onAppear {
       viewModel.loadPlatforms()
     }
+    .onChange(of: selectedPlatform) { _, _ in
+      viewModel.loadPlatforms()
+    }
     .alert("Error", isPresented: $showError) {
       Button("OK") {}
     } message: {
@@ -46,9 +52,10 @@ struct PlatformListView: View {
   // MARK: - Platform List
 
   private var platformList: some View {
-    List {
+    List(selection: $selectedPlatform) {
       ForEach(viewModel.platformRows) { rowData in
         platformRow(rowData)
+          .tag(rowData.name)
       }
     }
     .accessibilityIdentifier("Platform List")
@@ -178,6 +185,9 @@ private struct RenamePlatformPopover: View {
 
 #Preview("Platform List") {
   NavigationStack {
-    PlatformListView(modelContext: PreviewContainer.container.mainContext)
+    PlatformListView(
+      modelContext: PreviewContainer.container.mainContext,
+      selectedPlatform: .constant(nil)
+    )
   }
 }

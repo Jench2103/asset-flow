@@ -62,6 +62,7 @@ struct ContentView: View {
   @State private var selectedSnapshot: Snapshot?
   @State private var selectedAsset: Asset?
   @State private var selectedCategory: Category?
+  @State private var selectedPlatform: String?
 
   @State private var importViewModel: ImportViewModel?
   @State private var pendingSection: SidebarSection?
@@ -256,7 +257,24 @@ struct ContentView: View {
       }
 
     case .platforms:
-      PlatformListView(modelContext: modelContext)
+      HStack(spacing: 0) {
+        PlatformListView(modelContext: modelContext, selectedPlatform: $selectedPlatform)
+          .frame(minWidth: 250, idealWidth: 300)
+
+        Divider()
+
+        if let platform = selectedPlatform {
+          PlatformDetailView(
+            platformName: platform,
+            modelContext: modelContext,
+            onRename: { selectedPlatform = $0 }
+          )
+          .id(platform)
+          .frame(maxWidth: .infinity)
+        } else {
+          placeholderView("Select a platform", systemImage: "building.columns")
+        }
+      }
 
     case .rebalancing:
       RebalancingView(modelContext: modelContext)
