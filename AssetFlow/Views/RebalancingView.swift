@@ -8,10 +8,6 @@
 import SwiftData
 import SwiftUI
 
-/// Rebalancing view showing category allocation adjustments.
-///
-/// Displays a table of rebalancing suggestions sorted by absolute adjustment
-/// magnitude, with sections for categories without targets and uncategorized assets.
 struct RebalancingView: View {
   @State private var viewModel: RebalancingViewModel
 
@@ -37,215 +33,156 @@ struct RebalancingView: View {
   // MARK: - Main Content
 
   private var rebalancingContent: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 20) {
-        portfolioValueHeader
-
-        if !viewModel.suggestions.isEmpty {
-          suggestionsSection
-        }
-
-        if !viewModel.noTargetRows.isEmpty {
-          noTargetSection
-        }
-
-        if viewModel.uncategorizedRow != nil {
-          uncategorizedSection
-        }
-
-        if !viewModel.summaryTexts.isEmpty {
-          summarySection
-        }
-      }
-      .padding()
-    }
-  }
-
-  // MARK: - Portfolio Value Header
-
-  private var portfolioValueHeader: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Text("Total Portfolio Value")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-      Text(
-        viewModel.totalPortfolioValue.formatted(
-          currency: SettingsService.shared.mainCurrency)
-      )
-      .font(.title2.bold())
-      .monospacedDigit()
-    }
-  }
-
-  // MARK: - Suggestions Table
-
-  private var suggestionsSection: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text("Categories with Targets")
-        .font(.headline)
-
-      Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-        // Header row
-        GridRow {
-          Text("Category").font(.caption).foregroundStyle(.secondary)
-          Text("Current Value").font(.caption).foregroundStyle(.secondary)
-            .gridColumnAlignment(.trailing)
-          Text("Current %").font(.caption).foregroundStyle(.secondary)
-            .gridColumnAlignment(.trailing)
-          Text("Target %").font(.caption).foregroundStyle(.secondary)
-            .gridColumnAlignment(.trailing)
-          Text("Difference").font(.caption).foregroundStyle(.secondary)
-            .gridColumnAlignment(.trailing)
-          Text("Action").font(.caption).foregroundStyle(.secondary)
-            .gridColumnAlignment(.trailing)
-        }
-
+    VStack(spacing: 0) {
+      portfolioValueBar
+      Divider()
+      allocationTable
+      if !viewModel.summaryTexts.isEmpty {
         Divider()
-          .gridCellUnsizedAxes(.horizontal)
-
-        ForEach(viewModel.suggestions) { suggestion in
-          suggestionRow(suggestion)
-        }
+        summaryFooter
       }
     }
   }
 
-  private func suggestionRow(_ suggestion: RebalancingRowData) -> some View {
-    let currency = SettingsService.shared.mainCurrency
+  // MARK: - Portfolio Value Bar
 
-    return GridRow {
-      Text(suggestion.categoryName)
-        .font(.body)
-
-      Text(suggestion.currentValue.formatted(currency: currency))
-        .font(.body).monospacedDigit()
-
-      Text(suggestion.currentPercentage.formattedPercentage())
-        .font(.body).monospacedDigit()
-
-      Text(suggestion.targetPercentage.formattedPercentage())
-        .font(.body).monospacedDigit()
-
-      Text(suggestion.difference.formatted(currency: currency))
-        .font(.body).monospacedDigit()
-
-      HStack(spacing: 4) {
-        if suggestion.actionType != .noAction {
-          Image(
-            systemName: suggestion.actionType == .buy
-              ? "arrow.up.circle.fill" : "arrow.down.circle.fill"
-          )
-          .font(.caption)
-        }
-        Text(suggestion.actionText)
+  private var portfolioValueBar: some View {
+    HStack {
+      VStack(alignment: .leading, spacing: 2) {
+        Text("Total Portfolio Value")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+        Text(
+          viewModel.totalPortfolioValue.formatted(
+            currency: SettingsService.shared.mainCurrency)
+        )
+        .font(.title2.bold())
+        .monospacedDigit()
       }
-      .font(.body)
-      .foregroundStyle(actionColor(for: suggestion.actionType))
+      Spacer()
     }
+    .padding(.horizontal, 20)
+    .padding(.vertical, 14)
   }
 
-  // MARK: - No Target Section
+  // MARK: - Allocation Table
 
-  private var noTargetSection: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text("No Target Set")
-        .font(.headline)
-
-      Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-        GridRow {
-          Text("Category").font(.caption).foregroundStyle(.secondary)
-          Text("Current Value").font(.caption).foregroundStyle(.secondary)
-            .gridColumnAlignment(.trailing)
-          Text("Current %").font(.caption).foregroundStyle(.secondary)
-            .gridColumnAlignment(.trailing)
-        }
-
-        Divider()
-          .gridCellUnsizedAxes(.horizontal)
-
-        ForEach(viewModel.noTargetRows) { row in
-          noTargetRow(row)
-        }
+  private var allocationTable: some View {
+    Table(of: AllocationRow.self) {
+      TableColumn("Category") { row in
+        Text(row.categoryName)
       }
-    }
-  }
 
-  private func noTargetRow(_ row: NoTargetRowData) -> some View {
-    GridRow {
-      Text(row.categoryName)
-        .font(.body)
+      TableColumn("Current Value") { row in
+        Text(row.currentValue.formatted(currency: SettingsService.shared.mainCurrency))
+          .monospacedDigit()
+          .frame(maxWidth: .infinity, alignment: .trailing)
+      }
+      .width(min: 100, ideal: 120)
 
-      Text(row.currentValue.formatted(currency: SettingsService.shared.mainCurrency))
-        .font(.body).monospacedDigit()
+      TableColumn("Current %") { row in
+        Text(row.currentPercentage.formattedPercentage())
+          .monospacedDigit()
+          .frame(maxWidth: .infinity, alignment: .trailing)
+      }
+      .width(min: 60, ideal: 75)
 
-      Text(row.currentPercentage.formattedPercentage())
-        .font(.body).monospacedDigit()
-    }
-  }
-
-  // MARK: - Uncategorized Section
-
-  private var uncategorizedSection: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text("Uncategorized")
-        .font(.headline)
-
-      if let uncategorized = viewModel.uncategorizedRow {
-        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-          GridRow {
-            Text("Category").font(.caption).foregroundStyle(.secondary)
-            Text("Current Value").font(.caption).foregroundStyle(.secondary)
-              .gridColumnAlignment(.trailing)
-            Text("Current %").font(.caption).foregroundStyle(.secondary)
-              .gridColumnAlignment(.trailing)
-            Text("Target %").font(.caption).foregroundStyle(.secondary)
-              .gridColumnAlignment(.trailing)
-            Text("Action").font(.caption).foregroundStyle(.secondary)
-              .gridColumnAlignment(.trailing)
+      TableColumn("Target %") { row in
+        Group {
+          if let target = row.targetPercentage {
+            Text(target.formattedPercentage())
+              .monospacedDigit()
+          } else {
+            Text("—")
+              .foregroundStyle(.tertiary)
           }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+      }
+      .width(min: 60, ideal: 75)
 
-          Divider()
-            .gridCellUnsizedAxes(.horizontal)
+      TableColumn("Difference") { row in
+        Group {
+          if let diff = row.difference {
+            Text(diff.formatted(currency: SettingsService.shared.mainCurrency))
+              .monospacedDigit()
+          } else {
+            Text("—")
+              .foregroundStyle(.tertiary)
+          }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+      }
+      .width(min: 100, ideal: 120)
 
-          GridRow {
-            Text("Uncategorized")
-              .font(.body)
+      TableColumn("Action") { row in
+        actionCell(for: row)
+      }
+      .width(min: 80, ideal: 140)
 
-            Text(
-              uncategorized.currentValue.formatted(
-                currency: SettingsService.shared.mainCurrency)
-            )
-            .font(.body).monospacedDigit()
+    } rows: {
+      if !viewModel.suggestions.isEmpty {
+        Section("Categories with Targets") {
+          ForEach(suggestionTableRows) { row in
+            TableRow(row)
+          }
+        }
+      }
 
-            Text(uncategorized.currentPercentage.formattedPercentage())
-              .font(.body).monospacedDigit()
+      if !viewModel.noTargetRows.isEmpty {
+        Section("No Target Set") {
+          ForEach(noTargetTableRows) { row in
+            TableRow(row)
+          }
+        }
+      }
 
-            Text("\u{2014}")
-              .font(.body)
-              .foregroundStyle(.secondary)
-
-            Text("N/A")
-              .font(.body)
-              .foregroundStyle(.secondary)
+      if !uncategorizedTableRows.isEmpty {
+        Section("Uncategorized") {
+          ForEach(uncategorizedTableRows) { row in
+            TableRow(row)
           }
         }
       }
     }
   }
 
-  // MARK: - Summary Section
+  @ViewBuilder
+  private func actionCell(for row: AllocationRow) -> some View {
+    if let actionText = row.actionText, let actionType = row.actionType {
+      switch actionType {
+      case .buy:
+        Label(actionText, systemImage: "arrow.up.circle.fill")
+          .foregroundStyle(.green)
 
-  private var summarySection: some View {
+      case .sell:
+        Label(actionText, systemImage: "arrow.down.circle.fill")
+          .foregroundStyle(.red)
+
+      case .noAction:
+        Text(actionText)
+          .foregroundStyle(.secondary)
+      }
+    } else {
+      Text("N/A")
+        .foregroundStyle(.tertiary)
+    }
+  }
+
+  // MARK: - Summary Footer
+
+  private var summaryFooter: some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("Suggested Moves")
         .font(.headline)
 
       ForEach(viewModel.summaryTexts, id: \.self) { text in
-        Text(text)
+        Label(text, systemImage: "arrow.right.circle")
           .font(.callout)
-          .foregroundStyle(.secondary)
       }
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(20)
   }
 
   // MARK: - Empty State
@@ -258,20 +195,66 @@ struct RebalancingView: View {
     )
   }
 
-  // MARK: - Helpers
+  // MARK: - Row Builders
 
-  private func actionColor(for actionType: RebalancingActionType) -> Color {
-    switch actionType {
-    case .buy:
-      return .green
-
-    case .sell:
-      return .red
-
-    case .noAction:
-      return .secondary
+  private var suggestionTableRows: [AllocationRow] {
+    viewModel.suggestions.map { suggestion in
+      AllocationRow(
+        id: suggestion.id,
+        categoryName: suggestion.categoryName,
+        currentValue: suggestion.currentValue,
+        currentPercentage: suggestion.currentPercentage,
+        targetPercentage: suggestion.targetPercentage,
+        difference: suggestion.difference,
+        actionText: suggestion.actionText,
+        actionType: suggestion.actionType
+      )
     }
   }
+
+  private var noTargetTableRows: [AllocationRow] {
+    viewModel.noTargetRows.map { row in
+      AllocationRow(
+        id: row.id,
+        categoryName: row.categoryName,
+        currentValue: row.currentValue,
+        currentPercentage: row.currentPercentage,
+        targetPercentage: nil,
+        difference: nil,
+        actionText: nil,
+        actionType: nil
+      )
+    }
+  }
+
+  private var uncategorizedTableRows: [AllocationRow] {
+    guard let unc = viewModel.uncategorizedRow else { return [] }
+    return [
+      AllocationRow(
+        id: "uncategorized",
+        categoryName: String(localized: "Uncategorized"),
+        currentValue: unc.currentValue,
+        currentPercentage: unc.currentPercentage,
+        targetPercentage: nil,
+        difference: nil,
+        actionText: nil,
+        actionType: nil
+      )
+    ]
+  }
+}
+
+// MARK: - Private Types
+
+private struct AllocationRow: Identifiable {
+  let id: String
+  let categoryName: String
+  let currentValue: Decimal
+  let currentPercentage: Decimal
+  let targetPercentage: Decimal?
+  let difference: Decimal?
+  let actionText: String?
+  let actionType: RebalancingActionType?
 }
 
 // MARK: - Previews
