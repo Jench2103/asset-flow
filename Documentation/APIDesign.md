@@ -519,6 +519,29 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## Build Phase: Commit Hash Injection
+
+A `PBXShellScriptBuildPhase` named **"Inject Git Commit"** runs after the Resources phase on every build (not deploy-only). It writes the current git short commit hash into the built product's `Info.plist` under the `AppCommit` key:
+
+```bash
+#!/bin/bash
+set -e
+COMMIT=$(git -C "$SRCROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+if [ -n "$(git -C "$SRCROOT" status --porcelain 2>/dev/null)" ]; then
+  COMMIT="${COMMIT}-dev"
+fi
+/usr/libexec/PlistBuddy -c "Set :AppCommit $COMMIT" "$BUILT_PRODUCTS_DIR/$INFOPLIST_PATH"
+```
+
+**Key details:**
+
+- The source `AssetFlow/Info.plist` contains `AppCommit = "unknown"` as a committed placeholder. The script only overwrites the **built** copy.
+- A `-dev` suffix is appended when the working tree is dirty, making development builds visually distinguishable.
+- `ENABLE_USER_SCRIPT_SANDBOXING = NO` is set in the target-level build settings (both Debug and Release) to allow the script to invoke `git` and `/usr/libexec/PlistBuddy`.
+- `Constants.AppInfo.commit` reads this value at runtime via `Bundle.main.infoDictionary?["AppCommit"]`.
+
+______________________________________________________________________
+
 ## Explicit Non-Goals (v1)
 
 The following are NOT implemented:

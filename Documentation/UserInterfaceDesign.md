@@ -336,6 +336,14 @@ Accessible via menu bar (AssetFlow > Settings) or Cmd+,.
 1. **Data Management**:
    - **Export Backup**: Exports all data to ZIP archive. User selects save location. Default filename: `AssetFlow-Backup-YYYY-MM-DD.zip`.
    - **Restore from Backup**: Imports backup archive. Confirmation: "Restoring from backup will replace ALL existing data. This cannot be undone. Continue?" Validates file integrity (CSV presence, headers, foreign key references). On failure, shows detailed error. On success, reloads all views.
+1. **About**: App identity and legal information at the bottom of Settings.
+   - **App identity row**: App icon (48×48), app name (headline), version + build number (subheadline), commit hash (caption). The commit hash includes a `-dev` suffix when built from a dirty working tree.
+   - **Developer**: Static field showing the developer name.
+   - **License**: Static field showing the license (Apache License 2.0).
+   - **Privacy**: "All data is stored locally. No data is collected or transmitted."
+   - **GitHub link**: Tappable `Link` that opens the source repository in the browser.
+
+**Native About panel** (App menu → About AssetFlow): Replaced via `CommandGroup(replacing: .appInfo)` in `AssetFlowApp.swift`. Shows version + build number as the version string, with a rich-text credits block containing the commit hash, license, copyright, a clickable "Source Code" hyperlink, and the privacy statement.
 
 ______________________________________________________________________
 

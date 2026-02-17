@@ -5,6 +5,7 @@
 //  Created by Jen-Chien Chang on 2025/10/6.
 //
 
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -57,6 +58,54 @@ struct AssetFlowApp: App {
     .modelContainer(sharedModelContainer)
     .windowStyle(.hiddenTitleBar)
     .windowToolbarStyle(.unified)
+    .commands {
+      CommandGroup(replacing: .appInfo) {
+        Button("About AssetFlow") {
+          let body = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+          let small = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+          let center = NSMutableParagraphStyle()
+          center.alignment = .center
+
+          let credits = NSMutableAttributedString()
+
+          // License
+          credits.append(
+            NSAttributedString(
+              string: "\(Constants.AppInfo.license)\n",
+              attributes: [.font: body, .paragraphStyle: center]
+            ))
+
+          // Source code link
+          credits.append(
+            NSAttributedString(
+              string: "View Source Code on GitHub",
+              attributes: [
+                .font: body,
+                .link: Constants.AppInfo.repositoryURL,
+                .paragraphStyle: center,
+              ]
+            ))
+
+          // Privacy statement — small, secondary
+          credits.append(
+            NSAttributedString(
+              string:
+                "\n\nAll data is stored locally on your Mac.\nNo data is collected or transmitted.",
+              attributes: [
+                .font: small,
+                .foregroundColor: NSColor.secondaryLabelColor,
+                .paragraphStyle: center,
+              ]
+            ))
+
+          NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: "AssetFlow",
+            .applicationIcon: NSApp.applicationIconImage as Any,
+            .credits: credits,
+          ])
+        }
+      }
+    }
 
     Settings {
       SettingsView()

@@ -41,6 +41,7 @@ struct SettingsView: View {
       dateFormatSection
       importDefaultsSection
       dataManagementSection
+      aboutSection
     }
     .formStyle(.grouped)
     .navigationTitle("Settings")
@@ -133,6 +134,35 @@ struct SettingsView: View {
       Text("Data Management")
     } footer: {
       Text("Export all data as a ZIP archive or restore from a previous backup.")
+    }
+  }
+
+  // MARK: - About Section
+
+  private var aboutSection: some View {
+    Section {
+      HStack(alignment: .top, spacing: 12) {
+        if let appIcon = NSApplication.shared.applicationIconImage {
+          Image(nsImage: appIcon)
+            .resizable()
+            .frame(width: 48, height: 48)
+        }
+        VStack(alignment: .leading, spacing: 2) {
+          Text(Constants.AppInfo.name)
+            .font(.headline)
+          Text("Version \(Constants.AppInfo.version) (\(Constants.AppInfo.buildNumber))")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
+      }
+      LabeledContent("Developer", value: Constants.AppInfo.developerName)
+      LabeledContent("License", value: Constants.AppInfo.license)
+      LabeledContent("Privacy") {
+        Text("All data is stored locally. No data is collected or transmitted.")
+      }
+      Link("View Source Code on GitHub", destination: Constants.AppInfo.repositoryURL)
+    } header: {
+      Text("About")
     }
   }
 

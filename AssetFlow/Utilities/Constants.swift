@@ -9,9 +9,16 @@ import Foundation
 
 enum Constants {
   enum AppInfo {
-    static let name = "AssetFlow"
-    static let version = "1.0.0"
-    static let buildNumber = "1"
+    static let name = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "AssetFlow"
+    static let version =
+      Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    static let buildNumber =
+      Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+    static let commit = Bundle.main.infoDictionary?["AppCommit"] as? String ?? "unknown"
+    static let developerName = "Jen-Chien Chang"
+    static let copyright = "Copyright © 2026 Jen-Chien Chang"
+    static let license = "Apache License 2.0"
+    static let repositoryURL = URL(string: "https://github.com/Jench2103/asset-flow-swift")!
   }
 
   enum DefaultValues {

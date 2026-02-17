@@ -39,14 +39,34 @@ AssetFlow/
 
 ## Getting Started
 
-### Prerequisites
+### Download & Install
+
+1. Go to the [Releases](https://github.com/Jench2103/asset-flow-swift/releases) page and download the latest `AssetFlow-x.y.z.zip`.
+
+1. Unzip the file and move `AssetFlow.app` to your `/Applications` folder.
+
+1. **First launch — bypass the Gatekeeper warning:**
+
+   Because the app is not signed with an Apple Developer certificate, macOS will block it on first open. To allow it:
+
+   1. Double-click `AssetFlow.app`. You will see a warning that the app cannot be opened.
+   1. Open **System Settings → Privacy & Security**.
+   1. Scroll down to the **Security** section. You will see a message: _"AssetFlow was blocked from use because it is not from an identified developer."_
+   1. Click **Open Anyway**, then authenticate with Touch ID or your password.
+   1. In the confirmation dialog, click **Open**.
+
+   The app will open normally on all subsequent launches.
+
+### Build from Source
+
+#### Prerequisites
 
 - Xcode 16.0 or later
 - macOS 15.0 or later (for development)
 - [swift-format](https://github.com/swiftlang/swift-format/tree/main)
 - [SwiftLint](https://github.com/realm/SwiftLint/tree/main)
 
-### Installation
+#### Steps
 
 1. Clone the repository:
 
@@ -112,7 +132,7 @@ This is a personal project. Contributions, issues, and feature requests are welc
 
 ## License
 
-[To be determined]
+[Apache License 2.0](LICENSE) — Copyright © 2026 Jen-Chien Chang
 
 ## Contact
 
