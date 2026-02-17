@@ -126,7 +126,7 @@ ______________________________________________________________________
 
 - Chronological list of all snapshots (newest first), grouped into collapsible relative time buckets
 - Time buckets: **This Month**, **Previous 3 Months**, **Previous 6 Months**, **Previous Year**, **Older** — boundaries based on calendar month starts relative to today; empty buckets are hidden
-- Uses `.listStyle(.sidebar)` for native macOS collapsible `Section(isExpanded:)` disclosure triangles; all sections expanded by default
+- Collapsible `Section(isExpanded:)` disclosure triangles; all sections expanded by default
 - Each row: date, total value (composite), platforms included, number of assets
 - Carried-forward indicators: visual marker showing imported vs. carried-forward platforms
 - "New Snapshot" button
@@ -156,7 +156,7 @@ ______________________________________________________________________
 1. **Select existing asset**: Autocomplete search by name. When selected, platform and category are read-only (inherited from asset record). Rejected if the asset already exists in this snapshot.
 1. **Create new asset**: Enter name, select platform (picker includes a "New Platform..." option), select category (picker includes a "New Category..." option). Creates the asset record and adds it to the snapshot.
 
-**Edit value**: Click on market value to edit inline. Changes are saved immediately. There is no undo for inline value edits. Users should verify values before moving to the next field.
+**Edit value**: Right-click an asset row and select "Edit Value" to open an inline popover anchored to the row. The popover contains a single text field and Save/Cancel buttons. Changes are saved immediately on Save.
 
 **Remove asset from snapshot**: Confirmation dialog: "Remove [Asset Name] from this snapshot? The asset record itself will not be deleted."
 
@@ -251,7 +251,7 @@ Assets with no platform are NOT shown on the Platforms screen.
 
 ### Implementation Notes
 
-- **PlatformListView** (`AssetFlow/Views/PlatformListView.swift`): List-only layout (no list-detail split). Rename via context menu → sheet with TextField. Empty state with `building.columns` icon. Platform detail view is deferred to a future phase.
+- **PlatformListView** (`AssetFlow/Views/PlatformListView.swift`): List-only layout (no list-detail split). Rename via context menu → popover anchored to the row with TextField. Empty state with `building.columns` icon. Platform detail view is deferred to a future phase.
 - **PlatformListViewModel** (`AssetFlow/ViewModels/PlatformListViewModel.swift`): Derives platforms from `Asset.platform` values. `loadPlatforms()` computes totals from latest composite snapshot via `CarryForwardService`. `renamePlatform(from:to:)` validates uniqueness (case-insensitive), trims and normalizes whitespace, then updates all matching assets.
 
 ______________________________________________________________________
@@ -369,6 +369,7 @@ ______________________________________________________________________
 
 ## Window and Appearance
 
+- **Window style**: `.windowStyle(.hiddenTitleBar)` with `.windowToolbarStyle(.unified)` for modern macOS Tahoe Liquid Glass integration
 - **Minimum window size**: 900 x 600 points
 - **Sidebar**: Collapsible via toolbar button or drag. Default width: 220 points.
 - **Appearance**: Supports system appearance (light and dark mode). All custom colors, chart colors, and carry-forward indicators adapt to both modes.
@@ -585,6 +586,34 @@ struct SnapshotsSplitView: View {
 }
 ```
 
+### Popover Pattern for Quick Edits
+
+Lightweight edit interactions (1-2 fields) use `.popover()` anchored to their trigger row instead of modal sheets. This provides faster, less disruptive editing:
+
+```swift
+.popover(
+    isPresented: Binding(
+        get: { editingItem?.id == item.id },
+        set: { if !$0 { editingItem = nil } }
+    ),
+    arrowEdge: .trailing
+) {
+    VStack(alignment: .leading, spacing: 12) {
+        Text("Edit Value").font(.headline)
+        TextField("Value", text: $valueText).textFieldStyle(.roundedBorder)
+        HStack {
+            Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+            Spacer()
+            Button("Save") { save() }.keyboardShortcut(.defaultAction)
+        }
+    }
+    .frame(width: 280)
+    .padding()
+}
+```
+
+Popovers are used for: Edit Asset Value, Edit Cash Flow, Rename Platform. Complex multi-field forms (Add Asset, Add Cash Flow, Add Category) remain as modal sheets.
+
 ### Chart Implementation
 
 Use Swift Charts framework:
@@ -736,12 +765,12 @@ ______________________________________________________________________
 | ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation                                         |
 | DashboardView                  | Implemented | Summary cards with SPEC-compliant tooltips, period performance (1M/3M/1Y), interactive charts, EmptyStateView, recent snapshots                           |
 | SnapshotListView               | Implemented | @Query live list, relative time bucket grouping (collapsible sections), carry-forward indicators, New Snapshot sheet, EmptyStateView, Delete key shortcut |
-| SnapshotDetailView             | Implemented | Asset breakdown with carried-forward distinction (SPEC 8.3), category allocation, cash flow CRUD, delete confirmation                                     |
+| SnapshotDetailView             | Implemented | Asset breakdown with carried-forward distinction (SPEC 8.3), category allocation, cash flow CRUD, edit popovers, delete confirmation                      |
 | AssetListView                  | Implemented | Platform/category grouping, selection binding, EmptyStateView, Delete key shortcut                                                                        |
 | AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                                                            |
 | CategoryListView               | Implemented | Add sheet, target allocation warning, delete validation, EmptyStateView, Delete key shortcut                                                              |
 | CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                                                  |
-| PlatformListView               | Implemented | Rename sheet, EmptyStateView                                                                                                                              |
+| PlatformListView               | Implemented | Rename popover, EmptyStateView                                                                                                                            |
 | RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, EmptyStateView                                                                      |
 | ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                                           |
 | SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                                            |

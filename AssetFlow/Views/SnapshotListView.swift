@@ -124,7 +124,6 @@ struct SnapshotListView: View {
         }
       }
     }
-    .listStyle(.sidebar)
     .onDeleteCommand {
       deleteSelectedSnapshot()
     }

@@ -15,8 +15,10 @@ import SwiftUI
 struct PlatformListView: View {
   @State private var viewModel: PlatformListViewModel
 
-  @State private var showRenameSheet = false
   @State private var renamingPlatform: String?
+
+  @State private var showError = false
+  @State private var errorMessage = ""
 
   init(modelContext: ModelContext) {
     _viewModel = State(wrappedValue: PlatformListViewModel(modelContext: modelContext))
@@ -34,13 +36,10 @@ struct PlatformListView: View {
     .onAppear {
       viewModel.loadPlatforms()
     }
-    .sheet(isPresented: $showRenameSheet) {
-      if let platformName = renamingPlatform {
-        RenamePlatformSheet(currentName: platformName) { newName in
-          try viewModel.renamePlatform(from: platformName, to: newName)
-          viewModel.loadPlatforms()
-        }
-      }
+    .alert("Error", isPresented: $showError) {
+      Button("OK") {}
+    } message: {
+      Text(errorMessage)
     }
   }
 
@@ -79,11 +78,25 @@ struct PlatformListView: View {
     .contextMenu {
       Button {
         renamingPlatform = rowData.name
-        showRenameSheet = true
       } label: {
         Label("Rename", systemImage: "pencil")
       }
       .accessibilityIdentifier("Rename Platform Button")
+    }
+    .popover(
+      isPresented: Binding(
+        get: { renamingPlatform == rowData.name },
+        set: { if !$0 { renamingPlatform = nil } }
+      ),
+      arrowEdge: .trailing
+    ) {
+      RenamePlatformPopover(currentName: rowData.name) { newName in
+        try viewModel.renamePlatform(from: rowData.name, to: newName)
+        viewModel.loadPlatforms()
+      } onError: { message in
+        errorMessage = message
+        showError = true
+      }
     }
   }
 
@@ -94,41 +107,42 @@ struct PlatformListView: View {
       icon: "building.columns",
       title: "No Platforms",
       message:
-        "No platforms yet. Platforms are created automatically when you import CSV data or create assets."
+        "No platforms yet. Platforms are created automatically "
+        + "when you import CSV data or create assets."
     )
   }
 }
 
-// MARK: - Rename Platform Sheet
+// MARK: - Rename Platform Popover
 
-private struct RenamePlatformSheet: View {
+private struct RenamePlatformPopover: View {
   let currentName: String
   let onRename: (String) throws -> Void
+  let onError: (String) -> Void
 
   @Environment(\.dismiss) private var dismiss
 
   @State private var newName: String
-  @State private var showError = false
-  @State private var errorMessage = ""
 
-  init(currentName: String, onRename: @escaping (String) throws -> Void) {
+  init(
+    currentName: String,
+    onRename: @escaping (String) throws -> Void,
+    onError: @escaping (String) -> Void
+  ) {
     self.currentName = currentName
     self.onRename = onRename
+    self.onError = onError
     _newName = State(wrappedValue: currentName)
   }
 
   var body: some View {
-    VStack(spacing: 0) {
+    VStack(alignment: .leading, spacing: 12) {
       Text("Rename Platform")
         .font(.headline)
-        .padding(.top, 16)
-        .padding(.horizontal)
 
-      Form {
-        TextField("Platform Name", text: $newName)
-          .accessibilityIdentifier("Platform Name Field")
-      }
-      .formStyle(.grouped)
+      TextField("Platform Name", text: $newName)
+        .textFieldStyle(.roundedBorder)
+        .accessibilityIdentifier("Platform Name Field")
 
       HStack {
         Button("Cancel", role: .cancel) {
@@ -144,14 +158,9 @@ private struct RenamePlatformSheet: View {
         .keyboardShortcut(.defaultAction)
         .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
       }
-      .padding()
     }
-    .frame(minWidth: 350, minHeight: 180)
-    .alert("Error", isPresented: $showError) {
-      Button("OK") {}
-    } message: {
-      Text(errorMessage)
-    }
+    .frame(width: 280)
+    .padding()
   }
 
   private func renamePlatform() {
@@ -159,8 +168,8 @@ private struct RenamePlatformSheet: View {
       try onRename(newName)
       dismiss()
     } catch {
-      errorMessage = error.localizedDescription
-      showError = true
+      dismiss()
+      onError(error.localizedDescription)
     }
   }
 }

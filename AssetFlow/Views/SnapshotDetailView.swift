@@ -66,31 +66,6 @@ struct SnapshotDetailView: View {
         viewModel.loadCompositeValues()
       }
     }
-    .sheet(item: $editingAssetValue) { sav in
-      EditValueSheet(currentValue: sav.marketValue) { newValue in
-        do {
-          try viewModel.editAssetValue(sav, newValue: newValue)
-          viewModel.loadCompositeValues()
-        } catch {
-          errorMessage = error.localizedDescription
-          showError = true
-        }
-      }
-    }
-    .sheet(item: $editingCashFlow) { operation in
-      EditCashFlowSheet(
-        currentDescription: operation.cashFlowDescription,
-        currentAmount: operation.amount
-      ) { newDescription, newAmount in
-        do {
-          try viewModel.editCashFlow(
-            operation, newDescription: newDescription, newAmount: newAmount)
-        } catch {
-          errorMessage = error.localizedDescription
-          showError = true
-        }
-      }
-    }
     .confirmationDialog(
       "Delete Snapshot",
       isPresented: $showDeleteConfirmation
@@ -202,6 +177,25 @@ struct SnapshotDetailView: View {
         }
       }
     }
+    .popover(
+      isPresented: Binding(
+        get: { editingAssetValue?.id == findSnapshotAssetValue(for: cv)?.id },
+        set: { if !$0 { editingAssetValue = nil } }
+      ),
+      arrowEdge: .trailing
+    ) {
+      if let sav = findSnapshotAssetValue(for: cv) {
+        EditValuePopover(currentValue: sav.marketValue) { newValue in
+          do {
+            try viewModel.editAssetValue(sav, newValue: newValue)
+            viewModel.loadCompositeValues()
+          } catch {
+            errorMessage = error.localizedDescription
+            showError = true
+          }
+        }
+      }
+    }
   }
 
   // MARK: - Category Allocation Section
@@ -260,6 +254,26 @@ struct SnapshotDetailView: View {
             }
             Button("Remove", role: .destructive) {
               viewModel.removeCashFlow(operation)
+            }
+          }
+          .popover(
+            isPresented: Binding(
+              get: { editingCashFlow?.id == operation.id },
+              set: { if !$0 { editingCashFlow = nil } }
+            ),
+            arrowEdge: .trailing
+          ) {
+            EditCashFlowPopover(
+              currentDescription: operation.cashFlowDescription,
+              currentAmount: operation.amount
+            ) { newDescription, newAmount in
+              do {
+                try viewModel.editCashFlow(
+                  operation, newDescription: newDescription, newAmount: newAmount)
+              } catch {
+                errorMessage = error.localizedDescription
+                showError = true
+              }
             }
           }
         }
@@ -679,14 +693,12 @@ private struct AddCashFlowSheet: View {
   }
 }
 
-// MARK: - Edit Value Sheet
+// MARK: - Edit Value Popover
 
-private struct EditValueSheet: View {
+private struct EditValuePopover: View {
   let currentValue: Decimal
   let onSave: (Decimal) -> Void
-
   @Environment(\.dismiss) private var dismiss
-
   @State private var valueText: String
 
   init(currentValue: Decimal, onSave: @escaping (Decimal) -> Void) {
@@ -696,26 +708,15 @@ private struct EditValueSheet: View {
   }
 
   var body: some View {
-    VStack(spacing: 0) {
-      Text("Edit Market Value")
-        .font(.headline)
-        .padding(.top, 16)
-        .padding(.horizontal)
-
-      Form {
-        TextField("Market Value", text: $valueText)
-          .accessibilityIdentifier("Edit Market Value Field")
-      }
-      .formStyle(.grouped)
-
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Market Value").font(.headline)
+      TextField("Market Value", text: $valueText)
+        .textFieldStyle(.roundedBorder)
+        .accessibilityIdentifier("Edit Market Value Field")
       HStack {
-        Button("Cancel", role: .cancel) {
-          dismiss()
-        }
-        .keyboardShortcut(.cancelAction)
-
+        Button("Cancel", role: .cancel) { dismiss() }
+          .keyboardShortcut(.cancelAction)
         Spacer()
-
         Button("Save") {
           if let newValue = Decimal(string: valueText) {
             onSave(newValue)
@@ -725,21 +726,19 @@ private struct EditValueSheet: View {
         .keyboardShortcut(.defaultAction)
         .disabled(Decimal(string: valueText) == nil)
       }
-      .padding()
     }
-    .frame(minWidth: 350, minHeight: 180)
+    .frame(width: 280)
+    .padding()
   }
 }
 
-// MARK: - Edit Cash Flow Sheet
+// MARK: - Edit Cash Flow Popover
 
-private struct EditCashFlowSheet: View {
+private struct EditCashFlowPopover: View {
   let currentDescription: String
   let currentAmount: Decimal
   let onSave: (String, Decimal) -> Void
-
   @Environment(\.dismiss) private var dismiss
-
   @State private var description: String
   @State private var amountText: String
 
@@ -756,26 +755,16 @@ private struct EditCashFlowSheet: View {
   }
 
   var body: some View {
-    VStack(spacing: 0) {
-      Text("Edit Cash Flow")
-        .font(.headline)
-        .padding(.top, 16)
-        .padding(.horizontal)
-
-      Form {
-        TextField("Description", text: $description)
-        TextField("Amount", text: $amountText)
-      }
-      .formStyle(.grouped)
-
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Edit Cash Flow").font(.headline)
+      TextField("Description", text: $description)
+        .textFieldStyle(.roundedBorder)
+      TextField("Amount", text: $amountText)
+        .textFieldStyle(.roundedBorder)
       HStack {
-        Button("Cancel", role: .cancel) {
-          dismiss()
-        }
-        .keyboardShortcut(.cancelAction)
-
+        Button("Cancel", role: .cancel) { dismiss() }
+          .keyboardShortcut(.cancelAction)
         Spacer()
-
         Button("Save") {
           if let amount = Decimal(string: amountText) {
             onSave(description, amount)
@@ -788,9 +777,9 @@ private struct EditCashFlowSheet: View {
             || Decimal(string: amountText) == nil
         )
       }
-      .padding()
     }
-    .frame(minWidth: 350, minHeight: 180)
+    .frame(width: 280)
+    .padding()
   }
 }
 
