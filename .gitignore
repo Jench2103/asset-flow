@@ -139,6 +139,9 @@ iOSInjectionProject/
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,swift,visualstudiocode
 
+# xcode-build-server (machine-specific, regenerate with: xcode-build-server config -scheme AssetFlow -project AssetFlow.xcodeproj)
+buildServer.json
+
 # Custom additions for AssetFlow
 *.swp
 *.swo

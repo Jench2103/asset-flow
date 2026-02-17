@@ -96,6 +96,17 @@ These tools are managed by pre-commit hooks, which will automatically format and
 
 ## Development
 
+### VSCode Setup
+
+This project ships with `.vscode/settings.json` that configures SourceKit-LSP for the Xcode build system. To enable accurate cross-file symbol resolution, install [xcode-build-server](https://github.com/SolaWing/xcode-build-server) and generate a local build server config:
+
+```bash
+brew install xcode-build-server
+xcode-build-server config -scheme AssetFlow -project AssetFlow.xcodeproj
+```
+
+This creates a machine-local `buildServer.json` (already in `.gitignore`) that tells SourceKit-LSP how to compile each file with the correct flags. Build in Xcode at least once to populate the index store, then restart the language server in VSCode.
+
 ### Code Style
 
 This project uses a combination of `swift-format` and `SwiftLint` to ensure high code quality and a consistent style.
