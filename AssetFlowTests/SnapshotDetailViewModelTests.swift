@@ -57,57 +57,40 @@ struct SnapshotDetailViewModelTests {
     return TestContext(container: container, context: context, snapshot: snapshot)
   }
 
-  // MARK: - Composite View
+  // MARK: - Asset Values
 
-  @Test("Loads composite values including direct and carried forward")
-  func loadsCompositeValues() throws {
-    let container = TestDataManager.createInMemoryContainer()
-    let context = container.mainContext
+  @Test("Loads direct asset values for the snapshot")
+  func loadsAssetValues() throws {
+    let tc = createSnapshotWithContext()
+    let (context, snapshot) = (tc.context, tc.snapshot)
 
-    // Snapshot 1: BTC on Binance
-    let snap1 = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
-    context.insert(snap1)
-    let (_, _) = createAssetWithValue(
-      name: "BTC", platform: "Binance", marketValue: 50000,
-      snapshot: snap1, context: context)
-
-    // Snapshot 2: AAPL on Firstrade (Binance carried forward)
-    let snap2 = Snapshot(date: makeDate(year: 2025, month: 2, day: 1))
-    context.insert(snap2)
     let (_, _) = createAssetWithValue(
       name: "AAPL", platform: "Firstrade", marketValue: 15000,
-      snapshot: snap2, context: context)
+      snapshot: snapshot, context: context)
+    let (_, _) = createAssetWithValue(
+      name: "BTC", platform: "Binance", marketValue: 50000,
+      snapshot: snapshot, context: context)
 
-    let viewModel = SnapshotDetailViewModel(snapshot: snap2, modelContext: context)
-    viewModel.loadCompositeValues()
+    let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
+    viewModel.loadAssetValues()
 
-    #expect(viewModel.compositeValues.count == 2)
-
-    let direct = viewModel.compositeValues.filter { !$0.isCarriedForward }
-    let carried = viewModel.compositeValues.filter { $0.isCarriedForward }
-    #expect(direct.count == 1)
-    #expect(carried.count == 1)
+    #expect(viewModel.assetValues.count == 2)
   }
 
-  @Test("Total value sums direct and carried-forward values")
-  func totalValueSumsAll() throws {
-    let container = TestDataManager.createInMemoryContainer()
-    let context = container.mainContext
+  @Test("Total value sums direct asset values only")
+  func totalValueSumsDirectValues() throws {
+    let tc = createSnapshotWithContext()
+    let (context, snapshot) = (tc.context, tc.snapshot)
 
-    let snap1 = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
-    context.insert(snap1)
-    let (_, _) = createAssetWithValue(
-      name: "BTC", platform: "Binance", marketValue: 50000,
-      snapshot: snap1, context: context)
-
-    let snap2 = Snapshot(date: makeDate(year: 2025, month: 2, day: 1))
-    context.insert(snap2)
     let (_, _) = createAssetWithValue(
       name: "AAPL", platform: "Firstrade", marketValue: 15000,
-      snapshot: snap2, context: context)
+      snapshot: snapshot, context: context)
+    let (_, _) = createAssetWithValue(
+      name: "BTC", platform: "Binance", marketValue: 50000,
+      snapshot: snapshot, context: context)
 
-    let viewModel = SnapshotDetailViewModel(snapshot: snap2, modelContext: context)
-    viewModel.loadCompositeValues()
+    let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
+    viewModel.loadAssetValues()
 
     #expect(viewModel.totalValue == Decimal(65000))
   }
@@ -500,7 +483,7 @@ struct SnapshotDetailViewModelTests {
     context.insert(sav2)
 
     let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
-    viewModel.loadCompositeValues()
+    viewModel.loadAssetValues()
 
     let allocations = viewModel.categoryAllocations
 
@@ -513,8 +496,8 @@ struct SnapshotDetailViewModelTests {
 
   // MARK: - Sorted Asset Display
 
-  @Test("Composite values sorted by platform then asset name")
-  func compositeValuesSortedByPlatformThenName() throws {
+  @Test("Asset values sorted by platform then asset name")
+  func assetValuesSortedByPlatformThenName() throws {
     let tc = createSnapshotWithContext()
     let (context, snapshot) = (tc.context, tc.snapshot)
 
@@ -533,19 +516,19 @@ struct SnapshotDetailViewModelTests {
       snapshot: snapshot, context: context)
 
     let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
-    viewModel.loadCompositeValues()
+    viewModel.loadAssetValues()
 
-    let sorted = viewModel.sortedCompositeValues
+    let sorted = viewModel.sortedAssetValues
     #expect(sorted.count == 4)
     // Binance comes before Firstrade alphabetically
-    #expect(sorted[0].asset.platform == "Binance")
-    #expect(sorted[0].asset.name == "BTC")
-    #expect(sorted[1].asset.platform == "Binance")
-    #expect(sorted[1].asset.name == "ETH")
-    #expect(sorted[2].asset.platform == "Firstrade")
-    #expect(sorted[2].asset.name == "AAPL")
-    #expect(sorted[3].asset.platform == "Firstrade")
-    #expect(sorted[3].asset.name == "VTI")
+    #expect(sorted[0].asset?.platform == "Binance")
+    #expect(sorted[0].asset?.name == "BTC")
+    #expect(sorted[1].asset?.platform == "Binance")
+    #expect(sorted[1].asset?.name == "ETH")
+    #expect(sorted[2].asset?.platform == "Firstrade")
+    #expect(sorted[2].asset?.name == "AAPL")
+    #expect(sorted[3].asset?.platform == "Firstrade")
+    #expect(sorted[3].asset?.name == "VTI")
   }
 
   // MARK: - Delete Snapshot

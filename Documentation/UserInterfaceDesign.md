@@ -66,7 +66,7 @@ ______________________________________________________________________
 
 ## Dashboard (Home Screen)
 
-The dashboard provides a portfolio overview using the latest snapshot (with carry-forward).
+The dashboard provides a portfolio overview using the latest snapshot.
 
 **Layout**:
 
@@ -126,8 +126,7 @@ ______________________________________________________________________
 - Chronological list of all snapshots (newest first), grouped into collapsible relative time buckets
 - Time buckets: **This Month**, **Previous 3 Months**, **Previous 6 Months**, **Previous Year**, **Older** — boundaries based on calendar month starts relative to today; empty buckets are hidden
 - Collapsible `Section(isExpanded:)` disclosure triangles; all sections expanded by default
-- Each row: date, total value (composite), platforms included, number of assets
-- Carried-forward indicators: visual marker showing imported vs. carried-forward platforms
+- Each row: date, total value, platforms included, number of assets
 - "New Snapshot" button
 
 **New Snapshot creation flow**:
@@ -137,14 +136,13 @@ ______________________________________________________________________
 1. If the selected date already has a snapshot, show validation error: "A snapshot already exists for [date]. Go to the Snapshots screen to view and edit it."
 1. Starting point selector:
    - **Start empty**: Creates snapshot with no asset entries
-   - **Copy from latest**: Pre-populates with all assets from the most recent prior snapshot's composite view (materializes carried-forward values as direct SnapshotAssetValues). Disabled (grayed out with explanatory text) when no snapshots exist before the selected date.
+   - **Copy from latest**: Pre-populates with all direct SnapshotAssetValues from the most recent prior snapshot. Disabled (grayed out with explanatory text) when no snapshots exist before the selected date.
 1. On creation, user is taken to the snapshot detail view for editing
 
 **Snapshot detail view** (on selection):
 
 - Full asset breakdown table sorted by platform (alphabetical), then by asset name (alphabetical)
 - Columns: Asset Name, Platform, Category, Market Value
-- Carried-forward values visually distinguished (e.g., dimmed or labeled)
 - Category allocation summary for this snapshot
 - Cash flow operations table: Description, Amount
 - Net cash flow summary line
@@ -172,13 +170,13 @@ ______________________________________________________________________
 - When grouped by platform, assets without a platform appear under "(No Platform)" at the end
 - When grouped by category, assets without a category appear under "(Uncategorized)" at the end
 - Each row: Asset Name, Platform, Category, Latest Value
-- Latest value comes from the most recent composite snapshot (including carry-forward)
+- Latest value comes from the most recent snapshot
 - Assets with no snapshot values show "\\u{2014}" for value
 
 **Asset detail view**:
 
 - Value history across snapshots (table and sparkline -- a compact inline line chart for quick trend recognition, non-interactive)
-- Value history shows only directly recorded values (no carry-forward)
+- Value history shows all recorded values across snapshots
 - Asset name (editable)
 - Platform (editable via picker with existing platforms + "New Platform..." option)
 - Category assignment (editable via picker with existing categories + "None" option)
@@ -191,7 +189,7 @@ ______________________________________________________________________
 
 - **AssetListView** (`AssetFlow/Views/AssetListView.swift`): Uses `AssetListViewModel` with `@State`. Segmented control binds to `viewModel.groupingMode`. List sections iterate over `viewModel.groups`. Context menu on rows provides delete action for eligible assets.
 - **AssetDetailView** (`AssetFlow/Views/AssetDetailView.swift`): Uses `AssetDetailViewModel` with `@State`. Form with `.grouped` style. Platform picker uses `Binding<String>` with sentinel `"__new__"` for inline new-platform creation. Sparkline uses Swift Charts `LineMark` with hidden axes, 40pt height. Delete confirmation dialog before deletion.
-- **AssetListViewModel** (`AssetFlow/ViewModels/AssetListViewModel.swift`): Groups assets by platform or category. Computes latest values via `CarryForwardService.compositeValues()` from the most recent snapshot. "(No Platform)" and "(Uncategorized)" groups always sorted last.
+- **AssetListViewModel** (`AssetFlow/ViewModels/AssetListViewModel.swift`): Groups assets by platform or category. Computes latest values from the most recent snapshot. "(No Platform)" and "(Uncategorized)" groups always sorted last.
 - **AssetDetailViewModel** (`AssetFlow/ViewModels/AssetDetailViewModel.swift`): Editable fields (`editedName`, `editedPlatform`, `editedCategory`) initialized from asset. `save()` validates normalized identity uniqueness. `loadValueHistory()` returns direct SAVs sorted chronologically.
 
 ______________________________________________________________________
@@ -216,9 +214,9 @@ ______________________________________________________________________
 **Implementation notes:**
 
 - **CategoryListView** (`AssetFlow/Views/CategoryListView.swift`): Takes `modelContext` and `selectedCategory: Binding<Category?>`. Uses `@State private var viewModel: CategoryListViewModel`. List selection drives the binding. Toolbar "+" button opens add category sheet. Target allocation sum warning banner shown at top when allocations don't sum to 100%. Deviation indicator (orange `exclamationmark.triangle.fill`) shown when `abs(current - target) > 5`. Empty state uses folder icon.
-- **CategoryListViewModel** (`AssetFlow/ViewModels/CategoryListViewModel.swift`): `CategoryRowData` struct bundles category, target/current allocation, value, and asset count. `loadCategories()` batch-fetches all data and uses `CarryForwardService.compositeValues` for the latest snapshot. `createCategory`/`editCategory`/`deleteCategory` with validation via `CategoryError`.
+- **CategoryListViewModel** (`AssetFlow/ViewModels/CategoryListViewModel.swift`): `CategoryRowData` struct bundles category, target/current allocation, value, and asset count. `loadCategories()` batch-fetches all data and computes values from the latest snapshot. `createCategory`/`editCategory`/`deleteCategory` with validation via `CategoryError`.
 - **CategoryDetailView** (`AssetFlow/Views/CategoryDetailView.swift`): Takes `category`, `modelContext`, `onDelete`. Parent must apply `.id(category.id)` for proper state reset. Form sections: Category Details (name + target allocation), Assets in Category (Table), Value History (LineMark + PointMark chart), Allocation History (LineMark + PointMark chart), Danger Zone (delete button).
-- **CategoryDetailViewModel** (`AssetFlow/ViewModels/CategoryDetailViewModel.swift`): `editedName`/`editedTargetAllocation` initialized from category. `loadData()` computes asset list with latest values, value history, and allocation history across all snapshots using `CarryForwardService`. Single snapshot renders as PointMark only.
+- **CategoryDetailViewModel** (`AssetFlow/ViewModels/CategoryDetailViewModel.swift`): `editedName`/`editedTargetAllocation` initialized from category. `loadData()` computes asset list with latest values, value history, and allocation history across all snapshots. Single snapshot renders as PointMark only.
 
 **Implementation notes (Charts):**
 
@@ -265,7 +263,7 @@ Assets with no platform are NOT shown on the Platforms screen.
 
 - **PlatformListView** (`AssetFlow/Views/PlatformListView.swift`): List-detail split with `List(selection: $selectedPlatform)`. Row context menu retains rename popover for quick renaming. `.onChange(of: selectedPlatform)` reloads platforms after rename propagation. Empty state with `building.columns` icon.
 - **PlatformDetailView** (`AssetFlow/Views/PlatformDetailView.swift`): `Form(.grouped)` with three sections: Platform Details (editable name `TextField`), Assets on Platform (`Table` with Name, Category, Value columns), and Value History (line chart with `ChartTimeRangeSelector` and hover tooltip). No delete section — platforms disappear when all assets are reassigned.
-- **PlatformListViewModel** (`AssetFlow/ViewModels/PlatformListViewModel.swift`): Derives platforms from `Asset.platform` values. `loadPlatforms()` computes totals from latest composite snapshot via `CarryForwardService`. `renamePlatform(from:to:)` validates uniqueness (case-insensitive), trims and normalizes whitespace, then updates all matching assets.
+- **PlatformListViewModel** (`AssetFlow/ViewModels/PlatformListViewModel.swift`): Derives platforms from `Asset.platform` values. `loadPlatforms()` computes totals from the latest snapshot. `renamePlatform(from:to:)` validates uniqueness (case-insensitive), trims and normalizes whitespace, then updates all matching assets.
 - **PlatformDetailViewModel** (`AssetFlow/ViewModels/PlatformDetailViewModel.swift`): Tracks `platformName` (updated after rename), `assets` (filtered to this platform, sorted alphabetically), `totalValue` (sum of latest values), and `valueHistory` (platform total per snapshot). `save()` validates and renames all matching Asset records.
 
 ______________________________________________________________________
@@ -283,7 +281,7 @@ ______________________________________________________________________
 ### Implementation Notes
 
 - **RebalancingView** (`AssetFlow/Views/RebalancingView.swift`): ScrollView with Grid-based tables. Three sections: "Categories with Targets" (main suggestions), "No Target Set", and "Uncategorized". Summary section shows suggested moves. Action text color-coded: green (Buy), red (Sell), gray (No action needed). Empty state with `chart.bar.doc.horizontal` icon.
-- **RebalancingViewModel** (`AssetFlow/ViewModels/RebalancingViewModel.swift`): Loads composite values from latest snapshot via `CarryForwardService` (single call). Groups by category, calls `RebalancingCalculator.calculateAdjustments()`, maps actions to display rows with localized action text. Adjustments under $1 display "No action needed" (SPEC 11.4).
+- **RebalancingViewModel** (`AssetFlow/ViewModels/RebalancingViewModel.swift`): Loads values from latest snapshot. Groups by category, calls `RebalancingCalculator.calculateAdjustments()`, maps actions to display rows with localized action text. Adjustments under $1 display "No action needed" (SPEC 11.4).
 
 ______________________________________________________________________
 
@@ -394,7 +392,7 @@ ______________________________________________________________________
 - **Window style**: `.windowStyle(.hiddenTitleBar)` with `.windowToolbarStyle(.unified)` for modern macOS Tahoe Liquid Glass integration
 - **Minimum window size**: 900 x 600 points
 - **Sidebar**: Collapsible via toolbar button or drag. Default width: 220 points.
-- **Appearance**: Supports system appearance (light and dark mode). All custom colors, chart colors, and carry-forward indicators adapt to both modes.
+- **Appearance**: Supports system appearance (light and dark mode). All custom colors and chart colors adapt to both modes.
 
 **Number formatting**:
 
@@ -430,7 +428,7 @@ All line charts include a zoom selector:
 
 ### Line Chart -- Portfolio Value Over Time (Section 12.2)
 
-- X-axis: snapshot dates. Y-axis: composite total value.
+- X-axis: snapshot dates. Y-axis: portfolio total value.
 - Data points at each snapshot
 - Hover: tooltip with date and value. Click: navigates to snapshot detail.
 - Time range zoom controls
@@ -477,7 +475,6 @@ ______________________________________________________________________
 - **Positive**: Value increases (green)
 - **Negative**: Value decreases (red)
 - **Neutral**: Informational (gray)
-- **Carry-forward**: Dimmed or labeled to distinguish from direct values
 
 **Automatic Dark Mode**: Use semantic color names, test all screens in both modes.
 
@@ -656,11 +653,11 @@ Chart(categoryData) { item in
 Chart(snapshotData) { point in
     LineMark(
         x: .value("Date", point.date),
-        y: .value("Value", point.compositeValue)
+        y: .value("Value", point.totalValue)
     )
     PointMark(
         x: .value("Date", point.date),
-        y: .value("Value", point.compositeValue)
+        y: .value("Value", point.totalValue)
     )
 }
 ```
@@ -782,19 +779,19 @@ ______________________________________________________________________
 
 ## Implementation Status
 
-| View                           | Status      | Notes                                                                                                                                                     |
-| ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation                                         |
-| DashboardView                  | Implemented | Summary cards with SPEC-compliant tooltips, period performance (1M/3M/1Y), interactive charts, EmptyStateView, recent snapshots                           |
-| SnapshotListView               | Implemented | @Query live list, relative time bucket grouping (collapsible sections), carry-forward indicators, New Snapshot sheet, EmptyStateView, Delete key shortcut |
-| SnapshotDetailView             | Implemented | Asset breakdown with carried-forward distinction (SPEC 8.3), category allocation, cash flow CRUD, edit popovers, delete confirmation                      |
-| AssetListView                  | Implemented | Platform/category grouping, selection binding, EmptyStateView, Delete key shortcut                                                                        |
-| AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                                                            |
-| CategoryListView               | Implemented | Add sheet, target allocation warning, delete validation, EmptyStateView, Delete key shortcut                                                              |
-| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                                                  |
-| PlatformListView               | Implemented | List-detail split with selection binding, rename popover, EmptyStateView, onChange reload after rename                                                    |
-| PlatformDetailView             | Implemented | Editable name, assets table (Name/Category/Value), value history chart with time range controls and hover tooltip                                         |
-| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, EmptyStateView                                                                      |
-| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                                           |
-| SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                                            |
-| EmptyStateView (Component)     | Implemented | Reusable component with SF Symbol icon, title, message, optional action buttons                                                                           |
+| View                           | Status      | Notes                                                                                                                           |
+| ------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation               |
+| DashboardView                  | Implemented | Summary cards with SPEC-compliant tooltips, period performance (1M/3M/1Y), interactive charts, EmptyStateView, recent snapshots |
+| SnapshotListView               | Implemented | @Query live list, relative time bucket grouping (collapsible sections), New Snapshot sheet, EmptyStateView, Delete key shortcut |
+| SnapshotDetailView             | Implemented | Asset breakdown, category allocation, cash flow CRUD, edit popovers, delete confirmation                                        |
+| AssetListView                  | Implemented | Platform/category grouping, selection binding, EmptyStateView, Delete key shortcut                                              |
+| AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                                  |
+| CategoryListView               | Implemented | Add sheet, target allocation warning, delete validation, EmptyStateView, Delete key shortcut                                    |
+| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                        |
+| PlatformListView               | Implemented | List-detail split with selection binding, rename popover, EmptyStateView, onChange reload after rename                          |
+| PlatformDetailView             | Implemented | Editable name, assets table (Name/Category/Value), value history chart with time range controls and hover tooltip               |
+| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, EmptyStateView                                            |
+| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                 |
+| SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                  |
+| EmptyStateView (Component)     | Implemented | Reusable component with SF Symbol icon, title, message, optional action buttons                                                 |

@@ -152,57 +152,7 @@ struct CategoryListViewModelTests {
 
 ### Example: Service Test
 
-Services operate on pre-fetched data. Tests use real SwiftData models in an in-memory container (same pattern as ViewModel tests):
-
-```swift
-@Suite("CarryForwardService Tests")
-@MainActor
-struct CarryForwardServiceTests {
-    @Test("platform not in current snapshot is carried forward")
-    func carryForwardMissingPlatform() throws {
-        let container = TestDataManager.createInMemoryContainer()
-        let context = container.mainContext
-
-        // Arrange: Create real model objects
-        let ibAsset = Asset(name: "AAPL", platform: "IB")
-        let cbAsset = Asset(name: "Bitcoin", platform: "Coinbase")
-        context.insert(ibAsset)
-        context.insert(cbAsset)
-
-        let snapshot1 = Snapshot(date: date("2025-01-01"))
-        let snapshot2 = Snapshot(date: date("2025-02-01"))
-        context.insert(snapshot1)
-        context.insert(snapshot2)
-
-        // Snapshot 1 has both platforms
-        let sav1 = SnapshotAssetValue(marketValue: 10000)
-        sav1.snapshot = snapshot1
-        sav1.asset = ibAsset
-        let sav2 = SnapshotAssetValue(marketValue: 5000)
-        sav2.snapshot = snapshot1
-        sav2.asset = cbAsset
-        // Snapshot 2 only has IB
-        let sav3 = SnapshotAssetValue(marketValue: 12000)
-        sav3.snapshot = snapshot2
-        sav3.asset = ibAsset
-        context.insert(sav1)
-        context.insert(sav2)
-        context.insert(sav3)
-
-        // Act
-        let composite = CarryForwardService.resolveCompositeView(
-            for: snapshot2,
-            allSnapshots: [snapshot1, snapshot2],
-            allAssetValues: [sav1, sav2, sav3]
-        )
-
-        // Assert
-        #expect(composite.totalValue == 17000)  // 12000 (IB direct) + 5000 (Coinbase carried)
-        #expect(composite.carriedForwardValues.count == 1)
-        #expect(composite.carriedForwardValues[0].marketValue == 5000)
-    }
-}
-```
+Services are stateless and operate on pre-fetched data. Tests use real SwiftData models in an in-memory container (same pattern as ViewModel tests):
 
 ### Example: Calculation Test
 
@@ -444,7 +394,7 @@ ______________________________________________________________________
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
 | Models      | AssetModelTests, CategoryModelTests, SnapshotModelTests, SnapshotAssetValueModelTests, CashFlowOperationModelTests, SwiftDataRelationshipTests                                                                                                                                                       | All 5 models + relationships                        |
 | ViewModels  | DashboardViewModelTests, SnapshotListViewModelTests, SnapshotDetailViewModelTests, AssetListViewModelTests, AssetDetailViewModelTests, CategoryListViewModelTests, CategoryDetailViewModelTests, PlatformListViewModelTests, RebalancingViewModelTests, ImportViewModelTests, SettingsViewModelTests | All 11 ViewModels                                   |
-| Services    | CalculationServiceTests, CarryForwardServiceTests, CSVParsingServiceTests, BackupServiceTests, RebalancingCalculatorTests, SettingsServiceTests, ChartDataServiceTests                                                                                                                               | All 7 services                                      |
+| Services    | CalculationServiceTests, CSVParsingServiceTests, BackupServiceTests, RebalancingCalculatorTests, SettingsServiceTests, ChartDataServiceTests                                                                                                                                                         | All services                                        |
 | Integration | NavigationIntegrationTests, EmptyStateTests, SpecVerificationTests                                                                                                                                                                                                                                   | End-to-end scenarios, SPEC verification, edge cases |
 
 **TestContext Pattern**: All ViewModel tests use the `TestContext` struct pattern to retain `ModelContainer` for the test scope, preventing premature deallocation and "model instance destroyed" crashes.
@@ -470,7 +420,6 @@ ______________________________________________________________________
 ### Services
 
 - **CalculationService**: Growth rate, Modified Dietz return (no cash flows, with cash flows, time-weighting), cumulative TWR (chaining returns), CAGR (multi-year, fractional year), category allocation, edge cases (zero/negative values, divide-by-zero)
-- **CarryForwardService**: Composite resolution, platform-level carry-forward (SPEC 2 asset-level granularity rule), sorted snapshot requirement, edge cases
 - **CSVParsingService**: Valid files, malformed files, encoding, number formats, within-CSV duplicate detection (assets by name+platform, cash flows by description)
 - **BackupService**: Export format, restore validation, foreign key reference validation across files (every assetID in snapshot_asset_values exists in assets, every snapshotID exists in snapshots, etc.), error handling for corrupted archives, round-trip integrity
 - **RebalancingCalculator**: Balanced portfolio, unbalanced, no target, uncategorized assets, adjustment calculations

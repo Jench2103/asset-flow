@@ -8,7 +8,7 @@ This document describes the design of internal service APIs and data format spec
 
 **What This Document Covers**
 
-- **Internal Service APIs**: Service layer interfaces for CSV parsing, carry-forward resolution, calculations, and backup/restore
+- **Internal Service APIs**: Service layer interfaces for CSV parsing, calculations, and backup/restore
 - **CSV Import Format**: Asset CSV and Cash Flow CSV schemas, parsing rules, and validation
 - **Backup Format**: ZIP archive structure, CSV serialization, and manifest specification
 - **Error Handling**: Service-level error types and handling patterns
@@ -132,44 +132,6 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-### CarryForwardService
-
-**Purpose**: Resolve composite portfolio values by combining direct snapshot data with carried-forward platform values from prior snapshots.
-
-```swift
-enum CarryForwardService {
-    /// Compute the composite view for a snapshot (direct + carried-forward values)
-    static func resolveCompositeView(
-        for snapshot: Snapshot,
-        allSnapshots: [Snapshot],
-        allAssetValues: [SnapshotAssetValue]
-    ) -> CompositeSnapshotView
-
-    /// Compute composite views for all snapshots (batch, for charts)
-    static func resolveAllCompositeViews(
-        snapshots: [Snapshot],
-        allAssetValues: [SnapshotAssetValue]
-    ) -> [CompositeSnapshotView]
-}
-
-struct CompositeSnapshotView {
-    let snapshot: Snapshot
-    let directValues: [SnapshotAssetValue]
-    let carriedForwardValues: [CarriedForwardValue]
-    let totalValue: Decimal
-}
-
-struct CarriedForwardValue {
-    let asset: Asset
-    let marketValue: Decimal
-    let sourceSnapshotDate: Date  // Which snapshot this was carried from
-}
-```
-
-**Implementation Requirement**: Must operate on pre-fetched data in memory. The caller pre-fetches all snapshots and asset values, then passes them to the service. No database queries inside the service.
-
-______________________________________________________________________
-
 ### CalculationService
 
 **Purpose**: Unified calculation engine for all financial metrics. All methods are pure functions operating on `Decimal` values.
@@ -191,8 +153,8 @@ enum CalculationService {
     /// Formula: R = (EMV - BMV - CF) / (BMV + sum(wi * CFi))
     /// Where wi = (totalDays - daysSinceStart) / totalDays
     /// - Parameters:
-    ///   - beginValue: Beginning composite portfolio value (BMV)
-    ///   - endValue: Ending composite portfolio value (EMV)
+    ///   - beginValue: Beginning portfolio value (BMV)
+    ///   - endValue: Ending portfolio value (EMV)
     ///   - cashFlows: Array of (amount, daysSinceStart) tuples for intermediate cash flows
     ///   - totalDays: Total calendar days in the period
     /// - Returns: Modified Dietz return as a decimal, or nil if denominator is <= 0

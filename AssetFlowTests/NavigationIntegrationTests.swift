@@ -127,58 +127,6 @@ struct NavigationIntegrationTests {
     #expect(viewModel.hasUnsavedChanges == false)
   }
 
-  // MARK: - Carried-Forward Editability Tests
-
-  @Test("Carried-forward assets in sortedCompositeValues have isCarriedForward true")
-  func carriedForwardNotEditable() {
-    let container = TestDataManager.createInMemoryContainer()
-    let context = container.mainContext
-
-    // Create two snapshots on different platforms
-    let asset1 = Asset(name: "Stock A", platform: "Platform1")
-    let asset2 = Asset(name: "Stock B", platform: "Platform2")
-    context.insert(asset1)
-    context.insert(asset2)
-
-    let snapshot1 = Snapshot(
-      date: Calendar.current.date(
-        byAdding: .day, value: -10, to: Date())!)
-    context.insert(snapshot1)
-    let sav1 = SnapshotAssetValue(marketValue: 1000)
-    sav1.snapshot = snapshot1
-    sav1.asset = asset1
-    context.insert(sav1)
-    let sav2 = SnapshotAssetValue(marketValue: 2000)
-    sav2.snapshot = snapshot1
-    sav2.asset = asset2
-    context.insert(sav2)
-
-    // Second snapshot only has Platform1
-    let snapshot2 = Snapshot(
-      date: Calendar.current.date(
-        byAdding: .day, value: -5, to: Date())!)
-    context.insert(snapshot2)
-    let sav3 = SnapshotAssetValue(marketValue: 1500)
-    sav3.snapshot = snapshot2
-    sav3.asset = asset1
-    context.insert(sav3)
-
-    // Platform2 should be carried forward in snapshot2
-    let viewModel = SnapshotDetailViewModel(snapshot: snapshot2, modelContext: context)
-    viewModel.loadCompositeValues()
-
-    let carriedForward = viewModel.sortedCompositeValues.filter { $0.isCarriedForward }
-    #expect(!carriedForward.isEmpty)
-
-    for cv in carriedForward {
-      #expect(cv.isCarriedForward == true)
-    }
-
-    // Direct values should not be carried forward
-    let direct = viewModel.sortedCompositeValues.filter { !$0.isCarriedForward }
-    #expect(!direct.isEmpty)
-  }
-
   // MARK: - Snapshot List Row Data Tests
 
   @Test("SnapshotListViewModel loadAllSnapshotRowData returns valid data for each snapshot")
@@ -203,7 +151,7 @@ struct NavigationIntegrationTests {
 
     let rowData = rowDataMap[snapshot.id]
     #expect(rowData != nil)
-    #expect(rowData!.compositeTotal == 5000)
+    #expect(rowData!.totalValue == 5000)
     #expect(rowData!.assetCount == 1)
   }
 
@@ -283,7 +231,7 @@ struct NavigationIntegrationTests {
 
     let rowData = rowDataMap[snapshot.id]
     #expect(rowData != nil)
-    #expect(rowData!.compositeTotal == 3000)
+    #expect(rowData!.totalValue == 3000)
     #expect(rowData!.assetCount == 1)
   }
 

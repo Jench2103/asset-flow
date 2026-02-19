@@ -97,8 +97,8 @@ struct CategoryListViewModelTests {
     #expect(viewModel.categoryRows[0].targetAllocation == nil)
   }
 
-  @Test("Computes current allocation from latest composite snapshot")
-  func computesCurrentAllocationFromLatestCompositeSnapshot() {
+  @Test("Computes current allocation from latest snapshot direct values")
+  func computesCurrentAllocationFromLatestSnapshotDirectValues() {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
 
@@ -130,8 +130,8 @@ struct CategoryListViewModelTests {
     #expect(viewModel.categoryRows[1].currentAllocation == 70)
   }
 
-  @Test("Computes current value from latest composite snapshot")
-  func computesCurrentValueFromLatestCompositeSnapshot() {
+  @Test("Computes current value from latest snapshot direct values")
+  func computesCurrentValueFromLatestSnapshotDirectValues() {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
 
@@ -393,10 +393,10 @@ struct CategoryListViewModelTests {
     #expect(viewModel.categoryRows[1].currentAllocation == nil)
   }
 
-  // MARK: - Carry Forward
+  // MARK: - Direct Values Only (No Carry Forward)
 
-  @Test("Current allocation uses carry-forward values")
-  func currentAllocationUsesCarryForwardValues() {
+  @Test("Current allocation uses only stored values from latest snapshot")
+  func currentAllocationUsesDirectValuesOnly() {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
 
@@ -415,7 +415,7 @@ struct CategoryListViewModelTests {
       name: "Treasury", platform: "Vanguard", category: bonds,
       marketValue: 5000, snapshot: snap1, context: context)
 
-    // Snapshot 2: Only Firstrade updated (Vanguard carries forward)
+    // Snapshot 2: Only Firstrade updated — Vanguard NOT carried forward
     let snap2 = Snapshot(date: makeDate(year: 2025, month: 2, day: 1))
     context.insert(snap2)
     createAssetWithValue(
@@ -425,15 +425,12 @@ struct CategoryListViewModelTests {
     let viewModel = CategoryListViewModel(modelContext: context)
     viewModel.loadCategories()
 
-    // Latest composite: AAPL=7000 (direct) + Treasury=5000 (carry-forward) = 12000 total
-    // Bonds: 5000/12000 ≈ 41.67%, Equities: 7000/12000 ≈ 58.33%
-    #expect(viewModel.categoryRows.count == 2)
-    let bondsRow = viewModel.categoryRows.first { $0.category.name == "Bonds" }
+    // Latest snapshot only has AAPL=7000 (direct), no carry-forward
+    // Bonds: 0 (not in latest snapshot), Equities: 7000/7000 = 100%
     let equitiesRow = viewModel.categoryRows.first { $0.category.name == "Equities" }
 
-    #expect(bondsRow != nil)
     #expect(equitiesRow != nil)
-    #expect(bondsRow!.currentValue == 5000)
     #expect(equitiesRow!.currentValue == 7000)
+    #expect(equitiesRow!.currentAllocation == 100)
   }
 }

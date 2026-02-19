@@ -69,7 +69,7 @@ ______________________________________________________________________
 class SnapshotDetailViewModel { }
 struct Category { }
 enum ImportType { }
-protocol CarryForwardResolving { }
+protocol CalculationResolving { }
 ```
 
 ### Variables and Functions
@@ -155,7 +155,7 @@ ______________________________________________________________________
 
 For Swift 6 strict concurrency compatibility, all data types passed across isolation boundaries must conform to `Sendable`. In particular:
 
-- Service data types (structs used as inputs/outputs, such as `CompositeSnapshotView`, `AssetCSVResult`, `RebalancingSuggestion`) should conform to `Sendable`
+- Service data types (structs used as inputs/outputs, such as `AssetCSVResult`, `RebalancingSuggestion`) should conform to `Sendable`
 - Using `enum` for stateless services naturally avoids actor isolation issues
 
 ### Properties
@@ -487,19 +487,14 @@ let normalized = platform.trimmingCharacters(in: .whitespaces).lowercased()
 Use for public APIs:
 
 ```swift
-/// Resolves the composite portfolio view for a snapshot,
-/// including carry-forward values for missing platforms.
+/// Calculates the total portfolio value for a snapshot.
 ///
 /// - Parameters:
 ///   - snapshot: The target snapshot
-///   - allSnapshots: All snapshots sorted by date
-///   - allAssetValues: All SnapshotAssetValue records
-/// - Returns: Composite view with direct and carried-forward values
-static func resolveCompositeView(
-    for snapshot: Snapshot,
-    allSnapshots: [Snapshot],
-    allAssetValues: [SnapshotAssetValue]
-) -> CompositeSnapshotView
+/// - Returns: Total value as the sum of all SnapshotAssetValues
+static func totalValue(
+    for snapshot: Snapshot
+) -> Decimal
 ```
 
 ______________________________________________________________________

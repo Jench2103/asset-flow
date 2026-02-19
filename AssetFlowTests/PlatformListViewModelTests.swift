@@ -101,8 +101,8 @@ struct PlatformListViewModelTests {
     #expect(vanguard?.assetCount == 1)
   }
 
-  @Test("Computes total value from latest composite snapshot")
-  func computesTotalValueFromLatestCompositeSnapshot() {
+  @Test("Computes total value from latest snapshot direct values")
+  func computesTotalValueFromLatestSnapshotDirectValues() {
     let tc = makeTestContext()
     let context = tc.context
 
@@ -270,8 +270,8 @@ struct PlatformListViewModelTests {
     #expect(asset.platform == "FIRSTRADE")
   }
 
-  @Test("Total value includes carry-forward assets")
-  func totalValueIncludesCarryForwardAssets() {
+  @Test("Total value uses only stored values from latest snapshot")
+  func totalValueUsesOnlyStoredValuesFromLatestSnapshot() {
     let tc = makeTestContext()
     let context = tc.context
 
@@ -285,7 +285,7 @@ struct PlatformListViewModelTests {
       name: "BND", platform: "Vanguard",
       marketValue: 3000, snapshot: snap1, context: context)
 
-    // Snapshot 2: Only Firstrade updated (Vanguard carries forward)
+    // Snapshot 2: Only Firstrade updated — Vanguard NOT carried forward
     let snap2 = Snapshot(date: makeDate(year: 2025, month: 2, day: 1))
     context.insert(snap2)
     createAssetWithValue(
@@ -296,10 +296,13 @@ struct PlatformListViewModelTests {
     viewModel.loadPlatforms()
 
     let firstrade = viewModel.platformRows.first { $0.name == "Firstrade" }
-    let vanguard = viewModel.platformRows.first { $0.name == "Vanguard" }
 
     #expect(firstrade?.totalValue == 7000)
-    #expect(vanguard?.totalValue == 3000)  // Carried forward from snap1
+    // Vanguard has no values in the latest snapshot, so it should not appear
+    // with a value from carry-forward. It may still appear in the platform list
+    // (since the asset exists) but its totalValue should be nil or 0.
+    let vanguard = viewModel.platformRows.first { $0.name == "Vanguard" }
+    #expect(vanguard == nil || vanguard?.totalValue == 0)
   }
 
   // MARK: - Rename Validation

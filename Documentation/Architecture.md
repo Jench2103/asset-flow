@@ -71,7 +71,7 @@ struct DashboardView: View {
 
 1. **DashboardViewModel**: Portfolio overview metrics, summary cards, chart data
 1. **SnapshotListViewModel**: Snapshot listing, creation, deletion
-1. **SnapshotDetailViewModel**: Snapshot detail, asset breakdown, carry-forward resolution, cash flow management
+1. **SnapshotDetailViewModel**: Snapshot detail, asset breakdown, cash flow management
 1. **AssetListViewModel**: Asset listing, grouping (by platform or category)
 1. **AssetDetailViewModel**: Asset value history, editing, deletion validation
 1. **CategoryListViewModel**: Category listing, creation, deletion
@@ -85,8 +85,8 @@ struct DashboardView: View {
 
 1. **ContentView**: Full sidebar navigation with `SidebarSection` enum, list-detail splits, discard confirmation, post-import navigation
 1. **DashboardView**: Summary cards, period performance (1M/3M/1Y), chart placeholders, recent snapshots
-1. **SnapshotListView**: `@Query` live list with carry-forward indicators, New Snapshot sheet
-1. **SnapshotDetailView**: Asset breakdown with carried-forward distinction (SPEC 8.3), category allocation, cash flow CRUD
+1. **SnapshotListView**: `@Query` live list, New Snapshot sheet
+1. **SnapshotDetailView**: Asset breakdown, category allocation, cash flow CRUD
 1. **AssetListView**: Platform/category grouping, selection binding
 1. **AssetDetailView**: Edit fields, sparkline chart, value history, delete validation
 1. **CategoryListView**: Add sheet, target allocation warning, delete validation
@@ -156,8 +156,6 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 
 1. **CalculationService** (`enum`): Unified calculation engine providing growth rate, Modified Dietz return, cumulative time-weighted return (TWR), compound annual growth rate (CAGR), and category allocation percentage calculations. All methods are pure functions operating on `Decimal` values.
 
-1. **CarryForwardService** (`enum`): Resolves composite portfolio values by combining direct snapshot data with carried-forward platform values from prior snapshots. Implements SPEC 2 asset-level granularity rule: platform presence blocks asset-level carry-forward. Must operate on pre-fetched, sorted data in memory (no N+1 queries).
-
 1. **CSVParsingService** (`enum`): Parses asset CSV and cash flow CSV files according to the schemas defined in SPEC Section 4.2. Handles encoding (UTF-8 with BOM tolerance), number parsing (strip currency symbols, thousand separators), validation, and **within-CSV duplicate detection**. Returns structured results with error reporting.
 
 1. **RebalancingCalculator** (`enum`): Computes target vs. current allocation differences and suggested buy/sell adjustment amounts for each category. Returns signed `Decimal` values (positive = buy, negative = sell).
@@ -181,7 +179,7 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 - Models remain simple data containers
 - ViewModels coordinate between services and UI
 - Testability: mock data can be passed to services without side effects
-- All service data types (structs used as inputs/outputs, such as `CompositeSnapshotView`, `AssetCSVResult`, `RebalancingSuggestion`) should conform to `Sendable` for Swift 6 strict concurrency compatibility
+- All service data types (structs used as inputs/outputs, such as `AssetCSVResult`, `RebalancingSuggestion`) should conform to `Sendable` for Swift 6 strict concurrency compatibility
 - Using `enum` for stateless services naturally avoids actor isolation issues
 
 ## Localization
@@ -208,30 +206,6 @@ User Action -> View -> ViewModel -> Service/Model -> SwiftData
 1. **Data Operation**: Model updates SwiftData
 1. **State Update**: Changes propagate back to ViewModel
 1. **UI Refresh**: View automatically re-renders
-
-### Carry-Forward Data Flow
-
-A key architectural pattern is the carry-forward resolution for composite portfolio values:
-
-```
-Snapshot N requested
-       |
-       v
-Fetch all SnapshotAssetValues for Snapshot N
-       |
-       v
-Identify platforms present in Snapshot N
-       |
-       v
-For each missing platform:
-  Find most recent prior snapshot containing that platform
-  Include those platform's asset values
-       |
-       v
-Composite portfolio value = direct values + carried-forward values
-```
-
-**Important**: Carry-forward values are computed at query time, never stored as new records. The `CarryForwardService` must operate on pre-fetched snapshot history in memory to avoid N+1 database queries.
 
 ### SwiftData Integration
 
@@ -298,12 +272,9 @@ ViewModels and Services use dependency injection for testability:
 @Observable
 @MainActor
 class SnapshotDetailViewModel {
-    private let carryForwardService: CarryForwardService
-
     init(
         snapshot: Snapshot,
-        modelContext: ModelContext,
-        carryForwardService: CarryForwardService = CarryForwardService()
+        modelContext: ModelContext
     ) {
         // ...
     }
@@ -359,16 +330,6 @@ enum ImportError: LocalizedError {
 - No snapshot within lookback window: Period metric = N/A
 
 ## Performance and Scalability
-
-### Carry-Forward Resolution Performance
-
-The most performance-critical operation is carry-forward resolution. To avoid N+1 queries:
-
-1. **Pre-fetch all snapshot data** needed for the date range
-1. **Build an in-memory index** of platforms to their latest values per snapshot
-1. **Resolve carry-forward** from the in-memory data structure
-
-This ensures that computing the composite value for any snapshot is O(platforms) rather than O(snapshots * platforms * assets).
 
 ### General Optimization Strategies
 

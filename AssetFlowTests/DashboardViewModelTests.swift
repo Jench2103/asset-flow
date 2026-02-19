@@ -103,8 +103,8 @@ struct DashboardViewModelTests {
 
   // MARK: - Summary Cards
 
-  @Test("Total portfolio value from latest snapshot with carry-forward")
-  func totalPortfolioValueWithCarryForward() {
+  @Test("Total portfolio value from stored values in latest snapshot")
+  func totalPortfolioValueFromDirectValues() {
     let tc = createTestContext()
 
     // Snapshot 1: Platform A has asset worth 100,000
@@ -114,8 +114,7 @@ struct DashboardViewModelTests {
       assets: [("AAPL", "Firstrade", 100_000, nil)]
     )
 
-    // Snapshot 2: Platform B has asset worth 50,000
-    // Platform A is carried forward
+    // Snapshot 2: Only BTC on Coinbase — AAPL is NOT included (no carry-forward)
     createSnapshot(
       in: tc.context,
       date: makeDate(year: 2025, month: 2, day: 1),
@@ -125,8 +124,8 @@ struct DashboardViewModelTests {
     let viewModel = DashboardViewModel(modelContext: tc.context)
     viewModel.loadData()
 
-    // Total = direct 50,000 + carry-forward 100,000 = 150,000
-    #expect(viewModel.totalPortfolioValue == 150_000)
+    // Total = only direct values in latest snapshot = 50,000
+    #expect(viewModel.totalPortfolioValue == 50_000)
   }
 
   @Test("Latest snapshot date is correct")
@@ -150,7 +149,7 @@ struct DashboardViewModelTests {
     #expect(viewModel.latestSnapshotDate == makeDate(year: 2025, month: 6, day: 15))
   }
 
-  @Test("Asset count from latest composite snapshot")
+  @Test("Asset count from latest snapshot direct values only")
   func assetCount() {
     let tc = createTestContext()
 
@@ -164,7 +163,7 @@ struct DashboardViewModelTests {
       ]
     )
 
-    // Only update Firstrade
+    // Only update Firstrade — BTC is NOT carried forward
     createSnapshot(
       in: tc.context,
       date: makeDate(year: 2025, month: 2, day: 1),
@@ -174,8 +173,8 @@ struct DashboardViewModelTests {
     let viewModel = DashboardViewModel(modelContext: tc.context)
     viewModel.loadData()
 
-    // AAPL (direct) + BTC (carried forward) = 2
-    #expect(viewModel.assetCount == 2)
+    // Only AAPL (direct) in latest snapshot = 1
+    #expect(viewModel.assetCount == 1)
   }
 
   @Test("Value change from previous snapshot")
@@ -606,8 +605,8 @@ struct DashboardViewModelTests {
     #expect(recent[4].date == makeDate(year: 2025, month: 3, day: 1))
   }
 
-  @Test("Recent snapshots includes composite total value")
-  func recentSnapshotsIncludeCompositeTotal() {
+  @Test("Recent snapshots includes total value from direct SAVs only")
+  func recentSnapshotsIncludeTotal() {
     let tc = createTestContext()
 
     createSnapshot(
@@ -619,7 +618,7 @@ struct DashboardViewModelTests {
       ]
     )
 
-    // Snapshot 2 only updates Firstrade
+    // Snapshot 2 only updates Firstrade — BTC not included (no carry-forward)
     createSnapshot(
       in: tc.context,
       date: makeDate(year: 2025, month: 2, day: 1),
@@ -631,8 +630,8 @@ struct DashboardViewModelTests {
 
     let recent = viewModel.recentSnapshots
     #expect(recent.count == 2)
-    // Latest: 110,000 (direct) + 50,000 (carry-forward) = 160,000
-    #expect(recent[0].compositeTotal == 160_000)
+    // Latest: only direct SAVs = 110,000
+    #expect(recent[0].totalValue == 110_000)
   }
 
   // MARK: - Period Enum

@@ -111,8 +111,8 @@ struct PlatformDetailViewModelTests {
     #expect(viewModel.assets[2].asset.name == "MSFT")
   }
 
-  @Test("Latest value from composite snapshot")
-  func latestValueFromCompositeSnapshot() {
+  @Test("Latest value from most recent snapshot with direct values")
+  func latestValueFromDirectSnapshot() {
     let tc = makeTestContext()
     let context = tc.context
 
@@ -217,8 +217,8 @@ struct PlatformDetailViewModelTests {
     #expect(viewModel.valueHistory[1].totalValue == 7000)
   }
 
-  @Test("Value history includes carry-forward snapshots")
-  func valueHistoryIncludesCarryForwardSnapshots() {
+  @Test("Value history uses direct values only, no carry-forward")
+  func valueHistoryUsesDirectValuesOnly() {
     let tc = makeTestContext()
     let context = tc.context
 
@@ -229,7 +229,7 @@ struct PlatformDetailViewModelTests {
       name: "AAPL", platform: "Firstrade",
       marketValue: 5000, snapshot: snap1, context: context)
 
-    // Snapshot 2: Only Vanguard updated — Firstrade carries forward from snap1
+    // Snapshot 2: Only Vanguard updated — Firstrade NOT carried forward
     let snap2 = Snapshot(date: makeDate(year: 2025, month: 2, day: 1))
     context.insert(snap2)
     createAssetWithValue(
@@ -240,10 +240,10 @@ struct PlatformDetailViewModelTests {
       platformName: "Firstrade", modelContext: context)
     viewModel.loadData()
 
-    // Snap2: AAPL should carry forward from snap1 = 5000
+    // Snap2: Firstrade has no direct values, so totalValue = 0
     #expect(viewModel.valueHistory.count == 2)
     #expect(viewModel.valueHistory[1].date == snap2.date)
-    #expect(viewModel.valueHistory[1].totalValue == 5000)
+    #expect(viewModel.valueHistory[1].totalValue == 0)
   }
 
   @Test("Value history shows zero for snapshots before platform existed")

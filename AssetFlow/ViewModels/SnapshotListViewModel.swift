@@ -86,12 +86,11 @@ enum SnapshotTimeBucket: Int, CaseIterable, Hashable {
   }
 }
 
-/// Data for a snapshot list row, including carry-forward information.
+/// Data for a snapshot list row.
 struct SnapshotRowData {
   let date: Date
-  let compositeTotal: Decimal
-  let directPlatforms: [String]
-  let carriedForwardPlatforms: [String]
+  let totalValue: Decimal
+  let platforms: [String]
   let assetCount: Int
 }
 
@@ -105,7 +104,7 @@ struct SnapshotConfirmationData {
 /// ViewModel for the Snapshots list screen.
 ///
 /// Manages snapshot creation (empty or copy-from-latest), deletion,
-/// and row data computation including carry-forward resolution.
+/// and row data computation.
 @Observable
 @MainActor
 class SnapshotListViewModel {
@@ -121,8 +120,8 @@ class SnapshotListViewModel {
   ///
   /// - Parameters:
   ///   - date: The snapshot date (must be today or earlier, must not already exist).
-  ///   - copyFromLatest: If true, copies all composite asset values from the most
-  ///     recent prior snapshot, materializing carried-forward values as direct records.
+  ///   - copyFromLatest: If true, copies all direct asset values from the most
+  ///     recent prior snapshot as new records.
   /// - Returns: The newly created Snapshot.
   /// - Throws: `SnapshotError.futureDateNotAllowed` or `SnapshotError.dateAlreadyExists`.
   @discardableResult
@@ -145,7 +144,7 @@ class SnapshotListViewModel {
     modelContext.insert(snapshot)
 
     if copyFromLatest {
-      copyCompositeValues(to: snapshot, allSnapshots: allSnapshots)
+      copyValuesFromLatest(to: snapshot, allSnapshots: allSnapshots)
     }
 
     return snapshot
@@ -179,59 +178,36 @@ class SnapshotListViewModel {
 
   // MARK: - Row Data
 
-  /// Computes row data for all snapshots in a single batch, pre-fetching data once.
+  /// Computes row data for all snapshots in a single batch.
   func loadAllSnapshotRowData() -> [UUID: SnapshotRowData] {
     let allSnapshots = fetchAllSnapshots()
-    let allAssetValues = fetchAllAssetValues()
 
     var result: [UUID: SnapshotRowData] = [:]
     for snapshot in allSnapshots {
-      result[snapshot.id] = buildRowData(
-        for: snapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+      result[snapshot.id] = buildRowData(for: snapshot)
     }
     return result
   }
 
-  /// Computes row data for a single snapshot, including carry-forward platform information.
+  /// Computes row data for a single snapshot.
   func snapshotRowData(for snapshot: Snapshot) -> SnapshotRowData {
-    let allSnapshots = fetchAllSnapshots()
-    let allAssetValues = fetchAllAssetValues()
-    return buildRowData(
-      for: snapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+    buildRowData(for: snapshot)
   }
 
-  private func buildRowData(
-    for snapshot: Snapshot,
-    allSnapshots: [Snapshot],
-    allAssetValues: [SnapshotAssetValue]
-  ) -> SnapshotRowData {
-    let compositeValues = CarryForwardService.compositeValues(
-      for: snapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+  private func buildRowData(for snapshot: Snapshot) -> SnapshotRowData {
+    let directValues = snapshot.assetValues ?? []
 
-    let compositeTotal = compositeValues.reduce(Decimal(0)) { $0 + $1.marketValue }
+    let totalValue = directValues.reduce(Decimal(0)) { $0 + $1.marketValue }
 
-    let directPlatforms = Array(
-      Set(
-        compositeValues
-          .filter { !$0.isCarriedForward }
-          .map { $0.asset.platform }
-      )
-    ).sorted()
-
-    let carriedForwardPlatforms = Array(
-      Set(
-        compositeValues
-          .filter { $0.isCarriedForward }
-          .map { $0.asset.platform }
-      )
+    let platforms = Array(
+      Set(directValues.compactMap { $0.asset?.platform })
     ).sorted()
 
     return SnapshotRowData(
       date: snapshot.date,
-      compositeTotal: compositeTotal,
-      directPlatforms: directPlatforms,
-      carriedForwardPlatforms: carriedForwardPlatforms,
-      assetCount: compositeValues.count
+      totalValue: totalValue,
+      platforms: platforms,
+      assetCount: directValues.count
     )
   }
 
@@ -242,15 +218,8 @@ class SnapshotListViewModel {
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 
-  private func fetchAllAssetValues() -> [SnapshotAssetValue] {
-    let descriptor = FetchDescriptor<SnapshotAssetValue>()
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
-
-  /// Copies all composite values from the most recent prior snapshot to the new snapshot.
-  private func copyCompositeValues(to snapshot: Snapshot, allSnapshots: [Snapshot]) {
-    let allAssetValues = fetchAllAssetValues()
-
+  /// Copies all direct asset values from the most recent prior snapshot to the new snapshot.
+  private func copyValuesFromLatest(to snapshot: Snapshot, allSnapshots: [Snapshot]) {
     // Find the most recent snapshot before the new snapshot's date
     let priorSnapshots =
       allSnapshots
@@ -259,18 +228,13 @@ class SnapshotListViewModel {
 
     guard let latestPrior = priorSnapshots.first else { return }
 
-    // Compute composite view for the latest prior snapshot
-    let compositeValues = CarryForwardService.compositeValues(
-      for: latestPrior,
-      allSnapshots: allSnapshots,
-      allAssetValues: allAssetValues
-    )
+    let latestValues = latestPrior.assetValues ?? []
 
-    // Materialize all composite values as direct SnapshotAssetValues
-    for compositeValue in compositeValues {
-      let sav = SnapshotAssetValue(marketValue: compositeValue.marketValue)
+    for priorSAV in latestValues {
+      guard let asset = priorSAV.asset else { continue }
+      let sav = SnapshotAssetValue(marketValue: priorSAV.marketValue)
       sav.snapshot = snapshot
-      sav.asset = compositeValue.asset
+      sav.asset = asset
       modelContext.insert(sav)
     }
   }

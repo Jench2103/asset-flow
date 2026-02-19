@@ -37,15 +37,14 @@ final class CategoryListViewModel {
   // MARK: - Loading
 
   /// Fetches all categories, computes current values and allocations from the
-  /// most recent composite snapshot, and builds sorted row data.
+  /// most recent snapshot, and builds sorted row data.
   func loadCategories() {
     let allCategories = fetchAllCategories()
     let allSnapshots = fetchAllSnapshots()
-    let allAssetValues = fetchAllAssetValues()
 
     // Build latest value lookup grouped by category
     let categoryValues = buildCategoryValueLookup(
-      categories: allCategories, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+      categories: allCategories, allSnapshots: allSnapshots)
 
     let totalValue = categoryValues.values.reduce(Decimal(0), +)
     let hasSnapshots = !allSnapshots.isEmpty
@@ -148,26 +147,19 @@ final class CategoryListViewModel {
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 
-  private func fetchAllAssetValues() -> [SnapshotAssetValue] {
-    let descriptor = FetchDescriptor<SnapshotAssetValue>()
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
-
-  /// Builds a lookup of category ID → total market value from the latest composite snapshot.
+  /// Builds a lookup of category ID → total market value from the latest snapshot.
   private func buildCategoryValueLookup(
     categories: [Category],
-    allSnapshots: [Snapshot],
-    allAssetValues: [SnapshotAssetValue]
+    allSnapshots: [Snapshot]
   ) -> [UUID: Decimal] {
     guard let latestSnapshot = allSnapshots.last else { return [:] }
 
-    let compositeValues = CarryForwardService.compositeValues(
-      for: latestSnapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+    let assetValues = latestSnapshot.assetValues ?? []
 
     var lookup: [UUID: Decimal] = [:]
-    for cv in compositeValues {
-      guard let categoryID = cv.asset.category?.id else { continue }
-      lookup[categoryID, default: 0] += cv.marketValue
+    for sav in assetValues {
+      guard let categoryID = sav.asset?.category?.id else { continue }
+      lookup[categoryID, default: 0] += sav.marketValue
     }
     return lookup
   }

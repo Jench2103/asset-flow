@@ -178,8 +178,8 @@ struct AssetListViewModelTests {
 
   // MARK: - Latest Value
 
-  @Test("Latest value computed from most recent composite snapshot")
-  func latestValueComputedFromMostRecentCompositeSnapshot() throws {
+  @Test("Latest value computed from stored values in latest snapshot")
+  func latestValueComputedFromStoredValuesInLatestSnapshot() throws {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
 

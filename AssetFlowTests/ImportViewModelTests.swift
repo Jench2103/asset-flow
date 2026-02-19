@@ -1075,4 +1075,307 @@ struct ImportViewModelTests {
       modelContext: tc.context, settingsService: settingsService)
     #expect(viewModel.selectedPlatform == nil)
   }
+
+  // MARK: - Copy-Forward
+
+  /// Helper: creates a prior snapshot with assets on the given platforms.
+  private func createPriorSnapshot(
+    date: Date,
+    assets: [(name: String, platform: String, value: Decimal)],
+    context: ModelContext
+  ) -> Snapshot {
+    let snapshot = Snapshot(date: Calendar.current.startOfDay(for: date))
+    context.insert(snapshot)
+    for a in assets {
+      let asset = Asset(name: a.name, platform: a.platform)
+      context.insert(asset)
+      let sav = SnapshotAssetValue(marketValue: a.value)
+      sav.snapshot = snapshot
+      sav.asset = asset
+      context.insert(sav)
+    }
+    return snapshot
+  }
+
+  @Test("Copy-forward platforms computed from prior snapshot")
+  func copyForwardPlatformsComputedFromPriorSnapshot() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Create prior snapshot with assets on Binance and Schwab
+    let priorDate = makeDate(year: 2025, month: 1, day: 1)
+    _ = createPriorSnapshot(
+      date: priorDate,
+      assets: [
+        ("BTC", "Binance", 50000),
+        ("ETH", "Binance", 3000),
+        ("VTI", "Schwab", 28000),
+      ],
+      context: tc.context)
+
+    // Load CSV with only Interactive Brokers assets
+    viewModel.snapshotDate = makeDate(year: 2025, month: 2, day: 1)
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      AAPL,15000,Interactive Brokers
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Should offer Binance and Schwab for copy-forward
+    let platformNames = viewModel.copyForwardPlatforms.map { $0.platformName }.sorted()
+    #expect(platformNames == ["Binance", "Schwab"])
+
+    let binance = viewModel.copyForwardPlatforms.first { $0.platformName == "Binance" }
+    #expect(binance?.assetCount == 2)
+    #expect(binance?.isSelected == true)
+  }
+
+  @Test("Copy-forward platforms empty when no prior snapshot")
+  func copyForwardPlatformsEmptyWhenNoPriorSnapshot() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    viewModel.snapshotDate = makeDate(year: 2025, month: 2, day: 1)
+    viewModel.loadCSVData(validAssetCSVData())
+
+    #expect(viewModel.copyForwardPlatforms.isEmpty)
+  }
+
+  @Test("Copy-forward platforms excludes platforms present in CSV")
+  func copyForwardPlatformsExcludesCSVPlatforms() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Prior snapshot has Interactive Brokers and Binance
+    let priorDate = makeDate(year: 2025, month: 1, day: 1)
+    _ = createPriorSnapshot(
+      date: priorDate,
+      assets: [
+        ("AAPL", "Interactive Brokers", 15000),
+        ("BTC", "Binance", 50000),
+      ],
+      context: tc.context)
+
+    // CSV also has Interactive Brokers
+    viewModel.snapshotDate = makeDate(year: 2025, month: 2, day: 1)
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      VTI,28000,Interactive Brokers
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Only Binance should be offered (Interactive Brokers is in CSV)
+    let platformNames = viewModel.copyForwardPlatforms.map { $0.platformName }
+    #expect(platformNames == ["Binance"])
+  }
+
+  @Test("Copy-forward platforms excludes import-level platform")
+  func copyForwardPlatformsExcludesImportLevelPlatform() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Prior snapshot has Schwab and Binance
+    let priorDate = makeDate(year: 2025, month: 1, day: 1)
+    _ = createPriorSnapshot(
+      date: priorDate,
+      assets: [
+        ("VTI", "Schwab", 28000),
+        ("BTC", "Binance", 50000),
+      ],
+      context: tc.context)
+
+    // Import-level platform set to Schwab
+    viewModel.selectedPlatform = "Schwab"
+    viewModel.snapshotDate = makeDate(year: 2025, month: 2, day: 1)
+
+    // CSV has no Platform column, all go to Schwab
+    let csv = csvData(
+      """
+      Asset Name,Market Value
+      AAPL,15000
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Only Binance should be offered (Schwab is the import-level platform)
+    let platformNames = viewModel.copyForwardPlatforms.map { $0.platformName }
+    #expect(platformNames == ["Binance"])
+  }
+
+  @Test("Import with copy-forward creates SnapshotAssetValue records")
+  func executeImportWithCopyForwardCreatesRecords() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Prior snapshot with Binance assets
+    let priorDate = makeDate(year: 2025, month: 1, day: 1)
+    _ = createPriorSnapshot(
+      date: priorDate,
+      assets: [
+        ("BTC", "Binance", 50000),
+        ("ETH", "Binance", 3000),
+      ],
+      context: tc.context)
+
+    // Load CSV with Interactive Brokers
+    viewModel.snapshotDate = makeDate(year: 2025, month: 2, day: 1)
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      AAPL,15000,Interactive Brokers
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Ensure copy-forward is enabled (default)
+    #expect(viewModel.copyForwardEnabled == true)
+    #expect(!viewModel.copyForwardPlatforms.isEmpty)
+
+    let snapshot = viewModel.executeImport()
+    #expect(snapshot != nil)
+
+    // Should have 3 SAVs: 1 from CSV + 2 from copy-forward
+    let values = snapshot?.assetValues ?? []
+    #expect(values.count == 3)
+
+    let totalValue = values.reduce(Decimal(0)) { $0 + $1.marketValue }
+    #expect(totalValue == Decimal(68000))
+  }
+
+  @Test("Import with copy-forward disabled skips copy")
+  func executeImportWithCopyForwardDisabledSkipsCopy() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Prior snapshot with Binance assets
+    let priorDate = makeDate(year: 2025, month: 1, day: 1)
+    _ = createPriorSnapshot(
+      date: priorDate,
+      assets: [("BTC", "Binance", 50000)],
+      context: tc.context)
+
+    viewModel.snapshotDate = makeDate(year: 2025, month: 2, day: 1)
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      AAPL,15000,Interactive Brokers
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Disable copy-forward
+    viewModel.copyForwardEnabled = false
+
+    let snapshot = viewModel.executeImport()
+    #expect(snapshot != nil)
+
+    // Should have only 1 SAV from CSV
+    let values = snapshot?.assetValues ?? []
+    #expect(values.count == 1)
+    #expect(values.first?.marketValue == Decimal(15000))
+  }
+
+  @Test("Import with partial copy-forward selection copies only selected platforms")
+  func executeImportWithPartialCopyForwardSelection() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Prior snapshot with Binance and Schwab
+    let priorDate = makeDate(year: 2025, month: 1, day: 1)
+    _ = createPriorSnapshot(
+      date: priorDate,
+      assets: [
+        ("BTC", "Binance", 50000),
+        ("VTI", "Schwab", 28000),
+      ],
+      context: tc.context)
+
+    viewModel.snapshotDate = makeDate(year: 2025, month: 2, day: 1)
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      AAPL,15000,Interactive Brokers
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Deselect Schwab, keep Binance
+    if let schwabIndex = viewModel.copyForwardPlatforms.firstIndex(where: {
+      $0.platformName == "Schwab"
+    }) {
+      viewModel.copyForwardPlatforms[schwabIndex].isSelected = false
+    }
+
+    let snapshot = viewModel.executeImport()
+    #expect(snapshot != nil)
+
+    // Should have 2 SAVs: 1 from CSV + 1 from Binance copy-forward
+    let values = snapshot?.assetValues ?? []
+    #expect(values.count == 2)
+
+    let totalValue = values.reduce(Decimal(0)) { $0 + $1.marketValue }
+    #expect(totalValue == Decimal(65000))
+  }
+
+  @Test("Copy-forward does not create duplicate SnapshotAssetValues")
+  func copyForwardDoesNotCreateDuplicates() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Prior snapshot with AAPL on Interactive Brokers
+    let priorDate = makeDate(year: 2025, month: 1, day: 1)
+    _ = createPriorSnapshot(
+      date: priorDate,
+      assets: [("AAPL", "Interactive Brokers", 12000)],
+      context: tc.context)
+
+    // CSV also has AAPL on Interactive Brokers (same asset)
+    viewModel.snapshotDate = makeDate(year: 2025, month: 2, day: 1)
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      AAPL,15000,Interactive Brokers
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Interactive Brokers is in CSV, so it shouldn't be in copy-forward at all
+    #expect(viewModel.copyForwardPlatforms.isEmpty)
+
+    let snapshot = viewModel.executeImport()
+    #expect(snapshot != nil)
+
+    // Should have only 1 SAV from CSV
+    let values = snapshot?.assetValues ?? []
+    #expect(values.count == 1)
+    #expect(values.first?.marketValue == Decimal(15000))
+  }
+
+  @Test("Copy-forward recomputes when snapshot date changes")
+  func copyForwardRecomputesOnDateChange() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Prior snapshot on Jan 1
+    let jan1 = makeDate(year: 2025, month: 1, day: 1)
+    _ = createPriorSnapshot(
+      date: jan1,
+      assets: [("BTC", "Binance", 50000)],
+      context: tc.context)
+
+    // Load CSV for Feb 1
+    viewModel.snapshotDate = makeDate(year: 2025, month: 2, day: 1)
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      AAPL,15000,Interactive Brokers
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Should have Binance available
+    #expect(viewModel.copyForwardPlatforms.count == 1)
+
+    // Change date to before the prior snapshot
+    viewModel.snapshotDate = makeDate(year: 2024, month: 12, day: 1)
+
+    // No prior snapshot before Dec 2024, so copy-forward should be empty
+    #expect(viewModel.copyForwardPlatforms.isEmpty)
+  }
 }

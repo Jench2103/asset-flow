@@ -34,12 +34,11 @@ final class PlatformListViewModel {
 
   // MARK: - Loading
 
-  /// Fetches all assets, computes platform totals from the latest composite snapshot,
+  /// Fetches all assets, computes platform totals from the latest snapshot,
   /// and builds sorted row data.
   func loadPlatforms() {
     let allAssets = fetchAllAssets()
     let allSnapshots = fetchAllSnapshots()
-    let allAssetValues = fetchAllAssetValues()
 
     // Group assets by non-empty platform
     let assetsByPlatform = Dictionary(
@@ -47,9 +46,8 @@ final class PlatformListViewModel {
       by: { $0.platform }
     )
 
-    // Build platform → total value lookup from latest composite snapshot
-    let platformValues = buildPlatformValueLookup(
-      allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+    // Build platform → total value lookup from latest snapshot
+    let platformValues = buildPlatformValueLookup(allSnapshots: allSnapshots)
 
     platformRows =
       assetsByPlatform.map { platform, assets in
@@ -117,24 +115,18 @@ final class PlatformListViewModel {
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 
-  private func fetchAllAssetValues() -> [SnapshotAssetValue] {
-    let descriptor = FetchDescriptor<SnapshotAssetValue>()
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
-
-  /// Builds a lookup of platform name → total market value from the latest composite snapshot.
+  /// Builds a lookup of platform name → total market value from the latest snapshot.
   private func buildPlatformValueLookup(
-    allSnapshots: [Snapshot],
-    allAssetValues: [SnapshotAssetValue]
+    allSnapshots: [Snapshot]
   ) -> [String: Decimal] {
     guard let latestSnapshot = allSnapshots.last else { return [:] }
 
-    let compositeValues = CarryForwardService.compositeValues(
-      for: latestSnapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+    let assetValues = latestSnapshot.assetValues ?? []
 
     var lookup: [String: Decimal] = [:]
-    for cv in compositeValues where !cv.asset.platform.isEmpty {
-      lookup[cv.asset.platform, default: 0] += cv.marketValue
+    for sav in assetValues {
+      guard let platform = sav.asset?.platform, !platform.isEmpty else { continue }
+      lookup[platform, default: 0] += sav.marketValue
     }
     return lookup
   }

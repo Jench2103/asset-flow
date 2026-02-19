@@ -8,6 +8,16 @@
 import Foundation
 import SwiftData
 
+/// Information about a platform available for copy-forward during import.
+struct CopyForwardPlatformInfo: Identifiable {
+  let platformName: String
+  let assetCount: Int
+  let sourceSnapshotDate: Date
+  var isSelected: Bool
+
+  var id: String { platformName }
+}
+
 /// ViewModel for the CSV Import screen.
 ///
 /// Manages import type selection, file loading, CSV parsing (via CSVParsingService),
@@ -37,8 +47,15 @@ class ImportViewModel {
     didSet {
       guard snapshotDate != oldValue else { return }
       revalidate()
+      computeCopyForwardPlatforms()
     }
   }
+
+  /// Whether to copy assets from other platforms during import.
+  var copyForwardEnabled: Bool = true
+
+  /// Platforms available for copy-forward, computed from prior snapshots.
+  var copyForwardPlatforms: [CopyForwardPlatformInfo] = []
 
   /// Import-level platform override (nil = use CSV per-row values).
   var selectedPlatform: String?
@@ -110,6 +127,7 @@ class ImportViewModel {
     switch importType {
     case .assets:
       loadAssetCSVData(data)
+      computeCopyForwardPlatforms()
 
     case .cashFlows:
       loadCashFlowCSVData(data)
@@ -228,9 +246,76 @@ class ImportViewModel {
     let defaultPlatform = settingsService.defaultPlatform
     selectedPlatform = defaultPlatform.isEmpty ? nil : defaultPlatform
     selectedCategory = nil
+    copyForwardEnabled = true
     importError = nil
     hasUnsavedChanges = false
     importedSnapshot = nil
+  }
+
+  // MARK: - Copy-Forward Computation
+
+  /// Computes which platforms from prior snapshots can be copied forward.
+  ///
+  /// Examines the most recent prior snapshot (before `snapshotDate`) and identifies
+  /// platforms that are NOT present in the current import's resolved preview rows.
+  func computeCopyForwardPlatforms() {
+    guard importType == .assets else {
+      copyForwardPlatforms = []
+      return
+    }
+
+    let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
+
+    // Find the most recent prior snapshot
+    let snapshotDescriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
+    let allSnapshots = (try? modelContext.fetch(snapshotDescriptor)) ?? []
+
+    let priorSnapshots =
+      allSnapshots
+      .filter { $0.date < normalizedDate }
+      .sorted { $0.date > $1.date }
+
+    guard let latestPrior = priorSnapshots.first else {
+      copyForwardPlatforms = []
+      return
+    }
+
+    let priorValues = latestPrior.assetValues ?? []
+
+    // Collect platforms from the resolved preview rows.
+    // These are the platforms that will have assets in the new snapshot.
+    // The preview rows already reflect any import-level platform override
+    // (applied during CSV parsing), so no separate handling is needed.
+    var snapshotPlatforms = Set<String>()
+    for row in assetPreviewRows where row.isIncluded {
+      let platform = row.csvRow.platform
+      if !platform.isEmpty {
+        snapshotPlatforms.insert(platform.lowercased())
+      }
+    }
+
+    // Group prior snapshot values by platform
+    var platformAssets: [String: [SnapshotAssetValue]] = [:]
+    for sav in priorValues {
+      guard let platform = sav.asset?.platform, !platform.isEmpty else { continue }
+      platformAssets[platform, default: []].append(sav)
+    }
+
+    // Build copy-forward info for platforms not already in the new snapshot
+    var infos: [CopyForwardPlatformInfo] = []
+    for (platform, assets) in platformAssets {
+      if !snapshotPlatforms.contains(platform.lowercased()) {
+        infos.append(
+          CopyForwardPlatformInfo(
+            platformName: platform,
+            assetCount: assets.count,
+            sourceSnapshotDate: latestPrior.date,
+            isSelected: true
+          ))
+      }
+    }
+
+    copyForwardPlatforms = infos.sorted { $0.platformName < $1.platformName }
   }
 
   // MARK: - Private: Asset CSV Loading

@@ -91,8 +91,8 @@ struct CategoryDetailViewModelTests {
     #expect(viewModel.assets[2].asset.name == "MSFT")
   }
 
-  @Test("Asset list includes latest value from most recent composite snapshot")
-  func assetListIncludesLatestValueFromMostRecentCompositeSnapshot() {
+  @Test("Asset list includes latest value from most recent snapshot")
+  func assetListIncludesLatestValueFromMostRecentSnapshot() {
     let tc = createTestContext()
     let (context, category) = (tc.context, tc.category)
 
@@ -119,8 +119,8 @@ struct CategoryDetailViewModelTests {
 
   // MARK: - Value History
 
-  @Test("Value history computed across snapshots with carry-forward")
-  func valueHistoryComputedAcrossSnapshotsWithCarryForward() {
+  @Test("Value history computed across snapshots with direct values only")
+  func valueHistoryComputedAcrossSnapshotsWithDirectValues() {
     let tc = createTestContext()
     let (context, category) = (tc.context, tc.category)
 
@@ -131,7 +131,7 @@ struct CategoryDetailViewModelTests {
       name: "AAPL", platform: "Firstrade", category: category,
       marketValue: 5000, snapshot: snap1, context: context)
 
-    // Snapshot 2: MSFT on Vanguard = 3000 (Firstrade carries forward)
+    // Snapshot 2: MSFT on Vanguard = 3000 (AAPL is NOT carried forward)
     let snap2 = Snapshot(date: makeDate(year: 2025, month: 2, day: 1))
     context.insert(snap2)
     createAssetWithValue(
@@ -144,9 +144,9 @@ struct CategoryDetailViewModelTests {
     #expect(viewModel.valueHistory.count == 2)
     #expect(viewModel.valueHistory[0].date == snap1.date)
     #expect(viewModel.valueHistory[0].totalValue == 5000)
-    // Snap2: MSFT=3000 (direct) + AAPL=5000 (carry-forward) = 8000
+    // Snap2: only MSFT=3000 (direct), no carry-forward
     #expect(viewModel.valueHistory[1].date == snap2.date)
-    #expect(viewModel.valueHistory[1].totalValue == 8000)
+    #expect(viewModel.valueHistory[1].totalValue == 3000)
   }
 
   @Test("Value history includes only assets in this category")
@@ -202,8 +202,8 @@ struct CategoryDetailViewModelTests {
     #expect(viewModel.allocationHistory[0].allocationPercentage == 70)
   }
 
-  @Test("Allocation history uses composite snapshot values")
-  func allocationHistoryUsesCompositeSnapshotValues() {
+  @Test("Allocation history uses direct snapshot values only")
+  func allocationHistoryUsesDirectSnapshotValues() {
     let tc = createTestContext()
     let (context, category) = (tc.context, tc.category)
 
@@ -220,7 +220,7 @@ struct CategoryDetailViewModelTests {
       name: "Treasury", platform: "Vanguard", category: bonds,
       marketValue: 5000, snapshot: snap1, context: context)
 
-    // Snapshot 2: Only Firstrade updated (Vanguard carries forward)
+    // Snapshot 2: Only Firstrade updated — Vanguard NOT carried forward
     let snap2 = Snapshot(date: makeDate(year: 2025, month: 2, day: 1))
     context.insert(snap2)
     createAssetWithValue(
@@ -230,12 +230,12 @@ struct CategoryDetailViewModelTests {
     let viewModel = CategoryDetailViewModel(category: category, modelContext: context)
     viewModel.loadData()
 
-    // Snap2 composite: AAPL=8000, Treasury=5000 (carry-forward) => Total=13000
-    // Equities allocation: 8000/13000 * 100
+    // Snap2 direct values only: AAPL=8000 => Total=8000
+    // Equities allocation: 8000/8000 * 100 = 100%
     #expect(viewModel.allocationHistory.count == 2)
     let snap2Allocation = viewModel.allocationHistory[1].allocationPercentage
     let expectedAllocation = CalculationService.categoryAllocation(
-      categoryValue: 8000, totalValue: 13000)
+      categoryValue: 8000, totalValue: 8000)
     #expect(snap2Allocation == expectedAllocation)
   }
 
