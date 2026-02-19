@@ -33,7 +33,7 @@ struct DashboardDataPoint {
 /// Data for a recent snapshot row on the dashboard.
 struct RecentSnapshotData {
   let date: Date
-  let compositeTotal: Decimal
+  let totalValue: Decimal
   let assetCount: Int
 }
 
@@ -41,7 +41,6 @@ struct RecentSnapshotData {
 ///
 /// Computes summary metrics, period performance, category allocations,
 /// portfolio value history, TWR history, and recent snapshots.
-/// All portfolio-level metrics use composite values (with carry-forward).
 @Observable
 @MainActor
 class DashboardViewModel {
@@ -52,13 +51,13 @@ class DashboardViewModel {
   /// Whether the dashboard has no data to show (empty state).
   var isEmpty: Bool = true
 
-  /// Total portfolio value from latest composite snapshot.
+  /// Total portfolio value from latest snapshot.
   var totalPortfolioValue: Decimal = 0
 
   /// Date of the latest snapshot.
   var latestSnapshotDate: Date?
 
-  /// Number of assets in the latest composite snapshot.
+  /// Number of assets in the latest snapshot.
   var assetCount: Int = 0
 
   /// Absolute value change from previous to latest snapshot.
@@ -92,8 +91,6 @@ class DashboardViewModel {
 
   private var allSnapshots: [Snapshot] = []
   private var sortedSnapshotsCache: [Snapshot] = []
-  private var allAssetValues: [SnapshotAssetValue] = []
-  private var compositeValuesCache: [Date: [CompositeAssetValue]] = [:]
 
   // MARK: - Init
 
@@ -106,7 +103,6 @@ class DashboardViewModel {
   /// Loads all dashboard data from the model context.
   func loadData() {
     allSnapshots = fetchAllSnapshots()
-    allAssetValues = fetchAllAssetValues()
 
     guard !allSnapshots.isEmpty else {
       isEmpty = true
@@ -123,20 +119,12 @@ class DashboardViewModel {
       categoryValueHistory = [:]
       recentSnapshots = []
       sortedSnapshotsCache = []
-      compositeValuesCache = [:]
       return
     }
 
     isEmpty = false
     let sortedSnapshots = allSnapshots.sorted { $0.date < $1.date }
     sortedSnapshotsCache = sortedSnapshots
-
-    // Pre-compute composite values cache for all snapshots
-    compositeValuesCache = [:]
-    for snapshot in sortedSnapshots {
-      compositeValuesCache[snapshot.date] = CarryForwardService.compositeValues(
-        for: snapshot, allSnapshots: sortedSnapshots, allAssetValues: allAssetValues)
-    }
 
     computeSummaryCards(sortedSnapshots: sortedSnapshots)
     computeCategoryAllocations(sortedSnapshots: sortedSnapshots)
@@ -157,8 +145,8 @@ class DashboardViewModel {
 
   /// Returns category allocations for a specific snapshot date.
   ///
-  /// Computes composite values for the snapshot matching the given date
-  /// and groups by category. Returns empty if no matching snapshot exists.
+  /// Groups asset values by category for the snapshot matching the given date.
+  /// Returns empty if no matching snapshot exists.
   func categoryAllocations(forSnapshotDate date: Date) -> [CategoryAllocationData] {
     guard let snapshot = sortedSnapshotsCache.first(where: { $0.date == date }) else {
       return []
@@ -188,8 +176,8 @@ class DashboardViewModel {
         excludingLatest: latestSnapshot)
     else { return nil }
 
-    let beginValue = compositeTotal(for: beginSnapshot)
-    let endValue = compositeTotal(for: latestSnapshot)
+    let beginValue = snapshotTotal(for: beginSnapshot)
+    let endValue = snapshotTotal(for: latestSnapshot)
 
     return CalculationService.growthRate(beginValue: beginValue, endValue: endValue)
   }
@@ -213,8 +201,8 @@ class DashboardViewModel {
         excludingLatest: latestSnapshot)
     else { return nil }
 
-    let beginValue = compositeTotal(for: beginSnapshot)
-    let endValue = compositeTotal(for: latestSnapshot)
+    let beginValue = snapshotTotal(for: beginSnapshot)
+    let endValue = snapshotTotal(for: latestSnapshot)
 
     let totalDays =
       Calendar.current.dateComponents(
@@ -248,16 +236,15 @@ class DashboardViewModel {
 
   private func computeSummaryCards(sortedSnapshots: [Snapshot]) {
     guard let latestSnapshot = sortedSnapshots.last else { return }
-    let latestCompositeValues = cachedCompositeValues(for: latestSnapshot)
 
-    totalPortfolioValue = latestCompositeValues.reduce(Decimal(0)) { $0 + $1.marketValue }
+    totalPortfolioValue = snapshotTotal(for: latestSnapshot)
     latestSnapshotDate = latestSnapshot.date
-    assetCount = latestCompositeValues.count
+    assetCount = (latestSnapshot.assetValues ?? []).count
 
     // Value change from previous snapshot
     if sortedSnapshots.count >= 2 {
       let previousSnapshot = sortedSnapshots[sortedSnapshots.count - 2]
-      let previousTotal = compositeTotal(for: previousSnapshot)
+      let previousTotal = snapshotTotal(for: previousSnapshot)
 
       valueChangeAbsolute = totalPortfolioValue - previousTotal
       valueChangePercentage = CalculationService.growthRate(
@@ -280,7 +267,7 @@ class DashboardViewModel {
 
     // CAGR
     if sortedSnapshots.count >= 2, let firstSnapshot = sortedSnapshots.first {
-      let firstTotal = compositeTotal(for: firstSnapshot)
+      let firstTotal = snapshotTotal(for: firstSnapshot)
       let days =
         Calendar.current.dateComponents(
           [.day], from: firstSnapshot.date, to: latestSnapshot.date
@@ -303,19 +290,19 @@ class DashboardViewModel {
     categoryAllocations = computeCategoryAllocationsForSnapshot(latestSnapshot)
   }
 
-  /// Computes category allocation data for a single snapshot using composite values.
+  /// Computes category allocation data for a single snapshot using direct values.
   private func computeCategoryAllocationsForSnapshot(
     _ snapshot: Snapshot
   ) -> [CategoryAllocationData] {
-    let compositeValues = cachedCompositeValues(for: snapshot)
+    let assetValues = snapshot.assetValues ?? []
 
-    let total = compositeValues.reduce(Decimal(0)) { $0 + $1.marketValue }
+    let total = assetValues.reduce(Decimal(0)) { $0 + $1.marketValue }
     guard total > 0 else { return [] }
 
     var categoryValues: [String: Decimal] = [:]
-    for cv in compositeValues {
-      let categoryName = cv.asset.category?.name ?? "Uncategorized"
-      categoryValues[categoryName, default: 0] += cv.marketValue
+    for sav in assetValues {
+      let categoryName = sav.asset?.category?.name ?? "Uncategorized"
+      categoryValues[categoryName, default: 0] += sav.marketValue
     }
 
     return
@@ -335,12 +322,12 @@ class DashboardViewModel {
     var result: [String: [DashboardDataPoint]] = [:]
 
     for snapshot in sortedSnapshots {
-      let compositeValues = cachedCompositeValues(for: snapshot)
+      let assetValues = snapshot.assetValues ?? []
 
       var categoryValues: [String: Decimal] = [:]
-      for cv in compositeValues {
-        let categoryName = cv.asset.category?.name ?? "Uncategorized"
-        categoryValues[categoryName, default: 0] += cv.marketValue
+      for sav in assetValues {
+        let categoryName = sav.asset?.category?.name ?? "Uncategorized"
+        categoryValues[categoryName, default: 0] += sav.marketValue
       }
 
       for (categoryName, value) in categoryValues {
@@ -358,7 +345,7 @@ class DashboardViewModel {
     portfolioValueHistory = sortedSnapshots.map { snapshot in
       DashboardDataPoint(
         date: snapshot.date,
-        value: compositeTotal(for: snapshot)
+        value: snapshotTotal(for: snapshot)
       )
     }
   }
@@ -397,11 +384,11 @@ class DashboardViewModel {
   private func computeRecentSnapshots(sortedSnapshots: [Snapshot]) {
     let newestFirst = sortedSnapshots.reversed()
     recentSnapshots = Array(newestFirst.prefix(5)).map { snapshot in
-      let compositeValues = cachedCompositeValues(for: snapshot)
+      let assetValues = snapshot.assetValues ?? []
       return RecentSnapshotData(
         date: snapshot.date,
-        compositeTotal: compositeValues.reduce(Decimal(0)) { $0 + $1.marketValue },
-        assetCount: compositeValues.count
+        totalValue: assetValues.reduce(Decimal(0)) { $0 + $1.marketValue },
+        assetCount: assetValues.count
       )
     }
   }
@@ -413,21 +400,8 @@ class DashboardViewModel {
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 
-  private func fetchAllAssetValues() -> [SnapshotAssetValue] {
-    let descriptor = FetchDescriptor<SnapshotAssetValue>()
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
-
-  private func cachedCompositeValues(for snapshot: Snapshot) -> [CompositeAssetValue] {
-    if let cached = compositeValuesCache[snapshot.date] {
-      return cached
-    }
-    return CarryForwardService.compositeValues(
-      for: snapshot, allSnapshots: sortedSnapshotsCache, allAssetValues: allAssetValues)
-  }
-
-  private func compositeTotal(for snapshot: Snapshot) -> Decimal {
-    cachedCompositeValues(for: snapshot).reduce(Decimal(0)) { $0 + $1.marketValue }
+  private func snapshotTotal(for snapshot: Snapshot) -> Decimal {
+    (snapshot.assetValues ?? []).reduce(Decimal(0)) { $0 + $1.marketValue }
   }
 
   /// Computes Modified Dietz returns for each consecutive pair of snapshots.
@@ -438,8 +412,8 @@ class DashboardViewModel {
       let begin = sortedSnapshots[idx - 1]
       let end = sortedSnapshots[idx]
 
-      let beginValue = compositeTotal(for: begin)
-      let endValue = compositeTotal(for: end)
+      let beginValue = snapshotTotal(for: begin)
+      let endValue = snapshotTotal(for: end)
 
       let totalDays =
         Calendar.current.dateComponents(

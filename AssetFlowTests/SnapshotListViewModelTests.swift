@@ -174,8 +174,8 @@ struct SnapshotListViewModelTests {
     #expect(result == true)
   }
 
-  @Test("copyFromLatest copies all composite asset values from most recent prior snapshot")
-  func copyFromLatestCopiesCompositeValues() throws {
+  @Test("copyFromLatest copies all direct asset values from most recent prior snapshot")
+  func copyFromLatestCopiesDirectValues() throws {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
     let viewModel = createViewModel(context: context)
@@ -201,42 +201,6 @@ struct SnapshotListViewModelTests {
 
     let totalValue = newValues.reduce(Decimal(0)) { $0 + $1.marketValue }
     #expect(totalValue == Decimal(65000))
-  }
-
-  @Test("copyFromLatest materializes carried-forward values as direct SnapshotAssetValues")
-  func copyFromLatestMaterializesCarriedForward() throws {
-    let container = TestDataManager.createInMemoryContainer()
-    let context = container.mainContext
-    let viewModel = createViewModel(context: context)
-
-    // Snapshot 1: AAPL on Firstrade, BTC on Binance
-    let snap1 = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
-    context.insert(snap1)
-    let (apple, _) = createAssetWithValue(
-      name: "AAPL", platform: "Firstrade", marketValue: 15000,
-      snapshot: snap1, context: context)
-    let (_, _) = createAssetWithValue(
-      name: "BTC", platform: "Binance", marketValue: 50000,
-      snapshot: snap1, context: context)
-
-    // Snapshot 2: only AAPL updated (Binance carried forward)
-    let snap2 = Snapshot(date: makeDate(year: 2025, month: 2, day: 1))
-    context.insert(snap2)
-    let sav = SnapshotAssetValue(marketValue: 16000)
-    sav.snapshot = snap2
-    sav.asset = apple
-    context.insert(sav)
-
-    // Create snapshot 3 copying from latest (snap2 composite = AAPL 16000 + BTC 50000 carried)
-    let newDate = makeDate(year: 2025, month: 3, day: 1)
-    let newSnap = try viewModel.createSnapshot(date: newDate, copyFromLatest: true)
-
-    // All values should be direct (materialized), not carried forward
-    let newValues = newSnap.assetValues ?? []
-    #expect(newValues.count == 2)
-
-    let totalValue = newValues.reduce(Decimal(0)) { $0 + $1.marketValue }
-    #expect(totalValue == Decimal(66000))
   }
 
   @Test(
@@ -384,40 +348,30 @@ struct SnapshotListViewModelTests {
 
   // MARK: - Snapshot Row Data
 
-  @Test("snapshotRowData correctly separates direct vs carried-forward platforms")
-  func snapshotRowDataSeparatesPlatforms() throws {
+  @Test("snapshotRowData lists platforms from direct asset values")
+  func snapshotRowDataListsPlatforms() throws {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
     let viewModel = createViewModel(context: context)
 
-    // Snapshot 1: assets on Firstrade and Binance
-    let snap1 = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
-    context.insert(snap1)
-    let (apple, _) = createAssetWithValue(
+    let snap = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
+    context.insert(snap)
+    let (_, _) = createAssetWithValue(
       name: "AAPL", platform: "Firstrade", marketValue: 15000,
-      snapshot: snap1, context: context)
+      snapshot: snap, context: context)
     let (_, _) = createAssetWithValue(
       name: "BTC", platform: "Binance", marketValue: 50000,
-      snapshot: snap1, context: context)
+      snapshot: snap, context: context)
 
-    // Snapshot 2: only Firstrade updated
-    let snap2 = Snapshot(date: makeDate(year: 2025, month: 2, day: 1))
-    context.insert(snap2)
-    let sav = SnapshotAssetValue(marketValue: 16000)
-    sav.snapshot = snap2
-    sav.asset = apple
-    context.insert(sav)
+    let rowData = viewModel.snapshotRowData(for: snap)
 
-    let rowData = viewModel.snapshotRowData(for: snap2)
-
-    #expect(rowData.directPlatforms.contains("Firstrade"))
-    #expect(rowData.carriedForwardPlatforms.contains("Binance"))
-    #expect(!rowData.directPlatforms.contains("Binance"))
-    #expect(!rowData.carriedForwardPlatforms.contains("Firstrade"))
+    #expect(rowData.platforms.sorted() == ["Binance", "Firstrade"])
+    #expect(rowData.totalValue == Decimal(65000))
+    #expect(rowData.assetCount == 2)
   }
 
-  @Test("snapshotRowData for snapshot with no carry-forward shows only direct platforms")
-  func snapshotRowDataNoCarryForward() throws {
+  @Test("snapshotRowData with direct values shows correct totals")
+  func snapshotRowDataWithDirectValues() throws {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
     let viewModel = createViewModel(context: context)
@@ -430,44 +384,8 @@ struct SnapshotListViewModelTests {
 
     let rowData = viewModel.snapshotRowData(for: snap)
 
-    #expect(rowData.directPlatforms == ["Firstrade"])
-    #expect(rowData.carriedForwardPlatforms.isEmpty)
-    #expect(rowData.compositeTotal == Decimal(15000))
+    #expect(rowData.platforms == ["Firstrade"])
+    #expect(rowData.totalValue == Decimal(15000))
     #expect(rowData.assetCount == 1)
-  }
-
-  @Test("snapshotRowData for partial snapshot shows both direct and carried-forward platforms")
-  func snapshotRowDataPartialSnapshot() throws {
-    let container = TestDataManager.createInMemoryContainer()
-    let context = container.mainContext
-    let viewModel = createViewModel(context: context)
-
-    // Snapshot 1: Firstrade, Binance, Chase
-    let snap1 = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
-    context.insert(snap1)
-    let (apple, _) = createAssetWithValue(
-      name: "AAPL", platform: "Firstrade", marketValue: 15000,
-      snapshot: snap1, context: context)
-    let (_, _) = createAssetWithValue(
-      name: "BTC", platform: "Binance", marketValue: 50000,
-      snapshot: snap1, context: context)
-    let (_, _) = createAssetWithValue(
-      name: "Savings", platform: "Chase", marketValue: 20000,
-      snapshot: snap1, context: context)
-
-    // Snapshot 2: only Firstrade
-    let snap2 = Snapshot(date: makeDate(year: 2025, month: 2, day: 1))
-    context.insert(snap2)
-    let sav = SnapshotAssetValue(marketValue: 16000)
-    sav.snapshot = snap2
-    sav.asset = apple
-    context.insert(sav)
-
-    let rowData = viewModel.snapshotRowData(for: snap2)
-
-    #expect(rowData.directPlatforms.sorted() == ["Firstrade"])
-    #expect(rowData.carriedForwardPlatforms.sorted() == ["Binance", "Chase"])
-    #expect(rowData.compositeTotal == Decimal(86000))  // 16000 + 50000 + 20000
-    #expect(rowData.assetCount == 3)
   }
 }

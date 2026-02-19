@@ -35,7 +35,7 @@ xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow test -destination 'pla
 - Models: SwiftData models with relationships
 - Views: SwiftUI components
 - ViewModels: `@Observable @MainActor` classes handling form state, validation, and persistence
-- Services: Stateless utilities (CalculationService, CarryForwardService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, CurrencyService, ChartDataService)
+- Services: Stateless utilities (CalculationService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, CurrencyService, ChartDataService)
 
 **Data Model Relationships:**
 
@@ -142,7 +142,6 @@ This project uses `swift-format` for code formatting and `SwiftLint` for linting
 - Default display currency: "USD" (cosmetic only, no FX conversion)
 - Extensions in `Utilities/Extensions.swift` provide `.formatted(currency:)` and `.formattedPercentage()`
 - **`formattedPercentage()` expects percentage-scale input** (e.g., `Decimal(60)` for 60%, not `Decimal(0.6)`). It divides by 100 internally before applying `NumberFormatter.percent` style. Raw decimal values like TWR (0.21 for 21%) must be multiplied by 100 first: `(twr * 100).formattedPercentage()`
-- **CarryForwardService requires sorted snapshots.** Always pass `sortedSnapshotsCache` (sorted ascending by date), never the unsorted `allSnapshots` array. Carry-forward resolution depends on chronological ordering.
 
 **Localization:**
 
@@ -210,7 +209,7 @@ This tool lints the code to enforce stylistic and convention-based rules. Config
 
 - Properties: date (unique, calendar date only), createdAt
 - Relationships: snapshotAssetValues (many, `.cascade`), cashFlowOperations (many, `.cascade`)
-- Note: `totalPortfolioValue` is always derived (never stored) — includes carry-forward
+- Note: `totalPortfolioValue` is always derived (never stored) — sum of SnapshotAssetValues
 
 **SnapshotAssetValue** — Market value of an asset within a snapshot
 
@@ -230,4 +229,4 @@ See `Documentation/DataModel.md` for comprehensive model documentation.
 
 - Single shared `ModelContainer` injected at app root
 - No manual save() calls needed — SwiftData handles persistence automatically
-- Carry-forward values are computed at query time, never stored as new records
+- Snapshots contain only directly-recorded values; no automatic carry-forward

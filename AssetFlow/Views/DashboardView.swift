@@ -332,7 +332,7 @@ struct DashboardView: View {
               Spacer()
 
               Text(
-                snapshot.compositeTotal.formatted(currency: SettingsService.shared.mainCurrency)
+                snapshot.totalValue.formatted(currency: SettingsService.shared.mainCurrency)
               )
               .font(.body)
               .monospacedDigit()

@@ -42,21 +42,8 @@ A snapshot represents the best-known portfolio state at a specific date.
 
 1. The CSV file does NOT contain a date. The user explicitly selects a date when importing.
 1. Snapshots are append-only — a new import never silently overwrites an existing snapshot.
-1. Snapshots may be **partial** — a single import may cover only some platforms.
-1. When a snapshot does not include all platforms, **missing platform values are carried forward** from the most recent prior snapshot containing that platform's data.
+1. A snapshot contains only directly-recorded SnapshotAssetValues. There is no automatic carry-forward. Users can explicitly copy values from prior snapshots via "Copy from latest" (manual creation) or the copy-forward option during CSV import.
 1. Users may delete or edit snapshots after creation (see Section 8).
-
-**Carry-forward behavior:**
-
-- When computing total portfolio value at Snapshot N, the system uses:
-  - Imported values from Snapshot N
-  - Plus carried-forward values for any platform not included in Snapshot N
-- Carried-forward values are **not stored as new records** — they are computed at query time from prior snapshots.
-- Visualizations and calculations must reflect this composite view.
-
-**Asset-level granularity:** When a platform is present in a snapshot (has at least one directly-recorded SnapshotAssetValue), only those directly-recorded assets represent that platform. Assets from prior snapshots for the same platform that are not included are simply absent — they are not individually carried forward. This is how asset disposals are naturally reflected: the sold asset is omitted from the next import or removed manually.
-
-Carry-forward operates at the platform level. If a platform appears in a snapshot (has at least one directly-recorded asset), no asset-level carry-forward occurs for that platform.
 
 ______________________________________________________________________
 
@@ -86,7 +73,7 @@ ______________________________________________________________________
 
 ### 3.2 Dashboard (Home Screen)
 
-The dashboard provides a portfolio overview using the latest snapshot (with carry-forward).
+The dashboard provides a portfolio overview using the latest snapshot.
 
 **Layout:**
 
@@ -134,14 +121,12 @@ ______________________________________________________________________
 **List view:**
 
 - Chronological list of all snapshots (newest first)
-- Each row shows: date, total value (composite), platforms included, number of assets
-- Carried-forward indicators: visual marker showing which platforms were imported vs. carried forward
+- Each row shows: date, total value, platforms included, number of assets
 - "New Snapshot" button
 
 **Snapshot detail view** (on selection):
 
 - Full asset breakdown table sorted by platform (alphabetical), then by asset name (alphabetical) within each platform: Asset Name, Platform, Category, Market Value
-- Carried-forward values visually distinguished (e.g., dimmed or labeled)
 - Category allocation summary for this snapshot
 - Cash flow operations table: lists all CashFlowOperations for this snapshot (Description, Amount)
 - Net cash flow summary line showing the total (sum of all operations)
@@ -192,7 +177,7 @@ ______________________________________________________________________
 **List view:**
 
 - All platforms listed alphabetically
-- Each row: Platform name, number of assets, total latest value (from latest composite snapshot)
+- Each row: Platform name, number of assets, total latest value (from latest snapshot)
 
 **Actions:**
 
@@ -272,7 +257,7 @@ ______________________________________________________________________
 
 - **Minimum window size:** 900 × 600 points
 - **Sidebar:** Collapsible via toolbar button or drag. Default width: 220 points.
-- **Appearance:** Supports system appearance (light and dark mode). All custom colors, chart colors, and visual indicators (e.g., carry-forward dimming) must adapt to both modes.
+- **Appearance:** Supports system appearance (light and dark mode). All custom colors and chart colors must adapt to both modes.
 
 **Number formatting:**
 
@@ -299,7 +284,8 @@ ______________________________________________________________________
      - Each row in the preview table includes a **remove button** to exclude individual entries before importing
      - For asset import: if an asset already exists with a different category than the import-level category, a **warning indicator** is shown on that row (e.g., "This asset is currently assigned to [Category X]. Importing will reassign it to [Category Y].")
    - **Validation summary** at the top of the preview (errors in red, warnings in yellow)
-1. User can adjust date, platform, and category at any time before confirming
+1. **Copy-forward option (asset import only):** After selecting a file and snapshot date, if prior snapshots exist, the import screen offers a **"Copy assets from other platforms"** toggle. When enabled, the system identifies all platforms in prior snapshots that are NOT already represented in the import's resolved preview rows, and copies their most recent SnapshotAssetValues into the new snapshot as direct records. The resolved preview rows already reflect any import-level platform override, so the exclusion logic is based solely on the platforms that will actually appear in the new snapshot. This allows users to explicitly carry forward assets from platforms not included in the current import. The copied assets appear in the preview table (marked as copy-forward entries) and can be individually removed before importing.
+1. User can adjust date, platform, category, and copy-forward option at any time before confirming
 1. User clicks "Import" button to confirm
    - If duplicates are detected (see 4.6), an error dialog is shown and the import is rejected
    - If validation errors exist, the Import button is disabled
@@ -548,7 +534,7 @@ Assets persist across snapshots and are created during import if they don't alre
 
 **Uniqueness constraint:** Only one Snapshot may exist per date. Multiple imports on the same date add SnapshotAssetValues to the existing Snapshot.
 
-**Note:** `totalPortfolioValue` is **not stored** — it is always derived by summing SnapshotAssetValues (including carry-forward).
+**Note:** `totalPortfolioValue` is **not stored** — it is always derived by summing SnapshotAssetValues.
 
 ### 7.4 SnapshotAssetValue
 
@@ -585,10 +571,8 @@ Users can create a snapshot manually from the Snapshots screen:
 1. Select a snapshot date (required, must be today or earlier). **The selected date must not have an existing snapshot.** If the user selects a date that already has a snapshot, show a validation error: "A snapshot already exists for [date]. Go to the Snapshots screen to view and edit it." The creation flow cannot proceed until a valid date is selected.
 1. Choose a starting point:
    - **Start empty** — creates a snapshot with no asset entries; user adds assets manually
-   - **Copy from latest** — pre-populates with all assets from the most recent prior snapshot's composite view (the latest snapshot with a date before the selected date, including carried-forward values), creating direct SnapshotAssetValues for each. User then edits values, adds new assets, or removes sold positions. This option is disabled (grayed out with explanatory text) when no snapshots exist before the selected date.
+   - **Copy from latest** — pre-populates with all direct SnapshotAssetValues from the most recent prior snapshot (the latest snapshot with a date before the selected date), creating direct SnapshotAssetValues for each. User then edits values, adds new assets, or removes sold positions. This option is disabled (grayed out with explanatory text) when no snapshots exist before the selected date.
 1. User is taken to the snapshot detail view for editing.
-
-**Note:** "Copy from latest" materializes all composite values (including previously carried-forward values) as direct SnapshotAssetValue records. This means the new snapshot fully owns all asset entries — subsequent carry-forward resolution for later snapshots will use these materialized values.
 
 ### 8.2 CSV Import Creation
 
@@ -607,8 +591,6 @@ Within the snapshot detail view, users can:
 - **Edit value** — Click on a market value to edit it. Changes are saved immediately. There is no undo for inline value edits. Users should verify values before moving to the next field.
 - **Remove asset** — Remove a directly-recorded asset entry from this snapshot. **Confirmation required:** "Remove [Asset Name] from this snapshot? The asset record itself will not be deleted." The Asset record itself is NOT deleted — it persists for other snapshots.
 
-Carried-forward assets are displayed for context (visually distinguished) but cannot be edited or removed from this snapshot. To update carried-forward assets, create a new snapshot using "Copy from latest" to materialize all values as direct entries.
-
 **Cash flow operations:**
 
 - **Add cash flow** — Enter description and amount. If the description matches an existing operation in this snapshot (case-insensitive), show error and prevent creation.
@@ -624,7 +606,6 @@ Users can delete an entire snapshot:
 - Confirmation dialog required: "Delete snapshot from [date]? This will remove all [N] asset values and [M] cash flow operations. This action cannot be undone."
 - Deletion removes the Snapshot and all its SnapshotAssetValues and CashFlowOperations
 - Asset records are NOT deleted (they persist for other snapshots)
-- Carry-forward calculations for later snapshots automatically adjust
 
 ______________________________________________________________________
 
@@ -652,7 +633,7 @@ Cash flow operations can be entered via:
 
 - Portfolio-level only in v1
 - Category-level cash flow tracking is deferred to a future version
-- Cash flow operations apply to the entire portfolio, regardless of which platforms were included in the snapshot. When a snapshot is partial, carried-forward platform values may not reflect the actual destination of cash flows — this is an inherent model limitation.
+- Cash flow operations apply to the entire portfolio, regardless of which platforms were included in the snapshot.
 
 ### 9.4 Timing Assumption
 
@@ -666,23 +647,19 @@ ______________________________________________________________________
 
 ## 10. Calculation Logic
 
-All calculations are derived from stored structured data. No spreadsheet-style hidden formulas. All portfolio-level metrics (growth, return, TWR, CAGR) operate on composite portfolio values, which include carry-forward resolution (see Section 2).
+All calculations are derived from stored structured data. No spreadsheet-style hidden formulas. All portfolio-level metrics (growth, return, TWR, CAGR) operate on stored portfolio values.
 
-### 10.1 Portfolio Total Value (Composite)
+### 10.1 Portfolio Total Value
 
-For a given snapshot, the composite total value includes carry-forward:
+For a given snapshot, the total value is the sum of all directly-stored SnapshotAssetValues:
 
 ```
-composite_value(snapshot_N) =
-    sum(SnapshotAssetValues in snapshot_N)
-    + sum(carried_forward_values for platforms not in snapshot_N)
+total_value(snapshot) = sum(SnapshotAssetValues in snapshot)
 ```
-
-Where `carried_forward_value` for a platform = sum of that platform's asset values from the most recent prior snapshot containing that platform.
 
 ### 10.2 Category Allocation
 
-For each snapshot (using composite values):
+For each snapshot:
 
 ```
 category_value = sum(market_value of assets in category)
@@ -715,8 +692,8 @@ R = (EMV - BMV - CF) / (BMV + Σ(wi * CFi))
 
 Where:
 
-- `EMV` = ending composite portfolio value
-- `BMV` = beginning composite portfolio value
+- `EMV` = ending portfolio value
+- `BMV` = beginning portfolio value
 - `CF` = total net cash flow during the period (Σ CFi)
 - `CFi` = net cash flow at each intermediate snapshot
 - `wi` = time-weighting factor for each cash flow
@@ -792,7 +769,7 @@ ______________________________________________________________________
 
 ### 11.1 Inputs
 
-- Current category allocation (from latest composite snapshot)
+- Current category allocation (from latest snapshot)
 - Target allocation (from category settings)
 
 ### 11.2 Calculation
@@ -846,7 +823,7 @@ ______________________________________________________________________
 ### 12.2 Line Chart — Portfolio Value Over Time
 
 - X-axis: snapshot dates
-- Y-axis: composite portfolio total value
+- Y-axis: portfolio total value
 - Data points at each snapshot
 - Tooltip on hover showing date and value
 - Clicking a data point navigates to the corresponding snapshot's detail view.
@@ -884,7 +861,7 @@ The category detail view also includes an allocation percentage line chart (same
 | TWR chart (12.4)  | Fewer than 2 snapshots                       | "Insufficient data (need at least 2 snapshots)"          |
 | TWR chart (12.4)  | All returns N/A in selected range            | "Cannot calculate returns for selected period"           |
 
-All charts are based strictly on snapshot data (with carry-forward compositing).
+All charts are based strictly on stored snapshot data.
 
 ______________________________________________________________________
 
@@ -931,7 +908,6 @@ ______________________________________________________________________
 
 - SwiftData
 - Must support efficient historical queries (fetch all snapshots, fetch asset values across snapshots)
-- Carry-forward computation must be efficient (avoid N+1 queries). Carry-forward resolution must be performed using pre-fetched snapshot history in memory, not per-asset database queries.
 - SwiftData lightweight migration is relied upon for schema evolution. The initial data model should be designed to minimize future breaking changes.
 
 ### Window Management
@@ -985,7 +961,7 @@ All calculations must be:
 - **Deterministic** — same inputs always produce same outputs
 - **Recomputable** — derived values are never the source of truth
 - **Transparent** — user can see what data drives each number
-- **Auditable** — carry-forward sources are visible, not hidden
+- **Auditable** — data sources are visible, not hidden
 
 ______________________________________________________________________
 
@@ -994,7 +970,7 @@ ______________________________________________________________________
 The app is considered successful if:
 
 1. Users can import CSV files from multiple platforms
-1. Snapshots correctly composite with carry-forward for partial imports
+1. Snapshots contain only directly-recorded values; copy-forward import option works correctly
 1. Snapshots are browsable, editable, and deletable
 1. Portfolio-level TWR is mathematically correct
 1. Category allocation and rebalancing calculations are correct
@@ -1013,7 +989,7 @@ ______________________________________________________________________
 After implementation, verify by:
 
 1. Import a sample CSV and confirm snapshot is created with correct values
-1. Import a partial CSV (one platform) and confirm carry-forward works
+1. Import a partial CSV (one platform) and use copy-forward option to include other platforms
 1. Create categories, assign assets, verify allocation percentages
 1. Set target allocations and verify rebalancing suggestions
 1. Confirm TWR and CAGR calculations with manual computation

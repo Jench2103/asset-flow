@@ -156,66 +156,6 @@ struct SpecVerificationTests {
 
   // MARK: - End-to-End Scenario Tests
 
-  @Test("Import to snapshot to carry-forward pipeline")
-  func importToSnapshotToCarryForwardPipeline() {
-    let tc = createTestContext()
-
-    // Simulate import: Create assets and first snapshot manually
-    let date1 = makeDate(year: 2025, month: 1, day: 1)
-    createSnapshot(
-      in: tc.context,
-      date: date1,
-      assets: [
-        ("AAPL", "Firstrade", Decimal(10_000), nil),
-        ("BTC", "Binance", Decimal(50_000), nil),
-      ]
-    )
-
-    // Create second snapshot with only partial assets (different platform)
-    let date2 = makeDate(year: 2025, month: 2, day: 1)
-    let snap2 = createSnapshot(
-      in: tc.context,
-      date: date2,
-      assets: [
-        ("AAPL", "Firstrade", Decimal(12_000), nil),  // Updated value
-        ("GOOGL", "E-Trade", Decimal(8_000), nil),  // New asset, new platform
-      ]
-    )
-
-    // Verify carry-forward: BTC from Binance should be carried forward
-    let descriptor = FetchDescriptor<Snapshot>(
-      sortBy: [SortDescriptor(\.date, order: .forward)]
-    )
-    let allSnapshots = (try? tc.context.fetch(descriptor)) ?? []
-
-    let allValuesDescriptor = FetchDescriptor<SnapshotAssetValue>()
-    let allValues = (try? tc.context.fetch(allValuesDescriptor)) ?? []
-
-    let compositeValues = CarryForwardService.compositeValues(
-      for: snap2,
-      allSnapshots: allSnapshots,
-      allAssetValues: allValues
-    )
-
-    #expect(compositeValues.count == 3, "Should have 3 composite values (2 direct + 1 carried)")
-
-    let carriedBTC = compositeValues.first(where: {
-      $0.asset.name == "BTC" && $0.isCarriedForward
-    })
-    #expect(carriedBTC != nil, "BTC should be carried forward from Binance")
-    #expect(
-      carriedBTC?.marketValue == Decimal(50_000),
-      "Carried BTC value should match original"
-    )
-
-    // Verify total includes carry-forward
-    let totalValue = compositeValues.reduce(Decimal(0)) { $0 + $1.marketValue }
-    #expect(
-      totalValue == Decimal(70_000),
-      "Total should be 12000 + 8000 + 50000 (carried)"
-    )
-  }
-
   @Test("Category assignment to allocation to rebalancing pipeline")
   func categoryAssignmentToAllocationToRebalancingPipeline() {
     let tc = createTestContext()
@@ -334,67 +274,6 @@ struct SpecVerificationTests {
     // Note: Full backup/restore round-trip testing requires proper file system access
     // and SettingsService integration. This test verifies data setup is correct.
     // BackupService is tested separately in BackupServiceTests.swift with full round-trip.
-  }
-
-  @Test("SPEC 2: Asset-level granularity rule")
-  func assetLevelGranularityRule() {
-    let tc = createTestContext()
-
-    // SPEC 2: Platform present in snapshot blocks asset-level carry-forward for that platform
-    let date1 = makeDate(year: 2025, month: 1, day: 1)
-    createSnapshot(
-      in: tc.context,
-      date: date1,
-      assets: [
-        ("AAPL", "Firstrade", Decimal(10_000), nil),
-        ("GOOGL", "Firstrade", Decimal(15_000), nil),
-        ("BTC", "Binance", Decimal(50_000), nil),
-      ]
-    )
-
-    // Second snapshot: Include Firstrade platform (AAPL only) but not Binance
-    let date2 = makeDate(year: 2025, month: 2, day: 1)
-    let snap2 = createSnapshot(
-      in: tc.context,
-      date: date2,
-      assets: [
-        ("AAPL", "Firstrade", Decimal(12_000), nil)
-        // Firstrade platform is present, so GOOGL should NOT carry forward
-        // Binance platform is missing, so BTC SHOULD carry forward
-      ]
-    )
-
-    let descriptor = FetchDescriptor<Snapshot>(
-      sortBy: [SortDescriptor(\.date, order: .forward)]
-    )
-    let allSnapshots = (try? tc.context.fetch(descriptor)) ?? []
-
-    let allValuesDescriptor = FetchDescriptor<SnapshotAssetValue>()
-    let allValues = (try? tc.context.fetch(allValuesDescriptor)) ?? []
-
-    let compositeValues = CarryForwardService.compositeValues(
-      for: snap2,
-      allSnapshots: allSnapshots,
-      allAssetValues: allValues
-    )
-
-    // Should have: AAPL (direct), BTC (carried from Binance)
-    // Should NOT have: GOOGL (Firstrade platform present blocks asset-level carry)
-    #expect(compositeValues.count == 2, "Should have 2 composite values")
-
-    let aaplValue = compositeValues.first(where: { $0.asset.name == "AAPL" })
-    #expect(aaplValue != nil, "AAPL should be present (direct)")
-    #expect(aaplValue?.isCarriedForward == false, "AAPL should not be carried forward")
-
-    let btcValue = compositeValues.first(where: { $0.asset.name == "BTC" })
-    #expect(btcValue != nil, "BTC should be carried forward (Binance platform missing)")
-    #expect(btcValue?.isCarriedForward == true, "BTC should be marked as carried forward")
-
-    let googlValue = compositeValues.first(where: { $0.asset.name == "GOOGL" })
-    #expect(
-      googlValue == nil,
-      "GOOGL should NOT be carried (Firstrade platform present)"
-    )
   }
 
   @Test("SPEC 9.4: Cash flow timing assumption at snapshot date")

@@ -8,9 +8,9 @@
 import SwiftData
 import SwiftUI
 
-/// Snapshot list view with carry-forward indicators and creation workflow.
+/// Snapshot list view with creation workflow.
 ///
-/// Displays all snapshots sorted by date (newest first) with composite totals,
+/// Displays all snapshots sorted by date (newest first) with totals,
 /// asset counts, and platform indicators. Supports creating new snapshots
 /// (empty or copy-from-latest) and deletion with confirmation.
 struct SnapshotListView: View {
@@ -154,7 +154,7 @@ struct SnapshotListView: View {
       HStack(spacing: 12) {
         if let rowData = rowData {
           Text(
-            rowData.compositeTotal.formatted(
+            rowData.totalValue.formatted(
               currency: SettingsService.shared.mainCurrency)
           )
           .font(.body)
@@ -184,35 +184,17 @@ struct SnapshotListView: View {
     rowData: SnapshotRowData
   ) -> some View {
     let maxVisible = 3
-    let allDirect = rowData.directPlatforms
-    let allCarried = rowData.carriedForwardPlatforms
-    let totalCount = allDirect.count + allCarried.count
-    let overflow = max(0, totalCount - maxVisible)
+    let allPlatforms = rowData.platforms
+    let overflow = max(0, allPlatforms.count - maxVisible)
 
     HStack(spacing: 4) {
-      ForEach(allDirect.prefix(maxVisible), id: \.self) { platform in
+      ForEach(allPlatforms.prefix(maxVisible), id: \.self) { platform in
         Text(platform)
           .font(.caption2)
           .padding(.horizontal, ChartConstants.compactBadgePaddingH)
           .padding(.vertical, ChartConstants.compactBadgePaddingV)
           .background(.quaternary)
           .clipShape(Capsule())
-      }
-
-      let carriedSlots = max(0, maxVisible - allDirect.count)
-      ForEach(allCarried.prefix(carriedSlots), id: \.self) { platform in
-        HStack(spacing: 2) {
-          Image(systemName: "arrow.uturn.forward")
-            .font(.caption2)
-          Text(platform)
-            .font(.caption2)
-        }
-        .padding(.horizontal, ChartConstants.compactBadgePaddingH)
-        .padding(.vertical, ChartConstants.compactBadgePaddingV)
-        .background(.quaternary.opacity(0.5))
-        .clipShape(Capsule())
-        .foregroundStyle(.secondary)
-        .italic()
       }
 
       if overflow > 0 {

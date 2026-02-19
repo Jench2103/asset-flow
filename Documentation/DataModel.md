@@ -14,7 +14,6 @@ The data model captures portfolio state through snapshots rather than transactio
 
 - **Snapshots** represent the best-known portfolio state at a specific date
 - **SnapshotAssetValues** record market values of assets within a snapshot
-- **Carry-forward** computes missing platform values from prior snapshots at query time (not stored)
 - **CashFlowOperations** record external money flows for return calculations
 
 ### Financial Data Precision
@@ -186,7 +185,7 @@ var cashFlowOperations: [CashFlowOperation]?
 
 #### Important Notes
 
-- `totalPortfolioValue` is **not stored** -- it is always derived by summing SnapshotAssetValues (including carry-forward)
+- `totalPortfolioValue` is **not stored** -- it is always derived by summing SnapshotAssetValues
 - Future dates are not allowed
 - The `date` field stores only the calendar date (no time component), normalized to local midnight
 
@@ -234,7 +233,6 @@ var asset: Asset?        // Inverse of Asset.snapshotAssetValues
 
 - Negative market values are allowed (for liabilities or short positions)
 - Zero market values are allowed (with a warning during import)
-- Carry-forward values are NOT stored as SnapshotAssetValue records -- they are computed at query time
 
 #### Usage Example
 
@@ -478,23 +476,6 @@ func validateAssetCSV(_ rows: [CSVRow]) -> [ValidationError] {
 
 ______________________________________________________________________
 
-## Carry-Forward Behavior
-
-Carry-forward is a **query-time computation**, not a storage operation:
-
-1. When computing the composite total value of Snapshot N:
-   - Sum all directly-recorded SnapshotAssetValues in Snapshot N
-   - Identify platforms present in Snapshot N (platforms with at least one direct SnapshotAssetValue)
-   - For each platform NOT present in Snapshot N, find the most recent prior snapshot containing that platform
-   - Include those carried-forward platform values in the total
-1. Carry-forward values are **never stored** as new SnapshotAssetValue records
-1. Carry-forward operates at the **platform level**: if a platform appears in a snapshot (has any directly-recorded asset), no individual asset carry-forward occurs for that platform
-1. Assets absent from a platform's import are treated as disposed (not individually carried forward)
-
-See [BusinessLogic.md](BusinessLogic.md) for detailed carry-forward resolution logic.
-
-______________________________________________________________________
-
 ## Backup Data Format
 
 When exporting a backup, each entity is serialized to CSV with the following rules:
@@ -543,7 +524,6 @@ The data model must support efficient queries for:
 
 - Fetching all snapshots (ordered by date)
 - Fetching asset values across multiple snapshots (for charts)
-- Carry-forward resolution (pre-fetch snapshot history, resolve in memory)
 
 ### Indexing
 
@@ -556,15 +536,6 @@ var date: Date  // On Snapshot
 @Attribute(.index)
 var name: String  // On Asset
 ```
-
-### Carry-Forward Performance
-
-Carry-forward computation must be efficient:
-
-1. Pre-fetch all relevant snapshot data into memory
-1. Build platform-to-latest-values index
-1. Resolve carry-forward from in-memory data
-1. Avoid per-asset or per-platform database queries during resolution
 
 ______________________________________________________________________
 

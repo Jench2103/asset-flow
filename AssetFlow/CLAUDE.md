@@ -2,14 +2,14 @@
 
 ## Directory Structure
 
-| Directory     | Purpose                                                                                                                                                 |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Models/`     | SwiftData `@Model` classes (see `Models/README.md` for full reference)                                                                                  |
-| `Views/`      | SwiftUI view structs (includes `Charts/` subdirectory for chart components)                                                                             |
-| `ViewModels/` | `@Observable @MainActor` classes for form state and business logic                                                                                      |
-| `Services/`   | Stateless utilities: CalculationService, CarryForwardService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, CurrencyService |
-| `Utilities/`  | Extensions and helpers (e.g., `Decimal.formatted(currency:)`)                                                                                           |
-| `Resources/`  | Non-code assets (XML data files, etc.)                                                                                                                  |
+| Directory     | Purpose                                                                                                                            |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `Models/`     | SwiftData `@Model` classes (see `Models/README.md` for full reference)                                                             |
+| `Views/`      | SwiftUI view structs (includes `Charts/` subdirectory for chart components)                                                        |
+| `ViewModels/` | `@Observable @MainActor` classes for form state and business logic                                                                 |
+| `Services/`   | Stateless utilities: CalculationService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, CurrencyService |
+| `Utilities/`  | Extensions and helpers (e.g., `Decimal.formatted(currency:)`)                                                                      |
+| `Resources/`  | Non-code assets (XML data files, etc.)                                                                                             |
 
 ## Patterns
 
@@ -96,7 +96,6 @@ Key points:
 Services are stateless enums or classes with no direct SwiftData dependency:
 
 - **CalculationService** -- `enum`, unified calculation engine: growth rate, Modified Dietz return, cumulative TWR, CAGR, category allocation
-- **CarryForwardService** -- `enum`, composite snapshot resolution with platform-level carry-forward (SPEC 2)
 - **CSVParsingService** -- `enum`, parses asset/cash flow CSV files with within-CSV duplicate detection
 - **RebalancingCalculator** -- `enum`, computes rebalancing adjustment amounts (buy/sell)
 - **BackupService** -- `@MainActor enum`, exports/validates/restores ZIP backup archives using `/usr/bin/ditto`
@@ -124,7 +123,7 @@ nameValidationMessage = String(localized: "Asset name cannot be empty.", table: 
 
 | File                            | Purpose                                                               |
 | ------------------------------- | --------------------------------------------------------------------- |
-| `SnapshotListViewModel.swift`   | Snapshot creation, deletion, row data with carry-forward              |
+| `SnapshotListViewModel.swift`   | Snapshot creation, deletion, row data                                 |
 | `SnapshotDetailViewModel.swift` | Snapshot detail editing, asset/cash flow management                   |
 | `AssetListViewModel.swift`      | Asset listing with platform/category grouping, latest values          |
 | `AssetDetailViewModel.swift`    | Asset editing, value history, delete validation                       |
@@ -143,7 +142,7 @@ nameValidationMessage = String(localized: "Asset name cannot be empty.", table: 
 | ------------------------------------------ | -------------------------------------------------------------- |
 | `ContentView.swift`                        | Full sidebar navigation shell with 7-section SidebarSection    |
 | `DashboardView.swift`                      | Dashboard with metrics, period performance, interactive charts |
-| `SnapshotListView.swift`                   | Snapshot list with carry-forward indicators and creation       |
+| `SnapshotListView.swift`                   | Snapshot list with creation                                    |
 | `SnapshotDetailView.swift`                 | Snapshot detail with asset/cash flow CRUD                      |
 | `AssetListView.swift`                      | Asset list with grouping segmented control                     |
 | `AssetDetailView.swift`                    | Asset detail/edit with sparkline and value history             |

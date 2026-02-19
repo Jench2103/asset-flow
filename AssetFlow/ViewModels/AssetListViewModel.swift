@@ -45,16 +45,14 @@ final class AssetListViewModel {
 
   // MARK: - Loading
 
-  /// Fetches all assets, computes latest values from the most recent composite snapshot,
+  /// Fetches all assets, computes latest values from the most recent snapshot,
   /// and groups them by the current grouping mode.
   func loadAssets() {
     let allAssets = fetchAllAssets()
     let allSnapshots = fetchAllSnapshots()
-    let allAssetValues = fetchAllAssetValues()
 
-    // Build latest value lookup from most recent snapshot's composite values
-    let latestValueLookup = buildLatestValueLookup(
-      allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+    // Build latest value lookup from most recent snapshot
+    let latestValueLookup = buildLatestValueLookup(allSnapshots: allSnapshots)
 
     // Build row data for each asset
     let rowDataList = allAssets.map { asset in
@@ -94,25 +92,18 @@ final class AssetListViewModel {
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 
-  private func fetchAllAssetValues() -> [SnapshotAssetValue] {
-    let descriptor = FetchDescriptor<SnapshotAssetValue>()
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
-
-  /// Builds a lookup of asset ID → latest market value from the most recent snapshot's
-  /// composite values (including carry-forward).
+  /// Builds a lookup of asset ID → latest market value from the most recent snapshot.
   private func buildLatestValueLookup(
-    allSnapshots: [Snapshot],
-    allAssetValues: [SnapshotAssetValue]
+    allSnapshots: [Snapshot]
   ) -> [UUID: Decimal] {
     guard let latestSnapshot = allSnapshots.last else { return [:] }
 
-    let compositeValues = CarryForwardService.compositeValues(
-      for: latestSnapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+    let assetValues = latestSnapshot.assetValues ?? []
 
     var lookup: [UUID: Decimal] = [:]
-    for compositeValue in compositeValues {
-      lookup[compositeValue.asset.id] = compositeValue.marketValue
+    for sav in assetValues {
+      guard let asset = sav.asset else { continue }
+      lookup[asset.id] = sav.marketValue
     }
     return lookup
   }

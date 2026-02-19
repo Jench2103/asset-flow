@@ -32,6 +32,7 @@ struct ImportView: View {
         fileSelector
         if viewModel.selectedFileURL != nil || !previewRowsEmpty {
           configurationSection
+          copyForwardSection
           validationSummary
           previewTable
           importButton
@@ -333,6 +334,44 @@ struct ImportView: View {
       let data = try? Data(contentsOf: url)
     else { return }
     viewModel.loadCSVData(data)
+  }
+
+  // MARK: - Copy Forward Section
+
+  @ViewBuilder
+  private var copyForwardSection: some View {
+    if viewModel.importType == .assets && !viewModel.copyForwardPlatforms.isEmpty {
+      VStack(alignment: .leading, spacing: 12) {
+        Text("Copy from other platforms")
+          .font(.headline)
+
+        Text(
+          "Include assets from these platforms (values from most recent snapshot):"
+        )
+        .font(.callout)
+        .foregroundStyle(.secondary)
+
+        Toggle("Enable copy-forward", isOn: $viewModel.copyForwardEnabled)
+
+        if viewModel.copyForwardEnabled {
+          VStack(alignment: .leading, spacing: 6) {
+            ForEach($viewModel.copyForwardPlatforms) { $info in
+              Toggle(isOn: $info.isSelected) {
+                HStack {
+                  Text(info.platformName)
+                  Text(
+                    "\u{2014} \(info.assetCount) assets (from \(info.sourceSnapshotDate.settingsFormatted()))"
+                  )
+                  .font(.callout)
+                  .foregroundStyle(.secondary)
+                }
+              }
+            }
+          }
+          .padding(.leading, 20)
+        }
+      }
+    }
   }
 
   // MARK: - Validation Summary

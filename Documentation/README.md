@@ -33,7 +33,6 @@ Learn about:
 - Data flow and state management
 - SwiftData integration
 - macOS-only platform design
-- Carry-forward computation strategy
 - Dependency management
 
 **Who should read**: All developers working on AssetFlow
@@ -140,8 +139,8 @@ ______________________________________________________________________
 
 Covers:
 
-- Snapshot-based portfolio model and carry-forward resolution
-- Composite portfolio value calculation
+- Snapshot-based portfolio model
+- Portfolio value calculation
 - Category allocation and rebalancing engine
 - Growth rate calculation
 - Modified Dietz return calculation
@@ -178,7 +177,7 @@ ______________________________________________________________________
 
 Describes:
 
-- Internal service APIs (CSV parsing, carry-forward resolution, backup/restore)
+- Internal service APIs (CSV parsing, backup/restore)
 - ViewModel contracts and data access patterns
 - CSV import/export format specifications
 - Backup archive format (ZIP with CSV files and manifest)

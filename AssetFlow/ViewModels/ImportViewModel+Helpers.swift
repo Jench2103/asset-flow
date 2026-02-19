@@ -153,6 +153,47 @@ extension ImportViewModel {
       sav.asset = asset
       modelContext.insert(sav)
     }
+
+    // Copy-forward: copy assets from selected platforms in prior snapshot
+    if copyForwardEnabled {
+      executeCopyForward(snapshot: snapshot)
+    }
+  }
+
+  /// Copies asset values from selected platforms in the most recent prior snapshot.
+  private func executeCopyForward(snapshot: Snapshot) {
+    let selectedPlatforms = copyForwardPlatforms.filter { $0.isSelected }
+    guard !selectedPlatforms.isEmpty else { return }
+
+    let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
+
+    // Find the most recent prior snapshot
+    let snapshotDescriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
+    let allSnapshots = (try? modelContext.fetch(snapshotDescriptor)) ?? []
+
+    let priorSnapshots =
+      allSnapshots
+      .filter { $0.date < normalizedDate }
+      .sorted { $0.date > $1.date }
+
+    guard let latestPrior = priorSnapshots.first else { return }
+
+    let selectedPlatformNames = Set(selectedPlatforms.map { $0.platformName.lowercased() })
+    let priorValues = latestPrior.assetValues ?? []
+
+    // Track assets already in the snapshot to avoid duplicates
+    let existingAssetIDs = Set((snapshot.assetValues ?? []).compactMap { $0.asset?.id })
+
+    for priorSAV in priorValues {
+      guard let asset = priorSAV.asset else { continue }
+      guard selectedPlatformNames.contains(asset.platform.lowercased()) else { continue }
+      guard !existingAssetIDs.contains(asset.id) else { continue }
+
+      let sav = SnapshotAssetValue(marketValue: priorSAV.marketValue)
+      sav.snapshot = snapshot
+      sav.asset = asset
+      modelContext.insert(sav)
+    }
   }
 
   func executeCashFlowImport(snapshot: Snapshot) {
@@ -177,6 +218,7 @@ extension ImportViewModel {
     parsingErrors = []
     selectedFileURL = nil
     importError = nil
+    copyForwardPlatforms = []
   }
 
   func fetchAllAssets() -> [Asset] {

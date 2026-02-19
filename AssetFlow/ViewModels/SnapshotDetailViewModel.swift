@@ -17,16 +17,16 @@ struct CategoryAllocationData: Sendable {
 
 /// ViewModel for the Snapshot detail screen.
 ///
-/// Manages composite view computation (via CarryForwardService), asset add/edit/remove,
-/// cash flow add/edit/remove, and category allocation summary.
+/// Manages asset add/edit/remove, cash flow add/edit/remove,
+/// and category allocation summary.
 @Observable
 @MainActor
 class SnapshotDetailViewModel {
   let snapshot: Snapshot
   private let modelContext: ModelContext
 
-  /// Composite values (direct + carried forward) for display.
-  var compositeValues: [CompositeAssetValue] = []
+  /// Direct asset values in this snapshot.
+  var assetValues: [SnapshotAssetValue] = []
 
   init(snapshot: Snapshot, modelContext: ModelContext) {
     self.snapshot = snapshot
@@ -35,9 +35,9 @@ class SnapshotDetailViewModel {
 
   // MARK: - Computed Properties
 
-  /// Total portfolio value for this snapshot (direct + carried forward).
+  /// Total portfolio value for this snapshot.
   var totalValue: Decimal {
-    compositeValues.reduce(Decimal(0)) { $0 + $1.marketValue }
+    assetValues.reduce(Decimal(0)) { $0 + $1.marketValue }
   }
 
   /// Net cash flow for this snapshot (sum of all CashFlowOperation amounts).
@@ -46,15 +46,19 @@ class SnapshotDetailViewModel {
     return operations.reduce(Decimal(0)) { $0 + $1.amount }
   }
 
-  /// Composite values sorted by platform (alphabetical), then asset name (alphabetical).
-  var sortedCompositeValues: [CompositeAssetValue] {
-    compositeValues.sorted { lhs, rhs in
-      if lhs.asset.platform != rhs.asset.platform {
-        return lhs.asset.platform.localizedCaseInsensitiveCompare(rhs.asset.platform)
-          == .orderedAscending
+  /// Asset values sorted by platform (alphabetical), then asset name (alphabetical).
+  var sortedAssetValues: [SnapshotAssetValue] {
+    assetValues
+      .filter { $0.asset != nil }
+      .sorted { lhs, rhs in
+        let lhsAsset = lhs.asset!
+        let rhsAsset = rhs.asset!
+        if lhsAsset.platform != rhsAsset.platform {
+          return lhsAsset.platform.localizedCaseInsensitiveCompare(rhsAsset.platform)
+            == .orderedAscending
+        }
+        return lhsAsset.name.localizedCaseInsensitiveCompare(rhsAsset.name) == .orderedAscending
       }
-      return lhs.asset.name.localizedCaseInsensitiveCompare(rhs.asset.name) == .orderedAscending
-    }
   }
 
   /// Cash flow operations sorted by description for stable display order.
@@ -69,9 +73,10 @@ class SnapshotDetailViewModel {
 
     var categoryValues: [String: Decimal] = [:]
 
-    for cv in compositeValues {
-      let categoryName = cv.asset.category?.name ?? "Uncategorized"
-      categoryValues[categoryName, default: 0] += cv.marketValue
+    for sav in assetValues {
+      guard let asset = sav.asset else { continue }
+      let categoryName = asset.category?.name ?? "Uncategorized"
+      categoryValues[categoryName, default: 0] += sav.marketValue
     }
 
     return categoryValues.map { name, value in
@@ -86,13 +91,9 @@ class SnapshotDetailViewModel {
 
   // MARK: - Load Data
 
-  /// Loads (or reloads) composite values for the snapshot.
-  func loadCompositeValues() {
-    let allSnapshots = fetchAllSnapshots()
-    let allAssetValues = fetchAllAssetValues()
-
-    compositeValues = CarryForwardService.compositeValues(
-      for: snapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+  /// Loads (or reloads) asset values for the snapshot.
+  func loadAssetValues() {
+    assetValues = snapshot.assetValues ?? []
   }
 
   // MARK: - Add Asset: Existing
@@ -244,18 +245,6 @@ class SnapshotDetailViewModel {
   /// Resolves a category by name, reusing an existing one (case-insensitive) or creating a new one.
   func resolveCategory(name: String) -> Category? {
     modelContext.resolveCategory(name: name)
-  }
-
-  // MARK: - Private Helpers
-
-  private func fetchAllSnapshots() -> [Snapshot] {
-    let descriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
-
-  private func fetchAllAssetValues() -> [SnapshotAssetValue] {
-    let descriptor = FetchDescriptor<SnapshotAssetValue>()
-    return (try? modelContext.fetch(descriptor)) ?? []
   }
 
 }

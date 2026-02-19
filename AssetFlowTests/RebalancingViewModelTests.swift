@@ -87,8 +87,8 @@ struct RebalancingViewModelTests {
 
   // MARK: - Loading
 
-  @Test("Loads current allocation from latest composite snapshot")
-  func loadsCurrentAllocationFromLatestCompositeSnapshot() {
+  @Test("Loads current allocation from latest snapshot direct values")
+  func loadsCurrentAllocationFromLatestSnapshotDirectValues() {
     let tc = makeTestContext()
     let context = tc.context
     _ = createStandardScenario(context: context)

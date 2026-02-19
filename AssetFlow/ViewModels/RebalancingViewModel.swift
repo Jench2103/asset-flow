@@ -60,10 +60,9 @@ final class RebalancingViewModel {
 
   // MARK: - Loading
 
-  /// Loads all rebalancing data from the latest composite snapshot.
+  /// Loads all rebalancing data from the latest snapshot.
   func loadRebalancing() {
     let allSnapshots = fetchAllSnapshots()
-    let allAssetValues = fetchAllAssetValues()
     let allCategories = fetchAllCategories()
 
     // Clear state
@@ -75,11 +74,9 @@ final class RebalancingViewModel {
 
     guard let latestSnapshot = allSnapshots.last else { return }
 
-    // Get composite values (single call, no N+1)
-    let compositeValues = CarryForwardService.compositeValues(
-      for: latestSnapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
+    let assetValues = latestSnapshot.assetValues ?? []
 
-    totalPortfolioValue = compositeValues.reduce(Decimal(0)) { $0 + $1.marketValue }
+    totalPortfolioValue = assetValues.reduce(Decimal(0)) { $0 + $1.marketValue }
 
     guard totalPortfolioValue > 0 else { return }
 
@@ -87,11 +84,11 @@ final class RebalancingViewModel {
     var categoryValueLookup: [String: Decimal] = [:]
     var uncategorizedValue: Decimal = 0
 
-    for cv in compositeValues {
-      if let categoryName = cv.asset.category?.name {
-        categoryValueLookup[categoryName, default: 0] += cv.marketValue
+    for sav in assetValues {
+      if let categoryName = sav.asset?.category?.name {
+        categoryValueLookup[categoryName, default: 0] += sav.marketValue
       } else {
-        uncategorizedValue += cv.marketValue
+        uncategorizedValue += sav.marketValue
       }
     }
 
@@ -187,11 +184,6 @@ final class RebalancingViewModel {
 
   private func fetchAllSnapshots() -> [Snapshot] {
     let descriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
-
-  private func fetchAllAssetValues() -> [SnapshotAssetValue] {
-    let descriptor = FetchDescriptor<SnapshotAssetValue>()
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 

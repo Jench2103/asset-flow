@@ -57,16 +57,12 @@ final class PlatformDetailViewModel {
 
   // MARK: - Load Data
 
-  /// Fetches all snapshots/asset values, builds composite cache, then loads assets and history.
+  /// Fetches all snapshots and loads assets and history.
   func loadData() {
     let allSnapshots = fetchAllSnapshots()
-    let allAssetValues = fetchAllAssetValues()
 
-    let compositeCache = buildCompositeCache(
-      allSnapshots: allSnapshots, allAssetValues: allAssetValues)
-
-    loadAssets(allSnapshots: allSnapshots, compositeCache: compositeCache)
-    loadHistory(allSnapshots: allSnapshots, compositeCache: compositeCache)
+    loadAssets(allSnapshots: allSnapshots)
+    loadHistory(allSnapshots: allSnapshots)
   }
 
   // MARK: - Save (Rename)
@@ -122,34 +118,14 @@ final class PlatformDetailViewModel {
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 
-  private func fetchAllAssetValues() -> [SnapshotAssetValue] {
-    let descriptor = FetchDescriptor<SnapshotAssetValue>()
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
-
-  /// Precomputes composite values for all snapshots to avoid redundant O(N*M) computation.
-  private func buildCompositeCache(
-    allSnapshots: [Snapshot], allAssetValues: [SnapshotAssetValue]
-  ) -> [UUID: [CompositeAssetValue]] {
-    var cache: [UUID: [CompositeAssetValue]] = [:]
-    for snapshot in allSnapshots {
-      cache[snapshot.id] = CarryForwardService.compositeValues(
-        for: snapshot, allSnapshots: allSnapshots, allAssetValues: allAssetValues)
-    }
-    return cache
-  }
-
-  /// Loads assets on this platform with their latest composite values.
-  private func loadAssets(
-    allSnapshots: [Snapshot], compositeCache: [UUID: [CompositeAssetValue]]
-  ) {
-    // Build latest value lookup from most recent composite snapshot
+  /// Loads assets on this platform with their latest values.
+  private func loadAssets(allSnapshots: [Snapshot]) {
+    // Build latest value lookup from most recent snapshot
     var latestValueLookup: [UUID: Decimal] = [:]
-    if let latestSnapshot = allSnapshots.last,
-      let compositeValues = compositeCache[latestSnapshot.id]
-    {
-      for cv in compositeValues where cv.asset.platform == platformName {
-        latestValueLookup[cv.asset.id] = cv.marketValue
+    if let latestSnapshot = allSnapshots.last {
+      for sav in latestSnapshot.assetValues ?? [] {
+        guard let asset = sav.asset, asset.platform == platformName else { continue }
+        latestValueLookup[asset.id] = sav.marketValue
       }
     }
 
@@ -171,17 +147,15 @@ final class PlatformDetailViewModel {
   }
 
   /// Computes value history across all snapshots for this platform.
-  private func loadHistory(
-    allSnapshots: [Snapshot], compositeCache: [UUID: [CompositeAssetValue]]
-  ) {
+  private func loadHistory(allSnapshots: [Snapshot]) {
     var entries: [PlatformValueHistoryEntry] = []
 
     for snapshot in allSnapshots {
-      let compositeValues = compositeCache[snapshot.id] ?? []
+      let assetValues = snapshot.assetValues ?? []
 
       let platformValue =
-        compositeValues
-        .filter { $0.asset.platform == platformName }
+        assetValues
+        .filter { $0.asset?.platform == platformName }
         .reduce(Decimal(0)) { $0 + $1.marketValue }
 
       entries.append(

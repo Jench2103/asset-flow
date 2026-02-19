@@ -10,7 +10,7 @@ import SwiftUI
 
 /// Snapshot detail view with full CRUD for asset values and cash flow operations.
 ///
-/// Shows a summary section, asset breakdown (with carried-forward distinction per SPEC 8.3),
+/// Shows a summary section, asset breakdown,
 /// category allocation, cash flow operations, and a danger zone for snapshot deletion.
 ///
 /// **Important:** The parent view must apply `.id(snapshot.id)` to this view
@@ -49,7 +49,7 @@ struct SnapshotDetailView: View {
       viewModel.snapshot.date.settingsFormatted()
     )
     .onAppear {
-      viewModel.loadCompositeValues()
+      viewModel.loadAssetValues()
     }
     .alert("Error", isPresented: $showError) {
       Button("OK") {}
@@ -58,12 +58,12 @@ struct SnapshotDetailView: View {
     }
     .sheet(isPresented: $showAddAssetSheet) {
       AddAssetSheet(viewModel: viewModel) {
-        viewModel.loadCompositeValues()
+        viewModel.loadAssetValues()
       }
     }
     .sheet(isPresented: $showAddCashFlowSheet) {
       AddCashFlowSheet(viewModel: viewModel) {
-        viewModel.loadCompositeValues()
+        viewModel.loadAssetValues()
       }
     }
     .confirmationDialog(
@@ -114,12 +114,14 @@ struct SnapshotDetailView: View {
 
   private var assetBreakdownSection: some View {
     Section {
-      if viewModel.sortedCompositeValues.isEmpty {
+      if viewModel.sortedAssetValues.isEmpty {
         Text("No assets in this snapshot")
           .foregroundStyle(.secondary)
       } else {
-        ForEach(viewModel.sortedCompositeValues, id: \.asset.id) { cv in
-          assetRow(cv)
+        ForEach(viewModel.sortedAssetValues, id: \.id) { sav in
+          if let asset = sav.asset {
+            assetRow(sav, asset: asset)
+          }
         }
       }
     } header: {
@@ -137,62 +139,47 @@ struct SnapshotDetailView: View {
   }
 
   @ViewBuilder
-  private func assetRow(_ cv: CompositeAssetValue) -> some View {
+  private func assetRow(_ sav: SnapshotAssetValue, asset: Asset) -> some View {
     HStack {
       VStack(alignment: .leading, spacing: 2) {
-        Text(cv.asset.name)
+        Text(asset.name)
           .font(.body)
-          .foregroundStyle(cv.isCarriedForward ? .secondary : .primary)
         HStack(spacing: 8) {
-          if !cv.asset.platform.isEmpty { Text(cv.asset.platform) }
-          if let categoryName = cv.asset.category?.name { Text(categoryName) }
+          if !asset.platform.isEmpty { Text(asset.platform) }
+          if let categoryName = asset.category?.name { Text(categoryName) }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
-        if cv.isCarriedForward {
-          Label("Carried forward", systemImage: "arrow.uturn.forward")
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-        }
       }
       Spacer()
-      Text(cv.marketValue.formatted(currency: SettingsService.shared.mainCurrency))
+      Text(sav.marketValue.formatted(currency: SettingsService.shared.mainCurrency))
         .font(.body)
         .monospacedDigit()
-        .foregroundStyle(cv.isCarriedForward ? .secondary : .primary)
     }
     .contentShape(Rectangle())
     .contextMenu {
-      if !cv.isCarriedForward {
-        Button("Edit Value") {
-          if let sav = findSnapshotAssetValue(for: cv) {
-            editingAssetValue = sav
-          }
-        }
-        Button("Remove from Snapshot", role: .destructive) {
-          if let sav = findSnapshotAssetValue(for: cv) {
-            viewModel.removeAsset(sav)
-            viewModel.loadCompositeValues()
-          }
-        }
+      Button("Edit Value") {
+        editingAssetValue = sav
+      }
+      Button("Remove from Snapshot", role: .destructive) {
+        viewModel.removeAsset(sav)
+        viewModel.loadAssetValues()
       }
     }
     .popover(
       isPresented: Binding(
-        get: { editingAssetValue?.id == findSnapshotAssetValue(for: cv)?.id },
+        get: { editingAssetValue?.id == sav.id },
         set: { if !$0 { editingAssetValue = nil } }
       ),
       arrowEdge: .trailing
     ) {
-      if let sav = findSnapshotAssetValue(for: cv) {
-        EditValuePopover(currentValue: sav.marketValue) { newValue in
-          do {
-            try viewModel.editAssetValue(sav, newValue: newValue)
-            viewModel.loadCompositeValues()
-          } catch {
-            errorMessage = error.localizedDescription
-            showError = true
-          }
+      EditValuePopover(currentValue: sav.marketValue) { newValue in
+        do {
+          try viewModel.editAssetValue(sav, newValue: newValue)
+          viewModel.loadAssetValues()
+        } catch {
+          errorMessage = error.localizedDescription
+          showError = true
         }
       }
     }
@@ -311,12 +298,6 @@ struct SnapshotDetailView: View {
     }
   }
 
-  // MARK: - Helpers
-
-  private func findSnapshotAssetValue(for cv: CompositeAssetValue) -> SnapshotAssetValue? {
-    let assetValues = viewModel.snapshot.assetValues ?? []
-    return assetValues.first { $0.asset?.id == cv.asset.id }
-  }
 }
 
 // MARK: - Add Asset Sheet
