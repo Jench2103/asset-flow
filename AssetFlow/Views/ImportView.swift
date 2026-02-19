@@ -330,9 +330,7 @@ struct ImportView: View {
 
   /// Reloads the CSV with updated platform/category settings.
   private func reloadCSVIfNeeded() {
-    guard let url = viewModel.selectedFileURL,
-      let data = try? Data(contentsOf: url)
-    else { return }
+    guard let data = viewModel.selectedFileData else { return }
     viewModel.loadCSVData(data)
   }
 

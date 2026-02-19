@@ -42,6 +42,11 @@ class ImportViewModel {
   /// Selected file URL (for display purposes).
   var selectedFileURL: URL?
 
+  /// Cached file data from the last successful file load.
+  /// Used by the View to re-parse CSV when import settings change,
+  /// avoiding re-reads that fail after security-scoped resource access ends.
+  var selectedFileData: Data?
+
   /// Snapshot date for the import (defaults to today).
   var snapshotDate: Date = Date() {
     didSet {
@@ -152,6 +157,7 @@ class ImportViewModel {
       hasUnsavedChanges = false
       return
     }
+    selectedFileData = data
     loadCSVData(data)
   }
 

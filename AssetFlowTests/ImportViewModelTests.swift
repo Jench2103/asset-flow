@@ -272,6 +272,87 @@ struct ImportViewModelTests {
     }
   }
 
+  @Test("loadFile caches file data in selectedFileData")
+  func loadFileCachesData() throws {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Write CSV to a temp file
+    let tempURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("test_cache_\(UUID().uuidString).csv")
+    let csvString = "Asset Name,Market Value,Platform\nAAPL,15000,Fidelity\n"
+    try csvString.write(to: tempURL, atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(at: tempURL) }
+
+    viewModel.loadFile(tempURL)
+
+    #expect(viewModel.selectedFileData != nil)
+    #expect(!viewModel.assetPreviewRows.isEmpty)
+    #expect(viewModel.assetPreviewRows[0].csvRow.platform == "Fidelity")
+  }
+
+  @Test("Changing platform and reloading cached data updates preview rows")
+  func changePlatformWithCachedData() throws {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Write CSV to a temp file
+    let tempURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("test_platform_\(UUID().uuidString).csv")
+    let csvString = "Asset Name,Market Value,Platform\nAAPL,15000,Fidelity\nVTI,28000,Fidelity\n"
+    try csvString.write(to: tempURL, atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(at: tempURL) }
+
+    // Load file — simulates initial file import
+    viewModel.loadFile(tempURL)
+    #expect(viewModel.assetPreviewRows[0].csvRow.platform == "Fidelity")
+
+    // Change platform and reload from cached data (simulates reloadCSVIfNeeded)
+    viewModel.selectedPlatform = "Schwab"
+    let cachedData = try #require(viewModel.selectedFileData)
+    viewModel.loadCSVData(cachedData)
+
+    for row in viewModel.assetPreviewRows {
+      #expect(row.csvRow.platform == "Schwab")
+    }
+  }
+
+  @Test("clearLoadedData clears selectedFileData")
+  func clearLoadedDataClearsCachedData() throws {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let tempURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("test_clear_\(UUID().uuidString).csv")
+    let csvString = "Asset Name,Market Value\nAAPL,15000\n"
+    try csvString.write(to: tempURL, atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(at: tempURL) }
+
+    viewModel.loadFile(tempURL)
+    #expect(viewModel.selectedFileData != nil)
+
+    viewModel.clearLoadedData()
+    #expect(viewModel.selectedFileData == nil)
+  }
+
+  @Test("reset clears selectedFileData")
+  func resetClearsCachedData() throws {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let tempURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("test_reset_\(UUID().uuidString).csv")
+    let csvString = "Asset Name,Market Value\nAAPL,15000\n"
+    try csvString.write(to: tempURL, atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(at: tempURL) }
+
+    viewModel.loadFile(tempURL)
+    #expect(viewModel.selectedFileData != nil)
+
+    viewModel.reset()
+    #expect(viewModel.selectedFileData == nil)
+  }
+
   // MARK: - Category Handling
 
   @Test("Import-level category is recorded for import execution")
