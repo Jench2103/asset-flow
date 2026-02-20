@@ -66,8 +66,7 @@ class ImportViewModel {
   var platformApplyMode: PlatformApplyMode = .overrideAll {
     didSet {
       guard platformApplyMode != oldValue else { return }
-      guard !baseAssetRows.isEmpty else { return }
-      rebuildAssetPreviewRows()
+      rebuildPreviewIfNeeded()
     }
   }
 
@@ -75,8 +74,7 @@ class ImportViewModel {
   var selectedPlatform: String? {
     didSet {
       guard selectedPlatform != oldValue else { return }
-      guard !baseAssetRows.isEmpty else { return }
-      rebuildAssetPreviewRows()
+      rebuildPreviewIfNeeded()
     }
   }
 
@@ -84,8 +82,7 @@ class ImportViewModel {
   var selectedCategory: Category? {
     didSet {
       guard selectedCategory?.id != oldValue?.id else { return }
-      guard !baseAssetRows.isEmpty else { return }
-      rebuildAssetPreviewRows()
+      rebuildPreviewIfNeeded()
     }
   }
 
@@ -286,7 +283,6 @@ class ImportViewModel {
     snapshotDate = Date()
     let defaultPlatform = settingsService.defaultPlatform
     selectedPlatform = defaultPlatform.isEmpty ? nil : defaultPlatform
-    platformApplyMode = .overrideAll
     selectedCategory = nil
     copyForwardEnabled = true
     importError = nil
@@ -393,15 +389,16 @@ class ImportViewModel {
       )
     }
 
-    // Revalidate: duplicates depend on effective platform and exclusion state
-    let includedRows = assetPreviewRows.filter { $0.isIncluded }.map { $0.csvRow }
-    let withinCSVErrors = CSVParsingService.detectAssetDuplicates(rows: includedRows)
-    let snapshotErrors = detectAssetSnapshotDuplicates(rows: includedRows)
     parsingErrors = baseAssetParsingErrors
-    validationErrors = parsingErrors + withinCSVErrors + snapshotErrors
     validationWarnings = baseAssetWarnings
-
+    revalidate()
     computeCopyForwardPlatforms()
+  }
+
+  /// Triggers a preview rebuild when base rows have been loaded.
+  private func rebuildPreviewIfNeeded() {
+    guard !baseAssetRows.isEmpty else { return }
+    rebuildAssetPreviewRows()
   }
 
   private func categoryWarning(for row: AssetCSVRow, existingAssets: [Asset]) -> String? {
@@ -432,19 +429,12 @@ class ImportViewModel {
   /// Resolves the effective platform for a base row based on the current
   /// platform selection and apply mode.
   private func effectiveAssetRow(baseRow: AssetCSVRow) -> AssetCSVRow {
-    guard let platform = selectedPlatform else { return baseRow }
-    switch platformApplyMode {
-    case .overrideAll:
-      return AssetCSVRow(
-        assetName: baseRow.assetName, marketValue: baseRow.marketValue, platform: platform)
+    guard let platform = selectedPlatform,
+      platformApplyMode == .overrideAll || baseRow.platform.isEmpty
+    else { return baseRow }
 
-    case .fillEmptyOnly:
-      if baseRow.platform.isEmpty {
-        return AssetCSVRow(
-          assetName: baseRow.assetName, marketValue: baseRow.marketValue, platform: platform)
-      }
-      return baseRow
-    }
+    return AssetCSVRow(
+      assetName: baseRow.assetName, marketValue: baseRow.marketValue, platform: platform)
   }
 
   /// Whether the loaded CSV has a mix of empty and non-empty platform values,

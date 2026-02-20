@@ -40,6 +40,13 @@ struct ImportViewModelTests {
     string.data(using: .utf8)!
   }
 
+  private func createTempCSVFile(_ content: String) throws -> URL {
+    let url = FileManager.default.temporaryDirectory
+      .appendingPathComponent("test_\(UUID().uuidString).csv")
+    try content.write(to: url, atomically: true, encoding: .utf8)
+    return url
+  }
+
   private func validAssetCSVData() -> Data {
     csvData(
       """
@@ -277,11 +284,8 @@ struct ImportViewModelTests {
     let tc = createTestContext()
     let viewModel = ImportViewModel(modelContext: tc.context)
 
-    // Write CSV to a temp file
-    let tempURL = FileManager.default.temporaryDirectory
-      .appendingPathComponent("test_cache_\(UUID().uuidString).csv")
-    let csvString = "Asset Name,Market Value,Platform\nAAPL,15000,Fidelity\n"
-    try csvString.write(to: tempURL, atomically: true, encoding: .utf8)
+    let tempURL = try createTempCSVFile(
+      "Asset Name,Market Value,Platform\nAAPL,15000,Fidelity\n")
     defer { try? FileManager.default.removeItem(at: tempURL) }
 
     viewModel.loadFile(tempURL)
@@ -296,11 +300,8 @@ struct ImportViewModelTests {
     let tc = createTestContext()
     let viewModel = ImportViewModel(modelContext: tc.context)
 
-    // Write CSV to a temp file
-    let tempURL = FileManager.default.temporaryDirectory
-      .appendingPathComponent("test_platform_\(UUID().uuidString).csv")
-    let csvString = "Asset Name,Market Value,Platform\nAAPL,15000,Fidelity\nVTI,28000,Fidelity\n"
-    try csvString.write(to: tempURL, atomically: true, encoding: .utf8)
+    let tempURL = try createTempCSVFile(
+      "Asset Name,Market Value,Platform\nAAPL,15000,Fidelity\nVTI,28000,Fidelity\n")
     defer { try? FileManager.default.removeItem(at: tempURL) }
 
     // Load file — simulates initial file import
@@ -320,10 +321,7 @@ struct ImportViewModelTests {
     let tc = createTestContext()
     let viewModel = ImportViewModel(modelContext: tc.context)
 
-    let tempURL = FileManager.default.temporaryDirectory
-      .appendingPathComponent("test_clear_\(UUID().uuidString).csv")
-    let csvString = "Asset Name,Market Value\nAAPL,15000\n"
-    try csvString.write(to: tempURL, atomically: true, encoding: .utf8)
+    let tempURL = try createTempCSVFile("Asset Name,Market Value\nAAPL,15000\n")
     defer { try? FileManager.default.removeItem(at: tempURL) }
 
     viewModel.loadFile(tempURL)
@@ -338,10 +336,7 @@ struct ImportViewModelTests {
     let tc = createTestContext()
     let viewModel = ImportViewModel(modelContext: tc.context)
 
-    let tempURL = FileManager.default.temporaryDirectory
-      .appendingPathComponent("test_reset_\(UUID().uuidString).csv")
-    let csvString = "Asset Name,Market Value\nAAPL,15000\n"
-    try csvString.write(to: tempURL, atomically: true, encoding: .utf8)
+    let tempURL = try createTempCSVFile("Asset Name,Market Value\nAAPL,15000\n")
     defer { try? FileManager.default.removeItem(at: tempURL) }
 
     viewModel.loadFile(tempURL)
