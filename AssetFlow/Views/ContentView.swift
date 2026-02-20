@@ -69,10 +69,11 @@ struct ContentView: View {
   @State private var showDiscardConfirmation = false
 
   var body: some View {
-    NavigationSplitView {
+    NavigationSplitView(columnVisibility: .constant(.all)) {
       sidebar
         .navigationTitle("AssetFlow")
         .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 260)
+        .toolbar(removing: .sidebarToggle)
     } detail: {
       detailPane
     }
