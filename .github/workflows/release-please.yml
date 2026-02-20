@@ -15,11 +15,54 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      prs_created: ${{ steps.release.outputs.prs_created }}
+      pr: ${{ steps.release.outputs.pr }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
           release-type: simple
+
+  format-release-pr:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.prs_created == 'true' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
+
+      - name: Install swift-format
+        run: brew install swift-format
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run pre-commit auto-fix
+        run: |
+          pip install pre-commit
+          pre-commit run --all-files || true
+
+      - name: Commit formatting fixes
+        run: |
+          if git diff --quiet; then
+            echo "No formatting changes needed"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "style: format release files with pre-commit"
+            git push
+          fi
 
   build-and-upload:
     needs: release-please
