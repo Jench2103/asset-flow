@@ -147,7 +147,7 @@ struct ImportView: View {
           Text("Expected columns:")
             .font(.caption)
             .foregroundStyle(.secondary)
-          Text(verbatim: "Asset Name (required), Market Value (required), Platform (optional)")
+          Text("Asset Name (required), Market Value (required), Platform (optional)")
             .font(.caption)
             .foregroundStyle(.tertiary)
         }
@@ -157,7 +157,7 @@ struct ImportView: View {
           Text("Expected columns:")
             .font(.caption)
             .foregroundStyle(.secondary)
-          Text(verbatim: "Description (required), Amount (required)")
+          Text("Description (required), Amount (required)")
             .font(.caption)
             .foregroundStyle(.tertiary)
         }
@@ -172,7 +172,7 @@ struct ImportView: View {
       Text("Configuration")
         .font(.headline)
 
-      HStack(spacing: 20) {
+      HStack {
         // Snapshot date picker
         DatePicker(
           "Snapshot Date",
@@ -180,11 +180,15 @@ struct ImportView: View {
           in: ...Date(),
           displayedComponents: .date
         )
-        .frame(maxWidth: 250)
+        .fixedSize()
+
+        Spacer()
 
         if viewModel.importType == .assets {
           platformPicker
+          Spacer()
           categoryPicker
+          Spacer()
         }
       }
     }
@@ -207,7 +211,7 @@ struct ImportView: View {
           }
         }
       } else {
-        HStack {
+        HStack(spacing: 4) {
           Text("Platform:")
             .foregroundStyle(.secondary)
           Picker("Platform", selection: platformBinding) {
@@ -219,10 +223,28 @@ struct ImportView: View {
             Text("New Platform...").tag("__new__")
           }
           .labelsHidden()
-          .frame(maxWidth: 180)
+          .fixedSize()
+
+          if viewModel.hasMixedPlatforms {
+            Toggle("All Rows", isOn: overrideAllBinding)
+              .toggleStyle(.checkbox)
+              .fixedSize()
+              .disabled(viewModel.selectedPlatform == nil)
+          }
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.fill.quaternary)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
       }
     }
+  }
+
+  private var overrideAllBinding: Binding<Bool> {
+    Binding(
+      get: { viewModel.platformApplyMode == .overrideAll },
+      set: { viewModel.platformApplyMode = $0 ? .overrideAll : .fillEmptyOnly }
+    )
   }
 
   private var platformBinding: Binding<String> {
@@ -234,10 +256,8 @@ struct ImportView: View {
           newPlatformName = ""
         } else if newValue.isEmpty {
           viewModel.selectedPlatform = nil
-          reloadCSVIfNeeded()
         } else {
           viewModel.selectedPlatform = newValue
-          reloadCSVIfNeeded()
         }
       }
     )
@@ -257,7 +277,6 @@ struct ImportView: View {
 
     showNewPlatformField = false
     newPlatformName = ""
-    reloadCSVIfNeeded()
   }
 
   private var categoryPicker: some View {
@@ -289,7 +308,7 @@ struct ImportView: View {
             Text("New Category...").tag("__new__")
           }
           .labelsHidden()
-          .frame(maxWidth: 180)
+          .fixedSize()
         }
       }
     }
@@ -304,13 +323,11 @@ struct ImportView: View {
           newCategoryName = ""
         } else if newValue.isEmpty {
           viewModel.selectedCategory = nil
-          reloadCSVIfNeeded()
         } else {
           let categories = viewModel.existingCategories()
           viewModel.selectedCategory = categories.first {
             $0.id.uuidString == newValue
           }
-          reloadCSVIfNeeded()
         }
       }
     )
@@ -325,15 +342,6 @@ struct ImportView: View {
 
     showNewCategoryField = false
     newCategoryName = ""
-    reloadCSVIfNeeded()
-  }
-
-  /// Reloads the CSV with updated platform/category settings.
-  private func reloadCSVIfNeeded() {
-    guard let url = viewModel.selectedFileURL,
-      let data = try? Data(contentsOf: url)
-    else { return }
-    viewModel.loadCSVData(data)
   }
 
   // MARK: - Copy Forward Section

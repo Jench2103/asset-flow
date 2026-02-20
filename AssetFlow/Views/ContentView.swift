@@ -108,6 +108,7 @@ struct ContentView: View {
         selectedSection = .snapshots
         selectedSnapshot = snapshot
         importViewModel?.importedSnapshot = nil
+        importViewModel?.reset()
       }
     }
     .onAppear {

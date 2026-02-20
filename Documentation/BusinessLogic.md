@@ -283,11 +283,14 @@ Each error/warning references the specific row number and column.
 
 ### Platform Handling
 
-Platform for each asset is determined by priority:
+Platform for each asset is determined by the import-level platform selection and apply mode:
 
-1. If user selected a platform during import, use that for ALL rows (overrides CSV)
-1. Else if `Platform` column exists in CSV, use per-row value
-1. Else platform is empty
+1. If no import-level platform is selected, use per-row CSV values (or empty if no `Platform` column)
+1. If an import-level platform is selected:
+   1. **Override All** (default): Every row receives the selected platform, overriding CSV values
+   1. **Fill Empty Only**: Only rows whose CSV platform is empty receive the selected platform; rows with existing CSV platforms keep their original values
+
+The apply mode toggle appears only when a platform is selected AND the CSV has a mix of empty and non-empty platform values.
 
 ### Duplicate Detection
 

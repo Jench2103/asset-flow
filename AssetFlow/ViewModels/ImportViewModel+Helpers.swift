@@ -217,8 +217,14 @@ extension ImportViewModel {
     validationWarnings = []
     parsingErrors = []
     selectedFileURL = nil
+    selectedFileData = nil
     importError = nil
+    platformApplyMode = .overrideAll
     copyForwardPlatforms = []
+    baseAssetRows = []
+    baseAssetParsingErrors = []
+    baseAssetWarnings = []
+    excludedAssetIndices = []
   }
 
   func fetchAllAssets() -> [Asset] {
