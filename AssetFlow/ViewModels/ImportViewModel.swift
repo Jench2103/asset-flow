@@ -62,6 +62,15 @@ class ImportViewModel {
   /// Platforms available for copy-forward, computed from prior snapshots.
   var copyForwardPlatforms: [CopyForwardPlatformInfo] = []
 
+  /// How the import-level platform is applied to preview rows.
+  var platformApplyMode: PlatformApplyMode = .overrideAll {
+    didSet {
+      guard platformApplyMode != oldValue else { return }
+      guard !baseAssetRows.isEmpty else { return }
+      rebuildAssetPreviewRows()
+    }
+  }
+
   /// Import-level platform override (nil = use CSV per-row values).
   var selectedPlatform: String? {
     didSet {
@@ -277,6 +286,7 @@ class ImportViewModel {
     snapshotDate = Date()
     let defaultPlatform = settingsService.defaultPlatform
     selectedPlatform = defaultPlatform.isEmpty ? nil : defaultPlatform
+    platformApplyMode = .overrideAll
     selectedCategory = nil
     copyForwardEnabled = true
     importError = nil
@@ -374,11 +384,7 @@ class ImportViewModel {
   func rebuildAssetPreviewRows() {
     let allAssets = fetchAllAssets()
     assetPreviewRows = baseAssetRows.enumerated().map { index, baseRow in
-      let effectiveRow =
-        selectedPlatform.map {
-          AssetCSVRow(
-            assetName: baseRow.assetName, marketValue: baseRow.marketValue, platform: $0)
-        } ?? baseRow
+      let effectiveRow = effectiveAssetRow(baseRow: baseRow)
       return AssetPreviewRow(
         id: UUID(),
         csvRow: effectiveRow,
@@ -421,6 +427,32 @@ class ImportViewModel {
     }
 
     return nil
+  }
+
+  /// Resolves the effective platform for a base row based on the current
+  /// platform selection and apply mode.
+  private func effectiveAssetRow(baseRow: AssetCSVRow) -> AssetCSVRow {
+    guard let platform = selectedPlatform else { return baseRow }
+    switch platformApplyMode {
+    case .overrideAll:
+      return AssetCSVRow(
+        assetName: baseRow.assetName, marketValue: baseRow.marketValue, platform: platform)
+
+    case .fillEmptyOnly:
+      if baseRow.platform.isEmpty {
+        return AssetCSVRow(
+          assetName: baseRow.assetName, marketValue: baseRow.marketValue, platform: platform)
+      }
+      return baseRow
+    }
+  }
+
+  /// Whether the loaded CSV has a mix of empty and non-empty platform values,
+  /// making the apply mode toggle meaningful.
+  var hasMixedPlatforms: Bool {
+    let hasEmpty = baseAssetRows.contains { $0.platform.isEmpty }
+    let hasNonEmpty = baseAssetRows.contains { !$0.platform.isEmpty }
+    return hasEmpty && hasNonEmpty
   }
 
   // MARK: - Private: Cash Flow CSV Loading

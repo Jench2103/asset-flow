@@ -13,6 +13,14 @@ enum ImportType: String, CaseIterable {
   case cashFlows
 }
 
+/// How the import-level platform is applied to CSV rows.
+enum PlatformApplyMode: String, CaseIterable {
+  /// Override all rows with the selected platform.
+  case overrideAll
+  /// Only fill rows that have no platform in the CSV.
+  case fillEmptyOnly
+}
+
 /// A preview row for an asset CSV import, with inclusion state and category warning.
 struct AssetPreviewRow: Identifiable {
   let id: UUID

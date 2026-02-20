@@ -351,6 +351,107 @@ struct ImportViewModelTests {
     #expect(viewModel.selectedFileData == nil)
   }
 
+  @Test("fillEmptyOnly applies platform only to empty-platform rows")
+  func fillEmptyOnlyAppliesPlatformToEmptyRows() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // CSV with mixed platforms: some have values, some are empty
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      AAPL,15000,Fidelity
+      VTI,28000,
+      Bitcoin,5000,Coinbase
+      ETH,3000,
+      """)
+    viewModel.loadCSVData(csv)
+
+    viewModel.selectedPlatform = "Schwab"
+    viewModel.platformApplyMode = .fillEmptyOnly
+
+    // Rows with CSV platforms should keep them
+    #expect(viewModel.assetPreviewRows[0].csvRow.platform == "Fidelity")
+    #expect(viewModel.assetPreviewRows[2].csvRow.platform == "Coinbase")
+
+    // Rows without CSV platforms should get the selected platform
+    #expect(viewModel.assetPreviewRows[1].csvRow.platform == "Schwab")
+    #expect(viewModel.assetPreviewRows[3].csvRow.platform == "Schwab")
+  }
+
+  @Test("overrideAll applies platform to all rows")
+  func overrideAllAppliesPlatformToAllRows() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      AAPL,15000,Fidelity
+      VTI,28000,
+      Bitcoin,5000,Coinbase
+      """)
+    viewModel.loadCSVData(csv)
+
+    viewModel.selectedPlatform = "Schwab"
+    viewModel.platformApplyMode = .overrideAll
+
+    for row in viewModel.assetPreviewRows {
+      #expect(row.csvRow.platform == "Schwab")
+    }
+  }
+
+  @Test("Changing apply mode triggers rebuild")
+  func changingApplyModeTriggersRebuild() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      AAPL,15000,Fidelity
+      VTI,28000,
+      """)
+    viewModel.loadCSVData(csv)
+    viewModel.selectedPlatform = "Schwab"
+
+    // Default is overrideAll — all rows should have Schwab
+    #expect(viewModel.assetPreviewRows[0].csvRow.platform == "Schwab")
+    #expect(viewModel.assetPreviewRows[1].csvRow.platform == "Schwab")
+
+    // Switch to fillEmptyOnly — Fidelity row should revert
+    viewModel.platformApplyMode = .fillEmptyOnly
+
+    #expect(viewModel.assetPreviewRows[0].csvRow.platform == "Fidelity")
+    #expect(viewModel.assetPreviewRows[1].csvRow.platform == "Schwab")
+  }
+
+  @Test("fillEmptyOnly preserves exclusion state")
+  func fillEmptyOnlyPreservesExclusionState() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      AAPL,15000,Fidelity
+      VTI,28000,
+      Bitcoin,5000,Coinbase
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Exclude a row
+    viewModel.removeAssetPreviewRow(at: 1)
+    #expect(viewModel.assetPreviewRows[1].isIncluded == false)
+
+    // Set platform and switch to fillEmptyOnly
+    viewModel.selectedPlatform = "Schwab"
+    viewModel.platformApplyMode = .fillEmptyOnly
+
+    // Exclusion should be preserved
+    #expect(viewModel.assetPreviewRows[1].isIncluded == false)
+  }
+
   @Test("Excluded rows preserved after platform change")
   func excludedRowsPreservedAfterPlatformChange() {
     let tc = createTestContext()

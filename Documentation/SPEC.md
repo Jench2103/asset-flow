@@ -400,13 +400,14 @@ ______________________________________________________________________
 
 ### 4.5 Platform Handling
 
-Platform for each asset is determined by:
+Platform for each asset is determined by the import-level platform selection and the **apply mode**:
 
-1. If user selected a platform during import, use that for ALL rows (overrides CSV)
-1. Else if `Platform` column exists in CSV, use per-row value
-1. Else platform is empty (asset has no platform)
+1. If no import-level platform is selected, use per-row CSV values (or empty if no `Platform` column)
+1. If an import-level platform is selected:
+   1. **Override All** (default): Every row receives the selected platform, overriding CSV values
+   1. **Fill Empty Only**: Only rows whose CSV platform is empty receive the selected platform; rows with existing CSV platforms keep their original values
 
-This behavior is deterministic and not user-configurable.
+The apply mode toggle (segmented picker: "All Rows" / "Empty Only") appears only when a platform is selected AND the CSV contains a mix of empty and non-empty platform values. Otherwise, the distinction is meaningless and the toggle is hidden.
 
 ______________________________________________________________________
 

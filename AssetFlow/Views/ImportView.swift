@@ -172,7 +172,7 @@ struct ImportView: View {
       Text("Configuration")
         .font(.headline)
 
-      HStack(spacing: 20) {
+      HStack {
         // Snapshot date picker
         DatePicker(
           "Snapshot Date",
@@ -180,11 +180,15 @@ struct ImportView: View {
           in: ...Date(),
           displayedComponents: .date
         )
-        .frame(maxWidth: 250)
+        .fixedSize()
+
+        Spacer()
 
         if viewModel.importType == .assets {
           platformPicker
+          Spacer()
           categoryPicker
+          Spacer()
         }
       }
     }
@@ -207,7 +211,7 @@ struct ImportView: View {
           }
         }
       } else {
-        HStack {
+        HStack(spacing: 4) {
           Text("Platform:")
             .foregroundStyle(.secondary)
           Picker("Platform", selection: platformBinding) {
@@ -219,10 +223,28 @@ struct ImportView: View {
             Text("New Platform...").tag("__new__")
           }
           .labelsHidden()
-          .frame(maxWidth: 180)
+          .fixedSize()
+
+          if viewModel.hasMixedPlatforms {
+            Toggle("All Rows", isOn: overrideAllBinding)
+              .toggleStyle(.checkbox)
+              .fixedSize()
+              .disabled(viewModel.selectedPlatform == nil)
+          }
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.fill.quaternary)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
       }
     }
+  }
+
+  private var overrideAllBinding: Binding<Bool> {
+    Binding(
+      get: { viewModel.platformApplyMode == .overrideAll },
+      set: { viewModel.platformApplyMode = $0 ? .overrideAll : .fillEmptyOnly }
+    )
   }
 
   private var platformBinding: Binding<String> {
@@ -286,7 +308,7 @@ struct ImportView: View {
             Text("New Category...").tag("__new__")
           }
           .labelsHidden()
-          .frame(maxWidth: 180)
+          .fixedSize()
         }
       }
     }

@@ -219,6 +219,7 @@ extension ImportViewModel {
     selectedFileURL = nil
     selectedFileData = nil
     importError = nil
+    platformApplyMode = .overrideAll
     copyForwardPlatforms = []
     baseAssetRows = []
     baseAssetParsingErrors = []
