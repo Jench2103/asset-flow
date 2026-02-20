@@ -220,6 +220,10 @@ extension ImportViewModel {
     selectedFileData = nil
     importError = nil
     copyForwardPlatforms = []
+    baseAssetRows = []
+    baseAssetParsingErrors = []
+    baseAssetWarnings = []
+    excludedAssetIndices = []
   }
 
   func fetchAllAssets() -> [Asset] {

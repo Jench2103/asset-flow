@@ -291,7 +291,7 @@ struct ImportViewModelTests {
     #expect(viewModel.assetPreviewRows[0].csvRow.platform == "Fidelity")
   }
 
-  @Test("Changing platform and reloading cached data updates preview rows")
+  @Test("Changing platform rebuilds preview rows with new platform")
   func changePlatformWithCachedData() throws {
     let tc = createTestContext()
     let viewModel = ImportViewModel(modelContext: tc.context)
@@ -307,10 +307,8 @@ struct ImportViewModelTests {
     viewModel.loadFile(tempURL)
     #expect(viewModel.assetPreviewRows[0].csvRow.platform == "Fidelity")
 
-    // Change platform and reload from cached data (simulates reloadCSVIfNeeded)
+    // Change platform — didSet triggers rebuild automatically
     viewModel.selectedPlatform = "Schwab"
-    let cachedData = try #require(viewModel.selectedFileData)
-    viewModel.loadCSVData(cachedData)
 
     for row in viewModel.assetPreviewRows {
       #expect(row.csvRow.platform == "Schwab")
@@ -351,6 +349,74 @@ struct ImportViewModelTests {
 
     viewModel.reset()
     #expect(viewModel.selectedFileData == nil)
+  }
+
+  @Test("Excluded rows preserved after platform change")
+  func excludedRowsPreservedAfterPlatformChange() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    viewModel.loadCSVData(validAssetCSVData())
+    #expect(viewModel.assetPreviewRows.count == 3)
+
+    // Exclude row at index 1 (VTI)
+    viewModel.removeAssetPreviewRow(at: 1)
+    #expect(viewModel.assetPreviewRows[1].isIncluded == false)
+
+    // Change platform
+    viewModel.selectedPlatform = "Schwab"
+
+    // Row 1 should still be excluded
+    #expect(viewModel.assetPreviewRows[1].isIncluded == false)
+    // Other rows should have the new platform
+    #expect(viewModel.assetPreviewRows[0].csvRow.platform == "Schwab")
+    #expect(viewModel.assetPreviewRows[2].csvRow.platform == "Schwab")
+  }
+
+  @Test("Excluded rows preserved after clearing platform")
+  func excludedRowsPreservedAfterClearingPlatform() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    viewModel.selectedPlatform = "Schwab"
+    viewModel.loadCSVData(validAssetCSVData())
+
+    // Exclude row at index 0
+    viewModel.removeAssetPreviewRow(at: 0)
+    #expect(viewModel.assetPreviewRows[0].isIncluded == false)
+
+    // Clear platform
+    viewModel.selectedPlatform = nil
+
+    // Row 0 should still be excluded
+    #expect(viewModel.assetPreviewRows[0].isIncluded == false)
+    // Platforms should revert to CSV values
+    #expect(viewModel.assetPreviewRows[0].csvRow.platform == "Interactive Brokers")
+    #expect(viewModel.assetPreviewRows[2].csvRow.platform == "Coinbase")
+  }
+
+  @Test("Excluded rows preserved after category change")
+  func excludedRowsPreservedAfterCategoryChange() {
+    let tc = createTestContext()
+
+    let equities = Category(name: "Equities")
+    tc.context.insert(equities)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.loadCSVData(validAssetCSVData())
+
+    // Exclude row at index 2 (Bitcoin)
+    viewModel.removeAssetPreviewRow(at: 2)
+    #expect(viewModel.assetPreviewRows[2].isIncluded == false)
+
+    // Change category
+    viewModel.selectedCategory = equities
+
+    // Row 2 should still be excluded
+    #expect(viewModel.assetPreviewRows[2].isIncluded == false)
+    // Other rows should still be included
+    #expect(viewModel.assetPreviewRows[0].isIncluded == true)
+    #expect(viewModel.assetPreviewRows[1].isIncluded == true)
   }
 
   // MARK: - Category Handling

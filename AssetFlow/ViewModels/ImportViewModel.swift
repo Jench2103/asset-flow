@@ -63,10 +63,22 @@ class ImportViewModel {
   var copyForwardPlatforms: [CopyForwardPlatformInfo] = []
 
   /// Import-level platform override (nil = use CSV per-row values).
-  var selectedPlatform: String?
+  var selectedPlatform: String? {
+    didSet {
+      guard selectedPlatform != oldValue else { return }
+      guard !baseAssetRows.isEmpty else { return }
+      rebuildAssetPreviewRows()
+    }
+  }
 
   /// Import-level category assignment (nil = uncategorized).
-  var selectedCategory: Category?
+  var selectedCategory: Category? {
+    didSet {
+      guard selectedCategory?.id != oldValue?.id else { return }
+      guard !baseAssetRows.isEmpty else { return }
+      rebuildAssetPreviewRows()
+    }
+  }
 
   /// Preview rows for asset CSV import.
   var assetPreviewRows: [AssetPreviewRow] = []
@@ -92,6 +104,20 @@ class ImportViewModel {
   /// Parsing errors from the initial CSV load (empty names, unparseable values).
   /// Stored separately so revalidation can preserve them alongside re-computed duplicate errors.
   var parsingErrors: [CSVError] = []
+
+  // MARK: - Base Parse State (for rebuild without re-parsing)
+
+  /// Base asset rows from the last CSV parse (no platform override applied).
+  var baseAssetRows: [AssetCSVRow] = []
+
+  /// Parsing errors from the base parse (excludes within-CSV duplicate errors).
+  var baseAssetParsingErrors: [CSVError] = []
+
+  /// Warnings from the base parse.
+  var baseAssetWarnings: [CSVWarning] = []
+
+  /// Indices of rows excluded by the user (via minus button).
+  var excludedAssetIndices: Set<Int> = []
 
   // MARK: - Computed Properties
 
@@ -132,7 +158,6 @@ class ImportViewModel {
     switch importType {
     case .assets:
       loadAssetCSVData(data)
-      computeCopyForwardPlatforms()
 
     case .cashFlows:
       loadCashFlowCSVData(data)
@@ -166,6 +191,7 @@ class ImportViewModel {
   /// Removes (excludes) an asset preview row at the given index.
   func removeAssetPreviewRow(at index: Int) {
     guard index >= 0 && index < assetPreviewRows.count else { return }
+    excludedAssetIndices.insert(index)
     assetPreviewRows[index].isIncluded = false
     revalidate()
   }
@@ -327,33 +353,49 @@ class ImportViewModel {
   // MARK: - Private: Asset CSV Loading
 
   private func loadAssetCSVData(_ data: Data) {
-    let result = CSVParsingService.parseAssetCSV(
-      data: data, importPlatform: selectedPlatform)
+    // Parse with no platform override — get base rows
+    let result = CSVParsingService.parseAssetCSV(data: data, importPlatform: nil)
+    baseAssetRows = result.rows
 
+    // Store parsing-only errors (not within-CSV duplicates, which depend on effective platform)
+    let withinCSVDuplicates = CSVParsingService.detectAssetDuplicates(rows: result.rows)
+    let duplicateMessages = Set(withinCSVDuplicates.map { $0.message })
+    baseAssetParsingErrors = result.errors.filter { !duplicateMessages.contains($0.message) }
+    baseAssetWarnings = result.warnings
+
+    excludedAssetIndices = []
+    cashFlowPreviewRows = []
+
+    rebuildAssetPreviewRows()
+  }
+
+  /// Rebuilds asset preview rows from base parse data, applying current
+  /// platform/category settings and preserving exclusion state.
+  func rebuildAssetPreviewRows() {
     let allAssets = fetchAllAssets()
-    assetPreviewRows = result.rows.map { row in
-      AssetPreviewRow(
+    assetPreviewRows = baseAssetRows.enumerated().map { index, baseRow in
+      let effectiveRow =
+        selectedPlatform.map {
+          AssetCSVRow(
+            assetName: baseRow.assetName, marketValue: baseRow.marketValue, platform: $0)
+        } ?? baseRow
+      return AssetPreviewRow(
         id: UUID(),
-        csvRow: row,
-        isIncluded: true,
-        categoryWarning: categoryWarning(for: row, existingAssets: allAssets)
+        csvRow: effectiveRow,
+        isIncluded: !excludedAssetIndices.contains(index),
+        categoryWarning: categoryWarning(for: effectiveRow, existingAssets: allAssets)
       )
     }
 
-    cashFlowPreviewRows = []
+    // Revalidate: duplicates depend on effective platform and exclusion state
+    let includedRows = assetPreviewRows.filter { $0.isIncluded }.map { $0.csvRow }
+    let withinCSVErrors = CSVParsingService.detectAssetDuplicates(rows: includedRows)
+    let snapshotErrors = detectAssetSnapshotDuplicates(rows: includedRows)
+    parsingErrors = baseAssetParsingErrors
+    validationErrors = parsingErrors + withinCSVErrors + snapshotErrors
+    validationWarnings = baseAssetWarnings
 
-    // Separate parsing errors from duplicate errors.
-    // result.errors contains both per-row parsing errors AND within-CSV duplicate errors.
-    // We compute duplicates separately so we can store parsing-only errors for revalidation.
-    let withinCSVDuplicates = CSVParsingService.detectAssetDuplicates(rows: result.rows)
-    let duplicateMessages = Set(withinCSVDuplicates.map { $0.message })
-    parsingErrors = result.errors.filter { !duplicateMessages.contains($0.message) }
-
-    // Build full error list: parsing + within-CSV duplicates + snapshot duplicates
-    let snapshotErrors = detectAssetSnapshotDuplicates(rows: result.rows)
-
-    validationErrors = parsingErrors + withinCSVDuplicates + snapshotErrors
-    validationWarnings = result.warnings
+    computeCopyForwardPlatforms()
   }
 
   private func categoryWarning(for row: AssetCSVRow, existingAssets: [Asset]) -> String? {

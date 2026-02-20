@@ -234,10 +234,8 @@ struct ImportView: View {
           newPlatformName = ""
         } else if newValue.isEmpty {
           viewModel.selectedPlatform = nil
-          reloadCSVIfNeeded()
         } else {
           viewModel.selectedPlatform = newValue
-          reloadCSVIfNeeded()
         }
       }
     )
@@ -257,7 +255,6 @@ struct ImportView: View {
 
     showNewPlatformField = false
     newPlatformName = ""
-    reloadCSVIfNeeded()
   }
 
   private var categoryPicker: some View {
@@ -304,13 +301,11 @@ struct ImportView: View {
           newCategoryName = ""
         } else if newValue.isEmpty {
           viewModel.selectedCategory = nil
-          reloadCSVIfNeeded()
         } else {
           let categories = viewModel.existingCategories()
           viewModel.selectedCategory = categories.first {
             $0.id.uuidString == newValue
           }
-          reloadCSVIfNeeded()
         }
       }
     )
@@ -325,13 +320,6 @@ struct ImportView: View {
 
     showNewCategoryField = false
     newCategoryName = ""
-    reloadCSVIfNeeded()
-  }
-
-  /// Reloads the CSV with updated platform/category settings.
-  private func reloadCSVIfNeeded() {
-    guard let data = viewModel.selectedFileData else { return }
-    viewModel.loadCSVData(data)
   }
 
   // MARK: - Copy Forward Section
