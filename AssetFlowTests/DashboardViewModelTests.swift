@@ -557,12 +557,15 @@ struct DashboardViewModelTests {
     viewModel.loadData()
 
     let history = viewModel.twrHistory
-    // TWR history starts from the second snapshot
-    #expect(history.count == 2)
+    // TWR history includes 0% origin at first snapshot + subsequent points
+    #expect(history.count == 3)
+    // Origin point: 0% at first snapshot date
+    #expect(history[0].value == 0)
+    #expect(history[0].date == makeDate(year: 2025, month: 1, day: 1))
     // First TWR point: 10% cumulative
-    #expect(abs(history[0].value - Decimal(string: "0.1")!) < Decimal(string: "0.01")!)
+    #expect(abs(history[1].value - Decimal(string: "0.1")!) < Decimal(string: "0.01")!)
     // Second TWR point: 21% cumulative
-    #expect(abs(history[1].value - Decimal(string: "0.21")!) < Decimal(string: "0.01")!)
+    #expect(abs(history[2].value - Decimal(string: "0.21")!) < Decimal(string: "0.01")!)
   }
 
   @Test("TWR history is empty with fewer than 2 snapshots")

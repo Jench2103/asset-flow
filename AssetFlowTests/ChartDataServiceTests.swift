@@ -295,6 +295,24 @@ struct ChartDataServiceTests {
     #expect(result[1].date == d2)
   }
 
+  @Test("rebasedTWR with zero base is identity")
+  func rebasedTWRZeroBaseIsIdentity() {
+    let points = [
+      DashboardDataPoint(
+        date: makeDate(year: 2025, month: 1, day: 1), value: Decimal(string: "0.0")!),
+      DashboardDataPoint(
+        date: makeDate(year: 2025, month: 2, day: 1), value: Decimal(string: "0.1")!),
+      DashboardDataPoint(
+        date: makeDate(year: 2025, month: 3, day: 1), value: Decimal(string: "0.21")!),
+    ]
+    let result = ChartDataService.rebasedTWR(points)
+    // Rebasing from 0% should be identity: (1+C_i)/(1+0)-1 = C_i
+    for i in 0..<points.count {
+      #expect(result[i].value == points[i].value)
+      #expect(result[i].date == points[i].date)
+    }
+  }
+
   // MARK: - Filter Tests (CategoryValueHistoryEntry)
 
   @Test("Filter CategoryValueHistoryEntry with .threeMonths")

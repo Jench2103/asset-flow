@@ -360,7 +360,10 @@ class DashboardViewModel {
 
     let periodReturns = computePeriodReturns(sortedSnapshots: sortedSnapshots)
 
-    var history: [DashboardDataPoint] = []
+    // Start with 0% at the first snapshot (inception point)
+    var history: [DashboardDataPoint] = [
+      DashboardDataPoint(date: sortedSnapshots[0].date, value: 0)
+    ]
     var cumulativeProduct = Decimal(1)
 
     for (index, periodReturn) in periodReturns.enumerated() {
