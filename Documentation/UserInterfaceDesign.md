@@ -452,6 +452,10 @@ Category detail also includes allocation percentage line chart (same format, sin
 - **Rebasing:** When a non-"All" time range is selected, TWR values are rebased so the first visible point starts at 0%, showing period-specific returns. The "All" range shows inception-based values unchanged.
 - The metric card is labeled "Cumulative TWR (All Time)" to distinguish it from the chart's period-rebased values.
 
+### Chart Axis Stability
+
+All interactive charts (those with hover tooltips or click-to-navigate) must pin both X and Y axis domains explicitly using `.chartXScale(domain:)` and `.chartYScale(domain:)`. This prevents axis recalculation and visual shifts when conditional marks (e.g., `RuleMark` annotations) are added or removed during hover/tap interactions.
+
 ### Chart Empty and Edge States
 
 | Chart                  | Condition                                | Display                                         |

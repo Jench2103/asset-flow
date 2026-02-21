@@ -203,6 +203,21 @@ Picker("Snapshot", selection: $selectedDate) {
 }
 ```
 
+**Pin both axis domains on interactive charts:**
+
+When a chart uses interactive overlays (hover via `onContinuousHover`, tap via `onTapGesture`) with conditional marks (e.g., `RuleMark` + annotation), always set explicit `.chartXScale(domain:)` and `.chartYScale(domain:)`. Without fixed domains, adding/removing conditional marks triggers Swift Charts auto-scale recalculation, causing visible Y-axis shifts during hover.
+
+```swift
+// GOOD — axes stay stable during hover
+let yValues = points.map { $0.value.doubleValue }
+let yMin = yValues.min()!
+let yMax = yValues.max()!
+
+Chart(points) { ... }
+  .chartXScale(domain: firstDate...lastDate)
+  .chartYScale(domain: yMin...yMax)
+```
+
 **Chart component requirements:**
 
 Every chart view in `Views/Charts/` must implement:

@@ -54,6 +54,9 @@ struct PortfolioValueLineChart: View {
   private func lineChart(_ points: [DashboardDataPoint]) -> some View {
     let firstDate = points.first!.date
     let lastDate = points.last!.date
+    let yValues = points.map { $0.value.doubleValue }
+    let yMin = yValues.min()!
+    let yMax = yValues.max()!
     return Chart(points, id: \.date) { point in
       LineMark(
         x: .value("Date", point.date),
@@ -83,6 +86,7 @@ struct PortfolioValueLineChart: View {
       }
     }
     .chartXScale(domain: firstDate...lastDate)
+    .chartYScale(domain: yMin...yMax)
     .chartYAxis {
       AxisMarks { value in
         AxisGridLine()
