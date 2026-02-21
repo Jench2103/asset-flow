@@ -338,7 +338,7 @@ struct ContentView: View {
 
   // MARK: - Helpers
 
-  private func placeholderView(_ title: String, systemImage: String) -> some View {
+  private func placeholderView(_ title: LocalizedStringKey, systemImage: String) -> some View {
     ContentUnavailableView(title, systemImage: systemImage)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
