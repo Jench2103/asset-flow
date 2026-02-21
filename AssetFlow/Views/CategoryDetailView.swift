@@ -150,7 +150,12 @@ struct CategoryDetailView: View {
   }
 
   private func valueLineChart(_ points: [CategoryValueHistoryEntry]) -> some View {
-    Chart(points) { entry in
+    let firstDate = points.first!.date
+    let lastDate = points.last!.date
+    let yValues = points.map { $0.totalValue.doubleValue }
+    let yMin = yValues.min()!
+    let yMax = yValues.max()!
+    return Chart(points) { entry in
       LineMark(
         x: .value("Date", entry.date),
         y: .value("Value", entry.totalValue.doubleValue)
@@ -166,7 +171,12 @@ struct CategoryDetailView: View {
         RuleMark(x: .value("Date", hoveredValueDate))
           .foregroundStyle(.secondary.opacity(0.5))
           .lineStyle(StrokeStyle(dash: [4, 4]))
-          .annotation(position: .top, alignment: .center) {
+          .annotation(
+            position: .top,
+            alignment: entry.date == firstDate
+              ? .leading
+              : entry.date == lastDate ? .trailing : .center
+          ) {
             ChartTooltipView {
               Text(entry.date.settingsFormatted())
                 .font(.caption2)
@@ -176,6 +186,8 @@ struct CategoryDetailView: View {
           }
       }
     }
+    .chartXScale(domain: firstDate...lastDate)
+    .chartYScale(domain: yMin...yMax)
     .chartYAxis {
       AxisMarks { value in
         AxisGridLine()
