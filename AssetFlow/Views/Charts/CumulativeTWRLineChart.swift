@@ -38,6 +38,7 @@ struct CumulativeTWRLineChart: View {
     .padding()
     .frame(maxHeight: .infinity, alignment: .topLeading)
     .glassCard()
+    .accessibilityLabel("Cumulative time-weighted return chart")
   }
 
   @ViewBuilder

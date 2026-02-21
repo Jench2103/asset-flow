@@ -154,10 +154,12 @@ struct RebalancingView: View {
       case .buy:
         Label(actionText, systemImage: "arrow.up.circle.fill")
           .foregroundStyle(.green)
+          .accessibilityLabel("Buy: \(actionText)")
 
       case .sell:
         Label(actionText, systemImage: "arrow.down.circle.fill")
           .foregroundStyle(.red)
+          .accessibilityLabel("Sell: \(actionText)")
 
       case .noAction:
         Text(actionText)
@@ -188,11 +190,11 @@ struct RebalancingView: View {
   // MARK: - Empty State
 
   private var emptyState: some View {
-    EmptyStateView(
-      icon: "chart.bar.doc.horizontal",
-      title: "No Rebalancing Data",
-      message: "Set target allocations on your categories to use the rebalancing calculator."
-    )
+    ContentUnavailableView {
+      Label("No Rebalancing Data", systemImage: "chart.bar.doc.horizontal")
+    } description: {
+      Text("Set target allocations on your categories to use the rebalancing calculator.")
+    }
   }
 
   // MARK: - Row Builders

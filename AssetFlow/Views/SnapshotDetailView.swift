@@ -134,6 +134,7 @@ struct SnapshotDetailView: View {
           Image(systemName: "plus")
         }
         .buttonStyle(.plain)
+        .help("Add an asset to this snapshot")
       }
     }
   }
@@ -281,6 +282,7 @@ struct SnapshotDetailView: View {
           Image(systemName: "plus")
         }
         .buttonStyle(.plain)
+        .help("Add a cash flow operation")
       }
     }
   }
@@ -308,6 +310,9 @@ private struct AddAssetSheet: View {
 
   @Environment(\.dismiss) private var dismiss
   @Environment(\.modelContext) private var modelContext
+
+  @FocusState private var focusedField: Field?
+  enum Field { case asset, marketValue, newName, newMarketValue }
 
   @State private var mode: AddAssetMode = .selectExisting
   @State private var showError = false
@@ -348,21 +353,15 @@ private struct AddAssetSheet: View {
   }
 
   var body: some View {
-    VStack(spacing: 0) {
-      Text("Add Asset")
-        .font(.headline)
-        .padding(.top, 16)
-        .padding(.horizontal)
-
-      Picker("Mode", selection: $mode) {
-        ForEach(AddAssetMode.allCases, id: \.self) { mode in
-          Text(mode.localizedName).tag(mode)
-        }
-      }
-      .pickerStyle(.segmented)
-      .padding(.horizontal)
-
+    NavigationStack {
       Form {
+        Picker("Mode", selection: $mode) {
+          ForEach(AddAssetMode.allCases, id: \.self) { mode in
+            Text(mode.localizedName).tag(mode)
+          }
+        }
+        .pickerStyle(.segmented)
+
         switch mode {
         case .selectExisting:
           selectExistingForm
@@ -372,27 +371,29 @@ private struct AddAssetSheet: View {
         }
       }
       .formStyle(.grouped)
-
-      HStack {
-        Button("Cancel", role: .cancel) {
-          dismiss()
+      .navigationTitle("Add Asset")
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Cancel") {
+            dismiss()
+          }
         }
-        .keyboardShortcut(.cancelAction)
-
-        Spacer()
-
-        Button("Add") {
-          addAsset()
+        ToolbarItem(placement: .confirmationAction) {
+          Button("Add") {
+            addAsset()
+          }
+          .disabled(isAddDisabled)
         }
-        .keyboardShortcut(.defaultAction)
-        .disabled(isAddDisabled)
       }
-      .padding()
     }
     .frame(minWidth: 400, minHeight: 300)
     .onAppear {
       cachedPlatforms = existingPlatforms()
       cachedCategories = existingCategories()
+      focusedField = mode == .selectExisting ? .marketValue : .newName
+    }
+    .onChange(of: mode) {
+      focusedField = mode == .selectExisting ? .marketValue : .newName
     }
     .alert("Error", isPresented: $showError) {
       Button("OK") {}
@@ -422,6 +423,7 @@ private struct AddAssetSheet: View {
       }
 
       TextField("Market Value", text: $marketValueText)
+        .focused($focusedField, equals: .marketValue)
         .accessibilityIdentifier("Market Value Field")
     }
   }
@@ -429,12 +431,14 @@ private struct AddAssetSheet: View {
   @ViewBuilder
   private var createNewForm: some View {
     TextField("Asset Name", text: $newAssetName)
+      .focused($focusedField, equals: .newName)
 
     platformPicker
 
     categoryPicker
 
     TextField("Market Value", text: $newMarketValueText)
+      .focused($focusedField, equals: .newMarketValue)
       .accessibilityIdentifier("New Market Value Field")
   }
 
@@ -612,6 +616,8 @@ private struct AddCashFlowSheet: View {
   let onComplete: () -> Void
 
   @Environment(\.dismiss) private var dismiss
+  @FocusState private var focusedField: Field?
+  enum Field { case description, amount }
 
   @State private var description = ""
   @State private var amountText = ""
@@ -619,41 +625,37 @@ private struct AddCashFlowSheet: View {
   @State private var errorMessage = ""
 
   var body: some View {
-    VStack(spacing: 0) {
-      Text("Add Cash Flow")
-        .font(.headline)
-        .padding(.top, 16)
-        .padding(.horizontal)
-
+    NavigationStack {
       Form {
         TextField("Description", text: $description)
+          .focused($focusedField, equals: .description)
           .accessibilityIdentifier("Cash Flow Description Field")
 
         TextField("Amount (positive = inflow, negative = outflow)", text: $amountText)
+          .focused($focusedField, equals: .amount)
           .accessibilityIdentifier("Cash Flow Amount Field")
       }
       .formStyle(.grouped)
-
-      HStack {
-        Button("Cancel", role: .cancel) {
-          dismiss()
+      .navigationTitle("Add Cash Flow")
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Cancel") {
+            dismiss()
+          }
         }
-        .keyboardShortcut(.cancelAction)
-
-        Spacer()
-
-        Button("Add") {
-          addCashFlow()
+        ToolbarItem(placement: .confirmationAction) {
+          Button("Add") {
+            addCashFlow()
+          }
+          .disabled(
+            description.trimmingCharacters(in: .whitespaces).isEmpty
+              || Decimal(string: amountText) == nil
+          )
         }
-        .keyboardShortcut(.defaultAction)
-        .disabled(
-          description.trimmingCharacters(in: .whitespaces).isEmpty
-            || Decimal(string: amountText) == nil
-        )
       }
-      .padding()
     }
     .frame(minWidth: 350, minHeight: 180)
+    .onAppear { focusedField = .description }
     .alert("Error", isPresented: $showError) {
       Button("OK") {}
     } message: {
@@ -680,6 +682,7 @@ private struct EditValuePopover: View {
   let currentValue: Decimal
   let onSave: (Decimal) -> Void
   @Environment(\.dismiss) private var dismiss
+  @FocusState private var isValueFocused: Bool
   @State private var valueText: String
 
   init(currentValue: Decimal, onSave: @escaping (Decimal) -> Void) {
@@ -693,6 +696,7 @@ private struct EditValuePopover: View {
       Text("Market Value").font(.headline)
       TextField("Market Value", text: $valueText)
         .textFieldStyle(.roundedBorder)
+        .focused($isValueFocused)
         .accessibilityIdentifier("Edit Market Value Field")
       HStack {
         Button("Cancel", role: .cancel) { dismiss() }
@@ -710,6 +714,7 @@ private struct EditValuePopover: View {
     }
     .frame(width: 280)
     .padding()
+    .onAppear { isValueFocused = true }
   }
 }
 
@@ -720,6 +725,8 @@ private struct EditCashFlowPopover: View {
   let currentAmount: Decimal
   let onSave: (String, Decimal) -> Void
   @Environment(\.dismiss) private var dismiss
+  @FocusState private var focusedField: Field?
+  enum Field { case description, amount }
   @State private var description: String
   @State private var amountText: String
 
@@ -740,8 +747,10 @@ private struct EditCashFlowPopover: View {
       Text("Edit Cash Flow").font(.headline)
       TextField("Description", text: $description)
         .textFieldStyle(.roundedBorder)
+        .focused($focusedField, equals: .description)
       TextField("Amount", text: $amountText)
         .textFieldStyle(.roundedBorder)
+        .focused($focusedField, equals: .amount)
       HStack {
         Button("Cancel", role: .cancel) { dismiss() }
           .keyboardShortcut(.cancelAction)
@@ -761,6 +770,7 @@ private struct EditCashFlowPopover: View {
     }
     .frame(width: 280)
     .padding()
+    .onAppear { focusedField = .description }
   }
 }
 

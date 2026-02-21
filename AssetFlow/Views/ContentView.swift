@@ -8,6 +8,28 @@
 import SwiftData
 import SwiftUI
 
+// MARK: - Focused Value Keys
+
+struct NewSnapshotActionKey: FocusedValueKey {
+  typealias Value = () -> Void
+}
+
+struct ImportCSVActionKey: FocusedValueKey {
+  typealias Value = () -> Void
+}
+
+extension FocusedValues {
+  var newSnapshotAction: (() -> Void)? {
+    get { self[NewSnapshotActionKey.self] }
+    set { self[NewSnapshotActionKey.self] = newValue }
+  }
+
+  var importCSVAction: (() -> Void)? {
+    get { self[ImportCSVActionKey.self] }
+    set { self[ImportCSVActionKey.self] = newValue }
+  }
+}
+
 // MARK: - SidebarSection
 
 /// Sidebar navigation sections for the main app window.
@@ -64,9 +86,15 @@ struct ContentView: View {
   @State private var selectedCategory: Category?
   @State private var selectedPlatform: String?
 
+  @State private var showNewSnapshotSheet = false
   @State private var importViewModel: ImportViewModel?
   @State private var pendingSection: SidebarSection?
   @State private var showDiscardConfirmation = false
+
+  // Navigation history
+  @State private var sectionHistory: [SidebarSection] = [.dashboard]
+  @State private var historyIndex: Int = 0
+  @State private var isNavigatingHistory = false
 
   var body: some View {
     NavigationSplitView(columnVisibility: .constant(.all)) {
@@ -78,13 +106,27 @@ struct ContentView: View {
       detailPane
     }
     .frame(minWidth: 900, minHeight: 600)
+    .focusedValue(\.newSnapshotAction) {
+      pushHistory(.snapshots)
+      showNewSnapshotSheet = true
+    }
+    .focusedValue(\.importCSVAction) { navigateToImport() }
     .toolbar {
-      ToolbarItem(placement: .automatic) {
-        Button {
-          navigateToImport()
-        } label: {
-          Label("Import CSV", systemImage: "square.and.arrow.down")
+      ToolbarItem(placement: .navigation) {
+        Button(action: goBack) {
+          Image(systemName: "chevron.left")
         }
+        .disabled(!canGoBack)
+        .help("Go back")
+        .accessibilityIdentifier("Go Back Button")
+      }
+      ToolbarItem(placement: .navigation) {
+        Button(action: goForward) {
+          Image(systemName: "chevron.right")
+        }
+        .disabled(!canGoForward)
+        .help("Go forward")
+        .accessibilityIdentifier("Go Forward Button")
       }
     }
     .confirmationDialog(
@@ -94,7 +136,7 @@ struct ContentView: View {
       Button("Discard", role: .destructive) {
         importViewModel?.reset()
         if let pending = pendingSection {
-          selectedSection = pending
+          pushHistory(pending)
           pendingSection = nil
         }
       }
@@ -106,7 +148,7 @@ struct ContentView: View {
     }
     .onChange(of: importViewModel?.importedSnapshot?.id) { _, newValue in
       if newValue != nil, let snapshot = importViewModel?.importedSnapshot {
-        selectedSection = .snapshots
+        pushHistory(.snapshots)
         selectedSnapshot = snapshot
         importViewModel?.importedSnapshot = nil
         importViewModel?.reset()
@@ -149,7 +191,7 @@ struct ContentView: View {
     Binding(
       get: { selectedSection },
       set: { newSection in
-        guard newSection != selectedSection else { return }
+        guard let newSection, newSection != selectedSection else { return }
 
         // Check if navigating away from import with unsaved changes
         if selectedSection == .importCSV,
@@ -158,7 +200,7 @@ struct ContentView: View {
           pendingSection = newSection
           showDiscardConfirmation = true
         } else {
-          selectedSection = newSection
+          pushHistory(newSection)
         }
       }
     )
@@ -172,7 +214,7 @@ struct ContentView: View {
     case .dashboard:
       DashboardView(
         modelContext: modelContext,
-        onNavigateToSnapshots: { selectedSection = .snapshots },
+        onNavigateToSnapshots: { pushHistory(.snapshots) },
         onNavigateToImport: { navigateToImport() },
         onSelectSnapshot: { date in
           navigateToSnapshotByDate(date)
@@ -187,6 +229,7 @@ struct ContentView: View {
         SnapshotListView(
           modelContext: modelContext,
           selectedSnapshot: $selectedSnapshot,
+          showNewSnapshotSheet: $showNewSnapshotSheet,
           onNavigateToImport: { navigateToImport() }
         )
         .frame(minWidth: 250, idealWidth: 300)
@@ -315,7 +358,7 @@ struct ContentView: View {
     if selectedSection == .importCSV { return }
 
     // Navigate to import
-    selectedSection = .importCSV
+    pushHistory(.importCSV)
   }
 
   /// Navigates to a category by looking up its name.
@@ -329,7 +372,7 @@ struct ContentView: View {
         $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame
       })
     {
-      selectedSection = .categories
+      pushHistory(.categories)
       selectedCategory = match
     }
   }
@@ -341,8 +384,48 @@ struct ContentView: View {
     if let allSnapshots = try? modelContext.fetch(descriptor),
       let match = allSnapshots.first(where: { $0.date == targetDate })
     {
-      selectedSection = .snapshots
+      pushHistory(.snapshots)
       selectedSnapshot = match
     }
+  }
+
+  // MARK: - Navigation History
+
+  private var canGoBack: Bool { historyIndex > 0 }
+  private var canGoForward: Bool { historyIndex < sectionHistory.count - 1 }
+
+  private func goBack() {
+    guard canGoBack else { return }
+    isNavigatingHistory = true
+    historyIndex -= 1
+    selectedSection = sectionHistory[historyIndex]
+    isNavigatingHistory = false
+  }
+
+  private func goForward() {
+    guard canGoForward else { return }
+    isNavigatingHistory = true
+    historyIndex += 1
+    selectedSection = sectionHistory[historyIndex]
+    isNavigatingHistory = false
+  }
+
+  private func pushHistory(_ section: SidebarSection) {
+    guard !isNavigatingHistory else {
+      selectedSection = section
+      return
+    }
+    // Don't push if same as current
+    guard section != selectedSection else {
+      selectedSection = section
+      return
+    }
+    // Truncate forward history
+    if historyIndex < sectionHistory.count - 1 {
+      sectionHistory = Array(sectionHistory.prefix(historyIndex + 1))
+    }
+    sectionHistory.append(section)
+    historyIndex = sectionHistory.count - 1
+    selectedSection = section
   }
 }

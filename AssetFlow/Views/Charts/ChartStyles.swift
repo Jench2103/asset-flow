@@ -48,15 +48,17 @@ enum ChartConstants {
 /// Applies a frosted glass material background with subtle shadows and border,
 /// following the Liquid Glass design system.
 struct GlassCardModifier: ViewModifier {
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
   func body(content: Content) -> some View {
     content
-      .background(.ultraThinMaterial)
+      .background(reduceTransparency ? .regularMaterial : .ultraThinMaterial)
       .clipShape(RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius))
       .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
       .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
       .overlay(
         RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
-          .stroke(.white.opacity(0.2), lineWidth: 0.5)
+          .stroke(.primary.opacity(0.1), lineWidth: 0.5)
       )
   }
 }

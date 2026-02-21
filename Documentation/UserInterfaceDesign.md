@@ -28,13 +28,15 @@ All core screens and features are **implemented**:
 
 - ✅ All 12 Views: Dashboard, Snapshots (list + detail), Assets (list + detail), Categories (list + detail), Platforms, Rebalancing, Import, Settings
 - ✅ All 7 chart components with interactive features (hover tooltips, click-to-navigate, time range selectors, empty states)
-- ✅ EmptyStateView component for consistent empty state messaging across all views
-- ✅ Metric card tooltips (SPEC 3.2) for dashboard metrics
+- ✅ Empty states use `ContentUnavailableView` for consistent macOS-native appearance
+- ✅ Metric card explanations via `.help()` tooltips (SPEC 3.2)
 - ✅ Keyboard shortcuts (Delete key for deletion confirmations)
-
-Minor features deferred to future versions:
-
-- Additional keyboard shortcuts (Cmd+I for import, Cmd+N for new snapshot)
+- ✅ Menu bar commands: File > New Snapshot (Cmd+N), File > Import CSV (Cmd+I)
+- ✅ Sheet standardization: all sheets use `NavigationStack` + toolbar placements
+- ✅ `@FocusState` auto-focus in all sheets and popovers
+- ✅ `.help()` tooltips on toolbar buttons and interactive controls
+- ✅ Accessibility labels on charts and metric cards
+- ✅ Glass card material adapts to Reduce Transparency accessibility setting
 
 ______________________________________________________________________
 
@@ -60,7 +62,9 @@ The app uses a **sidebar navigation** layout (standard macOS pattern):
 
 **Toolbar**:
 
-- Import button (opens the same import flow as the sidebar Import item)
+- **Back button** (chevron.left) -- navigates to the previous sidebar section in history; disabled when no history exists
+- **Forward button** (chevron.right) -- navigates to the next sidebar section in forward history; disabled when at the latest entry
+- Navigation history is tracked for all sidebar selection changes and programmatic navigation (chart click-to-navigate, post-import redirect). Forward history is truncated when navigating to a new section from a non-tail position.
 
 ______________________________________________________________________
 
@@ -77,13 +81,13 @@ The dashboard provides a portfolio overview using the latest snapshot.
    - Number of Assets
    - Cumulative TWR (All Time) (since first snapshot)
    - CAGR (since first snapshot) -- shown alongside Cumulative TWR (All Time), with a tooltip: "CAGR is the annualized rate at which the portfolio's total value has grown since inception, including the effect of deposits and withdrawals. TWR measures pure investment performance by removing cash flow effects."
-   - Metric cards with tooltips use a `tooltipText: String?` parameter on `MetricCard` to display an info icon (`.help()` modifier)
+   - Metric cards use a `helpText: String?` parameter on `MetricCard` to display a native `.help()` tooltip on hover
 
 1. **Period performance cards**:
 
    - **Growth Rate** card -- simple percentage change with 1M / 3M / 1Y segmented control. Shows "N/A" if insufficient history.
    - **Return Rate** card -- Modified Dietz return with 1M / 3M / 1Y segmented control. Shows "N/A" if insufficient history.
-   - Each card uses the same `tooltipText` parameter on `MetricCard` for its tooltip
+   - Each card uses the same `helpText` parameter on `MetricCard` for its `.help()` tooltip
 
 1. **Allocation pie chart**:
 
@@ -309,7 +313,7 @@ ______________________________________________________________________
 
 ## Empty States
 
-All empty states use the reusable `EmptyStateView` component (`AssetFlow/Views/Components/EmptyStateView.swift`), which provides a consistent layout: centered SF Symbol icon (size 48, secondary), title (title2), descriptive message (callout, secondary, multiline center), and optional action buttons (primary uses `.borderedProminent`).
+All empty states use `ContentUnavailableView` (macOS 14.0+), which provides a consistent native macOS layout with `Label` (icon + title), `description` text, and optional `actions`. This replaced the custom `EmptyStateView` component for better platform consistency.
 
 | Screen      | Icon                       | Title                | Message                                                                                          | Actions                         |
 | ----------- | -------------------------- | -------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------- |
@@ -342,6 +346,8 @@ Accessible via menu bar (AssetFlow > Settings) or Cmd+,.
    - **GitHub link**: Tappable `Link` that opens the source repository in the browser.
 
 **Native About panel** (App menu → About AssetFlow): Replaced via `CommandGroup(replacing: .appInfo)` in `AssetFlowApp.swift`. Shows version + build number as the version string, with a rich-text credits block containing the commit hash, license, copyright, a clickable "Source Code" hyperlink, and the privacy statement.
+
+**File menu commands**: Replaced via `CommandGroup(replacing: .newItem)`. Includes "New Snapshot..." (Cmd+N) and "Import CSV..." (Cmd+I). Uses `@FocusedValue` to bridge actions from the menu bar to `ContentView`.
 
 ______________________________________________________________________
 
@@ -639,6 +645,40 @@ Lightweight edit interactions (1-2 fields) use `.popover()` anchored to their tr
 
 Popovers are used for: Edit Asset Value, Edit Cash Flow, Rename Platform. Complex multi-field forms (Add Asset, Add Cash Flow, Add Category) remain as modal sheets.
 
+### Sheet Pattern (Standard macOS)
+
+All modal sheets use the standard macOS sheet pattern with `NavigationStack` + toolbar placements. `@FocusState` is used to auto-focus the first field on appear:
+
+```swift
+NavigationStack {
+  Form { ... }
+  .formStyle(.grouped)
+  .navigationTitle("Sheet Title")
+  .toolbar {
+    ToolbarItem(placement: .cancellationAction) {
+      Button("Cancel") { dismiss() }
+    }
+    ToolbarItem(placement: .confirmationAction) {
+      Button("Create") { ... }
+        .disabled(...)
+    }
+  }
+}
+
+// Auto-focus first field:
+@FocusState private var focusedField: Field?
+.onAppear { focusedField = .name }
+```
+
+### Menu Bar Commands
+
+The File menu includes custom commands via `CommandGroup(replacing: .newItem)`:
+
+- **New Snapshot...** (Cmd+N) -- navigates to Snapshots section and opens the New Snapshot sheet
+- **Import CSV...** (Cmd+I) -- navigates to the Import CSV section
+
+These use `@FocusedValue` to bridge between menu commands and `ContentView` state. `FocusedValueKey` types (`NewSnapshotActionKey`, `ImportCSVActionKey`) are defined in `ContentView.swift`.
+
 ### Chart Implementation
 
 Use Swift Charts framework:
@@ -785,19 +825,18 @@ ______________________________________________________________________
 
 ## Implementation Status
 
-| View                           | Status      | Notes                                                                                                                           |
-| ------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation               |
-| DashboardView                  | Implemented | Summary cards with SPEC-compliant tooltips, period performance (1M/3M/1Y), interactive charts, EmptyStateView, recent snapshots |
-| SnapshotListView               | Implemented | @Query live list, relative time bucket grouping (collapsible sections), New Snapshot sheet, EmptyStateView, Delete key shortcut |
-| SnapshotDetailView             | Implemented | Asset breakdown, category allocation, cash flow CRUD, edit popovers, delete confirmation                                        |
-| AssetListView                  | Implemented | Platform/category grouping, selection binding, EmptyStateView, Delete key shortcut                                              |
-| AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                                  |
-| CategoryListView               | Implemented | Add sheet, target allocation warning, delete validation, EmptyStateView, Delete key shortcut                                    |
-| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                        |
-| PlatformListView               | Implemented | List-detail split with selection binding, rename popover, EmptyStateView, onChange reload after rename                          |
-| PlatformDetailView             | Implemented | Editable name, assets table (Name/Category/Value), value history chart with time range controls and hover tooltip               |
-| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, EmptyStateView                                            |
-| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                 |
-| SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                  |
-| EmptyStateView (Component)     | Implemented | Reusable component with SF Symbol icon, title, message, optional action buttons                                                 |
+| View                           | Status      | Notes                                                                                                                                                     |
+| ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation                                         |
+| DashboardView                  | Implemented | Summary cards with `.help()` tooltips, period performance (1M/3M/1Y), interactive charts, ContentUnavailableView, recent snapshots                        |
+| SnapshotListView               | Implemented | @Query live list, relative time bucket grouping (collapsible sections), New Snapshot sheet (NavigationStack), ContentUnavailableView, Delete key shortcut |
+| SnapshotDetailView             | Implemented | Asset breakdown, category allocation, cash flow CRUD, edit popovers, delete confirmation                                                                  |
+| AssetListView                  | Implemented | Platform/category grouping, selection binding, ContentUnavailableView, Delete key shortcut                                                                |
+| AssetDetailView                | Implemented | Edit fields, sparkline chart, value history, delete validation                                                                                            |
+| CategoryListView               | Implemented | Add sheet (NavigationStack), target allocation warning, delete validation, ContentUnavailableView, Delete key shortcut                                    |
+| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                                                  |
+| PlatformListView               | Implemented | List-detail split with selection binding, rename popover, ContentUnavailableView, onChange reload after rename                                            |
+| PlatformDetailView             | Implemented | Editable name, assets table (Name/Category/Value), value history chart with time range controls and hover tooltip                                         |
+| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, ContentUnavailableView                                                              |
+| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                                           |
+| SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                                            |

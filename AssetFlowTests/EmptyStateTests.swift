@@ -88,15 +88,6 @@ struct EmptyStateTests {
     #expect(rowDataMap.isEmpty == true)
   }
 
-  // MARK: - EmptyStateAction
-
-  @Test("EmptyStateAction ID is stable across multiple evaluations")
-  func emptyStateActionStableID() {
-    let action1 = EmptyStateAction(label: "Test", isPrimary: true) {}
-    let action2 = EmptyStateAction(label: "Test", isPrimary: true) {}
-    #expect(action1.id == action2.id)
-  }
-
   // MARK: - PlatformListViewModel
 
   @Test("PlatformListViewModel platformRows is empty when no assets exist")

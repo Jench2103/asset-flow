@@ -63,16 +63,16 @@ struct DashboardView: View {
   // MARK: - Empty State
 
   private var emptyState: some View {
-    EmptyStateView(
-      icon: "chart.bar",
-      title: "Welcome to AssetFlow",
-      message: "Start tracking your portfolio by importing CSV data or creating a snapshot.",
-      actions: [
-        EmptyStateAction(label: "Import your first CSV", isPrimary: true) {
-          onNavigateToImport?()
-        }
-      ]
-    )
+    ContentUnavailableView {
+      Label("Welcome to AssetFlow", systemImage: "chart.bar")
+    } description: {
+      Text("Start tracking your portfolio by importing CSV data or creating a snapshot.")
+    } actions: {
+      Button("Import your first CSV") {
+        onNavigateToImport?()
+      }
+      .buttonStyle(.borderedProminent)
+    }
   }
 
   // MARK: - Dashboard Content
@@ -121,24 +121,16 @@ struct DashboardView: View {
           title: "Cumulative TWR (All Time)",
           value: viewModel.cumulativeTWR.map { ($0 * 100).formattedPercentage() } ?? "N/A",
           subtitle: nil,
-          tooltipText: """
-            Time-weighted return measures pure investment \
-            performance by removing the effect of external \
-            cash flows (deposits and withdrawals).
-            """
+          helpText:
+            "Time-weighted return measures pure investment performance by removing the effect of external cash flows (deposits and withdrawals)."
         )
 
         MetricCard(
           title: "CAGR",
           value: viewModel.cagr.map { ($0 * 100).formattedPercentage() } ?? "N/A",
           subtitle: nil,
-          tooltipText: """
-            CAGR is the annualized rate at which the \
-            portfolio's total value has grown since \
-            inception, including the effect of deposits \
-            and withdrawals. TWR measures pure investment \
-            performance by removing cash flow effects.
-            """
+          helpText:
+            "CAGR is the annualized rate at which the portfolio's total value has grown since inception, including the effect of deposits and withdrawals."
         )
       }
     }
@@ -178,17 +170,6 @@ struct DashboardView: View {
           Text("Growth Rate")
             .font(.caption)
             .foregroundStyle(.secondary)
-          Image(systemName: "info.circle")
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
-            .help(
-              """
-              Growth rate is the simple percentage change \
-              in portfolio value over the selected period, \
-              including the effect of deposits and \
-              withdrawals. Unlike Return Rate, it does not \
-              isolate investment performance.
-              """)
           Spacer()
           Picker("Period", selection: $growthRatePeriod) {
             Text("1M").tag(DashboardPeriod.oneMonth)
@@ -212,6 +193,11 @@ struct DashboardView: View {
       .padding()
       .frame(maxWidth: .infinity)
       .glassCard()
+      .help(
+        LocalizedStringKey(
+          "Growth rate is the simple percentage change in portfolio value over the selected period, including the effect of deposits and withdrawals."
+        )
+      )
 
       // Return Rate card
       VStack(alignment: .leading, spacing: 8) {
@@ -219,17 +205,6 @@ struct DashboardView: View {
           Text("Return Rate")
             .font(.caption)
             .foregroundStyle(.secondary)
-          Image(systemName: "info.circle")
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
-            .help(
-              """
-              Return rate uses the Modified Dietz method \
-              to calculate a cash-flow adjusted return, \
-              isolating actual investment performance by \
-              accounting for the timing and magnitude of \
-              deposits and withdrawals.
-              """)
           Spacer()
           Picker("Period", selection: $returnRatePeriod) {
             Text("1M").tag(DashboardPeriod.oneMonth)
@@ -253,6 +228,11 @@ struct DashboardView: View {
       .padding()
       .frame(maxWidth: .infinity)
       .glassCard()
+      .help(
+        LocalizedStringKey(
+          "Return rate uses the Modified Dietz method to calculate a cash-flow adjusted return, isolating actual investment performance."
+        )
+      )
     }
   }
 
@@ -315,6 +295,7 @@ struct DashboardView: View {
           onNavigateToSnapshots?()
         }
         .font(.callout)
+        .help("View all snapshots")
       }
 
       if viewModel.recentSnapshots.isEmpty {
@@ -412,6 +393,7 @@ private struct HeroMetricCard: View {
       RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
         .strokeBorder(.tint.opacity(0.15), lineWidth: 1)
     )
+    .accessibilityElement(children: .combine)
   }
 }
 
@@ -421,21 +403,13 @@ private struct MetricCard: View {
   let title: LocalizedStringKey
   let value: String
   var subtitle: String?
-  var tooltipText: LocalizedStringKey?
+  var helpText: LocalizedStringKey?
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      HStack(spacing: 4) {
-        Text(title)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-        if let tooltip = tooltipText {
-          Image(systemName: "info.circle")
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
-            .help(tooltip)
-        }
-      }
+    let card = VStack(alignment: .leading, spacing: 0) {
+      Text(title)
+        .font(.caption)
+        .foregroundStyle(.secondary)
 
       Spacer(minLength: 10)
 
@@ -457,6 +431,13 @@ private struct MetricCard: View {
     .padding()
     .frame(maxWidth: .infinity, minHeight: 80)
     .glassCard()
+    .accessibilityElement(children: .combine)
+
+    if let helpText {
+      card.help(helpText)
+    } else {
+      card
+    }
   }
 }
 

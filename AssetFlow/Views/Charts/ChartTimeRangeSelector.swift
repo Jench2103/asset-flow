@@ -42,6 +42,7 @@ struct ChartTimeRangeSelector: View {
             )
         }
         .buttonStyle(.plain)
+        .help("Show \(range.rawValue) time range")
       }
     }
   }

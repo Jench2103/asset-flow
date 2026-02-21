@@ -124,11 +124,13 @@ struct SettingsView: View {
       Button("Export Backup...") {
         performExport()
       }
+      .help("Export all data as a ZIP archive")
       .accessibilityIdentifier("Export Backup Button")
 
       Button("Restore from Backup...") {
         openRestorePanel()
       }
+      .help("Restore data from a previous backup")
       .accessibilityIdentifier("Restore Backup Button")
     } header: {
       Text("Data Management")

@@ -110,13 +110,13 @@ struct PlatformListView: View {
   // MARK: - Empty State
 
   private var emptyState: some View {
-    EmptyStateView(
-      icon: "building.columns",
-      title: "No Platforms",
-      message:
-        "No platforms yet. Platforms are created automatically "
-        + "when you import CSV data or create assets."
-    )
+    ContentUnavailableView {
+      Label("No Platforms", systemImage: "building.columns")
+    } description: {
+      Text(
+        "No platforms yet. Platforms are created automatically when you import CSV data or create assets."
+      )
+    }
   }
 }
 

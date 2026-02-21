@@ -35,6 +35,7 @@ struct PortfolioValueLineChart: View {
     .padding()
     .frame(maxHeight: .infinity, alignment: .topLeading)
     .glassCard()
+    .accessibilityLabel("Portfolio value history chart")
   }
 
   @ViewBuilder

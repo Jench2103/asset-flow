@@ -36,6 +36,7 @@ struct CategoryAllocationPieChart: View {
     .padding()
     .frame(maxHeight: .infinity, alignment: .topLeading)
     .glassCard()
+    .accessibilityLabel("Category allocation pie chart")
   }
 
   private var snapshotDatePicker: some View {

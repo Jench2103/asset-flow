@@ -25,10 +25,7 @@ struct AssetListView: View {
   }
 
   var body: some View {
-    VStack(spacing: 0) {
-      groupingPicker
-        .padding(12)
-
+    Group {
       if viewModel.groups.isEmpty {
         emptyState
       } else {
@@ -36,6 +33,17 @@ struct AssetListView: View {
       }
     }
     .navigationTitle("Assets")
+    .toolbar {
+      ToolbarItem(placement: .automatic) {
+        Picker("Grouping", selection: $viewModel.groupingMode) {
+          Text("By Platform").tag(AssetGroupingMode.byPlatform)
+          Text("By Category").tag(AssetGroupingMode.byCategory)
+        }
+        .pickerStyle(.segmented)
+        .help("Group assets by platform or category")
+        .accessibilityIdentifier("Grouping Picker")
+      }
+    }
     .onAppear {
       viewModel.loadAssets()
     }
@@ -50,18 +58,6 @@ struct AssetListView: View {
     } message: {
       Text(deleteErrorMessage)
     }
-  }
-
-  // MARK: - Grouping Picker
-
-  private var groupingPicker: some View {
-    Picker("Grouping", selection: $viewModel.groupingMode) {
-      Text("By Platform").tag(AssetGroupingMode.byPlatform)
-      Text("By Category").tag(AssetGroupingMode.byCategory)
-    }
-    .pickerStyle(.segmented)
-    .frame(maxWidth: 300)
-    .accessibilityIdentifier("Grouping Picker")
   }
 
   // MARK: - Asset List
@@ -128,11 +124,11 @@ struct AssetListView: View {
   // MARK: - Empty State
 
   private var emptyState: some View {
-    EmptyStateView(
-      icon: "tray",
-      title: "No Assets",
-      message: "No assets yet. Assets are created automatically when you import CSV data."
-    )
+    ContentUnavailableView {
+      Label("No Assets", systemImage: "tray")
+    } description: {
+      Text("No assets yet. Assets are created automatically when you import CSV data.")
+    }
   }
 
   // MARK: - Actions

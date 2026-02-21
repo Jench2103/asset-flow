@@ -68,6 +68,7 @@ struct CategoryValueLineChart: View {
     .padding()
     .frame(maxHeight: .infinity, alignment: .topLeading)
     .glassCard()
+    .accessibilityLabel("Category value history chart")
   }
 
   private var chartWithLegend: some View {

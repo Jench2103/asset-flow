@@ -51,6 +51,9 @@ struct AssetFlowApp: App {
     }
   }
 
+  @FocusedValue(\.newSnapshotAction) private var newSnapshotAction
+  @FocusedValue(\.importCSVAction) private var importCSVAction
+
   var body: some Scene {
     WindowGroup {
       ContentView()
@@ -59,6 +62,21 @@ struct AssetFlowApp: App {
     .windowStyle(.hiddenTitleBar)
     .windowToolbarStyle(.unified)
     .commands {
+      CommandGroup(replacing: .newItem) {
+        Button("New Snapshot...") {
+          newSnapshotAction?()
+        }
+        .keyboardShortcut("n")
+        .disabled(newSnapshotAction == nil)
+
+        Divider()
+
+        Button("Import CSV...") {
+          importCSVAction?()
+        }
+        .keyboardShortcut("i")
+        .disabled(importCSVAction == nil)
+      }
       CommandGroup(replacing: .appInfo) {
         Button("About AssetFlow") {
           let body = NSFont.systemFont(ofSize: NSFont.systemFontSize)

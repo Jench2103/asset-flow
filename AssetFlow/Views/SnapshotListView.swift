@@ -19,7 +19,7 @@ struct SnapshotListView: View {
 
   @Query(sort: \Snapshot.date, order: .reverse) private var snapshots: [Snapshot]
 
-  @State private var showNewSnapshotSheet = false
+  @Binding var showNewSnapshotSheet: Bool
   @State private var rowDataMap: [UUID: SnapshotRowData] = [:]
   @State private var snapshotToDelete: Snapshot?
   @State private var showDeleteConfirmation = false
@@ -30,10 +30,12 @@ struct SnapshotListView: View {
   init(
     modelContext: ModelContext,
     selectedSnapshot: Binding<Snapshot?>,
+    showNewSnapshotSheet: Binding<Bool> = .constant(false),
     onNavigateToImport: (() -> Void)? = nil
   ) {
     _viewModel = State(wrappedValue: SnapshotListViewModel(modelContext: modelContext))
     _selectedSnapshot = selectedSnapshot
+    _showNewSnapshotSheet = showNewSnapshotSheet
     self.onNavigateToImport = onNavigateToImport
   }
 
@@ -53,6 +55,7 @@ struct SnapshotListView: View {
         } label: {
           Image(systemName: "plus")
         }
+        .help("Create a new snapshot")
         .accessibilityIdentifier("New Snapshot Button")
       }
     }
@@ -208,19 +211,18 @@ struct SnapshotListView: View {
   // MARK: - Empty State
 
   private var emptyState: some View {
-    EmptyStateView(
-      icon: "calendar",
-      title: "No Snapshots",
-      message: "No snapshots yet. Create your first snapshot or import a CSV to get started.",
-      actions: [
-        EmptyStateAction(label: "New Snapshot", isPrimary: false) {
-          showNewSnapshotSheet = true
-        },
-        EmptyStateAction(label: "Import CSV", isPrimary: false) {
-          onNavigateToImport?()
-        },
-      ]
-    )
+    ContentUnavailableView {
+      Label("No Snapshots", systemImage: "calendar")
+    } description: {
+      Text("No snapshots yet. Create your first snapshot or import a CSV to get started.")
+    } actions: {
+      Button("New Snapshot") {
+        showNewSnapshotSheet = true
+      }
+      Button("Import CSV") {
+        onNavigateToImport?()
+      }
+    }
   }
 
   // MARK: - Helpers
@@ -240,6 +242,9 @@ private struct NewSnapshotSheet: View {
 
   @Query(sort: \Snapshot.date) private var allSnapshots: [Snapshot]
 
+  @FocusState private var focusedField: Field?
+  enum Field { case date }
+
   @State private var snapshotDate = Date()
   @State private var copyFromLatest = false
   @State private var showError = false
@@ -252,12 +257,7 @@ private struct NewSnapshotSheet: View {
   }
 
   var body: some View {
-    VStack(spacing: 0) {
-      Text("New Snapshot")
-        .font(.headline)
-        .padding(.top, 16)
-        .padding(.horizontal)
-
+    NavigationStack {
       Form {
         DatePicker(
           "Snapshot Date",
@@ -265,6 +265,7 @@ private struct NewSnapshotSheet: View {
           in: ...Date(),
           displayedComponents: .date
         )
+        .focused($focusedField, equals: .date)
         .accessibilityIdentifier("Snapshot Date Picker")
 
         if hasDateConflict {
@@ -286,24 +287,23 @@ private struct NewSnapshotSheet: View {
         }
       }
       .formStyle(.grouped)
-
-      HStack {
-        Button("Cancel", role: .cancel) {
-          dismiss()
+      .navigationTitle("New Snapshot")
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Cancel") {
+            dismiss()
+          }
         }
-        .keyboardShortcut(.cancelAction)
-
-        Spacer()
-
-        Button("Create") {
-          createSnapshot()
+        ToolbarItem(placement: .confirmationAction) {
+          Button("Create") {
+            createSnapshot()
+          }
+          .disabled(hasDateConflict)
         }
-        .keyboardShortcut(.defaultAction)
-        .disabled(hasDateConflict)
       }
-      .padding()
     }
     .frame(minWidth: 350, minHeight: 220)
+    .onAppear { focusedField = .date }
     .alert("Error", isPresented: $showError) {
       Button("OK") {}
     } message: {

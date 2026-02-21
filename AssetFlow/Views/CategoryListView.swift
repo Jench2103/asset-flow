@@ -48,6 +48,7 @@ struct CategoryListView: View {
         } label: {
           Image(systemName: "plus")
         }
+        .help("Create a new category")
         .accessibilityIdentifier("Add Category Button")
       }
     }
@@ -169,17 +170,18 @@ struct CategoryListView: View {
   // MARK: - Empty State
 
   private var emptyState: some View {
-    EmptyStateView(
-      icon: "folder",
-      title: "No Categories",
-      message:
-        "No categories yet. Create categories to organize your assets and set target allocations.",
-      actions: [
-        EmptyStateAction(label: "Create Category", isPrimary: true) {
-          showAddSheet = true
-        }
-      ]
-    )
+    ContentUnavailableView {
+      Label("No Categories", systemImage: "folder")
+    } description: {
+      Text(
+        "No categories yet. Create categories to organize your assets and set target allocations."
+      )
+    } actions: {
+      Button("Create Category") {
+        showAddSheet = true
+      }
+      .buttonStyle(.borderedProminent)
+    }
   }
 
   // MARK: - Actions
@@ -204,6 +206,8 @@ private struct AddCategorySheet: View {
   let onCreate: (String, Decimal?) throws -> Void
 
   @Environment(\.dismiss) private var dismiss
+  @FocusState private var focusedField: Field?
+  enum Field { case name, targetAllocation }
 
   @State private var name = ""
   @State private var targetAllocationText = ""
@@ -211,17 +215,14 @@ private struct AddCategorySheet: View {
   @State private var errorMessage = ""
 
   var body: some View {
-    VStack(spacing: 0) {
-      Text("New Category")
-        .font(.headline)
-        .padding(.top, 16)
-        .padding(.horizontal)
-
+    NavigationStack {
       Form {
         TextField("Category Name", text: $name)
+          .focused($focusedField, equals: .name)
           .accessibilityIdentifier("Category Name Field")
 
         TextField("Target Allocation (e.g. 40)", text: $targetAllocationText)
+          .focused($focusedField, equals: .targetAllocation)
           .accessibilityIdentifier("Target Allocation Field")
 
         Text("Optional. Enter a value between 0 and 100.")
@@ -229,24 +230,23 @@ private struct AddCategorySheet: View {
           .foregroundStyle(.secondary)
       }
       .formStyle(.grouped)
-
-      HStack {
-        Button("Cancel", role: .cancel) {
-          dismiss()
+      .navigationTitle("New Category")
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Cancel") {
+            dismiss()
+          }
         }
-        .keyboardShortcut(.cancelAction)
-
-        Spacer()
-
-        Button("Create") {
-          createCategory()
+        ToolbarItem(placement: .confirmationAction) {
+          Button("Create") {
+            createCategory()
+          }
+          .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
         }
-        .keyboardShortcut(.defaultAction)
-        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
       }
-      .padding()
     }
     .frame(minWidth: 350, minHeight: 220)
+    .onAppear { focusedField = .name }
     .alert("Error", isPresented: $showError) {
       Button("OK") {}
     } message: {
