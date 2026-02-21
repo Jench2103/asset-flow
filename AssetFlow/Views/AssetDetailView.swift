@@ -23,6 +23,8 @@ struct AssetDetailView: View {
   @State private var showDeleteConfirmation = false
   @State private var showSaveError = false
   @State private var saveErrorMessage = ""
+  @State private var valueChartRange: ChartTimeRange = .all
+  @State private var hoveredValueDate: Date?
 
   @State private var newPlatformName = ""
   @State private var showNewPlatformField = false
@@ -213,14 +215,26 @@ struct AssetDetailView: View {
 
   // MARK: - Value History Section
 
+  private var filteredValueHistory: [AssetValueHistoryEntry] {
+    ChartDataService.filter(viewModel.valueHistory, range: valueChartRange)
+  }
+
   private var valueHistorySection: some View {
     Section {
       if viewModel.valueHistory.isEmpty {
         Text("No recorded values")
           .foregroundStyle(.secondary)
       } else {
-        if viewModel.valueHistory.count >= 2 {
-          sparklineChart
+        ChartTimeRangeSelector(selection: $valueChartRange)
+
+        let points = filteredValueHistory
+        if points.isEmpty {
+          Text("No data for selected period")
+            .foregroundStyle(.secondary)
+        } else if points.count == 1 {
+          singlePointValueChart(points)
+        } else {
+          valueLineChart(points)
         }
 
         Table(viewModel.valueHistory) {
@@ -240,17 +254,84 @@ struct AssetDetailView: View {
     }
   }
 
-  private var sparklineChart: some View {
-    Chart(viewModel.valueHistory) { entry in
+  private func valueLineChart(_ points: [AssetValueHistoryEntry]) -> some View {
+    let firstDate = points.first!.date
+    let lastDate = points.last!.date
+    let yValues = points.map { $0.marketValue.doubleValue }
+    let yMin = yValues.min()!
+    let yMax = yValues.max()!
+    return Chart(points) { entry in
       LineMark(
         x: .value("Date", entry.date),
         y: .value("Value", entry.marketValue.doubleValue)
       )
       .foregroundStyle(.blue)
+      PointMark(
+        x: .value("Date", entry.date),
+        y: .value("Value", entry.marketValue.doubleValue)
+      )
+      .foregroundStyle(.blue)
+
+      if let hoveredValueDate, entry.date == hoveredValueDate {
+        RuleMark(x: .value("Date", hoveredValueDate))
+          .foregroundStyle(.secondary.opacity(0.5))
+          .lineStyle(StrokeStyle(dash: [4, 4]))
+          .annotation(
+            position: .top,
+            alignment: entry.date == firstDate
+              ? .leading
+              : entry.date == lastDate ? .trailing : .center
+          ) {
+            ChartTooltipView {
+              Text(entry.date.settingsFormatted())
+                .font(.caption2)
+              Text(entry.marketValue.formatted(currency: SettingsService.shared.mainCurrency))
+                .font(.caption.bold())
+            }
+          }
+      }
     }
-    .chartXAxis(.hidden)
-    .chartYAxis(.hidden)
-    .frame(height: 40)
+    .chartXScale(domain: firstDate...lastDate)
+    .chartYScale(domain: yMin...yMax)
+    .chartYAxis {
+      AxisMarks { value in
+        AxisGridLine()
+        AxisValueLabel {
+          if let val = value.as(Double.self) {
+            Text(ChartDataService.abbreviatedLabel(for: val))
+          }
+        }
+      }
+    }
+    .chartOverlay { proxy in
+      GeometryReader { _ in
+        Rectangle()
+          .fill(.clear)
+          .contentShape(Rectangle())
+          .onContinuousHover { phase in
+            switch phase {
+            case .active(let location):
+              hoveredValueDate = ChartHelpers.findNearestDate(
+                at: location, in: proxy, points: points, dateKeyPath: \.date)
+
+            case .ended:
+              hoveredValueDate = nil
+            }
+          }
+      }
+    }
+    .frame(height: ChartConstants.standardChartHeight)
+  }
+
+  private func singlePointValueChart(_ points: [AssetValueHistoryEntry]) -> some View {
+    Chart(points) { entry in
+      PointMark(
+        x: .value("Date", entry.date),
+        y: .value("Value", entry.marketValue.doubleValue)
+      )
+      .foregroundStyle(.blue)
+    }
+    .frame(height: ChartConstants.standardChartHeight)
   }
 
   // MARK: - Delete Section
