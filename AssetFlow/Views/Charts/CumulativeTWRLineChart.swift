@@ -21,7 +21,9 @@ struct CumulativeTWRLineChart: View {
   @State private var hoveredDate: Date?
 
   private var filteredPoints: [DashboardDataPoint] {
-    ChartDataService.filter(dataPoints, range: timeRange)
+    let filtered = ChartDataService.filter(dataPoints, range: timeRange)
+    guard timeRange != .all else { return filtered }
+    return ChartDataService.rebasedTWR(filtered)
   }
 
   var body: some View {

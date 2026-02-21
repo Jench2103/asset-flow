@@ -215,6 +215,86 @@ struct ChartDataServiceTests {
     #expect(ChartDataService.abbreviatedLabel(for: -2_500_000) == "-2.5M")
   }
 
+  // MARK: - Rebase TWR Tests
+
+  @Test("rebasedTWR with empty array returns empty")
+  func rebasedTWREmpty() {
+    let result = ChartDataService.rebasedTWR([])
+    #expect(result.isEmpty)
+  }
+
+  @Test("rebasedTWR with single point returns point with value 0")
+  func rebasedTWRSinglePoint() {
+    let points = [
+      DashboardDataPoint(
+        date: makeDate(year: 2025, month: 6, day: 1), value: Decimal(string: "0.15")!)
+    ]
+    let result = ChartDataService.rebasedTWR(points)
+    #expect(result.count == 1)
+    #expect(result[0].value == 0)
+  }
+
+  @Test("rebasedTWR sets first point to 0% and rebases subsequent points")
+  func rebasedTWRRebasesCorrectly() {
+    // Inception TWR: 0% → 10% → 21% (two 10% periods chained)
+    let points = [
+      DashboardDataPoint(
+        date: makeDate(year: 2025, month: 1, day: 1), value: Decimal(string: "0.0")!),
+      DashboardDataPoint(
+        date: makeDate(year: 2025, month: 2, day: 1), value: Decimal(string: "0.1")!),
+      DashboardDataPoint(
+        date: makeDate(year: 2025, month: 3, day: 1), value: Decimal(string: "0.21")!),
+    ]
+    let result = ChartDataService.rebasedTWR(points)
+    #expect(result.count == 3)
+    #expect(result[0].value == 0)  // first point = 0%
+    #expect(result[1].value == Decimal(string: "0.1")!)  // (1.1/1.0)-1 = 0.1
+    #expect(result[2].value == Decimal(string: "0.21")!)  // (1.21/1.0)-1 = 0.21
+  }
+
+  @Test("rebasedTWR with non-zero base rebases correctly")
+  func rebasedTWRNonZeroBase() {
+    // Simulates filtering a mid-range: inception TWR was 50% at start of range, 65% at end
+    let points = [
+      DashboardDataPoint(
+        date: makeDate(year: 2025, month: 4, day: 1), value: Decimal(string: "0.5")!),
+      DashboardDataPoint(
+        date: makeDate(year: 2025, month: 5, day: 1), value: Decimal(string: "0.65")!),
+    ]
+    let result = ChartDataService.rebasedTWR(points)
+    #expect(result[0].value == 0)
+    // (1.65 / 1.5) - 1 = 0.1  (10% return in this sub-period)
+    #expect(result[1].value == Decimal(1.65) / Decimal(1.5) - 1)
+  }
+
+  @Test("rebasedTWR with negative inception TWR rebases correctly")
+  func rebasedTWRNegativeBase() {
+    // Portfolio was down 20% at start of range, down 10% at end
+    let points = [
+      DashboardDataPoint(
+        date: makeDate(year: 2025, month: 4, day: 1), value: Decimal(string: "-0.2")!),
+      DashboardDataPoint(
+        date: makeDate(year: 2025, month: 5, day: 1), value: Decimal(string: "-0.1")!),
+    ]
+    let result = ChartDataService.rebasedTWR(points)
+    #expect(result[0].value == 0)
+    // (0.9 / 0.8) - 1 = 0.125  (12.5% recovery)
+    #expect(result[1].value == Decimal(0.9) / Decimal(0.8) - 1)
+  }
+
+  @Test("rebasedTWR preserves dates")
+  func rebasedTWRPreservesDates() {
+    let d1 = makeDate(year: 2025, month: 1, day: 1)
+    let d2 = makeDate(year: 2025, month: 2, day: 1)
+    let points = [
+      DashboardDataPoint(date: d1, value: Decimal(string: "0.5")!),
+      DashboardDataPoint(date: d2, value: Decimal(string: "0.65")!),
+    ]
+    let result = ChartDataService.rebasedTWR(points)
+    #expect(result[0].date == d1)
+    #expect(result[1].date == d2)
+  }
+
   // MARK: - Filter Tests (CategoryValueHistoryEntry)
 
   @Test("Filter CategoryValueHistoryEntry with .threeMonths")

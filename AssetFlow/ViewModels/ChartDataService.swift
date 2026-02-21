@@ -94,6 +94,25 @@ enum ChartDataService {
     return items.filter { $0.chartDate >= startDate }
   }
 
+  // MARK: - Rebase TWR
+
+  /// Rebases cumulative TWR data points so the first point starts at 0%.
+  ///
+  /// Use after filtering by time range to show period-specific returns
+  /// instead of inception-based values. The formula `(1 + C_i) / (1 + C_k) - 1`
+  /// isolates the sub-period return from the cumulative chain.
+  static func rebasedTWR(_ points: [DashboardDataPoint]) -> [DashboardDataPoint] {
+    guard let base = points.first else { return [] }
+    let baseFactor = 1 + base.value
+    guard baseFactor != 0 else { return points }
+    return points.map { point in
+      DashboardDataPoint(
+        date: point.date,
+        value: (1 + point.value) / baseFactor - 1
+      )
+    }
+  }
+
   // MARK: - Abbreviated Labels
 
   /// Returns an abbreviated string for large numeric values.

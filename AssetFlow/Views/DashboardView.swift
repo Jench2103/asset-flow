@@ -118,7 +118,7 @@ struct DashboardView: View {
         )
 
         MetricCard(
-          title: "Cumulative TWR",
+          title: "Cumulative TWR (All Time)",
           value: viewModel.cumulativeTWR.map { ($0 * 100).formattedPercentage() } ?? "N/A",
           subtitle: nil,
           tooltipText: """

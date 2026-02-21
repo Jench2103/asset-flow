@@ -75,8 +75,8 @@ The dashboard provides a portfolio overview using the latest snapshot.
    - Total Portfolio Value (with change from previous snapshot, absolute and percentage)
    - Latest Snapshot Date
    - Number of Assets
-   - Cumulative TWR (since first snapshot)
-   - CAGR (since first snapshot) -- shown alongside Cumulative TWR, with a tooltip: "CAGR is the annualized rate at which the portfolio's total value has grown since inception, including the effect of deposits and withdrawals. TWR measures pure investment performance by removing cash flow effects."
+   - Cumulative TWR (All Time) (since first snapshot)
+   - CAGR (since first snapshot) -- shown alongside Cumulative TWR (All Time), with a tooltip: "CAGR is the annualized rate at which the portfolio's total value has grown since inception, including the effect of deposits and withdrawals. TWR measures pure investment performance by removing cash flow effects."
    - Metric cards with tooltips use a `tooltipText: String?` parameter on `MetricCard` to display an info icon (`.help()` modifier)
 
 1. **Period performance cards**:
@@ -449,6 +449,8 @@ Category detail also includes allocation percentage line chart (same format, sin
 - Portfolio-level return over time
 - Hover: tooltip with date and TWR percentage. No click-to-navigate.
 - Time range zoom controls
+- **Rebasing:** When a non-"All" time range is selected, TWR values are rebased so the first visible point starts at 0%, showing period-specific returns. The "All" range shows inception-based values unchanged.
+- The metric card is labeled "Cumulative TWR (All Time)" to distinguish it from the chart's period-rebased values.
 
 ### Chart Empty and Edge States
 
