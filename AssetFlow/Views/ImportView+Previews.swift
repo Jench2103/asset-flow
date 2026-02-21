@@ -14,15 +14,15 @@ extension ImportView {
 
   var assetPreviewTable: some View {
     VStack(spacing: 0) {
-      // Header row
+      // Header row — CSV column names are intentionally non-localizable
       HStack {
-        Text("Asset Name")
+        Text(verbatim: "Asset Name")
           .fontWeight(.semibold)
           .frame(maxWidth: .infinity, alignment: .leading)
-        Text("Market Value")
+        Text(verbatim: "Market Value")
           .fontWeight(.semibold)
           .frame(width: 120, alignment: .trailing)
-        Text("Platform")
+        Text(verbatim: "Platform")
           .fontWeight(.semibold)
           .frame(width: 150, alignment: .leading)
         Text("")
@@ -89,12 +89,12 @@ extension ImportView {
 
   var cashFlowPreviewTable: some View {
     VStack(spacing: 0) {
-      // Header row
+      // Header row — CSV column names are intentionally non-localizable
       HStack {
-        Text("Description")
+        Text(verbatim: "Description")
           .fontWeight(.semibold)
           .frame(maxWidth: .infinity, alignment: .leading)
-        Text("Amount")
+        Text(verbatim: "Amount")
           .fontWeight(.semibold)
           .frame(width: 120, alignment: .trailing)
         Text("")

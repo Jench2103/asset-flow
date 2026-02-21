@@ -147,7 +147,8 @@ struct ImportView: View {
           Text("Expected columns:")
             .font(.caption)
             .foregroundStyle(.secondary)
-          Text("Asset Name (required), Market Value (required), Platform (optional)")
+          // CSV column names are intentionally non-localizable — they must match parsing expectations
+          Text(verbatim: "Asset Name (required), Market Value (required), Platform (optional)")
             .font(.caption)
             .foregroundStyle(.tertiary)
         }
@@ -157,7 +158,8 @@ struct ImportView: View {
           Text("Expected columns:")
             .font(.caption)
             .foregroundStyle(.secondary)
-          Text("Description (required), Amount (required)")
+          // CSV column names are intentionally non-localizable — they must match parsing expectations
+          Text(verbatim: "Description (required), Amount (required)")
             .font(.caption)
             .foregroundStyle(.tertiary)
         }
