@@ -53,6 +53,7 @@ Represents a user-defined grouping for assets (e.g., "Equities", "Bonds", "Cash"
 | `id`                         | `UUID`     | Primary key                             | Yes      |
 | `name`                       | `String`   | Display name (unique, case-insensitive) | Yes      |
 | `targetAllocationPercentage` | `Decimal?` | Target allocation (0-100), optional     | No       |
+| `displayOrder`               | `Int`      | User-defined sort order (default: 0)    | Yes      |
 
 #### Relationships
 

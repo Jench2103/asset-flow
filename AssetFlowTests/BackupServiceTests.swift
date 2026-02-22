@@ -150,7 +150,7 @@ struct BackupServiceTests {
       settingsService: tc.settingsService)
 
     let manifest = try BackupService.validateBackup(at: zipURL)
-    #expect(manifest.formatVersion == 1)
+    #expect(manifest.formatVersion == 2)
     #expect(manifest.appVersion == Constants.AppInfo.version)
     // Verify ISO 8601 timestamp is parseable
     let formatter = ISO8601DateFormatter()
@@ -174,7 +174,7 @@ struct BackupServiceTests {
       zipURL: zipURL, fileName: BackupCSV.Categories.fileName)
     let lines = content.components(separatedBy: "\n")
       .filter { !$0.isEmpty }
-    #expect(lines[0] == "id,name,targetAllocationPercentage")
+    #expect(lines[0] == "id,name,targetAllocationPercentage,displayOrder")
     #expect(lines.count == 3)  // header + 2 categories
   }
 
@@ -235,7 +235,7 @@ struct BackupServiceTests {
 
     // Should be valid
     let manifest = try BackupService.validateBackup(at: zipURL)
-    #expect(manifest.formatVersion == 1)
+    #expect(manifest.formatVersion == 2)
 
     // Categories CSV should have only header
     let catContent = try extractFileContent(
@@ -268,9 +268,9 @@ struct BackupServiceTests {
       zipURL: zipURL, fileName: BackupCSV.Categories.fileName)
     let catLines = catContent.components(separatedBy: "\n")
       .filter { !$0.isEmpty }
-    // Should have empty field for target
+    // Should have empty field for target (format: id,name,,displayOrder)
     let dataLine = catLines[1]
-    #expect(dataLine.hasSuffix(","))
+    #expect(dataLine.contains(",,"))
 
     let assetContent = try extractFileContent(
       zipURL: zipURL, fileName: BackupCSV.Assets.fileName)
@@ -327,7 +327,7 @@ struct BackupServiceTests {
       settingsService: tc.settingsService)
 
     let manifest = try BackupService.validateBackup(at: zipURL)
-    #expect(manifest.formatVersion == 1)
+    #expect(manifest.formatVersion == 2)
   }
 
   @Test("Validate rejects non-ZIP file")
@@ -427,7 +427,7 @@ struct BackupServiceTests {
 
     // Should not throw
     let manifest = try BackupService.validateBackup(at: zipURL)
-    #expect(manifest.formatVersion == 1)
+    #expect(manifest.formatVersion == 2)
   }
 
   @Test("Validate rejects orphan snapshotID in snapshot_asset_values")
@@ -932,6 +932,125 @@ struct BackupServiceTests {
         at: zipURL, modelContext: tc2.context,
         settingsService: tc2.settingsService)
     }
+  }
+
+  // MARK: - Display Order Tests
+
+  @Test("Backup export includes displayOrder column")
+  func backupExportIncludesDisplayOrder() throws {
+    let tc = createTestContext()
+
+    let equities = Category(
+      name: "Equities", targetAllocationPercentage: 60)
+    equities.displayOrder = 1
+    tc.context.insert(equities)
+
+    let bonds = Category(name: "Bonds")
+    bonds.displayOrder = 0
+    tc.context.insert(bonds)
+
+    let zipURL = tempZipURL()
+    defer { try? FileManager.default.removeItem(at: zipURL) }
+
+    try BackupService.exportBackup(
+      to: zipURL, modelContext: tc.context,
+      settingsService: tc.settingsService)
+
+    let content = try extractFileContent(
+      zipURL: zipURL, fileName: BackupCSV.Categories.fileName)
+    let lines = content.components(separatedBy: "\n")
+      .filter { !$0.isEmpty }
+    #expect(lines[0] == "id,name,targetAllocationPercentage,displayOrder")
+    #expect(lines.count == 3)
+    // Verify displayOrder is the last field in each data row
+    for line in lines.dropFirst() {
+      let fields = line.components(separatedBy: ",")
+      let lastField = fields.last?.trimmingCharacters(in: .whitespaces) ?? ""
+      #expect(Int(lastField) != nil, "Last field should be displayOrder integer, got: \(lastField)")
+    }
+  }
+
+  @Test("Restore handles old backup without displayOrder column")
+  func restoreHandlesOldBackupWithoutDisplayOrder() throws {
+    let tc = createTestContext()
+
+    // Create a v1 backup (3-column categories.csv)
+    let zipURL = tempZipURL()
+    defer { try? FileManager.default.removeItem(at: zipURL) }
+
+    // Export a normal backup first
+    let cat = Category(name: "TestCat", targetAllocationPercentage: 50)
+    tc.context.insert(cat)
+    try BackupService.exportBackup(
+      to: zipURL, modelContext: tc.context,
+      settingsService: tc.settingsService)
+
+    // Tamper to create v1 format (3-column categories, formatVersion 1)
+    try tamperAndRezip(zipURL: zipURL) { dir in
+      // Rewrite categories.csv without displayOrder column
+      let catFile = dir.appending(path: BackupCSV.Categories.fileName)
+      try "id,name,targetAllocationPercentage\n\(cat.id.uuidString),TestCat,50\n"
+        .write(to: catFile, atomically: true, encoding: .utf8)
+
+      // Rewrite manifest with formatVersion 1
+      let manifestURL = dir.appending(path: BackupCSV.manifestFileName)
+      let manifest = BackupManifest(
+        formatVersion: 1,
+        exportTimestamp: ISO8601DateFormatter().string(from: Date()),
+        appVersion: "1.0.0"
+      )
+      try JSONEncoder().encode(manifest).write(to: manifestURL)
+    }
+
+    // Restore into a fresh context
+    let tc2 = createTestContext()
+    try BackupService.restoreFromBackup(
+      at: zipURL, modelContext: tc2.context,
+      settingsService: tc2.settingsService)
+
+    let categories = try tc2.context.fetch(FetchDescriptor<AssetFlow.Category>())
+    #expect(categories.count == 1)
+    #expect(categories[0].name == "TestCat")
+    #expect(categories[0].displayOrder == 0)
+  }
+
+  @Test("Round-trip preserves displayOrder")
+  func roundTripDisplayOrder() throws {
+    let tc = createTestContext()
+
+    let equities = Category(
+      name: "Equities", targetAllocationPercentage: 60)
+    equities.displayOrder = 2
+    tc.context.insert(equities)
+
+    let bonds = Category(name: "Bonds")
+    bonds.displayOrder = 0
+    tc.context.insert(bonds)
+
+    let crypto = Category(name: "Crypto")
+    crypto.displayOrder = 1
+    tc.context.insert(crypto)
+
+    let zipURL = tempZipURL()
+    defer { try? FileManager.default.removeItem(at: zipURL) }
+
+    try BackupService.exportBackup(
+      to: zipURL, modelContext: tc.context,
+      settingsService: tc.settingsService)
+
+    let tc2 = createTestContext()
+    try BackupService.restoreFromBackup(
+      at: zipURL, modelContext: tc2.context,
+      settingsService: tc2.settingsService)
+
+    let categories = try tc2.context.fetch(FetchDescriptor<AssetFlow.Category>())
+    #expect(categories.count == 3)
+    let restoredBonds = categories.first { $0.name == "Bonds" }
+    let restoredCrypto = categories.first { $0.name == "Crypto" }
+    let restoredEquities = categories.first { $0.name == "Equities" }
+    #expect(restoredBonds?.displayOrder == 0)
+    #expect(restoredCrypto?.displayOrder == 1)
+    #expect(restoredEquities?.displayOrder == 2)
   }
 
   // MARK: - Tamper and Rezip Helper

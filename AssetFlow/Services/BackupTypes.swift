@@ -55,7 +55,8 @@ enum BackupError: LocalizedError {
 enum BackupCSV {
   enum Categories {
     static let fileName = "categories.csv"
-    static let headers = ["id", "name", "targetAllocationPercentage"]
+    static let headers = ["id", "name", "targetAllocationPercentage", "displayOrder"]
+    static let v1Headers = ["id", "name", "targetAllocationPercentage"]
   }
 
   enum Assets {

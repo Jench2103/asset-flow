@@ -98,6 +98,8 @@ extension ModelContext {
     }
 
     let newCategory = Category(name: trimmed)
+    let maxOrder = allCategories.map(\.displayOrder).max() ?? -1
+    newCategory.displayOrder = maxOrder + 1
     insert(newCategory)
     return newCategory
   }

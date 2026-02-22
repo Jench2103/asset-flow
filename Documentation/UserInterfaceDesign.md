@@ -202,10 +202,11 @@ ______________________________________________________________________
 
 **List view**:
 
-- All categories listed alphabetically
+- All categories listed by user-defined display order (drag-to-reorder supported)
 - Each row: name, target allocation %, current allocation %, current value, asset count
 - Visual indicator when current allocation deviates significantly from target
 - Add/edit/delete category actions
+- Drag-and-drop reordering via `.onMove` modifier persists order via `displayOrder` property
 
 **Category detail view**:
 
@@ -218,7 +219,7 @@ ______________________________________________________________________
 **Implementation notes:**
 
 - **CategoryListView** (`AssetFlow/Views/CategoryListView.swift`): Takes `modelContext` and `selectedCategory: Binding<Category?>`. Uses `@State private var viewModel: CategoryListViewModel`. List selection drives the binding. Toolbar "+" button opens add category sheet. Target allocation sum warning banner shown at top when allocations don't sum to 100%. Deviation indicator (orange `exclamationmark.triangle.fill`) shown when `abs(current - target) > 5`. Empty state uses folder icon.
-- **CategoryListViewModel** (`AssetFlow/ViewModels/CategoryListViewModel.swift`): `CategoryRowData` struct bundles category, target/current allocation, value, and asset count. `loadCategories()` batch-fetches all data and computes values from the latest snapshot. `createCategory`/`editCategory`/`deleteCategory` with validation via `CategoryError`.
+- **CategoryListViewModel** (`AssetFlow/ViewModels/CategoryListViewModel.swift`): `CategoryRowData` struct bundles category, target/current allocation, value, and asset count. `loadCategories()` batch-fetches all data and computes values from the latest snapshot. `createCategory`/`editCategory`/`deleteCategory` with validation via `CategoryError`. `moveCategories(from:to:)` handles drag-to-reorder by updating `displayOrder` on each category. On first load, if all categories have the same `displayOrder` (migration scenario), they are normalized alphabetically.
 - **CategoryDetailView** (`AssetFlow/Views/CategoryDetailView.swift`): Takes `category`, `modelContext`, `onDelete`. Parent must apply `.id(category.id)` for proper state reset. Form sections: Category Details (name + target allocation), Assets in Category (Table), Value History (LineMark + PointMark chart), Allocation History (LineMark + PointMark chart), Danger Zone (delete button).
 - **CategoryDetailViewModel** (`AssetFlow/ViewModels/CategoryDetailViewModel.swift`): `editedName`/`editedTargetAllocation` initialized from category. `loadData()` computes asset list with latest values, value history, and allocation history across all snapshots. Single snapshot renders as PointMark only.
 

@@ -624,7 +624,8 @@ private struct AddAssetSheet: View {
   }
 
   private func existingCategories() -> [Category] {
-    let descriptor = FetchDescriptor<Category>(sortBy: [SortDescriptor(\.name)])
+    let descriptor = FetchDescriptor<Category>(
+      sortBy: [SortDescriptor(\.displayOrder), SortDescriptor(\.name)])
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 }

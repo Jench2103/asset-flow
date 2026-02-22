@@ -319,9 +319,10 @@ ______________________________________________________________________
 
 ### Operations
 
-- **Create**: User provides name and optional target allocation. Also created implicitly via "New Category..." picker option.
+- **Create**: User provides name and optional target allocation. Also created implicitly via "New Category..." picker option. New categories receive the next sequential `displayOrder` value.
 - **Edit**: Rename or change target allocation
-- **Delete**: Only allowed if no assets are assigned. If assets exist, user must reassign them first.
+- **Delete**: Only allowed if no assets are assigned. If assets exist, user must reassign them first. After deletion, `displayOrder` values are compacted to remove gaps.
+- **Reorder**: Categories can be reordered via drag-and-drop. The `displayOrder` property persists the user-defined order. All category lists sort by `displayOrder` first, then alphabetically by name as a tiebreaker.
 
 ### Target Allocation Rules
 

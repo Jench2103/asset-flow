@@ -263,7 +263,7 @@ struct BackupManifest: Codable {
 **Export Format**: ZIP archive containing:
 
 - `manifest.json` -- format version, export timestamp, app version
-- `categories.csv` -- all Category records
+- `categories.csv` -- all Category records (v2 adds `displayOrder` column; v1 backups without it are supported on restore with default `displayOrder = 0`)
 - `assets.csv` -- all Asset records
 - `snapshots.csv` -- all Snapshot records
 - `snapshot_asset_values.csv` -- all SnapshotAssetValue records

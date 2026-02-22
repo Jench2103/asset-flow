@@ -14,6 +14,7 @@ Asset categorization with optional target allocation percentage.
 
 - `name` - Display name (unique, case-insensitive)
 - `targetAllocationPercentage` - Optional target allocation (0-100, Decimal)
+- `displayOrder` - Sort order for user-defined ordering (Int, default: 0)
 
 **Relationships:**
 

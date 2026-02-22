@@ -45,7 +45,7 @@ enum BackupService {
 
     // Write manifest
     let manifest = BackupManifest(
-      formatVersion: 1,
+      formatVersion: 2,
       exportTimestamp: ISO8601DateFormatter().string(from: Date()),
       appVersion: Constants.AppInfo.version
     )
@@ -113,36 +113,42 @@ enum BackupService {
       }
     }
 
-    let expectedHeaders: [(String, [String])] = [
-      (BackupCSV.Categories.fileName, BackupCSV.Categories.headers),
-      (BackupCSV.Assets.fileName, BackupCSV.Assets.headers),
-      (BackupCSV.Snapshots.fileName, BackupCSV.Snapshots.headers),
+    // Categories accept both v1 (3-column) and v2 (4-column) headers
+    let categoriesAcceptedHeaders: [[String]] = [
+      BackupCSV.Categories.headers,
+      BackupCSV.Categories.v1Headers,
+    ]
+
+    let expectedHeaders: [(String, [[String]])] = [
+      (BackupCSV.Categories.fileName, categoriesAcceptedHeaders),
+      (BackupCSV.Assets.fileName, [BackupCSV.Assets.headers]),
+      (BackupCSV.Snapshots.fileName, [BackupCSV.Snapshots.headers]),
       (
         BackupCSV.SnapshotAssetValues.fileName,
-        BackupCSV.SnapshotAssetValues.headers
+        [BackupCSV.SnapshotAssetValues.headers]
       ),
       (
         BackupCSV.CashFlowOperations.fileName,
-        BackupCSV.CashFlowOperations.headers
+        [BackupCSV.CashFlowOperations.headers]
       ),
-      (BackupCSV.Settings.fileName, BackupCSV.Settings.headers),
+      (BackupCSV.Settings.fileName, [BackupCSV.Settings.headers]),
     ]
 
     var parsedFiles: [String: [[String]]] = [:]
 
-    for (fileName, expected) in expectedHeaders {
+    for (fileName, acceptedHeaderSets) in expectedHeaders {
       let fileURL = dir.appending(path: fileName)
       let content = try String(contentsOf: fileURL, encoding: .utf8)
       let lines = CSVParsingService.splitCSVLines(content)
       guard let headerLine = lines.first else {
         throw BackupError.invalidCSVHeaders(
-          file: fileName, expected: expected, got: [])
+          file: fileName, expected: acceptedHeaderSets[0], got: [])
       }
       let headers = parseBackupCSVRow(headerLine)
         .map { $0.trimmingCharacters(in: .whitespaces) }
-      if headers != expected {
+      if !acceptedHeaderSets.contains(headers) {
         throw BackupError.invalidCSVHeaders(
-          file: fileName, expected: expected, got: headers)
+          file: fileName, expected: acceptedHeaderSets[0], got: headers)
       }
       // Parse data rows
       let dataRows = lines.dropFirst().map {
@@ -216,6 +222,7 @@ extension BackupService {
           cat.id.uuidString,
           csvEscape(cat.name),
           cat.targetAllocationPercentage.map { "\($0)" } ?? "",
+          "\(cat.displayOrder)",
         ]))
     }
     try lines.joined(separator: "\n")
@@ -550,9 +557,14 @@ extension BackupService {
         ? row[2].trimmingCharacters(in: .whitespaces) : ""
       let target: Decimal? =
         targetStr.isEmpty ? nil : Decimal(string: targetStr)
+      let displayOrderStr =
+        row.count > 3
+        ? row[3].trimmingCharacters(in: .whitespaces) : "0"
+      let displayOrder = Int(displayOrderStr) ?? 0
 
       let category = Category(
         name: name, targetAllocationPercentage: target)
+      category.displayOrder = displayOrder
       if let uuid = UUID(uuidString: idStr) {
         category.id = uuid
       }

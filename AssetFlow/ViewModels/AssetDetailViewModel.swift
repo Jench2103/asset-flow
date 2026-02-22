@@ -84,9 +84,10 @@ final class AssetDetailViewModel {
     return platforms.sorted()
   }
 
-  /// Returns all existing categories sorted by name.
+  /// Returns all existing categories sorted by display order, then by name.
   func existingCategories() -> [Category] {
-    let descriptor = FetchDescriptor<Category>(sortBy: [SortDescriptor(\.name)])
+    let descriptor = FetchDescriptor<Category>(
+      sortBy: [SortDescriptor(\.displayOrder), SortDescriptor(\.name)])
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 

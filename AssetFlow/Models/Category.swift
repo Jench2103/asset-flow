@@ -15,6 +15,7 @@ final class Category {
   var id: UUID
   var name: String
   var targetAllocationPercentage: Decimal?
+  var displayOrder: Int
 
   @Relationship(deleteRule: .deny, inverse: \Asset.category)
   var assets: [Asset]?
@@ -26,6 +27,7 @@ final class Category {
     self.id = UUID()
     self.name = name
     self.targetAllocationPercentage = targetAllocationPercentage
+    self.displayOrder = 0
     self.assets = []
   }
 }

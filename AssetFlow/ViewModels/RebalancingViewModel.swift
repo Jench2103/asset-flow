@@ -188,7 +188,8 @@ final class RebalancingViewModel {
   }
 
   private func fetchAllCategories() -> [Category] {
-    let descriptor = FetchDescriptor<Category>(sortBy: [SortDescriptor(\.name)])
+    let descriptor = FetchDescriptor<Category>(
+      sortBy: [SortDescriptor(\.displayOrder), SortDescriptor(\.name)])
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 

@@ -31,7 +31,7 @@ struct CategoryListView: View {
 
   private var categoriesFingerprint: [String] {
     categories.map {
-      "\($0.id)-\($0.name)-\(String(describing: $0.targetAllocationPercentage))"
+      "\($0.id)-\($0.name)-\(String(describing: $0.targetAllocationPercentage))-\($0.displayOrder)"
     }
   }
 
@@ -99,6 +99,9 @@ struct CategoryListView: View {
       ForEach(viewModel.categoryRows) { rowData in
         categoryRow(rowData)
           .tag(rowData.category)
+      }
+      .onMove { source, destination in
+        viewModel.moveCategories(from: source, to: destination)
       }
     }
     .onDeleteCommand {

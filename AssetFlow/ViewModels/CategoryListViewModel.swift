@@ -49,6 +49,8 @@ final class CategoryListViewModel {
     let totalValue = categoryValues.values.reduce(Decimal(0), +)
     let hasSnapshots = !allSnapshots.isEmpty
 
+    normalizeDisplayOrderIfNeeded(allCategories)
+
     categoryRows =
       allCategories.map { category in
         let value = categoryValues[category.id] ?? 0
@@ -66,7 +68,11 @@ final class CategoryListViewModel {
         )
       }
       .sorted {
-        $0.category.name.localizedCaseInsensitiveCompare($1.category.name) == .orderedAscending
+        if $0.category.displayOrder != $1.category.displayOrder {
+          return $0.category.displayOrder < $1.category.displayOrder
+        }
+        return $0.category.name.localizedCaseInsensitiveCompare($1.category.name)
+          == .orderedAscending
       }
 
     targetAllocationSumWarning = computeTargetAllocationWarning(categories: allCategories)
@@ -93,6 +99,7 @@ final class CategoryListViewModel {
     }
 
     let category = Category(name: trimmed, targetAllocationPercentage: targetAllocation)
+    category.displayOrder = nextDisplayOrder()
     modelContext.insert(category)
     return category
   }
@@ -133,13 +140,65 @@ final class CategoryListViewModel {
       throw CategoryError.cannotDelete(assetCount: assets.count)
     }
     modelContext.delete(category)
+    compactDisplayOrder()
+  }
+
+  // MARK: - Move
+
+  /// Reorders categories by moving items at the given offsets to the target position.
+  ///
+  /// Implements the same semantics as `Array.move(fromOffsets:toOffset:)` from SwiftUI
+  /// without requiring a SwiftUI import in the ViewModel layer.
+  func moveCategories(from source: IndexSet, to destination: Int) {
+    var categories = categoryRows.map(\.category)
+    // Adjust destination for removals before the insertion point
+    let adjustedDestination = destination - source.filter { $0 < destination }.count
+    let moved = source.sorted().map { categories[$0] }
+    // Remove from highest index first to preserve indices
+    for index in source.sorted().reversed() {
+      categories.remove(at: index)
+    }
+    let insertAt = min(adjustedDestination, categories.count)
+    categories.insert(contentsOf: moved, at: insertAt)
+    for (index, category) in categories.enumerated() {
+      category.displayOrder = index
+    }
+    loadCategories()
   }
 
   // MARK: - Private Helpers
 
   private func fetchAllCategories() -> [Category] {
-    let descriptor = FetchDescriptor<Category>(sortBy: [SortDescriptor(\.name)])
+    let descriptor = FetchDescriptor<Category>(
+      sortBy: [SortDescriptor(\.displayOrder), SortDescriptor(\.name)])
     return (try? modelContext.fetch(descriptor)) ?? []
+  }
+
+  /// Returns the next available displayOrder value.
+  private func nextDisplayOrder() -> Int {
+    let allCategories = fetchAllCategories()
+    return (allCategories.map(\.displayOrder).max() ?? -1) + 1
+  }
+
+  /// Compacts displayOrder values after a deletion to remove gaps.
+  private func compactDisplayOrder() {
+    let allCategories = fetchAllCategories()
+    for (index, category) in allCategories.enumerated() {
+      category.displayOrder = index
+    }
+  }
+
+  /// Normalizes displayOrder when all categories have the same value (migration scenario).
+  private func normalizeDisplayOrderIfNeeded(_ categories: [Category]) {
+    guard categories.count > 1 else { return }
+    let allSame = categories.allSatisfy { $0.displayOrder == categories[0].displayOrder }
+    guard allSame else { return }
+    let sorted = categories.sorted {
+      $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+    }
+    for (index, category) in sorted.enumerated() {
+      category.displayOrder = index
+    }
   }
 
   private func fetchAllSnapshots() -> [Snapshot] {

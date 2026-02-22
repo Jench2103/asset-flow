@@ -393,6 +393,149 @@ struct CategoryListViewModelTests {
     #expect(viewModel.categoryRows[1].currentAllocation == nil)
   }
 
+  // MARK: - Display Order
+
+  @Test("New categories receive sequential displayOrder values")
+  func newCategoriesReceiveSequentialDisplayOrder() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = CategoryListViewModel(modelContext: context)
+    let cat1 = try viewModel.createCategory(name: "Alpha", targetAllocation: nil)
+    let cat2 = try viewModel.createCategory(name: "Beta", targetAllocation: nil)
+    let cat3 = try viewModel.createCategory(name: "Gamma", targetAllocation: nil)
+
+    #expect(cat1.displayOrder == 0)
+    #expect(cat2.displayOrder == 1)
+    #expect(cat3.displayOrder == 2)
+  }
+
+  @Test("Categories sorted by displayOrder")
+  func categoriesSortedByDisplayOrder() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let gamma = Category(name: "Gamma")
+    gamma.displayOrder = 0
+    let alpha = Category(name: "Alpha")
+    alpha.displayOrder = 1
+    let beta = Category(name: "Beta")
+    beta.displayOrder = 2
+    context.insert(gamma)
+    context.insert(alpha)
+    context.insert(beta)
+
+    let viewModel = CategoryListViewModel(modelContext: context)
+    viewModel.loadCategories()
+
+    #expect(viewModel.categoryRows.count == 3)
+    #expect(viewModel.categoryRows[0].category.name == "Gamma")
+    #expect(viewModel.categoryRows[1].category.name == "Alpha")
+    #expect(viewModel.categoryRows[2].category.name == "Beta")
+  }
+
+  @Test("Delete category compacts displayOrder")
+  func deleteCategoryCompactsDisplayOrder() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let a = Category(name: "A")
+    a.displayOrder = 0
+    let b = Category(name: "B")
+    b.displayOrder = 1
+    let c = Category(name: "C")
+    c.displayOrder = 2
+    context.insert(a)
+    context.insert(b)
+    context.insert(c)
+
+    let viewModel = CategoryListViewModel(modelContext: context)
+    try viewModel.deleteCategory(b)
+    viewModel.loadCategories()
+
+    #expect(viewModel.categoryRows.count == 2)
+    #expect(a.displayOrder == 0)
+    #expect(c.displayOrder == 1)
+  }
+
+  @Test("Migration normalizes all-zero displayOrder alphabetically")
+  func migrationNormalizesAllZeroDisplayOrder() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let gamma = Category(name: "Gamma")
+    let alpha = Category(name: "Alpha")
+    let beta = Category(name: "Beta")
+    context.insert(gamma)
+    context.insert(alpha)
+    context.insert(beta)
+
+    let viewModel = CategoryListViewModel(modelContext: context)
+    viewModel.loadCategories()
+
+    #expect(alpha.displayOrder == 0)
+    #expect(beta.displayOrder == 1)
+    #expect(gamma.displayOrder == 2)
+  }
+
+  @Test("moveCategories updates displayOrder correctly")
+  func moveCategoriesUpdatesDisplayOrder() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let a = Category(name: "A")
+    a.displayOrder = 0
+    let b = Category(name: "B")
+    b.displayOrder = 1
+    let c = Category(name: "C")
+    c.displayOrder = 2
+    context.insert(a)
+    context.insert(b)
+    context.insert(c)
+
+    let viewModel = CategoryListViewModel(modelContext: context)
+    viewModel.loadCategories()
+
+    // Move C (index 2) to position 0
+    viewModel.moveCategories(from: IndexSet(integer: 2), to: 0)
+
+    #expect(viewModel.categoryRows[0].category.name == "C")
+    #expect(viewModel.categoryRows[1].category.name == "A")
+    #expect(viewModel.categoryRows[2].category.name == "B")
+    #expect(c.displayOrder == 0)
+    #expect(a.displayOrder == 1)
+    #expect(b.displayOrder == 2)
+  }
+
+  @Test("moveCategories moves item downward correctly")
+  func moveCategoriesMovesItemDownward() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let a = Category(name: "A")
+    a.displayOrder = 0
+    let b = Category(name: "B")
+    b.displayOrder = 1
+    let c = Category(name: "C")
+    c.displayOrder = 2
+    context.insert(a)
+    context.insert(b)
+    context.insert(c)
+
+    let viewModel = CategoryListViewModel(modelContext: context)
+    viewModel.loadCategories()
+
+    // Move A (index 0) to after C (destination 3 in SwiftUI onMove semantics)
+    viewModel.moveCategories(from: IndexSet(integer: 0), to: 3)
+
+    #expect(viewModel.categoryRows[0].category.name == "B")
+    #expect(viewModel.categoryRows[1].category.name == "C")
+    #expect(viewModel.categoryRows[2].category.name == "A")
+    #expect(b.displayOrder == 0)
+    #expect(c.displayOrder == 1)
+    #expect(a.displayOrder == 2)
+  }
+
   // MARK: - Direct Values Only (No Carry Forward)
 
   @Test("Current allocation uses only stored values from latest snapshot")
