@@ -119,9 +119,6 @@ struct AssetListView: View {
           rowData.asset.currency.isEmpty
           ? SettingsService.shared.mainCurrency : rowData.asset.currency
         HStack(spacing: 4) {
-          Text(value.formatted(currency: effectiveCurrency))
-            .font(.body)
-            .monospacedDigit()
           if effectiveCurrency != SettingsService.shared.mainCurrency {
             Text(effectiveCurrency.uppercased())
               .font(.caption2)
@@ -129,6 +126,9 @@ struct AssetListView: View {
               .padding(.vertical, 1)
               .background(.quaternary, in: Capsule())
           }
+          Text(value.formatted(currency: effectiveCurrency))
+            .font(.body)
+            .monospacedDigit()
         }
       } else {
         Text("\u{2014}")
