@@ -137,7 +137,11 @@ struct CategoryDetailView: View {
           }
           .alignment(.trailing)
         }
-        .frame(minHeight: 100)
+        .tableStyle(.bordered(alternatesRowBackgrounds: true))
+        .scrollDisabled(true)
+        .frame(height: CGFloat(viewModel.assets.count) * 24 + 32)
+        .padding(-1)
+        .clipped()
       }
     } header: {
       Text("Assets in Category")

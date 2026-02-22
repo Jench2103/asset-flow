@@ -273,7 +273,11 @@ struct AssetDetailView: View {
           }
           .alignment(.trailing)
         }
-        .frame(minHeight: 150)
+        .tableStyle(.bordered(alternatesRowBackgrounds: true))
+        .scrollDisabled(true)
+        .frame(height: CGFloat(viewModel.valueHistory.count) * 28 + 32)
+        .padding(-1)
+        .clipped()
       }
     } header: {
       Text("Value History")
