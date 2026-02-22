@@ -25,6 +25,7 @@ class TestDataManager {
       Snapshot.self,
       SnapshotAssetValue.self,
       CashFlowOperation.self,
+      ExchangeRate.self,
     ])
     // Use a unique name per container to ensure true isolation.
     // Without a unique name, ModelConfiguration(isStoredInMemoryOnly: true) may

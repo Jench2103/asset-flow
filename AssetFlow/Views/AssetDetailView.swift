@@ -88,6 +88,8 @@ struct AssetDetailView: View {
       platformPicker
 
       categoryPicker
+
+      currencyPicker
     } header: {
       Text("Asset Details")
     }
@@ -213,6 +215,27 @@ struct AssetDetailView: View {
     saveChanges()
   }
 
+  // MARK: - Currency Picker
+
+  private var currencyPicker: some View {
+    Picker("Currency", selection: currencyBinding) {
+      ForEach(CurrencyService.shared.currencies) { currency in
+        Text(currency.displayName).tag(currency.code)
+      }
+    }
+    .accessibilityIdentifier("Currency Picker")
+  }
+
+  private var currencyBinding: Binding<String> {
+    Binding(
+      get: { viewModel.editedCurrency },
+      set: { newValue in
+        viewModel.editedCurrency = newValue
+        saveChanges()
+      }
+    )
+  }
+
   // MARK: - Value History Section
 
   private var filteredValueHistory: [AssetValueHistoryEntry] {
@@ -242,7 +265,10 @@ struct AssetDetailView: View {
             Text(entry.date.settingsFormatted())
           }
           TableColumn("Market Value") { entry in
-            Text(entry.marketValue.formatted(currency: SettingsService.shared.mainCurrency))
+            let effectiveCurrency =
+              viewModel.asset.currency.isEmpty
+              ? SettingsService.shared.mainCurrency : viewModel.asset.currency
+            Text(entry.marketValue.formatted(currency: effectiveCurrency))
               .monospacedDigit()
           }
           .alignment(.trailing)
@@ -283,9 +309,12 @@ struct AssetDetailView: View {
               : entry.date == lastDate ? .trailing : .center
           ) {
             ChartTooltipView {
+              let effectiveCurrency =
+                viewModel.asset.currency.isEmpty
+                ? SettingsService.shared.mainCurrency : viewModel.asset.currency
               Text(entry.date.settingsFormatted())
                 .font(.caption2)
-              Text(entry.marketValue.formatted(currency: SettingsService.shared.mainCurrency))
+              Text(entry.marketValue.formatted(currency: effectiveCurrency))
                 .font(.caption.bold())
             }
           }

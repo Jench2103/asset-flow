@@ -66,6 +66,9 @@ struct SnapshotDetailView: View {
     .onAppear {
       viewModel.loadData()
     }
+    .task {
+      await viewModel.fetchExchangeRatesIfNeeded()
+    }
     .onChange(of: savFingerprint) {
       viewModel.loadData()
     }
@@ -125,6 +128,30 @@ struct SnapshotDetailView: View {
             .foregroundStyle(.secondary)
         }
       }
+      if viewModel.isFetchingRates {
+        HStack(spacing: 8) {
+          ProgressView()
+            .controlSize(.small)
+          Text("Fetching exchange rates...")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+      }
+
+      if let error = viewModel.ratesFetchError {
+        HStack {
+          Image(systemName: "exclamationmark.triangle")
+            .foregroundStyle(.yellow)
+          Text(error)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+          Spacer()
+          Button("Retry") {
+            Task { await viewModel.fetchExchangeRatesIfNeeded() }
+          }
+          .font(.caption)
+        }
+      }
     } header: {
       Text("Summary")
     }
@@ -161,6 +188,10 @@ struct SnapshotDetailView: View {
 
   @ViewBuilder
   private func assetRow(_ sav: SnapshotAssetValue, asset: Asset) -> some View {
+    let displayCurrency = SettingsService.shared.mainCurrency
+    let assetCurrency = asset.currency.isEmpty ? displayCurrency : asset.currency
+    let isDifferentCurrency = assetCurrency != displayCurrency
+
     HStack {
       VStack(alignment: .leading, spacing: 2) {
         Text(asset.name)
@@ -173,9 +204,31 @@ struct SnapshotDetailView: View {
         .foregroundStyle(.secondary)
       }
       Spacer()
-      Text(sav.marketValue.formatted(currency: SettingsService.shared.mainCurrency))
-        .font(.body)
-        .monospacedDigit()
+      VStack(alignment: .trailing, spacing: 1) {
+        HStack(spacing: 4) {
+          if isDifferentCurrency {
+            Text(assetCurrency.uppercased())
+              .font(.caption2)
+              .padding(.horizontal, 4)
+              .padding(.vertical, 1)
+              .background(.quaternary, in: Capsule())
+          }
+          Text(sav.marketValue.formatted(currency: assetCurrency))
+            .font(.body)
+            .monospacedDigit()
+        }
+        if isDifferentCurrency, let exchangeRate = viewModel.exchangeRate {
+          let converted = CurrencyConversionService.convert(
+            value: sav.marketValue, from: assetCurrency, to: displayCurrency,
+            using: exchangeRate)
+          if converted != sav.marketValue {
+            Text("\u{2248} \(converted.formatted(currency: displayCurrency))")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .monospacedDigit()
+          }
+        }
+      }
     }
     .contentShape(Rectangle())
     .contextMenu {
@@ -351,6 +404,7 @@ private struct AddAssetSheet: View {
   @State private var showNewCategoryField = false
   @State private var newCategoryName = ""
   @State private var newMarketValueText = ""
+  @State private var newCurrency = SettingsService.shared.mainCurrency
 
   @Query(sort: \Asset.name) private var allAssets: [Asset]
 
@@ -440,6 +494,12 @@ private struct AddAssetSheet: View {
           Text(asset.category?.name ?? "\u{2014}")
             .foregroundStyle(asset.category == nil ? .secondary : .primary)
         }
+        LabeledContent("Currency") {
+          let currency =
+            asset.currency.isEmpty
+            ? SettingsService.shared.mainCurrency : asset.currency
+          Text(currency.uppercased())
+        }
       }
 
       TextField("Market Value", text: $marketValueText)
@@ -456,6 +516,12 @@ private struct AddAssetSheet: View {
     platformPicker
 
     categoryPicker
+
+    Picker("Currency", selection: $newCurrency) {
+      ForEach(CurrencyService.shared.currencies) { currency in
+        Text(currency.displayName).tag(currency.code)
+      }
+    }
 
     TextField("Market Value", text: $newMarketValueText)
       .focused($focusedField, equals: .newMarketValue)
@@ -600,7 +666,8 @@ private struct AddAssetSheet: View {
           name: newAssetName,
           platform: newPlatform,
           category: newCategory,
-          marketValue: value
+          marketValue: value,
+          currency: newCurrency
         )
       }
       onComplete()
@@ -642,6 +709,7 @@ private struct AddCashFlowSheet: View {
 
   @State private var description = ""
   @State private var amountText = ""
+  @State private var cashFlowCurrency = SettingsService.shared.mainCurrency
   @State private var showError = false
   @State private var errorMessage = ""
 
@@ -655,6 +723,12 @@ private struct AddCashFlowSheet: View {
         TextField("Amount (positive = inflow, negative = outflow)", text: $amountText)
           .focused($focusedField, equals: .amount)
           .accessibilityIdentifier("Cash Flow Amount Field")
+
+        Picker("Currency", selection: $cashFlowCurrency) {
+          ForEach(CurrencyService.shared.currencies) { currency in
+            Text(currency.displayName).tag(currency.code)
+          }
+        }
       }
       .formStyle(.grouped)
       .navigationTitle("Add Cash Flow")
@@ -687,7 +761,8 @@ private struct AddCashFlowSheet: View {
   private func addCashFlow() {
     guard let amount = Decimal(string: amountText) else { return }
     do {
-      try viewModel.addCashFlow(description: description, amount: amount)
+      try viewModel.addCashFlow(
+        description: description, amount: amount, currency: cashFlowCurrency)
       onComplete()
       dismiss()
     } catch {

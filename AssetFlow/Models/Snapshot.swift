@@ -22,6 +22,9 @@ final class Snapshot {
   @Relationship(deleteRule: .cascade, inverse: \CashFlowOperation.snapshot)
   var cashFlowOperations: [CashFlowOperation]?
 
+  @Relationship(deleteRule: .cascade, inverse: \ExchangeRate.snapshot)
+  var exchangeRate: ExchangeRate?
+
   init(date: Date) {
     self.id = UUID()
     self.date = Calendar.current.startOfDay(for: date)

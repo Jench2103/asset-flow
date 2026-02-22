@@ -25,11 +25,13 @@ struct PlatformRowData: Identifiable {
 @MainActor
 final class PlatformListViewModel {
   private let modelContext: ModelContext
+  private let settingsService: SettingsService
 
   var platformRows: [PlatformRowData] = []
 
-  init(modelContext: ModelContext) {
+  init(modelContext: ModelContext, settingsService: SettingsService? = nil) {
     self.modelContext = modelContext
+    self.settingsService = settingsService ?? .shared
   }
 
   // MARK: - Loading
@@ -122,11 +124,20 @@ final class PlatformListViewModel {
     guard let latestSnapshot = allSnapshots.last else { return [:] }
 
     let assetValues = latestSnapshot.assetValues ?? []
+    let displayCurrency = settingsService.mainCurrency
+    let exchangeRate = latestSnapshot.exchangeRate
 
     var lookup: [String: Decimal] = [:]
     for sav in assetValues {
-      guard let platform = sav.asset?.platform, !platform.isEmpty else { continue }
-      lookup[platform, default: 0] += sav.marketValue
+      guard let asset = sav.asset, !asset.platform.isEmpty else { continue }
+      let assetCurrency = asset.currency
+      let effectiveCurrency = assetCurrency.isEmpty ? displayCurrency : assetCurrency
+      let converted = CurrencyConversionService.convert(
+        value: sav.marketValue,
+        from: effectiveCurrency,
+        to: displayCurrency,
+        using: exchangeRate)
+      lookup[asset.platform, default: 0] += converted
     }
     return lookup
   }

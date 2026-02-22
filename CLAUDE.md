@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AssetFlow is a macOS desktop application (macOS 15.0+) for snapshot-based portfolio management and asset allocation tracking. It is built with SwiftUI, SwiftData, and Swift Charts, following a local-first architecture with no network dependencies.
+AssetFlow is a macOS desktop application (macOS 15.0+) for snapshot-based portfolio management and asset allocation tracking. It is built with SwiftUI, SwiftData, and Swift Charts, following a local-first architecture. Network access is limited to fetching exchange rates from cdn.jsdelivr.net for multi-currency support (optional, with graceful degradation when offline).
 
 ## Build Commands
 
@@ -35,7 +35,7 @@ xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow test -destination 'pla
 - Models: SwiftData models with relationships
 - Views: SwiftUI components
 - ViewModels: `@Observable @MainActor` classes handling form state, validation, and persistence
-- Services: Stateless utilities (CalculationService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, CurrencyService, ChartDataService)
+- Services: Stateless utilities (CalculationService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, CurrencyService, ChartDataService, ExchangeRateService, CurrencyConversionService)
 
 **Data Model Relationships:**
 
@@ -44,6 +44,7 @@ Category (1:Many) → Asset
 Asset (Many:Many via SnapshotAssetValue) → Snapshot
 Snapshot (1:Many) → SnapshotAssetValue
 Snapshot (1:Many) → CashFlowOperation
+Snapshot (1:1) → ExchangeRate
 ```
 
 All models are registered in `AssetFlowApp.swift` in the `sharedModelContainer` Schema. When adding new models, update both the Schema and `Models/README.md`.
@@ -180,7 +181,7 @@ This project uses `swift-format` for code formatting and `SwiftLint` for linting
 
 - Target platform: macOS 15.0+ only
 - No iOS or iPadOS support in v1 — no platform-specific compiler directives (`#if os(...)`) are needed
-- No network access, no API keys, no cloud sync
+- Network access limited to exchange rate fetching (cdn.jsdelivr.net) — no API keys, no cloud sync
 
 ## Code Quality and Linting
 

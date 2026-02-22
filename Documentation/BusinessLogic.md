@@ -51,20 +51,32 @@ All calculations are derived from stored structured data. No spreadsheet-style h
 
 ### Portfolio Total Value
 
-For a given snapshot, the total value is the sum of all directly-stored SnapshotAssetValues:
+For a given snapshot, the total value is the sum of all directly-stored SnapshotAssetValues, **converted to the display currency** using the snapshot's exchange rate:
 
 ```
-total_value(snapshot) = sum(SnapshotAssetValues in snapshot)
+total_value(snapshot) = sum(convert(sav.marketValue, from: asset.currency, to: displayCurrency) for each sav)
 ```
 
-This value is always derived, never stored on the Snapshot model.
+If exchange rate data is unavailable (e.g., offline), raw unconverted values are summed as a fallback. This value is always derived, never stored on the Snapshot model.
+
+### Currency Conversion
+
+Each asset and cash flow has a native currency. When computing cross-asset totals, values are converted to the global display currency using the snapshot's `ExchangeRate`:
+
+```
+converted_value = value / rates[from_currency] * rates[to_currency]
+```
+
+Where `rates[baseCurrency]` is implicitly 1.0. Cross-rate conversion is used when neither currency is the base currency.
+
+**Graceful Degradation**: If exchange rate is nil or a currency is missing from rates, the original unconverted value is returned. This ensures the app works offline without crashing. An error banner is shown when rates cannot be fetched.
 
 ### Category Allocation
 
-For each snapshot:
+For each snapshot, asset values are converted to the display currency before computing allocation:
 
 ```
-category_value = sum(market_value of assets in category)
+category_value = sum(convert(market_value, asset.currency, displayCurrency) for assets in category)
 category_percentage = category_value / total_portfolio_value * 100
 ```
 

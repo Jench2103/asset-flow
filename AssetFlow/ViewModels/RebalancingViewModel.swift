@@ -74,21 +74,26 @@ final class RebalancingViewModel {
 
     guard let latestSnapshot = allSnapshots.last else { return }
 
-    let assetValues = latestSnapshot.assetValues ?? []
-
-    totalPortfolioValue = assetValues.reduce(Decimal(0)) { $0 + $1.marketValue }
+    let displayCurrency = SettingsService.shared.mainCurrency
+    totalPortfolioValue = CurrencyConversionService.totalValue(
+      for: latestSnapshot, displayCurrency: displayCurrency,
+      exchangeRate: latestSnapshot.exchangeRate)
 
     guard totalPortfolioValue > 0 else { return }
 
-    // Group values by category
+    // Group values by category with currency conversion
+    let catValues = CurrencyConversionService.categoryValues(
+      for: latestSnapshot, displayCurrency: displayCurrency,
+      exchangeRate: latestSnapshot.exchangeRate)
+
     var categoryValueLookup: [String: Decimal] = [:]
     var uncategorizedValue: Decimal = 0
 
-    for sav in assetValues {
-      if let categoryName = sav.asset?.category?.name {
-        categoryValueLookup[categoryName, default: 0] += sav.marketValue
+    for (name, value) in catValues {
+      if name.isEmpty {
+        uncategorizedValue += value
       } else {
-        uncategorizedValue += sav.marketValue
+        categoryValueLookup[name, default: 0] += value
       }
     }
 

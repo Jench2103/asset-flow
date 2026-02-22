@@ -159,6 +159,9 @@ struct ContentView: View {
         importViewModel = ImportViewModel(modelContext: modelContext)
       }
     }
+    .task {
+      await CurrencyService.shared.loadFromAPI()
+    }
   }
 
   // MARK: - Sidebar

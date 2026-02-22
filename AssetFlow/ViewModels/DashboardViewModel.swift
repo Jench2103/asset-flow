@@ -212,13 +212,15 @@ class DashboardViewModel {
     guard totalDays > 0 else { return nil }
 
     // Gather cash flows from snapshots strictly after begin through latest (inclusive)
+    let displayCurrency = SettingsService.shared.mainCurrency
     let intermediateSnapshots = sortedSnapshotsCache.filter {
       $0.date > beginSnapshot.date && $0.date <= latestSnapshot.date
     }
 
     var cashFlows: [(amount: Decimal, daysSinceStart: Int)] = []
     for snapshot in intermediateSnapshots {
-      let netCashFlow = (snapshot.cashFlowOperations ?? []).reduce(Decimal(0)) { $0 + $1.amount }
+      let netCashFlow = CurrencyConversionService.netCashFlow(
+        for: snapshot, displayCurrency: displayCurrency, exchangeRate: snapshot.exchangeRate)
       if netCashFlow != 0 {
         let daysSinceStart =
           Calendar.current.dateComponents([.day], from: beginSnapshot.date, to: snapshot.date).day
@@ -290,25 +292,22 @@ class DashboardViewModel {
     categoryAllocations = computeCategoryAllocationsForSnapshot(latestSnapshot)
   }
 
-  /// Computes category allocation data for a single snapshot using direct values.
+  /// Computes category allocation data for a single snapshot with currency conversion.
   private func computeCategoryAllocationsForSnapshot(
     _ snapshot: Snapshot
   ) -> [CategoryAllocationData] {
-    let assetValues = snapshot.assetValues ?? []
-
-    let total = assetValues.reduce(Decimal(0)) { $0 + $1.marketValue }
+    let displayCurrency = SettingsService.shared.mainCurrency
+    let total = snapshotTotal(for: snapshot)
     guard total > 0 else { return [] }
 
-    var categoryValues: [String: Decimal] = [:]
-    for sav in assetValues {
-      let categoryName = sav.asset?.category?.name ?? "Uncategorized"
-      categoryValues[categoryName, default: 0] += sav.marketValue
-    }
+    let catValues = CurrencyConversionService.categoryValues(
+      for: snapshot, displayCurrency: displayCurrency, exchangeRate: snapshot.exchangeRate)
 
     return
-      categoryValues.map { name, value in
-        CategoryAllocationData(
-          categoryName: name,
+      catValues.map { name, value in
+        let displayName = name.isEmpty ? "Uncategorized" : name
+        return CategoryAllocationData(
+          categoryName: displayName,
           value: value,
           percentage: CalculationService.categoryAllocation(
             categoryValue: value, totalValue: total)
@@ -319,19 +318,16 @@ class DashboardViewModel {
   // MARK: - Private: Category Value History
 
   private func computeCategoryValueHistory(sortedSnapshots: [Snapshot]) {
+    let displayCurrency = SettingsService.shared.mainCurrency
     var result: [String: [DashboardDataPoint]] = [:]
 
     for snapshot in sortedSnapshots {
-      let assetValues = snapshot.assetValues ?? []
+      let catValues = CurrencyConversionService.categoryValues(
+        for: snapshot, displayCurrency: displayCurrency, exchangeRate: snapshot.exchangeRate)
 
-      var categoryValues: [String: Decimal] = [:]
-      for sav in assetValues {
-        let categoryName = sav.asset?.category?.name ?? "Uncategorized"
-        categoryValues[categoryName, default: 0] += sav.marketValue
-      }
-
-      for (categoryName, value) in categoryValues {
-        result[categoryName, default: []].append(
+      for (categoryName, value) in catValues {
+        let displayName = categoryName.isEmpty ? "Uncategorized" : categoryName
+        result[displayName, default: []].append(
           DashboardDataPoint(date: snapshot.date, value: value))
       }
     }
@@ -387,11 +383,10 @@ class DashboardViewModel {
   private func computeRecentSnapshots(sortedSnapshots: [Snapshot]) {
     let newestFirst = sortedSnapshots.reversed()
     recentSnapshots = Array(newestFirst.prefix(5)).map { snapshot in
-      let assetValues = snapshot.assetValues ?? []
-      return RecentSnapshotData(
+      RecentSnapshotData(
         date: snapshot.date,
-        totalValue: assetValues.reduce(Decimal(0)) { $0 + $1.marketValue },
-        assetCount: assetValues.count
+        totalValue: snapshotTotal(for: snapshot),
+        assetCount: (snapshot.assetValues ?? []).count
       )
     }
   }
@@ -404,7 +399,9 @@ class DashboardViewModel {
   }
 
   private func snapshotTotal(for snapshot: Snapshot) -> Decimal {
-    (snapshot.assetValues ?? []).reduce(Decimal(0)) { $0 + $1.marketValue }
+    let displayCurrency = SettingsService.shared.mainCurrency
+    return CurrencyConversionService.totalValue(
+      for: snapshot, displayCurrency: displayCurrency, exchangeRate: snapshot.exchangeRate)
   }
 
   /// Computes Modified Dietz returns for each consecutive pair of snapshots.
@@ -429,15 +426,15 @@ class DashboardViewModel {
       }
 
       // Cash flows from snapshots strictly after begin through end (inclusive)
+      let displayCurrency = SettingsService.shared.mainCurrency
       let intermediateSnapshots = sortedSnapshotsCache.filter {
         $0.date > begin.date && $0.date <= end.date
       }
 
       var cashFlows: [(amount: Decimal, daysSinceStart: Int)] = []
       for snapshot in intermediateSnapshots {
-        let netCashFlow = (snapshot.cashFlowOperations ?? []).reduce(Decimal(0)) {
-          $0 + $1.amount
-        }
+        let netCashFlow = CurrencyConversionService.netCashFlow(
+          for: snapshot, displayCurrency: displayCurrency, exchangeRate: snapshot.exchangeRate)
         if netCashFlow != 0 {
           let daysSinceStart =
             Calendar.current.dateComponents([.day], from: begin.date, to: snapshot.date).day ?? 0

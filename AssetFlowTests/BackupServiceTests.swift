@@ -132,6 +132,7 @@ struct BackupServiceTests {
 
     let requiredFiles =
       [BackupCSV.manifestFileName] + BackupCSV.allCSVFileNames
+      + BackupCSV.optionalCSVFileNames
     for fileName in requiredFiles {
       let exists = FileManager.default.fileExists(
         atPath: extractDir.appending(path: fileName).path)
@@ -150,7 +151,7 @@ struct BackupServiceTests {
       settingsService: tc.settingsService)
 
     let manifest = try BackupService.validateBackup(at: zipURL)
-    #expect(manifest.formatVersion == 2)
+    #expect(manifest.formatVersion == 3)
     #expect(manifest.appVersion == Constants.AppInfo.version)
     // Verify ISO 8601 timestamp is parseable
     let formatter = ISO8601DateFormatter()
@@ -195,7 +196,7 @@ struct BackupServiceTests {
       zipURL: zipURL, fileName: BackupCSV.Assets.fileName)
     let lines = content.components(separatedBy: "\n")
       .filter { !$0.isEmpty }
-    #expect(lines[0] == "id,name,platform,categoryID")
+    #expect(lines[0] == "id,name,platform,categoryID,currency")
     #expect(lines.count == 4)  // header + 3 assets
   }
 
@@ -235,7 +236,7 @@ struct BackupServiceTests {
 
     // Should be valid
     let manifest = try BackupService.validateBackup(at: zipURL)
-    #expect(manifest.formatVersion == 2)
+    #expect(manifest.formatVersion == 3)
 
     // Categories CSV should have only header
     let catContent = try extractFileContent(
@@ -327,7 +328,7 @@ struct BackupServiceTests {
       settingsService: tc.settingsService)
 
     let manifest = try BackupService.validateBackup(at: zipURL)
-    #expect(manifest.formatVersion == 2)
+    #expect(manifest.formatVersion == 3)
   }
 
   @Test("Validate rejects non-ZIP file")
@@ -427,7 +428,7 @@ struct BackupServiceTests {
 
     // Should not throw
     let manifest = try BackupService.validateBackup(at: zipURL)
-    #expect(manifest.formatVersion == 2)
+    #expect(manifest.formatVersion == 3)
   }
 
   @Test("Validate rejects orphan snapshotID in snapshot_asset_values")

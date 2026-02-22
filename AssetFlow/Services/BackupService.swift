@@ -10,8 +10,9 @@ import SwiftData
 
 /// Service for exporting and restoring full database backups as ZIP archives.
 ///
-/// Each archive contains a `manifest.json` and 6 CSV files covering all entities
-/// and settings. Uses `/usr/bin/ditto` for ZIP operations (built into macOS).
+/// Each archive contains a `manifest.json`, 6 required CSV files covering all entities
+/// and settings, and 1 optional CSV file (`exchange_rates.csv`). Uses `/usr/bin/ditto`
+/// for ZIP operations (built into macOS).
 @MainActor
 enum BackupService {
 
@@ -45,7 +46,7 @@ enum BackupService {
 
     // Write manifest
     let manifest = BackupManifest(
-      formatVersion: 2,
+      formatVersion: 3,
       exportTimestamp: ISO8601DateFormatter().string(from: Date()),
       appVersion: Constants.AppInfo.version
     )
@@ -59,6 +60,9 @@ enum BackupService {
     try writeSnapshotsCSV(snapshots, to: tempDir)
     try writeSnapshotAssetValuesCSV(assetValues, to: tempDir)
     try writeCashFlowOperationsCSV(cashFlows, to: tempDir)
+    let exchangeRates = try modelContext.fetch(
+      FetchDescriptor<ExchangeRate>())
+    try writeExchangeRatesCSV(exchangeRates, to: tempDir)
     try writeSettingsCSV(settingsService: settingsService, to: tempDir)
 
     // ZIP via ditto
@@ -119,9 +123,19 @@ enum BackupService {
       BackupCSV.Categories.v1Headers,
     ]
 
+    let assetsAcceptedHeaders: [[String]] = [
+      BackupCSV.Assets.headers,
+      BackupCSV.Assets.v2Headers,
+    ]
+
+    let cashFlowAcceptedHeaders: [[String]] = [
+      BackupCSV.CashFlowOperations.headers,
+      BackupCSV.CashFlowOperations.v2Headers,
+    ]
+
     let expectedHeaders: [(String, [[String]])] = [
       (BackupCSV.Categories.fileName, categoriesAcceptedHeaders),
-      (BackupCSV.Assets.fileName, [BackupCSV.Assets.headers]),
+      (BackupCSV.Assets.fileName, assetsAcceptedHeaders),
       (BackupCSV.Snapshots.fileName, [BackupCSV.Snapshots.headers]),
       (
         BackupCSV.SnapshotAssetValues.fileName,
@@ -129,7 +143,7 @@ enum BackupService {
       ),
       (
         BackupCSV.CashFlowOperations.fileName,
-        [BackupCSV.CashFlowOperations.headers]
+        cashFlowAcceptedHeaders
       ),
       (BackupCSV.Settings.fileName, [BackupCSV.Settings.headers]),
     ]
@@ -155,6 +169,23 @@ enum BackupService {
         parseBackupCSVRow($0)
       }
       parsedFiles[fileName] = Array(dataRows)
+    }
+
+    // Validate optional exchange_rates.csv if present
+    let exchangeRatesURL = dir.appending(
+      path: BackupCSV.ExchangeRates.fileName)
+    if FileManager.default.fileExists(atPath: exchangeRatesURL.path) {
+      let content = try String(contentsOf: exchangeRatesURL, encoding: .utf8)
+      let lines = CSVParsingService.splitCSVLines(content)
+      if let headerLine = lines.first {
+        let headers = parseBackupCSVRow(headerLine)
+          .map { $0.trimmingCharacters(in: .whitespaces) }
+        if headers != BackupCSV.ExchangeRates.headers {
+          throw BackupError.invalidCSVHeaders(
+            file: BackupCSV.ExchangeRates.fileName,
+            expected: BackupCSV.ExchangeRates.headers, got: headers)
+        }
+      }
     }
 
     // Validate foreign keys
@@ -203,6 +234,9 @@ enum BackupService {
     try restoreCashFlowOperations(
       from: tempDir, modelContext: modelContext,
       snapshotIDMap: snapshotIDMap)
+    try restoreExchangeRates(
+      from: tempDir, modelContext: modelContext,
+      snapshotIDMap: snapshotIDMap)
     try restoreSettings(
       from: tempDir, settingsService: settingsService)
   }
@@ -242,6 +276,7 @@ extension BackupService {
           csvEscape(asset.name),
           csvEscape(asset.platform),
           asset.category?.id.uuidString ?? "",
+          csvEscape(asset.currency),
         ]))
     }
     try lines.joined(separator: "\n")
@@ -307,12 +342,37 @@ extension BackupService {
           snapshot.id.uuidString,
           csvEscape(op.cashFlowDescription),
           "\(op.amount)",
+          csvEscape(op.currency),
         ]))
     }
     try lines.joined(separator: "\n")
       .write(
         to: dir.appending(
           path: BackupCSV.CashFlowOperations.fileName),
+        atomically: true, encoding: .utf8)
+  }
+
+  private static func writeExchangeRatesCSV(
+    _ exchangeRates: [ExchangeRate], to dir: URL
+  ) throws {
+    let dateFormatter = ISO8601DateFormatter()
+    var lines = [BackupCSV.ExchangeRates.headers.joined(separator: ",")]
+    for er in exchangeRates {
+      guard let snapshot = er.snapshot else { continue }
+      // Encode ratesJSON as base64 to avoid CSV escaping issues with JSON
+      let ratesBase64 = er.ratesJSON.base64EncodedString()
+      lines.append(
+        csvLine([
+          snapshot.id.uuidString,
+          csvEscape(er.baseCurrency),
+          dateFormatter.string(from: er.fetchDate),
+          er.isFallback ? "true" : "false",
+          ratesBase64,
+        ]))
+    }
+    try lines.joined(separator: "\n")
+      .write(
+        to: dir.appending(path: BackupCSV.ExchangeRates.fileName),
         atomically: true, encoding: .utf8)
   }
 
@@ -478,6 +538,9 @@ extension BackupService {
 
   private static func deleteAllData(modelContext: ModelContext) throws {
     // Fetch and delete individually (batch delete not supported with .deny rules)
+    let exchangeRates = try modelContext.fetch(FetchDescriptor<ExchangeRate>())
+    for item in exchangeRates { modelContext.delete(item) }
+
     let cashFlows = try modelContext.fetch(FetchDescriptor<CashFlowOperation>())
     for item in cashFlows { modelContext.delete(item) }
 
@@ -593,7 +656,12 @@ extension BackupService {
         row.count > 3
         ? row[3].trimmingCharacters(in: .whitespaces) : ""
 
+      let currency =
+        row.count > 4
+        ? row[4].trimmingCharacters(in: .whitespaces) : ""
+
       let asset = Asset(name: name, platform: platform)
+      asset.currency = currency
       if let uuid = UUID(uuidString: idStr) {
         asset.id = uuid
       }
@@ -706,8 +774,13 @@ extension BackupService {
           "Invalid amount: \(amountStr)")
       }
 
+      let currency =
+        row.count > 4
+        ? row[4].trimmingCharacters(in: .whitespaces) : ""
+
       let op = CashFlowOperation(
         cashFlowDescription: desc, amount: amount)
+      op.currency = currency
       if let uuid = UUID(uuidString: idStr) {
         op.id = uuid
       }
@@ -719,6 +792,62 @@ extension BackupService {
         op.snapshot = snapshot
       }
       modelContext.insert(op)
+    }
+  }
+
+  private static func restoreExchangeRates(
+    from dir: URL,
+    modelContext: ModelContext,
+    snapshotIDMap: [String: Snapshot]
+  ) throws {
+    let fileURL = dir.appending(path: BackupCSV.ExchangeRates.fileName)
+    guard FileManager.default.fileExists(atPath: fileURL.path) else {
+      return  // Optional file — v2 backups don't have it
+    }
+
+    let rows = try readCSVRows(
+      from: dir, fileName: BackupCSV.ExchangeRates.fileName)
+    let dateFormatter = ISO8601DateFormatter()
+
+    for row in rows {
+      let snapIDStr = row[0].trimmingCharacters(in: .whitespaces)
+      let baseCurrency =
+        row.count > 1
+        ? row[1].trimmingCharacters(in: .whitespaces) : ""
+      let fetchDateStr =
+        row.count > 2
+        ? row[2].trimmingCharacters(in: .whitespaces) : ""
+      let isFallbackStr =
+        row.count > 3
+        ? row[3].trimmingCharacters(in: .whitespaces) : "false"
+      let ratesBase64 =
+        row.count > 4
+        ? row[4].trimmingCharacters(in: .whitespaces) : ""
+
+      guard let fetchDate = dateFormatter.date(from: fetchDateStr) else {
+        throw BackupError.corruptedData(
+          "Invalid date in exchange_rates.csv: \(fetchDateStr)")
+      }
+
+      guard let ratesData = Data(base64Encoded: ratesBase64) else {
+        throw BackupError.corruptedData(
+          "Invalid base64 in exchange_rates.csv")
+      }
+
+      let exchangeRate = ExchangeRate(
+        baseCurrency: baseCurrency,
+        ratesJSON: ratesData,
+        fetchDate: fetchDate,
+        isFallback: isFallbackStr == "true")
+
+      if !snapIDStr.isEmpty {
+        guard let snapshot = snapshotIDMap[snapIDStr] else {
+          throw BackupError.corruptedData(
+            "Snapshot ID not found for exchange rate: \(snapIDStr)")
+        }
+        exchangeRate.snapshot = snapshot
+      }
+      modelContext.insert(exchangeRate)
     }
   }
 

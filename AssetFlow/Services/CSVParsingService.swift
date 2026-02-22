@@ -108,7 +108,7 @@ extension CSVParsingService {
     }
 
     let knownColumns: Set<String> = [
-      "asset name", "market value", "platform",
+      "asset name", "market value", "platform", "currency",
     ]
 
     return .success(
@@ -116,6 +116,7 @@ extension CSVParsingService {
         nameIndex: nameIndex,
         valueIndex: valueIndex,
         platformIndex: normalized.firstIndex(of: "platform"),
+        currencyIndex: normalized.firstIndex(of: "currency"),
         warnings: unrecognizedColumnWarnings(
           headers: headers, normalized: normalized,
           knownColumns: knownColumns)))
@@ -149,12 +150,13 @@ extension CSVParsingService {
       return .failure(CSVHeaderValidationError(errors: errors))
     }
 
-    let knownColumns: Set<String> = ["description", "amount"]
+    let knownColumns: Set<String> = ["description", "amount", "currency"]
 
     return .success(
       CashFlowCSVHeaders(
         descIndex: descIndex,
         amountIndex: amountIndex,
+        currencyIndex: normalized.firstIndex(of: "currency"),
         warnings: unrecognizedColumnWarnings(
           headers: headers, normalized: normalized,
           knownColumns: knownColumns)))
@@ -282,10 +284,15 @@ extension CSVParsingService {
       fields: fields, headers: headers,
       importPlatform: importPlatform)
 
+    let currency =
+      headers.currencyIndex.map {
+        fieldValue(fields: fields, index: $0)
+      } ?? ""
+
     return .row(
       AssetCSVRow(
         assetName: name, marketValue: marketValue,
-        platform: platform),
+        platform: platform, currency: currency),
       marketValueWarnings(
         value: marketValue, name: name,
         rowNumber: rowNumber))
@@ -322,8 +329,13 @@ extension CSVParsingService {
           message: "Amount is zero for '\(desc)'."))
     }
 
+    let currency =
+      headers.currencyIndex.map {
+        fieldValue(fields: fields, index: $0)
+      } ?? ""
+
     return .row(
-      CashFlowCSVRow(description: desc, amount: amount),
+      CashFlowCSVRow(description: desc, amount: amount, currency: currency),
       warnings)
   }
 

@@ -8,7 +8,8 @@ This document describes the design of internal service APIs and data format spec
 
 **What This Document Covers**
 
-- **Internal Service APIs**: Service layer interfaces for CSV parsing, calculations, and backup/restore
+- **Internal Service APIs**: Service layer interfaces for CSV parsing, calculations, backup/restore, and currency conversion
+- **External API Integration**: Exchange rate API for currency conversion
 - **CSV Import Format**: Asset CSV and Cash Flow CSV schemas, parsing rules, and validation
 - **Backup Format**: ZIP archive structure, CSV serialization, and manifest specification
 - **Error Handling**: Service-level error types and handling patterns
@@ -18,11 +19,10 @@ This document describes the design of internal service APIs and data format spec
 - User interface design (see [UserInterfaceDesign.md](UserInterfaceDesign.md))
 - Business logic calculations (see [BusinessLogic.md](BusinessLogic.md))
 - Data model structure (see [DataModel.md](DataModel.md))
-- External API integrations (none in v1)
 
 **Design Philosophy**
 
-- **Local-Only**: No network access, no external APIs, no API keys
+- **Local-First**: Data stored locally; network used only for exchange rate fetching (optional, graceful degradation)
 - **Standard Formats**: CSV for import/export, ZIP for backup archives
 - **Deterministic**: All operations produce the same output for the same input
 - **Fail-Safe**: Validation before execution; rejected operations leave no partial state
@@ -65,6 +65,7 @@ struct AssetCSVRow {
     let assetName: String
     let marketValue: Decimal
     let platform: String  // Resolved via platform handling rules
+    let currency: String  // From optional Currency column (empty if absent)
 }
 
 struct CashFlowCSVResult {
@@ -77,6 +78,7 @@ struct CashFlowCSVRow {
     let rowNumber: Int
     let description: String  // Maps to CashFlowOperation.cashFlowDescription in the model
     let amount: Decimal
+    let currency: String  // From optional Currency column (empty if absent)
 }
 ```
 
@@ -262,12 +264,13 @@ struct BackupManifest: Codable {
 
 **Export Format**: ZIP archive containing:
 
-- `manifest.json` -- format version, export timestamp, app version
-- `categories.csv` -- all Category records (v2 adds `displayOrder` column; v1 backups without it are supported on restore with default `displayOrder = 0`)
-- `assets.csv` -- all Asset records
+- `manifest.json` -- format version (currently 3), export timestamp, app version
+- `categories.csv` -- all Category records (v2+ adds `displayOrder` column; v1 backups without it are supported on restore with default `displayOrder = 0`)
+- `assets.csv` -- all Asset records including `currency` column (v3+; v2 backups without it default to display currency on restore)
 - `snapshots.csv` -- all Snapshot records
 - `snapshot_asset_values.csv` -- all SnapshotAssetValue records
-- `cash_flow_operations.csv` -- all CashFlowOperation records
+- `cash_flow_operations.csv` -- all CashFlowOperation records including `currency` column (v3+; v2 backups without it default to display currency on restore)
+- `exchange_rates.csv` -- all ExchangeRate records (optional; absent in v2 backups). Columns: `snapshotID`, `baseCurrency`, `fetchDate`, `isFallback`, `ratesJSON` (base64-encoded JSON)
 - `settings.csv` -- user preferences with columns: `key`, `value`. Keys: `displayCurrency` (e.g., "USD"), `dateFormat` (e.g., "abbreviated"), `defaultPlatform` (e.g., "" or "Interactive Brokers")
 
 **ZIP Implementation**: Uses `/usr/bin/ditto` via `Process` for ZIP creation (`-c -k --sequesterRsrc`) and extraction (`-x -k`). No external dependencies required — `ditto` is built into macOS.
@@ -344,7 +347,7 @@ ______________________________________________________________________
 
 ### CurrencyService
 
-**Purpose**: Provides ISO 4217 currency information.
+**Purpose**: Provides currency information (codes, names, flag emojis).
 
 ```swift
 class CurrencyService {
@@ -358,10 +361,94 @@ class CurrencyService {
         var flag: String   // e.g., flag emoji
         var displayName: String  // e.g., "USD - US Dollar"
     }
+
+    /// Fetch full currency list from exchange rate API
+    @MainActor func loadFromAPI() async
 }
 ```
 
-Parses bundled ISO 4217 XML file. Filters duplicates and fund currencies.
+Initializes with a hardcoded fallback list (~30 common fiat + top crypto currencies). `loadFromAPI()` fetches the full list (~480 currencies) via `ExchangeRateService.fetchCurrencyList()` and replaces the list on success, keeping the fallback on failure.
+
+______________________________________________________________________
+
+### ExchangeRateService
+
+**Purpose**: Fetch exchange rates from the `@fawazahmed0/currency-api` CDN.
+
+```swift
+final class ExchangeRateService {
+    init(session: URLSession = .shared)
+
+    /// Fetch exchange rates for a specific date and base currency
+    func fetchRates(
+        for date: Date,
+        baseCurrency: String
+    ) async throws -> [String: Double]
+
+    /// Fetch the full currency list (code → name)
+    func fetchCurrencyList() async throws -> [String: String]
+}
+```
+
+**API Details**:
+
+- Rates URL: `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@{YYYY-MM-DD}/v1/currencies/{base}.min.json`
+- Currency list URL: `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.min.json`
+- Free, no API key required
+- Stateless — callers cache results in SwiftData via `ExchangeRate` model
+- Accepts `URLSession` parameter for dependency injection in tests
+
+**Error Cases**:
+
+```swift
+enum ExchangeRateError: LocalizedError {
+    case networkUnavailable
+    case invalidResponse
+    case ratesNotFound
+}
+```
+
+______________________________________________________________________
+
+### CurrencyConversionService
+
+**Purpose**: Stateless currency conversion logic used by ViewModels for portfolio totals, cash flows, and category values.
+
+```swift
+enum CurrencyConversionService {
+    /// Convert a single value between currencies
+    static func convert(
+        value: Decimal, from: String, to: String,
+        using exchangeRate: ExchangeRate?
+    ) -> Decimal
+
+    /// Sum all asset values in display currency
+    static func totalValue(
+        for snapshot: Snapshot, displayCurrency: String,
+        exchangeRate: ExchangeRate?
+    ) -> Decimal
+
+    /// Sum all cash flows in display currency
+    static func netCashFlow(
+        for snapshot: Snapshot, displayCurrency: String,
+        exchangeRate: ExchangeRate?
+    ) -> Decimal
+
+    /// Group converted values by category name
+    static func categoryValues(
+        for snapshot: Snapshot, displayCurrency: String,
+        exchangeRate: ExchangeRate?
+    ) -> [String: Decimal]
+
+    /// Check if conversion is possible between currencies
+    static func canConvert(
+        from: String, to: String,
+        using exchangeRate: ExchangeRate?
+    ) -> Bool
+}
+```
+
+**Graceful degradation**: When `exchangeRate` is nil or a currency is missing from rates, the original unconverted value is returned. This ensures the app works offline without crashing.
 
 ______________________________________________________________________
 
@@ -424,15 +511,16 @@ ______________________________________________________________________
 | Column     | Description                                                          |
 | ---------- | -------------------------------------------------------------------- |
 | `Platform` | Platform/brokerage name (overridden by import-level platform if set) |
+| `Currency` | Native currency code (e.g., "USD", "TWD"). Per-row override.         |
 
 **Sample**:
 
 ```csv
-Asset Name,Market Value,Platform
-AAPL,15000,Interactive Brokers
-VTI,28000,Interactive Brokers
-Bitcoin,5000,Coinbase
-Savings Account,20000,Chase Bank
+Asset Name,Market Value,Platform,Currency
+AAPL,15000,Interactive Brokers,USD
+TSMC,500000,Fubon,TWD
+Bitcoin,5000,Coinbase,USD
+Savings Account,20000,Chase Bank,USD
 ```
 
 ### Cash Flow CSV
@@ -444,13 +532,19 @@ Savings Account,20000,Chase Bank
 | `Description` | Description of the cash flow          |
 | `Amount`      | Positive = inflow, negative = outflow |
 
+**Optional columns**:
+
+| Column     | Description                                                  |
+| ---------- | ------------------------------------------------------------ |
+| `Currency` | Native currency code (e.g., "USD", "TWD"). Per-row override. |
+
 **Sample**:
 
 ```csv
-Description,Amount
-Salary deposit,50000
-Emergency fund transfer,-10000
-Dividend reinvestment,1500
+Description,Amount,Currency
+Salary deposit,50000,TWD
+Emergency fund transfer,-10000,USD
+Dividend reinvestment,1500,USD
 ```
 
 ### Column Mapping
@@ -510,13 +604,10 @@ The following are NOT implemented:
 
 - Real-time market price fetching
 - Brokerage API integration
-- Exchange rate API
 - Cloud sync / iCloud integration
-- Multi-currency FX conversion
 - Column mapping for CSV import
 - Data export for reporting (CSV, PDF) -- backup/restore IS supported
 - Webhooks or push notifications
-- Any network communication
 
 ______________________________________________________________________
 

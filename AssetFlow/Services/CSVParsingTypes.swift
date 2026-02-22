@@ -12,12 +12,27 @@ struct AssetCSVRow {
   let assetName: String
   let marketValue: Decimal
   let platform: String
+  let currency: String
+
+  init(assetName: String, marketValue: Decimal, platform: String, currency: String = "") {
+    self.assetName = assetName
+    self.marketValue = marketValue
+    self.platform = platform
+    self.currency = currency
+  }
 }
 
 /// A parsed row from a cash flow CSV import.
 struct CashFlowCSVRow {
   let description: String
   let amount: Decimal
+  let currency: String
+
+  init(description: String, amount: Decimal, currency: String = "") {
+    self.description = description
+    self.amount = amount
+    self.currency = currency
+  }
 }
 
 /// A CSV parsing error with row and column context.
@@ -49,6 +64,7 @@ struct AssetCSVHeaders {
   let nameIndex: Int
   let valueIndex: Int
   let platformIndex: Int?
+  let currencyIndex: Int?
   let warnings: [CSVWarning]
 }
 
@@ -56,6 +72,7 @@ struct AssetCSVHeaders {
 struct CashFlowCSVHeaders {
   let descIndex: Int
   let amountIndex: Int
+  let currencyIndex: Int?
   let warnings: [CSVWarning]
 }
 

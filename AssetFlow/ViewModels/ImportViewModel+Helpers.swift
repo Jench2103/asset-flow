@@ -142,6 +142,10 @@ extension ImportViewModel {
       let row = previewRow.csvRow
       let asset = modelContext.findOrCreateAsset(name: row.assetName, platform: row.platform)
 
+      // Assign currency (per-row override from CSV, or import-level default)
+      let rowCurrency = row.currency
+      asset.currency = rowCurrency.isEmpty ? selectedImportCurrency : rowCurrency
+
       // Assign category if selected
       if let category = selectedCategory {
         asset.category = category
@@ -203,6 +207,8 @@ extension ImportViewModel {
       let row = previewRow.csvRow
       let operation = CashFlowOperation(
         cashFlowDescription: row.description, amount: row.amount)
+      let rowCurrency = row.currency
+      operation.currency = rowCurrency.isEmpty ? selectedImportCurrency : rowCurrency
       operation.snapshot = snapshot
       modelContext.insert(operation)
     }

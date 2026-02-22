@@ -160,7 +160,9 @@ struct SettingsView: View {
       LabeledContent("Developer", value: Constants.AppInfo.developerName)
       LabeledContent("License", value: Constants.AppInfo.license)
       LabeledContent("Privacy") {
-        Text("All data is stored locally. No data is collected or transmitted.")
+        Text(
+          "All data is stored locally. Exchange rates are fetched from cdn.jsdelivr.net. No personal data is collected or transmitted."
+        )
       }
       Link("View Source Code on GitHub", destination: Constants.AppInfo.repositoryURL)
     } header: {

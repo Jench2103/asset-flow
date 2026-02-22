@@ -14,41 +14,50 @@ struct AssetFlowApp: App {
   let sharedModelContainer: ModelContainer
 
   init() {
-    let schema = Schema([
-      Category.self,
-      Asset.self,
-      Snapshot.self,
-      SnapshotAssetValue.self,
-      CashFlowOperation.self,
-    ])
-
+    let schema = Schema(versionedSchema: SchemaV1.self)
     let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
     do {
-      sharedModelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
+      sharedModelContainer = try ModelContainer(
+        for: schema,
+        migrationPlan: AssetFlowMigrationPlan.self,
+        configurations: [modelConfiguration]
+      )
     } catch {
-      // If the existing store is incompatible (e.g., schema changed without migration),
-      // destroy and recreate it. This is acceptable during development.
-      Self.destroyExistingStore()
-      do {
-        sharedModelContainer = try ModelContainer(
-          for: schema, configurations: [modelConfiguration])
-      } catch {
-        fatalError("Could not create ModelContainer: \(error)")
-      }
+      Self.showDatabaseErrorAndExit(error)
     }
   }
 
-  /// Removes the existing SwiftData store files to allow a fresh start.
-  private static func destroyExistingStore() {
-    let url = URL.applicationSupportDirectory
-      .appending(path: "default.store")
-    let fileManager = FileManager.default
-    for suffix in ["", "-wal", "-shm"] {
-      let fileURL = url.deletingLastPathComponent().appending(
-        path: url.lastPathComponent + suffix)
-      try? fileManager.removeItem(at: fileURL)
+  /// Shows a modal alert about the database error and terminates the app after dismissal.
+  private static func showDatabaseErrorAndExit(_ error: Error) -> Never {
+    let alert = NSAlert()
+    alert.messageText = String(
+      localized: "Unable to Open Database",
+      table: "Services"
+    )
+    alert.informativeText = String(
+      localized: """
+        AssetFlow could not open its database due to an incompatible schema. \
+        Your data has not been deleted.
+
+        Please file an issue at the GitHub repository so we can help resolve this.
+
+        Error: \(error.localizedDescription)
+        """,
+      table: "Services"
+    )
+    alert.alertStyle = .critical
+    alert.addButton(withTitle: String(localized: "Open GitHub Issues", table: "Services"))
+    alert.addButton(withTitle: String(localized: "Quit", table: "Services"))
+
+    let response = alert.runModal()
+    if response == .alertFirstButtonReturn {
+      let issuesURL = Constants.AppInfo.repositoryURL.appending(path: "issues")
+      NSWorkspace.shared.open(issuesURL)
     }
+
+    NSApp.terminate(nil)
+    fatalError("Could not create ModelContainer: \(error)")
   }
 
   @FocusedValue(\.newSnapshotAction) private var newSnapshotAction
@@ -108,7 +117,7 @@ struct AssetFlowApp: App {
           credits.append(
             NSAttributedString(
               string:
-                "\n\nAll data is stored locally on your Mac.\nNo data is collected or transmitted.",
+                "\n\nAll data is stored locally on your Mac.\nExchange rates are fetched from cdn.jsdelivr.net.\nNo personal data is collected or transmitted.",
               attributes: [
                 .font: small,
                 .foregroundColor: NSColor.secondaryLabelColor,

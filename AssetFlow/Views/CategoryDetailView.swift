@@ -104,9 +104,31 @@ struct CategoryDetailView: View {
             Text(row.asset.platform.isEmpty ? "\u{2014}" : row.asset.platform)
               .foregroundStyle(row.asset.platform.isEmpty ? .secondary : .primary)
           }
-          TableColumn("Value") { row in
+          TableColumn("Original Value") { row in
             if let value = row.latestValue {
-              Text(value.formatted(currency: SettingsService.shared.mainCurrency))
+              let effectiveCurrency =
+                row.asset.currency.isEmpty
+                ? SettingsService.shared.mainCurrency : row.asset.currency
+              HStack(spacing: 4) {
+                if effectiveCurrency != SettingsService.shared.mainCurrency {
+                  Text(effectiveCurrency.uppercased())
+                    .font(.caption2)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(.quaternary, in: Capsule())
+                }
+                Text(value.formatted(currency: effectiveCurrency))
+                  .monospacedDigit()
+              }
+            } else {
+              Text("\u{2014}")
+                .foregroundStyle(.secondary)
+            }
+          }
+          .alignment(.trailing)
+          TableColumn("Converted Value") { row in
+            if let converted = row.convertedValue {
+              Text(converted.formatted(currency: SettingsService.shared.mainCurrency))
                 .monospacedDigit()
             } else {
               Text("\u{2014}")

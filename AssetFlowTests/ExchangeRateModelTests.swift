@@ -1,0 +1,221 @@
+//
+//  ExchangeRateModelTests.swift
+//  AssetFlow
+//
+//  Created by Claude on 2026/02/22.
+//
+
+import Foundation
+import SwiftData
+import Testing
+
+@testable import AssetFlow
+
+@Suite("ExchangeRate Model Tests")
+@MainActor
+struct ExchangeRateModelTests {
+
+  private struct TestContext {
+    let container: ModelContainer
+    let context: ModelContext
+  }
+
+  private func createTestContext() -> TestContext {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    return TestContext(container: container, context: context)
+  }
+
+  // MARK: - Conversion Tests
+
+  @Test("Converting same currency returns original value")
+  func testExchangeRateConvertSameCurrency() throws {
+    let rates: [String: Double] = ["eur": 0.92, "twd": 31.5]
+    let ratesJSON = try JSONEncoder().encode(rates)
+    let exchangeRate = ExchangeRate(
+      baseCurrency: "usd",
+      ratesJSON: ratesJSON,
+      fetchDate: Date()
+    )
+
+    let result = exchangeRate.convert(value: Decimal(100), from: "usd", to: "usd")
+    #expect(result == Decimal(100))
+  }
+
+  @Test("Converting base currency to target currency")
+  func testExchangeRateConvertBaseToTarget() throws {
+    let rates: [String: Double] = ["twd": 31.5, "eur": 0.92]
+    let ratesJSON = try JSONEncoder().encode(rates)
+    let exchangeRate = ExchangeRate(
+      baseCurrency: "usd",
+      ratesJSON: ratesJSON,
+      fetchDate: Date()
+    )
+
+    let result = exchangeRate.convert(value: Decimal(100), from: "usd", to: "twd")
+    let expected = Decimal(3150)
+    #expect(result == expected)
+  }
+
+  @Test("Converting target currency to base currency")
+  func testExchangeRateConvertTargetToBase() throws {
+    let rates: [String: Double] = ["twd": 31.5, "eur": 0.92]
+    let ratesJSON = try JSONEncoder().encode(rates)
+    let exchangeRate = ExchangeRate(
+      baseCurrency: "usd",
+      ratesJSON: ratesJSON,
+      fetchDate: Date()
+    )
+
+    let result = exchangeRate.convert(value: Decimal(3150), from: "twd", to: "usd")
+    #expect(result == Decimal(100))
+  }
+
+  @Test("Converting cross-rate between two non-base currencies")
+  func testExchangeRateConvertCrossRate() throws {
+    // EUR → TWD: value / rates["eur"] * rates["twd"]
+    // 100 EUR → 100 / 0.92 * 31.5 = 3423.913...
+    let rates: [String: Double] = ["twd": 31.5, "eur": 0.92]
+    let ratesJSON = try JSONEncoder().encode(rates)
+    let exchangeRate = ExchangeRate(
+      baseCurrency: "usd",
+      ratesJSON: ratesJSON,
+      fetchDate: Date()
+    )
+
+    let result = exchangeRate.convert(value: Decimal(100), from: "eur", to: "twd")
+    #expect(result != nil)
+    // 100 / 0.92 * 31.5 ≈ 3423.91
+    // We just verify it's in the right ballpark and not nil
+    if let result {
+      #expect(result > Decimal(3400))
+      #expect(result < Decimal(3450))
+    }
+  }
+
+  @Test("Converting with missing currency returns nil")
+  func testExchangeRateConvertMissingCurrency() throws {
+    let rates: [String: Double] = ["twd": 31.5]
+    let ratesJSON = try JSONEncoder().encode(rates)
+    let exchangeRate = ExchangeRate(
+      baseCurrency: "usd",
+      ratesJSON: ratesJSON,
+      fetchDate: Date()
+    )
+
+    let result = exchangeRate.convert(value: Decimal(100), from: "usd", to: "gbp")
+    #expect(result == nil)
+  }
+
+  @Test("Rates JSON encode/decode roundtrip")
+  func testExchangeRateRatesDecoding() throws {
+    let originalRates: [String: Double] = ["twd": 31.5, "eur": 0.92, "jpy": 149.5]
+    let ratesJSON = try JSONEncoder().encode(originalRates)
+    let exchangeRate = ExchangeRate(
+      baseCurrency: "usd",
+      ratesJSON: ratesJSON,
+      fetchDate: Date()
+    )
+
+    let decodedRates = exchangeRate.rates
+    #expect(decodedRates["twd"] == 31.5)
+    #expect(decodedRates["eur"] == 0.92)
+    #expect(decodedRates["jpy"] == 149.5)
+    #expect(decodedRates.count == 3)
+  }
+
+  // MARK: - Model Field Tests
+
+  @Test("Asset has currency field")
+  func testAssetHasCurrencyField() {
+    let tc = createTestContext()
+    let asset = Asset(name: "Test Stock", platform: "Broker")
+    asset.currency = "twd"
+    tc.context.insert(asset)
+
+    #expect(asset.currency == "twd")
+  }
+
+  @Test("Asset currency defaults to empty string")
+  func testAssetCurrencyDefaultsToEmpty() {
+    let asset = Asset(name: "Test Stock")
+    #expect(asset.currency == "")
+  }
+
+  @Test("CashFlowOperation has currency field")
+  func testCashFlowOperationHasCurrencyField() {
+    let tc = createTestContext()
+    let op = CashFlowOperation(cashFlowDescription: "Deposit", amount: Decimal(1000))
+    op.currency = "twd"
+    tc.context.insert(op)
+
+    #expect(op.currency == "twd")
+  }
+
+  @Test("CashFlowOperation currency defaults to empty string")
+  func testCashFlowOperationCurrencyDefaultsToEmpty() {
+    let op = CashFlowOperation(cashFlowDescription: "Deposit", amount: Decimal(1000))
+    #expect(op.currency == "")
+  }
+
+  // MARK: - Relationship Tests
+
+  @Test("Snapshot has exchangeRate relationship")
+  func testSnapshotHasExchangeRateRelationship() throws {
+    let tc = createTestContext()
+    let snapshot = Snapshot(date: Date())
+    tc.context.insert(snapshot)
+
+    let rates: [String: Double] = ["twd": 31.5]
+    let ratesJSON = try JSONEncoder().encode(rates)
+    let exchangeRate = ExchangeRate(
+      baseCurrency: "usd",
+      ratesJSON: ratesJSON,
+      fetchDate: Date()
+    )
+    exchangeRate.snapshot = snapshot
+    tc.context.insert(exchangeRate)
+
+    #expect(snapshot.exchangeRate != nil)
+    #expect(snapshot.exchangeRate?.baseCurrency == "usd")
+  }
+
+  @Test("Deleting snapshot cascades to exchangeRate")
+  func testSnapshotDeleteCascadesToExchangeRate() throws {
+    let tc = createTestContext()
+    let snapshot = Snapshot(date: Date())
+    tc.context.insert(snapshot)
+
+    let rates: [String: Double] = ["twd": 31.5]
+    let ratesJSON = try JSONEncoder().encode(rates)
+    let exchangeRate = ExchangeRate(
+      baseCurrency: "usd",
+      ratesJSON: ratesJSON,
+      fetchDate: Date()
+    )
+    exchangeRate.snapshot = snapshot
+    tc.context.insert(exchangeRate)
+
+    tc.context.delete(snapshot)
+
+    let descriptor = FetchDescriptor<ExchangeRate>()
+    let remaining = try tc.context.fetch(descriptor)
+    #expect(remaining.isEmpty)
+  }
+
+  // MARK: - Schema Tests
+
+  @Test("SchemaV1 contains all 6 model types")
+  func testSchemaV1ContainsAllModels() {
+    let models = SchemaV1.models
+    #expect(models.count == 6)
+
+    let typeNames = models.map { String(describing: $0) }
+    #expect(typeNames.contains(where: { $0.contains("Category") }))
+    #expect(typeNames.contains(where: { $0.contains("Asset") }))
+    #expect(typeNames.contains(where: { $0.contains("Snapshot") }))
+    #expect(typeNames.contains(where: { $0.contains("SnapshotAssetValue") }))
+    #expect(typeNames.contains(where: { $0.contains("CashFlowOperation") }))
+    #expect(typeNames.contains(where: { $0.contains("ExchangeRate") }))
+  }
+}
