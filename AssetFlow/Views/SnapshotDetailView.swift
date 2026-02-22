@@ -17,6 +17,8 @@ import SwiftUI
 /// to force view recreation when the selected snapshot changes.
 struct SnapshotDetailView: View {
   @State private var viewModel: SnapshotDetailViewModel
+  @Query private var snapshotAssetValues: [SnapshotAssetValue]
+  @Query private var cashFlowOps: [CashFlowOperation]
 
   @State private var showAddAssetSheet = false
   @State private var showAddCashFlowSheet = false
@@ -31,9 +33,22 @@ struct SnapshotDetailView: View {
   let onDelete: () -> Void
 
   init(snapshot: Snapshot, modelContext: ModelContext, onDelete: @escaping () -> Void) {
+    let snapshotID = snapshot.persistentModelID
     _viewModel = State(
       wrappedValue: SnapshotDetailViewModel(snapshot: snapshot, modelContext: modelContext))
+    _snapshotAssetValues = Query(
+      filter: #Predicate<SnapshotAssetValue> { $0.snapshot?.persistentModelID == snapshotID })
+    _cashFlowOps = Query(
+      filter: #Predicate<CashFlowOperation> { $0.snapshot?.persistentModelID == snapshotID })
     self.onDelete = onDelete
+  }
+
+  private var savFingerprint: [String] {
+    snapshotAssetValues.map { "\($0.id)-\($0.marketValue)" }
+  }
+
+  private var cfFingerprint: [String] {
+    cashFlowOps.map { "\($0.id)-\($0.amount)" }
   }
 
   var body: some View {
@@ -49,7 +64,13 @@ struct SnapshotDetailView: View {
       viewModel.snapshot.date.settingsFormatted()
     )
     .onAppear {
-      viewModel.loadAssetValues()
+      viewModel.loadData()
+    }
+    .onChange(of: savFingerprint) {
+      viewModel.loadData()
+    }
+    .onChange(of: cfFingerprint) {
+      viewModel.loadData()
     }
     .alert("Error", isPresented: $showError) {
       Button("OK") {}
@@ -58,12 +79,12 @@ struct SnapshotDetailView: View {
     }
     .sheet(isPresented: $showAddAssetSheet) {
       AddAssetSheet(viewModel: viewModel) {
-        viewModel.loadAssetValues()
+        viewModel.loadData()
       }
     }
     .sheet(isPresented: $showAddCashFlowSheet) {
       AddCashFlowSheet(viewModel: viewModel) {
-        viewModel.loadAssetValues()
+        viewModel.loadData()
       }
     }
     .confirmationDialog(
@@ -95,12 +116,11 @@ struct SnapshotDetailView: View {
           .monospacedDigit()
       }
 
-      let operations = viewModel.snapshot.cashFlowOperations ?? []
       LabeledContent("Net Cash Flow") {
         HStack(spacing: 4) {
           Text(viewModel.netCashFlow.formatted(currency: SettingsService.shared.mainCurrency))
             .monospacedDigit()
-          Text("(\(operations.count) operations)")
+          Text("(\(viewModel.cashFlowOperations.count) operations)")
             .font(.caption)
             .foregroundStyle(.secondary)
         }
@@ -164,7 +184,7 @@ struct SnapshotDetailView: View {
       }
       Button("Remove from Snapshot", role: .destructive) {
         viewModel.removeAsset(sav)
-        viewModel.loadAssetValues()
+        viewModel.loadData()
       }
     }
     .popover(
@@ -177,7 +197,7 @@ struct SnapshotDetailView: View {
       EditValuePopover(currentValue: sav.marketValue) { newValue in
         do {
           try viewModel.editAssetValue(sav, newValue: newValue)
-          viewModel.loadAssetValues()
+          viewModel.loadData()
         } catch {
           errorMessage = error.localizedDescription
           showError = true

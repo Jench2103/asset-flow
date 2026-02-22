@@ -15,6 +15,7 @@ import SwiftUI
 struct AssetListView: View {
   @State private var viewModel: AssetListViewModel
   @Binding var selectedAsset: Asset?
+  @Query private var assets: [Asset]
 
   @State private var showDeleteError = false
   @State private var deleteErrorMessage = ""
@@ -22,6 +23,12 @@ struct AssetListView: View {
   init(modelContext: ModelContext, selectedAsset: Binding<Asset?>) {
     _viewModel = State(wrappedValue: AssetListViewModel(modelContext: modelContext))
     _selectedAsset = selectedAsset
+  }
+
+  private var assetsFingerprint: [String] {
+    assets.map {
+      "\($0.id)-\($0.name)-\($0.platform)-\(String(describing: $0.category?.id))"
+    }
   }
 
   var body: some View {
@@ -45,6 +52,9 @@ struct AssetListView: View {
       }
     }
     .onAppear {
+      viewModel.loadAssets()
+    }
+    .onChange(of: assetsFingerprint) {
       viewModel.loadAssets()
     }
     .onChange(of: viewModel.groupingMode) {

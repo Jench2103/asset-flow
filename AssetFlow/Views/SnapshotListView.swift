@@ -18,6 +18,8 @@ struct SnapshotListView: View {
   @Binding var selectedSnapshot: Snapshot?
 
   @Query(sort: \Snapshot.date, order: .reverse) private var snapshots: [Snapshot]
+  @Query private var snapshotAssetValues: [SnapshotAssetValue]
+  @Query private var cashFlowOps: [CashFlowOperation]
 
   @Binding var showNewSnapshotSheet: Bool
   @State private var rowDataMap: [UUID: SnapshotRowData] = [:]
@@ -37,6 +39,14 @@ struct SnapshotListView: View {
     _selectedSnapshot = selectedSnapshot
     _showNewSnapshotSheet = showNewSnapshotSheet
     self.onNavigateToImport = onNavigateToImport
+  }
+
+  private var savFingerprint: [String] {
+    snapshotAssetValues.map { "\($0.id)-\($0.marketValue)" }
+  }
+
+  private var cfFingerprint: [String] {
+    cashFlowOps.map { "\($0.id)-\($0.amount)" }
   }
 
   var body: some View {
@@ -63,6 +73,12 @@ struct SnapshotListView: View {
       reloadRowData()
     }
     .onChange(of: snapshots) {
+      reloadRowData()
+    }
+    .onChange(of: savFingerprint) {
+      reloadRowData()
+    }
+    .onChange(of: cfFingerprint) {
       reloadRowData()
     }
     .sheet(isPresented: $showNewSnapshotSheet) {

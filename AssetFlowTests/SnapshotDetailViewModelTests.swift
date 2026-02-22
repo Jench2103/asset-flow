@@ -72,7 +72,7 @@ struct SnapshotDetailViewModelTests {
       snapshot: snapshot, context: context)
 
     let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
-    viewModel.loadAssetValues()
+    viewModel.loadData()
 
     #expect(viewModel.assetValues.count == 2)
   }
@@ -90,7 +90,7 @@ struct SnapshotDetailViewModelTests {
       snapshot: snapshot, context: context)
 
     let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
-    viewModel.loadAssetValues()
+    viewModel.loadData()
 
     #expect(viewModel.totalValue == Decimal(65000))
   }
@@ -410,6 +410,46 @@ struct SnapshotDetailViewModelTests {
     #expect(remaining.isEmpty)
   }
 
+  @Test("loadAssetValues also loads cash flow operations")
+  func loadAssetValuesLoadsCashFlows() throws {
+    let tc = createSnapshotWithContext()
+    let (context, snapshot) = (tc.context, tc.snapshot)
+
+    let cf = CashFlowOperation(cashFlowDescription: "Salary", amount: 50000)
+    cf.snapshot = snapshot
+    context.insert(cf)
+
+    let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
+    viewModel.loadData()
+
+    #expect(viewModel.cashFlowOperations.count == 1)
+    #expect(viewModel.cashFlowOperations.first?.amount == Decimal(50000))
+  }
+
+  @Test("sortedCashFlowOperations reads from loaded operations, not relationship")
+  func sortedCashFlowsUsesStoredProperty() throws {
+    let tc = createSnapshotWithContext()
+    let (context, snapshot) = (tc.context, tc.snapshot)
+
+    let cf1 = CashFlowOperation(cashFlowDescription: "Bonus", amount: 10000)
+    cf1.snapshot = snapshot
+    context.insert(cf1)
+    let cf2 = CashFlowOperation(cashFlowDescription: "Salary", amount: 50000)
+    cf2.snapshot = snapshot
+    context.insert(cf2)
+
+    let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
+
+    // Before loading, should be empty
+    #expect(viewModel.sortedCashFlowOperations.isEmpty)
+
+    // After loading, should return sorted operations
+    viewModel.loadData()
+    #expect(viewModel.sortedCashFlowOperations.count == 2)
+    #expect(viewModel.sortedCashFlowOperations[0].cashFlowDescription == "Bonus")
+    #expect(viewModel.sortedCashFlowOperations[1].cashFlowDescription == "Salary")
+  }
+
   @Test("Net cash flow with mixed positive and negative amounts")
   func netCashFlowMixed() throws {
     let tc = createSnapshotWithContext()
@@ -426,6 +466,7 @@ struct SnapshotDetailViewModelTests {
     context.insert(cf3)
 
     let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
+    viewModel.loadData()
     #expect(viewModel.netCashFlow == Decimal(49500))
   }
 
@@ -435,6 +476,7 @@ struct SnapshotDetailViewModelTests {
     let (context, snapshot) = (tc.context, tc.snapshot)
 
     let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
+    viewModel.loadData()
     #expect(viewModel.netCashFlow == Decimal(0))
   }
 
@@ -451,6 +493,7 @@ struct SnapshotDetailViewModelTests {
     context.insert(cf2)
 
     let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
+    viewModel.loadData()
     #expect(viewModel.netCashFlow == Decimal(50000))
   }
 
@@ -483,7 +526,7 @@ struct SnapshotDetailViewModelTests {
     context.insert(sav2)
 
     let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
-    viewModel.loadAssetValues()
+    viewModel.loadData()
 
     let allocations = viewModel.categoryAllocations
 
@@ -516,7 +559,7 @@ struct SnapshotDetailViewModelTests {
       snapshot: snapshot, context: context)
 
     let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
-    viewModel.loadAssetValues()
+    viewModel.loadData()
 
     let sorted = viewModel.sortedAssetValues
     #expect(sorted.count == 4)

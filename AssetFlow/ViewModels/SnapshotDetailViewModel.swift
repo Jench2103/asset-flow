@@ -28,6 +28,9 @@ class SnapshotDetailViewModel {
   /// Direct asset values in this snapshot.
   var assetValues: [SnapshotAssetValue] = []
 
+  /// Cash flow operations in this snapshot.
+  var cashFlowOperations: [CashFlowOperation] = []
+
   init(snapshot: Snapshot, modelContext: ModelContext) {
     self.snapshot = snapshot
     self.modelContext = modelContext
@@ -42,8 +45,7 @@ class SnapshotDetailViewModel {
 
   /// Net cash flow for this snapshot (sum of all CashFlowOperation amounts).
   var netCashFlow: Decimal {
-    let operations = snapshot.cashFlowOperations ?? []
-    return operations.reduce(Decimal(0)) { $0 + $1.amount }
+    cashFlowOperations.reduce(Decimal(0)) { $0 + $1.amount }
   }
 
   /// Asset values sorted by platform (alphabetical), then asset name (alphabetical).
@@ -63,7 +65,7 @@ class SnapshotDetailViewModel {
 
   /// Cash flow operations sorted by description for stable display order.
   var sortedCashFlowOperations: [CashFlowOperation] {
-    (snapshot.cashFlowOperations ?? []).sorted { $0.cashFlowDescription < $1.cashFlowDescription }
+    cashFlowOperations.sorted { $0.cashFlowDescription < $1.cashFlowDescription }
   }
 
   /// Category allocation summary for this snapshot.
@@ -91,9 +93,10 @@ class SnapshotDetailViewModel {
 
   // MARK: - Load Data
 
-  /// Loads (or reloads) asset values for the snapshot.
-  func loadAssetValues() {
+  /// Loads (or reloads) asset values and cash flow operations for the snapshot.
+  func loadData() {
     assetValues = snapshot.assetValues ?? []
+    cashFlowOperations = snapshot.cashFlowOperations ?? []
   }
 
   // MARK: - Add Asset: Existing

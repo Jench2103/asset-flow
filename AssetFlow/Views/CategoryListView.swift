@@ -18,6 +18,7 @@ private let significantDeviationThreshold: Decimal = 5
 struct CategoryListView: View {
   @State private var viewModel: CategoryListViewModel
   @Binding var selectedCategory: Category?
+  @Query private var categories: [Category]
 
   @State private var showAddSheet = false
   @State private var showDeleteError = false
@@ -26,6 +27,12 @@ struct CategoryListView: View {
   init(modelContext: ModelContext, selectedCategory: Binding<Category?>) {
     _viewModel = State(wrappedValue: CategoryListViewModel(modelContext: modelContext))
     _selectedCategory = selectedCategory
+  }
+
+  private var categoriesFingerprint: [String] {
+    categories.map {
+      "\($0.id)-\($0.name)-\(String(describing: $0.targetAllocationPercentage))"
+    }
   }
 
   var body: some View {
@@ -53,6 +60,9 @@ struct CategoryListView: View {
       }
     }
     .onAppear {
+      viewModel.loadCategories()
+    }
+    .onChange(of: categoriesFingerprint) {
       viewModel.loadCategories()
     }
     .sheet(isPresented: $showAddSheet) {
