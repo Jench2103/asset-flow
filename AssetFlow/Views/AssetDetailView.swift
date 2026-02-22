@@ -265,7 +265,10 @@ struct AssetDetailView: View {
             Text(entry.date.settingsFormatted())
           }
           TableColumn("Market Value") { entry in
-            Text(entry.marketValue.formatted(currency: SettingsService.shared.mainCurrency))
+            let effectiveCurrency =
+              viewModel.asset.currency.isEmpty
+              ? SettingsService.shared.mainCurrency : viewModel.asset.currency
+            Text(entry.marketValue.formatted(currency: effectiveCurrency))
               .monospacedDigit()
           }
           .alignment(.trailing)
@@ -306,9 +309,12 @@ struct AssetDetailView: View {
               : entry.date == lastDate ? .trailing : .center
           ) {
             ChartTooltipView {
+              let effectiveCurrency =
+                viewModel.asset.currency.isEmpty
+                ? SettingsService.shared.mainCurrency : viewModel.asset.currency
               Text(entry.date.settingsFormatted())
                 .font(.caption2)
-              Text(entry.marketValue.formatted(currency: SettingsService.shared.mainCurrency))
+              Text(entry.marketValue.formatted(currency: effectiveCurrency))
                 .font(.caption.bold())
             }
           }

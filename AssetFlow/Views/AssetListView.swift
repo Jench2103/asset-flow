@@ -115,14 +115,15 @@ struct AssetListView: View {
       Spacer()
 
       if let value = rowData.latestValue {
+        let effectiveCurrency =
+          rowData.asset.currency.isEmpty
+          ? SettingsService.shared.mainCurrency : rowData.asset.currency
         HStack(spacing: 4) {
-          Text(value.formatted(currency: SettingsService.shared.mainCurrency))
+          Text(value.formatted(currency: effectiveCurrency))
             .font(.body)
             .monospacedDigit()
-          if !rowData.asset.currency.isEmpty
-            && rowData.asset.currency != SettingsService.shared.mainCurrency
-          {
-            Text(rowData.asset.currency.uppercased())
+          if effectiveCurrency != SettingsService.shared.mainCurrency {
+            Text(effectiveCurrency.uppercased())
               .font(.caption2)
               .padding(.horizontal, 4)
               .padding(.vertical, 1)

@@ -27,6 +27,7 @@ struct CategoryAssetRowData: Identifiable {
   var id: UUID { asset.id }
   let asset: Asset
   let latestValue: Decimal?
+  let convertedValue: Decimal?
 }
 
 /// ViewModel for the Category detail/edit screen.
@@ -63,10 +64,10 @@ final class CategoryDetailViewModel {
   var valueHistory: [CategoryValueHistoryEntry] = []
   var allocationHistory: [CategoryAllocationHistoryEntry] = []
 
-  init(category: Category, modelContext: ModelContext, settingsService: SettingsService = .shared) {
+  init(category: Category, modelContext: ModelContext, settingsService: SettingsService? = nil) {
     self.category = category
     self.modelContext = modelContext
-    self.settingsService = settingsService
+    self.settingsService = settingsService ?? .shared
     self.editedName = category.name
     self.editedTargetAllocation = category.targetAllocationPercentage
     if let target = category.targetAllocationPercentage {
@@ -150,6 +151,8 @@ final class CategoryDetailViewModel {
   /// Loads assets in this category with their latest values.
   private func loadAssets(allSnapshots: [Snapshot]) {
     let categoryAssets = category.assets ?? []
+    let displayCurrency = settingsService.mainCurrency
+    let latestExchangeRate = allSnapshots.last?.exchangeRate
 
     // Build latest value lookup from most recent snapshot
     var latestValueLookup: [UUID: Decimal] = [:]
@@ -162,9 +165,23 @@ final class CategoryDetailViewModel {
 
     assets =
       categoryAssets.map { asset in
-        CategoryAssetRowData(
+        let value = latestValueLookup[asset.id]
+        let assetCurrency = asset.currency
+        let effectiveCurrency = assetCurrency.isEmpty ? displayCurrency : assetCurrency
+        let converted: Decimal? =
+          if let value, effectiveCurrency != displayCurrency {
+            CurrencyConversionService.convert(
+              value: value,
+              from: effectiveCurrency,
+              to: displayCurrency,
+              using: latestExchangeRate)
+          } else {
+            nil
+          }
+        return CategoryAssetRowData(
           asset: asset,
-          latestValue: latestValueLookup[asset.id]
+          latestValue: value,
+          convertedValue: converted
         )
       }
       .sorted {

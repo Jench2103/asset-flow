@@ -13,6 +13,7 @@ struct PlatformAssetRowData: Identifiable {
   var id: UUID { asset.id }
   let asset: Asset
   let latestValue: Decimal?
+  let convertedValue: Decimal?
 }
 
 /// Value history entry for a platform's total value at a snapshot date.
@@ -50,11 +51,10 @@ final class PlatformDetailViewModel {
   /// Platform total value per snapshot across all snapshots.
   var valueHistory: [PlatformValueHistoryEntry] = []
 
-  init(platformName: String, modelContext: ModelContext, settingsService: SettingsService = .shared)
-  {
+  init(platformName: String, modelContext: ModelContext, settingsService: SettingsService? = nil) {
     self.platformName = platformName
     self.modelContext = modelContext
-    self.settingsService = settingsService
+    self.settingsService = settingsService ?? .shared
     self.editedName = platformName
   }
 
@@ -135,19 +135,33 @@ final class PlatformDetailViewModel {
     // Collect all assets that belong to this platform
     let platformAssets = fetchAllAssets().filter { $0.platform == platformName }
 
+    let displayCurrency = settingsService.mainCurrency
+    let latestExchangeRate = allSnapshots.last?.exchangeRate
+
     assets =
       platformAssets.map { asset in
-        PlatformAssetRowData(
+        let value = latestValueLookup[asset.id]
+        let assetCurrency = asset.currency
+        let effectiveCurrency = assetCurrency.isEmpty ? displayCurrency : assetCurrency
+        let converted: Decimal? =
+          if let value, effectiveCurrency != displayCurrency {
+            CurrencyConversionService.convert(
+              value: value,
+              from: effectiveCurrency,
+              to: displayCurrency,
+              using: latestExchangeRate)
+          } else {
+            nil
+          }
+        return PlatformAssetRowData(
           asset: asset,
-          latestValue: latestValueLookup[asset.id]
+          latestValue: value,
+          convertedValue: converted
         )
       }
       .sorted {
         $0.asset.name.localizedCaseInsensitiveCompare($1.asset.name) == .orderedAscending
       }
-
-    let displayCurrency = settingsService.mainCurrency
-    let latestExchangeRate = allSnapshots.last?.exchangeRate
     totalValue = assets.reduce(Decimal(0)) { sum, row in
       guard let value = row.latestValue else { return sum }
       let assetCurrency = row.asset.currency

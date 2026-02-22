@@ -26,12 +26,14 @@ struct CategoryRowData: Identifiable {
 @MainActor
 final class CategoryListViewModel {
   private let modelContext: ModelContext
+  private let settingsService: SettingsService
 
   var categoryRows: [CategoryRowData] = []
   var targetAllocationSumWarning: String?
 
-  init(modelContext: ModelContext) {
+  init(modelContext: ModelContext, settingsService: SettingsService? = nil) {
     self.modelContext = modelContext
+    self.settingsService = settingsService ?? .shared
   }
 
   // MARK: - Loading
@@ -206,7 +208,8 @@ final class CategoryListViewModel {
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 
-  /// Builds a lookup of category ID → total market value from the latest snapshot.
+  /// Builds a lookup of category ID → total market value from the latest snapshot,
+  /// converting each asset's value to the display currency.
   private func buildCategoryValueLookup(
     categories: [Category],
     allSnapshots: [Snapshot]
@@ -214,11 +217,20 @@ final class CategoryListViewModel {
     guard let latestSnapshot = allSnapshots.last else { return [:] }
 
     let assetValues = latestSnapshot.assetValues ?? []
+    let displayCurrency = settingsService.mainCurrency
+    let exchangeRate = latestSnapshot.exchangeRate
 
     var lookup: [UUID: Decimal] = [:]
     for sav in assetValues {
-      guard let categoryID = sav.asset?.category?.id else { continue }
-      lookup[categoryID, default: 0] += sav.marketValue
+      guard let asset = sav.asset, let categoryID = asset.category?.id else { continue }
+      let assetCurrency = asset.currency
+      let effectiveCurrency = assetCurrency.isEmpty ? displayCurrency : assetCurrency
+      let converted = CurrencyConversionService.convert(
+        value: sav.marketValue,
+        from: effectiveCurrency,
+        to: displayCurrency,
+        using: exchangeRate)
+      lookup[categoryID, default: 0] += converted
     }
     return lookup
   }

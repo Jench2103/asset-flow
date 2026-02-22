@@ -111,9 +111,9 @@ class SnapshotListViewModel {
   private let modelContext: ModelContext
   private let settingsService: SettingsService
 
-  init(modelContext: ModelContext, settingsService: SettingsService = .shared) {
+  init(modelContext: ModelContext, settingsService: SettingsService? = nil) {
     self.modelContext = modelContext
-    self.settingsService = settingsService
+    self.settingsService = settingsService ?? .shared
   }
 
   // MARK: - Creation
