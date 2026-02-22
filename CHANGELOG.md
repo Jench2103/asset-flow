@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/Jench2103/asset-flow/compare/v0.3.0...v0.4.0) (2026-02-22)
+
+
+### Features
+
+* **categories:** Add configurable category order via drag-and-drop ([687066a](https://github.com/Jench2103/asset-flow/commit/687066a5e1c781192817091ef36623328e380ba6))
+
+
+### Bug Fixes
+
+* **reactivity:** Refresh list views after detail view edits ([3ac18d3](https://github.com/Jench2103/asset-flow/commit/3ac18d3cea2813f886a7b6b0ce64d728719c5c40))
+
 ## [0.3.0](https://github.com/Jench2103/asset-flow/compare/v0.2.0...v0.3.0) (2026-02-21)
 
 ### Features
