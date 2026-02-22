@@ -44,6 +44,7 @@ Category (1:Many) → Asset
 Asset (Many:Many via SnapshotAssetValue) → Snapshot
 Snapshot (1:Many) → SnapshotAssetValue
 Snapshot (1:Many) → CashFlowOperation
+Snapshot (1:1) → ExchangeRate
 ```
 
 All models are registered in `AssetFlowApp.swift` in the `sharedModelContainer` Schema. When adding new models, update both the Schema and `Models/README.md`.

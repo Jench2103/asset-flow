@@ -15,7 +15,7 @@ AssetFlow helps you:
 
 ## Platform Support
 
-- **macOS 15.0+** — Full-featured desktop application (local-only, no network dependencies)
+- **macOS 15.0+** — Full-featured desktop application (local-first; network used only for exchange rate fetching)
 
 ## Tech Stack
 
@@ -120,16 +120,17 @@ Configurations for these tools can be found in `.swift-format` and `.swiftlint.y
 
 The application follows the MVVM (Model-View-ViewModel) architecture pattern:
 
-- **Models**: SwiftData models (Category, Asset, Snapshot, SnapshotAssetValue, CashFlowOperation)
+- **Models**: SwiftData models (Category, Asset, Snapshot, SnapshotAssetValue, CashFlowOperation, ExchangeRate)
 - **Views**: SwiftUI components for UI presentation
 - **ViewModels**: `@Observable @MainActor` classes for business logic and state management
-- **Services**: Stateless calculation utilities (CarryForwardService, CSVParsingService, RebalancingCalculator)
+- **Services**: Stateless calculation utilities (CalculationService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, CurrencyService, ChartDataService, ExchangeRateService, CurrencyConversionService)
 
 ## Features
 
 - Snapshot-based portfolio tracking with carry-forward for partial imports
 - CSV import for assets and cash flows with validation and duplicate detection
 - Category management with target allocation percentages
+- Multi-currency support with automatic exchange rate fetching
 - Portfolio-level return analysis (growth rate, Modified Dietz, cumulative TWR, CAGR)
 - Rebalancing calculator with suggested buy/sell actions
 - Data visualization with pie charts, line charts, and cumulative TWR charts
