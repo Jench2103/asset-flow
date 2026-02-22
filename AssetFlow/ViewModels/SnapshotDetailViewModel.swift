@@ -114,6 +114,8 @@ class SnapshotDetailViewModel {
 
   /// Fetches exchange rates if not already attached to this snapshot.
   func fetchExchangeRatesIfNeeded() async {
+    guard !isFetchingRates else { return }
+
     guard snapshot.exchangeRate == nil else {
       exchangeRate = snapshot.exchangeRate
       return

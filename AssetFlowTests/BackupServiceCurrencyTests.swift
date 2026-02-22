@@ -251,12 +251,12 @@ struct BackupServiceCurrencyTests {
 
     let assets = try tc2.context.fetch(FetchDescriptor<Asset>())
     #expect(assets.count == 1)
-    // v2 backup has no currency — should default to main currency
-    #expect(assets[0].currency == "USD")
+    // v2 backup has no currency — should restore as empty string (inherits display currency)
+    #expect(assets[0].currency == "")
 
     let ops = try tc2.context.fetch(FetchDescriptor<CashFlowOperation>())
     #expect(ops.count == 1)
-    #expect(ops[0].currency == "USD")
+    #expect(ops[0].currency == "")
   }
 
   @Test("Restore v3 backup preserves currency")

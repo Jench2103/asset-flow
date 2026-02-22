@@ -18,7 +18,11 @@ struct AssetFlowApp: App {
     let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
     do {
-      sharedModelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
+      sharedModelContainer = try ModelContainer(
+        for: schema,
+        migrationPlan: AssetFlowMigrationPlan.self,
+        configurations: [modelConfiguration]
+      )
     } catch {
       // If the existing store is incompatible (e.g., schema changed without migration),
       // destroy and recreate it. This is acceptable during development.

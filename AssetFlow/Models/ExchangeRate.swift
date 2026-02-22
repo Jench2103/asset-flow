@@ -18,6 +18,9 @@ final class ExchangeRate {
   @Relationship
   var snapshot: Snapshot?
 
+  @Transient
+  private var _cachedRates: [String: Double]?
+
   init(
     baseCurrency: String,
     ratesJSON: Data,
@@ -31,9 +34,14 @@ final class ExchangeRate {
     self.snapshot = nil
   }
 
-  /// Decoded rates dictionary from JSON
+  /// Decoded rates dictionary from JSON (cached after first access).
   var rates: [String: Double] {
-    (try? JSONDecoder().decode([String: Double].self, from: ratesJSON)) ?? [:]
+    if let cached = _cachedRates {
+      return cached
+    }
+    let decoded = (try? JSONDecoder().decode([String: Double].self, from: ratesJSON)) ?? [:]
+    _cachedRates = decoded
+    return decoded
   }
 
   /// Convert a value from one currency to another using stored rates.

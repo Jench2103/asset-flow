@@ -126,33 +126,6 @@ struct ExchangeRateServiceTests {
     }
   }
 
-  @Test("Fetch rates caches results by date and base")
-  func testFetchRatesCaching() async throws {
-    let session = createMockSession()
-    var callCount = 0
-    let json = """
-      {"date": "2026-01-01", "usd": {"eur": 0.92}}
-      """
-    MockURLProtocol.requestHandler = { _ in
-      callCount += 1
-      let response = HTTPURLResponse(
-        url: URL(string: "https://example.com")!,
-        statusCode: 200,
-        httpVersion: nil,
-        headerFields: nil
-      )!
-      return (response, json.data(using: .utf8)!)
-    }
-
-    let service = ExchangeRateService(session: session)
-    let fixedDate = Calendar.current.date(from: DateComponents(year: 2026, month: 1, day: 1))!
-
-    _ = try await service.fetchRates(for: fixedDate, baseCurrency: "usd")
-    _ = try await service.fetchRates(for: fixedDate, baseCurrency: "usd")
-
-    #expect(callCount == 1)
-  }
-
   // MARK: - Currency List Tests
 
   @Test("Fetch currency list returns valid dict")
@@ -177,30 +150,5 @@ struct ExchangeRateServiceTests {
     #expect(list["usd"] == "United States Dollar")
     #expect(list["eur"] == "Euro")
     #expect(list.count == 3)
-  }
-
-  @Test("Fetch currency list caches results")
-  func testFetchCurrencyListCaching() async throws {
-    let session = createMockSession()
-    var callCount = 0
-    let json = """
-      {"usd": "US Dollar"}
-      """
-    MockURLProtocol.requestHandler = { _ in
-      callCount += 1
-      let response = HTTPURLResponse(
-        url: URL(string: "https://example.com")!,
-        statusCode: 200,
-        httpVersion: nil,
-        headerFields: nil
-      )!
-      return (response, json.data(using: .utf8)!)
-    }
-
-    let service = ExchangeRateService(session: session)
-    _ = try await service.fetchCurrencyList()
-    _ = try await service.fetchCurrencyList()
-
-    #expect(callCount == 1)
   }
 }

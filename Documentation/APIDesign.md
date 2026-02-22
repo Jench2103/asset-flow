@@ -376,15 +376,17 @@ ______________________________________________________________________
 **Purpose**: Fetch exchange rates from the `@fawazahmed0/currency-api` CDN.
 
 ```swift
-enum ExchangeRateService {
+final class ExchangeRateService {
+    init(session: URLSession = .shared)
+
     /// Fetch exchange rates for a specific date and base currency
-    static func fetchRates(
+    func fetchRates(
         for date: Date,
         baseCurrency: String
     ) async throws -> [String: Double]
 
     /// Fetch the full currency list (code → name)
-    static func fetchCurrencyList() async throws -> [String: String]
+    func fetchCurrencyList() async throws -> [String: String]
 }
 ```
 
@@ -393,7 +395,8 @@ enum ExchangeRateService {
 - Rates URL: `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@{YYYY-MM-DD}/v1/currencies/{base}.min.json`
 - Currency list URL: `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.min.json`
 - Free, no API key required
-- In-memory cache keyed by `"date|base"` to avoid redundant fetches
+- Stateless — callers cache results in SwiftData via `ExchangeRate` model
+- Accepts `URLSession` parameter for dependency injection in tests
 
 **Error Cases**:
 

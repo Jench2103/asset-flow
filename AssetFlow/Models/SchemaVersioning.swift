@@ -21,3 +21,13 @@ enum SchemaV1: VersionedSchema {
     ]
   }
 }
+
+enum AssetFlowMigrationPlan: SchemaMigrationPlan {
+  static var schemas: [any VersionedSchema.Type] {
+    [SchemaV1.self]
+  }
+
+  static var stages: [MigrationStage] {
+    []
+  }
+}

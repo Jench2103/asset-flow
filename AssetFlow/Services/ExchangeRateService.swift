@@ -31,22 +31,9 @@ enum ExchangeRateError: Error, LocalizedError {
 
 /// Service for fetching exchange rates from the fawazahmed0 currency API.
 ///
-/// Uses cdn.jsdelivr.net as CDN host. Rates are cached in-memory by date and base currency.
-final class ExchangeRateService: Sendable {
+/// Uses cdn.jsdelivr.net as CDN host. Accepts a `URLSession` for testability.
+final class ExchangeRateService: @unchecked Sendable {
   private let session: URLSession
-  private let cache = NSCache<NSString, CacheEntry>()
-  private let currencyListCache = NSCache<NSString, CurrencyListEntry>()
-
-  /// Cache entry wrapper for Sendable compliance
-  private final class CacheEntry: @unchecked Sendable {
-    let rates: [String: Double]
-    init(_ rates: [String: Double]) { self.rates = rates }
-  }
-
-  private final class CurrencyListEntry: @unchecked Sendable {
-    let list: [String: String]
-    init(_ list: [String: String]) { self.list = list }
-  }
 
   init(session: URLSession = .shared) {
     self.session = session
@@ -64,11 +51,6 @@ final class ExchangeRateService: Sendable {
     let dateFormatter = DateFormatter()
     dateFormatter.dateFormat = "yyyy-MM-dd"
     let dateString = dateFormatter.string(from: date)
-
-    let cacheKey = NSString(string: "\(dateString)|\(base)")
-    if let cached = cache.object(forKey: cacheKey) {
-      return cached.rates
-    }
 
     let urlString =
       "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@\(dateString)/v1/currencies/\(base).min.json"
@@ -110,7 +92,6 @@ final class ExchangeRateService: Sendable {
       }
     }
 
-    cache.setObject(CacheEntry(rates), forKey: cacheKey)
     return rates
   }
 
@@ -119,11 +100,6 @@ final class ExchangeRateService: Sendable {
   /// - Returns: Dictionary of currency code to currency name
   /// - Throws: `ExchangeRateError`
   func fetchCurrencyList() async throws -> [String: String] {
-    let cacheKey = NSString(string: "currencyList")
-    if let cached = currencyListCache.object(forKey: cacheKey) {
-      return cached.list
-    }
-
     let urlString =
       "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.min.json"
 
@@ -149,7 +125,6 @@ final class ExchangeRateService: Sendable {
       throw ExchangeRateError.invalidResponse
     }
 
-    currencyListCache.setObject(CurrencyListEntry(json), forKey: cacheKey)
     return json
   }
 }

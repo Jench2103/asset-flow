@@ -10,8 +10,9 @@ import SwiftData
 
 /// Service for exporting and restoring full database backups as ZIP archives.
 ///
-/// Each archive contains a `manifest.json` and 6 CSV files covering all entities
-/// and settings. Uses `/usr/bin/ditto` for ZIP operations (built into macOS).
+/// Each archive contains a `manifest.json`, 6 required CSV files covering all entities
+/// and settings, and 1 optional CSV file (`exchange_rates.csv`). Uses `/usr/bin/ditto`
+/// for ZIP operations (built into macOS).
 @MainActor
 enum BackupService {
 
@@ -224,8 +225,7 @@ enum BackupService {
       from: tempDir, modelContext: modelContext)
     let assetIDMap = try restoreAssets(
       from: tempDir, modelContext: modelContext,
-      categoryIDMap: categoryIDMap,
-      settingsService: settingsService)
+      categoryIDMap: categoryIDMap)
     let snapshotIDMap = try restoreSnapshots(
       from: tempDir, modelContext: modelContext)
     try restoreSnapshotAssetValues(
@@ -233,8 +233,7 @@ enum BackupService {
       snapshotIDMap: snapshotIDMap, assetIDMap: assetIDMap)
     try restoreCashFlowOperations(
       from: tempDir, modelContext: modelContext,
-      snapshotIDMap: snapshotIDMap,
-      settingsService: settingsService)
+      snapshotIDMap: snapshotIDMap)
     try restoreExchangeRates(
       from: tempDir, modelContext: modelContext,
       snapshotIDMap: snapshotIDMap)
@@ -641,8 +640,7 @@ extension BackupService {
   private static func restoreAssets(
     from dir: URL,
     modelContext: ModelContext,
-    categoryIDMap: [String: Category],
-    settingsService: SettingsService
+    categoryIDMap: [String: Category]
   ) throws -> [String: Asset] {
     let rows = try readCSVRows(
       from: dir, fileName: BackupCSV.Assets.fileName)
@@ -663,8 +661,7 @@ extension BackupService {
         ? row[4].trimmingCharacters(in: .whitespaces) : ""
 
       let asset = Asset(name: name, platform: platform)
-      asset.currency =
-        currency.isEmpty ? settingsService.mainCurrency : currency
+      asset.currency = currency
       if let uuid = UUID(uuidString: idStr) {
         asset.id = uuid
       }
@@ -755,8 +752,7 @@ extension BackupService {
   private static func restoreCashFlowOperations(
     from dir: URL,
     modelContext: ModelContext,
-    snapshotIDMap: [String: Snapshot],
-    settingsService: SettingsService
+    snapshotIDMap: [String: Snapshot]
   ) throws {
     let rows = try readCSVRows(
       from: dir, fileName: BackupCSV.CashFlowOperations.fileName)
@@ -784,8 +780,7 @@ extension BackupService {
 
       let op = CashFlowOperation(
         cashFlowDescription: desc, amount: amount)
-      op.currency =
-        currency.isEmpty ? settingsService.mainCurrency : currency
+      op.currency = currency
       if let uuid = UUID(uuidString: idStr) {
         op.id = uuid
       }

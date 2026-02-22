@@ -167,7 +167,7 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 
 1. **CurrencyService** (`class` with `static let shared` singleton): Provides currency information (codes, names, flag emojis). Loads from a hardcoded fallback list (~30 common currencies) on init, then can fetch the full list (~480 currencies) from the exchange rate API via `loadFromAPI()`.
 
-1. **ExchangeRateService** (`enum`): Fetches exchange rates from the `@fawazahmed0/currency-api` CDN. Provides `fetchRates(for:baseCurrency:)` and `fetchCurrencyList()` with in-memory caching. Throws `ExchangeRateError` on failure.
+1. **ExchangeRateService** (`final class`): Fetches exchange rates from the `@fawazahmed0/currency-api` CDN. Provides `fetchRates(for:baseCurrency:)` and `fetchCurrencyList()`. Accepts a `URLSession` for testability. Throws `ExchangeRateError` on failure.
 
 1. **CurrencyConversionService** (`enum`): Stateless conversion logic used by ViewModels. Provides `convert(value:from:to:using:)`, `totalValue(for:displayCurrency:exchangeRate:)`, `netCashFlow(for:displayCurrency:exchangeRate:)`, and `categoryValues(for:displayCurrency:exchangeRate:)`. Gracefully degrades (returns unconverted values) when exchange rate is nil.
 

@@ -2,14 +2,14 @@
 
 ## Directory Structure
 
-| Directory     | Purpose                                                                                                                            |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `Models/`     | SwiftData `@Model` classes (see `Models/README.md` for full reference)                                                             |
-| `Views/`      | SwiftUI view structs (includes `Charts/` subdirectory for chart components)                                                        |
-| `ViewModels/` | `@Observable @MainActor` classes for form state and business logic                                                                 |
-| `Services/`   | Stateless utilities: CalculationService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, CurrencyService |
-| `Utilities/`  | Extensions and helpers (e.g., `Decimal.formatted(currency:)`)                                                                      |
-| `Resources/`  | Non-code assets (XML data files, etc.)                                                                                             |
+| Directory     | Purpose                                                                                                                                                                            |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Models/`     | SwiftData `@Model` classes (see `Models/README.md` for full reference)                                                                                                             |
+| `Views/`      | SwiftUI view structs (includes `Charts/` subdirectory for chart components)                                                                                                        |
+| `ViewModels/` | `@Observable @MainActor` classes for form state and business logic                                                                                                                 |
+| `Services/`   | Stateless utilities: CalculationService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, CurrencyService, ExchangeRateService, CurrencyConversionService |
+| `Utilities/`  | Extensions and helpers (e.g., `Decimal.formatted(currency:)`)                                                                                                                      |
+| `Resources/`  | Non-code assets (XML data files, etc.)                                                                                                                                             |
 
 ## Patterns
 

@@ -79,7 +79,12 @@ class ImportViewModel {
   }
 
   /// Currency to assign to imported assets/cash flows.
-  var selectedImportCurrency: String = SettingsService.shared.mainCurrency
+  var selectedImportCurrency: String = SettingsService.shared.mainCurrency {
+    didSet {
+      guard selectedImportCurrency != oldValue else { return }
+      rebuildPreviewIfNeeded()
+    }
+  }
 
   /// Import-level category assignment (nil = uncategorized).
   var selectedCategory: Category? {
