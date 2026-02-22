@@ -2,18 +2,22 @@ name: Pre-commit Checks
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:
   pre-commit:
     runs-on: ubuntu-24.04
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
     steps:
     - name: Set up Homebrew
       id: set-up-homebrew
       uses: Homebrew/actions/setup-homebrew@main
     - uses: actions/checkout@v5
-    - name: Install swift-format
-      run: brew install swift-format
-    - name: Install SwiftLint
-      run: brew install swiftlint
+    - name: Install swift-format and SwiftLint
+      uses: gerlero/brew-install@v1
+      with:
+        packages: swift-format swiftlint
     - uses: pre-commit/action@v3.0.1
