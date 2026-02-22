@@ -205,9 +205,18 @@ struct SnapshotDetailView: View {
       }
       Spacer()
       VStack(alignment: .trailing, spacing: 1) {
-        Text(sav.marketValue.formatted(currency: assetCurrency))
-          .font(.body)
-          .monospacedDigit()
+        HStack(spacing: 4) {
+          if isDifferentCurrency {
+            Text(assetCurrency.uppercased())
+              .font(.caption2)
+              .padding(.horizontal, 4)
+              .padding(.vertical, 1)
+              .background(.quaternary, in: Capsule())
+          }
+          Text(sav.marketValue.formatted(currency: assetCurrency))
+            .font(.body)
+            .monospacedDigit()
+        }
         if isDifferentCurrency, let exchangeRate = viewModel.exchangeRate {
           let converted = CurrencyConversionService.convert(
             value: sav.marketValue, from: assetCurrency, to: displayCurrency,
