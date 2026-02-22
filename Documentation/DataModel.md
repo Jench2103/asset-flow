@@ -20,7 +20,7 @@ The data model captures portfolio state through snapshots rather than transactio
 
 - **Always use `Decimal`** for monetary values (never `Float` or `Double`)
 - Prevents floating-point rounding errors in financial calculations
-- Default display currency: `"USD"` (cosmetic only, no FX conversion)
+- Per-asset native currency tracking with automatic exchange rate conversion
 - Currency-aware formatting via extensions
 - `Decimal` is natively supported by SwiftData (via Foundation's `NSDecimalNumber` bridging) -- no explicit `@Attribute(.transformable)` annotation is needed
 
@@ -33,10 +33,10 @@ The data model captures portfolio state through snapshots rather than transactio
 
 ### Schema Management
 
-- All models registered in `AssetFlowApp.swift` `sharedModelContainer`
-- SwiftData lightweight migration relied upon for schema evolution
-- Initial data model designed to minimize future breaking changes
-- When adding models, update both Schema and this documentation
+- All models registered via `SchemaV1` (versioned schema) in `AssetFlowApp.swift`
+- `SchemaV1: VersionedSchema` defines all model types with `versionIdentifier = Schema.Version(1, 0, 0)`
+- `destroyExistingStore()` fallback handles dev database incompatibility
+- When adding models, update `SchemaV1.models`, this documentation, and `Models/README.md`
 
 ## Model Entities
 
@@ -104,6 +104,7 @@ Represents an individual investment identified by the tuple (name, platform). As
 | `id`       | `UUID`   | Primary key                                                                                              | Yes                |
 | `name`     | `String` | Asset name (e.g., "AAPL", "Bitcoin", "Savings Account")                                                  | Yes                |
 | `platform` | `String` | Platform/brokerage name. Always present as `String`, but may be an empty string to indicate no platform. | Yes (may be empty) |
+| `currency` | `String` | Native currency code (e.g., "USD", "TWD"). Empty string if unset.                                        | Yes (may be empty) |
 
 #### Relationships
 
@@ -146,7 +147,8 @@ An asset can only be deleted when it has **no SnapshotAssetValue records** in an
 ```swift
 let asset = Asset(
     name: "AAPL",
-    platform: "Interactive Brokers"
+    platform: "Interactive Brokers",
+    currency: "USD"
 )
 asset.category = equitiesCategory
 ```
@@ -175,10 +177,14 @@ var assetValues: [SnapshotAssetValue]?
 
 @Relationship(deleteRule: .cascade, inverse: \CashFlowOperation.snapshot)
 var cashFlowOperations: [CashFlowOperation]?
+
+@Relationship(deleteRule: .cascade, inverse: \ExchangeRate.snapshot)
+var exchangeRate: ExchangeRate?
 ```
 
 - **SnapshotAssetValues**: Asset values recorded in this snapshot (`.cascade` on delete)
 - **CashFlowOperations**: Cash flow events associated with this snapshot (`.cascade` on delete)
+- **ExchangeRate**: Exchange rate data for currency conversion (`.cascade` on delete, optional 1:1)
 
 #### Uniqueness Constraints
 
@@ -254,11 +260,12 @@ Records an external money flow (deposit or withdrawal) associated with a snapsho
 
 #### Properties
 
-| Property              | Type      | Description                                           | Required |
-| --------------------- | --------- | ----------------------------------------------------- | -------- |
-| `id`                  | `UUID`    | Primary key                                           | Yes      |
-| `cashFlowDescription` | `String`  | Description of the cash flow (e.g., "Salary deposit") | Yes      |
-| `amount`              | `Decimal` | Positive = inflow, negative = outflow                 | Yes      |
+| Property              | Type      | Description                                                       | Required           |
+| --------------------- | --------- | ----------------------------------------------------------------- | ------------------ |
+| `id`                  | `UUID`    | Primary key                                                       | Yes                |
+| `cashFlowDescription` | `String`  | Description of the cash flow (e.g., "Salary deposit")             | Yes                |
+| `amount`              | `Decimal` | Positive = inflow, negative = outflow                             | Yes                |
+| `currency`            | `String`  | Native currency code (e.g., "USD", "TWD"). Empty string if unset. | Yes (may be empty) |
 
 **Note on property naming**: The property is named `cashFlowDescription` (not `description`) to avoid conflict with Swift's built-in `CustomStringConvertible` protocol requirement. This is an implementation detail — the SPEC uses "description" in CSV columns and documentation.
 
@@ -296,6 +303,53 @@ context.insert(cashFlow)
 
 ______________________________________________________________________
 
+### ExchangeRate
+
+Records exchange rate data for currency conversion at a specific snapshot date. Fetched from the `@fawazahmed0/currency-api` CDN when a snapshot contains multi-currency assets.
+
+**File**: `AssetFlow/Models/ExchangeRate.swift`
+
+#### Properties
+
+| Property       | Type     | Description                                                     | Required |
+| -------------- | -------- | --------------------------------------------------------------- | -------- |
+| `baseCurrency` | `String` | Base currency code (lowercase, e.g., "usd")                     | Yes      |
+| `ratesJSON`    | `Data`   | JSON-encoded `[String: Double]` mapping currency codes to rates | Yes      |
+| `fetchDate`    | `Date`   | Date these rates apply to                                       | Yes      |
+| `isFallback`   | `Bool`   | Whether rates came from a fallback source                       | Yes      |
+
+#### Relationships
+
+```swift
+var snapshot: Snapshot?  // Inverse of Snapshot.exchangeRate
+```
+
+- **Snapshot**: Parent snapshot (1:1). Deletion governed by Snapshot -> exchangeRate `.cascade` rule.
+
+#### Computed Properties
+
+- `rates: [String: Double]` — Decodes `ratesJSON` to a dictionary. Returns empty dict on decode failure.
+- `func convert(value: Decimal, from: String, to: String) -> Decimal?` — Converts a value between currencies using cross-rates. Returns `nil` if either currency is missing from rates.
+
+#### Usage Example
+
+```swift
+let exchangeRate = ExchangeRate(
+    baseCurrency: "usd",
+    ratesJSON: try JSONEncoder().encode(["twd": 31.5, "eur": 0.92]),
+    fetchDate: Date(),
+    isFallback: false
+)
+exchangeRate.snapshot = snapshot
+context.insert(exchangeRate)
+
+// Convert 100 USD to TWD
+let twdValue = exchangeRate.convert(value: 100, from: "usd", to: "twd")
+// → 3150
+```
+
+______________________________________________________________________
+
 ## Entity Relationships
 
 ### Relationship Diagram
@@ -314,7 +368,13 @@ ______________________________________________________________________
                                     v
                               +-----------+   1:Many   +--------------------+
                               |  Snapshot  +----------->| CashFlowOperation |
-                              +-----------+            +--------------------+
+                              +-----+-----+            +--------------------+
+                                    |
+                                    | 1:1 (optional)
+                                    v
+                              +--------------+
+                              | ExchangeRate |
+                              +--------------+
 ```
 
 ### Delete Rules
@@ -325,6 +385,7 @@ ______________________________________________________________________
 | Asset -> SnapshotAssetValues    | `.deny`     | Cannot delete asset if snapshot values exist   |
 | Snapshot -> SnapshotAssetValues | `.cascade`  | Deleting snapshot removes all its asset values |
 | Snapshot -> CashFlowOperations  | `.cascade`  | Deleting snapshot removes all its cash flows   |
+| Snapshot -> ExchangeRate        | `.cascade`  | Deleting snapshot removes its exchange rate    |
 
 **Note**: Delete behavior is controlled by the parent-side rule. Child-side inverse relationships do not independently define delete behavior in SwiftData.
 
@@ -364,6 +425,8 @@ func deleteAsset(_ asset: Asset) throws {
 - A Snapshot can have **0 to many** CashFlowOperations
 - An Asset can have **0 to many** SnapshotAssetValues (across different snapshots)
 - A SnapshotAssetValue belongs to exactly **1** Snapshot and **1** Asset
+- A Snapshot can have **0 or 1** ExchangeRate (optional 1:1)
+- An ExchangeRate belongs to exactly **1** Snapshot
 
 ______________________________________________________________________
 
@@ -375,13 +438,7 @@ ______________________________________________________________________
 
 ```swift
 var sharedModelContainer: ModelContainer = {
-    let schema = Schema([
-        Category.self,
-        Asset.self,
-        Snapshot.self,
-        SnapshotAssetValue.self,
-        CashFlowOperation.self,
-    ])
+    let schema = Schema(versionedSchema: SchemaV1.self)
 
     let modelConfiguration = ModelConfiguration(
         schema: schema,
@@ -398,6 +455,8 @@ var sharedModelContainer: ModelContainer = {
     }
 }()
 ```
+
+`SchemaV1.models` includes: `Category`, `Asset`, `Snapshot`, `SnapshotAssetValue`, `CashFlowOperation`, `ExchangeRate`.
 
 ### Adding New Models
 
@@ -496,12 +555,21 @@ ______________________________________________________________________
 
 ### Schema Versioning
 
-Future migrations will use SwiftData's lightweight migration support:
+The app uses `VersionedSchema` for schema management:
 
 ```swift
-// Example migration (future)
-let schema = Schema(versionedSchema: SchemaV1.self)
+enum SchemaV1: VersionedSchema {
+    static var versionIdentifier = Schema.Version(1, 0, 0)
+    static var models: [any PersistentModel.Type] = [
+        Category.self, Asset.self, Snapshot.self,
+        SnapshotAssetValue.self, CashFlowOperation.self, ExchangeRate.self,
+    ]
+}
 ```
+
+**File**: `AssetFlow/Models/SchemaVersioning.swift`
+
+Since the app is not yet publicly released, `SchemaV1` defines the complete schema including all currency fields and the ExchangeRate model. No `SchemaMigrationPlan` is needed yet. The `destroyExistingStore()` fallback handles dev database incompatibility. Future schema changes will add `SchemaV2` + a migration plan.
 
 ### Migration Strategy
 
@@ -509,7 +577,7 @@ let schema = Schema(versionedSchema: SchemaV1.self)
 1. **Transformations**: Property renames or type changes (migration required)
 1. **Relationship Changes**: Modify delete rules or cardinality (migration required)
 
-The initial data model is designed to minimize future breaking changes by:
+The data model is designed to minimize future breaking changes by:
 
 - Using UUID primary keys
 - Keeping relationships simple

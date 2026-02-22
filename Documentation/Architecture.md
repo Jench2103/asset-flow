@@ -134,10 +134,11 @@ class ImportViewModel {
 **Core Models**:
 
 - `Category` - Asset categorization with target allocation
-- `Asset` - Individual investments identified by (name, platform)
+- `Asset` - Individual investments identified by (name, platform) with native currency
 - `Snapshot` - Portfolio state at a specific date
 - `SnapshotAssetValue` - Market value of an asset within a snapshot
 - `CashFlowOperation` - External cash flow event associated with a snapshot
+- `ExchangeRate` - Exchange rate data for currency conversion (1:1 with Snapshot)
 
 See [DataModel.md](DataModel.md) for detailed model documentation.
 
@@ -164,7 +165,11 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 
 1. **SettingsService** (`@Observable @MainActor class`): Manages app-wide user preferences (display currency, date format, default platform) via UserDefaults. Observable for reactive UI updates when settings change.
 
-1. **CurrencyService** (`class` with `static let shared` singleton): Provides ISO 4217 currency information (codes, names, flag emojis). Unlike other services, CurrencyService is a class singleton because it caches parsed currency data from the bundled ISO 4217 XML file.
+1. **CurrencyService** (`class` with `static let shared` singleton): Provides currency information (codes, names, flag emojis). Loads from a hardcoded fallback list (~30 common currencies) on init, then can fetch the full list (~480 currencies) from the exchange rate API via `loadFromAPI()`.
+
+1. **ExchangeRateService** (`enum`): Fetches exchange rates from the `@fawazahmed0/currency-api` CDN. Provides `fetchRates(for:baseCurrency:)` and `fetchCurrencyList()` with in-memory caching. Throws `ExchangeRateError` on failure.
+
+1. **CurrencyConversionService** (`enum`): Stateless conversion logic used by ViewModels. Provides `convert(value:from:to:using:)`, `totalValue(for:displayCurrency:exchangeRate:)`, `netCashFlow(for:displayCurrency:exchangeRate:)`, and `categoryValues(for:displayCurrency:exchangeRate:)`. Gracefully degrades (returns unconverted values) when exchange rate is nil.
 
 **Duplicate Detection**: AssetFlow handles duplicate detection in two layers:
 
@@ -218,13 +223,7 @@ User Action -> View -> ViewModel -> Service/Model -> SwiftData
 @main
 struct AssetFlowApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Category.self,
-            Asset.self,
-            Snapshot.self,
-            SnapshotAssetValue.self,
-            CashFlowOperation.self,
-        ])
+        let schema = Schema(versionedSchema: SchemaV1.self)
         // Container configuration
     }()
 }
@@ -255,13 +254,13 @@ struct AssetFlowApp: App {
 - **Swift Charts**: Data visualization (pie charts, line charts)
 - **Foundation**: Core utilities (including CSV parsing, ZIP handling)
 
-### No External Dependencies
+### Minimal External Dependencies
 
-AssetFlow is a local-only application with no network requirements:
+AssetFlow is primarily a local application with one optional network dependency:
 
-- No external API calls
-- No API keys
-- No `com.apple.security.network.client` entitlement needed
+- **Exchange Rate API**: Fetches currency rates from `cdn.jsdelivr.net/npm/@fawazahmed0/currency-api` (free, no API key required)
+- Network access is optional — the app works offline with graceful degradation (no currency conversion, raw sums displayed)
+- `com.apple.security.network.client` entitlement is required for exchange rate fetching
 - No third-party packages
 
 ### Dependency Injection
@@ -355,7 +354,7 @@ enum ImportError: LocalizedError {
 ### Privacy
 
 - No data collection or telemetry
-- No network access
+- Network access limited to fetching exchange rates from a public CDN (no authentication, no user data sent)
 - User owns 100% of their data
 - Local-first architecture
 

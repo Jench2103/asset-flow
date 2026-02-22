@@ -28,6 +28,7 @@ final class AssetDetailViewModel {
   var editedName: String
   var editedPlatform: String
   var editedCategory: Category?
+  var editedCurrency: String
   var valueHistory: [AssetValueHistoryEntry] = []
 
   init(asset: Asset, modelContext: ModelContext) {
@@ -36,6 +37,8 @@ final class AssetDetailViewModel {
     self.editedName = asset.name
     self.editedPlatform = asset.platform
     self.editedCategory = asset.category
+    self.editedCurrency =
+      asset.currency.isEmpty ? SettingsService.shared.mainCurrency : asset.currency
   }
 
   // MARK: - Computed Properties
@@ -124,6 +127,7 @@ final class AssetDetailViewModel {
     asset.name = editedName
     asset.platform = editedPlatform
     asset.category = editedCategory
+    asset.currency = editedCurrency
   }
 
   // MARK: - Delete

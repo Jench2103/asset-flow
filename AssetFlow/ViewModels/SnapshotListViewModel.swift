@@ -109,9 +109,11 @@ struct SnapshotConfirmationData {
 @MainActor
 class SnapshotListViewModel {
   private let modelContext: ModelContext
+  private let settingsService: SettingsService
 
-  init(modelContext: ModelContext) {
+  init(modelContext: ModelContext, settingsService: SettingsService = .shared) {
     self.modelContext = modelContext
+    self.settingsService = settingsService
   }
 
   // MARK: - Creation
@@ -197,7 +199,10 @@ class SnapshotListViewModel {
   private func buildRowData(for snapshot: Snapshot) -> SnapshotRowData {
     let directValues = snapshot.assetValues ?? []
 
-    let totalValue = directValues.reduce(Decimal(0)) { $0 + $1.marketValue }
+    let displayCurrency = settingsService.mainCurrency
+    let totalValue = CurrencyConversionService.totalValue(
+      for: snapshot, displayCurrency: displayCurrency,
+      exchangeRate: snapshot.exchangeRate)
 
     let platforms = Array(
       Set(directValues.compactMap { $0.asset?.platform })

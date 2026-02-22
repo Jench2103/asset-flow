@@ -115,9 +115,20 @@ struct AssetListView: View {
       Spacer()
 
       if let value = rowData.latestValue {
-        Text(value.formatted(currency: SettingsService.shared.mainCurrency))
-          .font(.body)
-          .monospacedDigit()
+        HStack(spacing: 4) {
+          Text(value.formatted(currency: SettingsService.shared.mainCurrency))
+            .font(.body)
+            .monospacedDigit()
+          if !rowData.asset.currency.isEmpty
+            && rowData.asset.currency != SettingsService.shared.mainCurrency
+          {
+            Text(rowData.asset.currency.uppercased())
+              .font(.caption2)
+              .padding(.horizontal, 4)
+              .padding(.vertical, 1)
+              .background(.quaternary, in: Capsule())
+          }
+        }
       } else {
         Text("\u{2014}")
           .foregroundStyle(.secondary)

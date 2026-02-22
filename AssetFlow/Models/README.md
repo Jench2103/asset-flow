@@ -28,6 +28,7 @@ Individual investment identified by (name, platform) tuple.
 
 - `name` - Display name
 - `platform` - Platform/broker (optional, default: "")
+- `currency` - Native currency code (e.g., "USD", "TWD"; default: "")
 
 **Computed Properties:**
 
@@ -53,6 +54,7 @@ Portfolio state at a specific date.
 
 - SnapshotAssetValues (many children, `.cascade`)
 - CashFlowOperations (many children, `.cascade`)
+- ExchangeRate (optional 1:1, `.cascade`)
 
 ### SnapshotAssetValue
 
@@ -75,10 +77,31 @@ External cash flow event (deposit/withdrawal) associated with a snapshot.
 
 - `cashFlowDescription` - Description of the cash flow (unique per snapshot, case-insensitive)
 - `amount` - Amount (Decimal, positive=inflow, negative=outflow)
+- `currency` - Native currency code (e.g., "USD", "TWD"; default: "")
 
 **Relationships:**
 
 - Snapshot (parent)
+
+### ExchangeRate
+
+Exchange rate data for currency conversion at a specific snapshot date.
+
+**Key Properties:**
+
+- `baseCurrency` - Base currency code (lowercase, e.g., "usd")
+- `ratesJSON` - JSON-encoded `[String: Double]` of currency rates
+- `fetchDate` - Date these rates apply to
+- `isFallback` - Whether rates came from a fallback source
+
+**Relationships:**
+
+- Snapshot (1:1, inverse of `Snapshot.exchangeRate`)
+
+**Computed Properties:**
+
+- `rates` - Decoded `[String: Double]` from `ratesJSON`
+- `convert(value:from:to:)` - Cross-rate currency conversion
 
 ## Relationships
 
@@ -87,6 +110,7 @@ Category (1:Many) -> Asset
 Asset (Many:Many via SnapshotAssetValue) -> Snapshot
 Snapshot (1:Many) -> SnapshotAssetValue
 Snapshot (1:Many) -> CashFlowOperation
+Snapshot (1:1) -> ExchangeRate (optional)
 ```
 
 Delete Rules:
@@ -96,6 +120,7 @@ Delete Rules:
 - Asset -> SnapshotAssetValues: `.deny` (must delete values before deleting asset)
 - Snapshot -> SnapshotAssetValues: `.cascade` (values deleted with snapshot)
 - Snapshot -> CashFlowOperations: `.cascade` (operations deleted with snapshot)
+- Snapshot -> ExchangeRate: `.cascade` (exchange rate deleted with snapshot)
 
 ## Critical Conventions
 
@@ -110,16 +135,12 @@ var marketValue: Double   // Never do this
 
 ### Schema Registration
 
-All models must be registered in `AssetFlowApp.swift`:
+All models are registered via `SchemaV1` (versioned schema) in `AssetFlowApp.swift`:
 
 ```swift
-let schema = Schema([
-    Category.self,
-    Asset.self,
-    Snapshot.self,
-    SnapshotAssetValue.self,
-    CashFlowOperation.self,
-])
+let schema = Schema(versionedSchema: SchemaV1.self)
+// SchemaV1.models includes: Category, Asset, Snapshot,
+// SnapshotAssetValue, CashFlowOperation, ExchangeRate
 ```
 
 ### When Adding/Modifying Models
@@ -142,11 +163,13 @@ let schema = Schema([
 ```
 Models/
 ├── README.md (this file)
+├── SchemaVersioning.swift
 ├── Category.swift
 ├── Asset.swift
 ├── Snapshot.swift
 ├── SnapshotAssetValue.swift
-└── CashFlowOperation.swift
+├── CashFlowOperation.swift
+└── ExchangeRate.swift
 ```
 
 ______________________________________________________________________

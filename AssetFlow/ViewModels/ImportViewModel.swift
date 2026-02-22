@@ -78,6 +78,9 @@ class ImportViewModel {
     }
   }
 
+  /// Currency to assign to imported assets/cash flows.
+  var selectedImportCurrency: String = SettingsService.shared.mainCurrency
+
   /// Import-level category assignment (nil = uncategorized).
   var selectedCategory: Category? {
     didSet {
@@ -435,7 +438,8 @@ class ImportViewModel {
     else { return baseRow }
 
     return AssetCSVRow(
-      assetName: baseRow.assetName, marketValue: baseRow.marketValue, platform: platform)
+      assetName: baseRow.assetName, marketValue: baseRow.marketValue, platform: platform,
+      currency: baseRow.currency)
   }
 
   /// Whether the loaded CSV has a mix of empty and non-empty platform values,

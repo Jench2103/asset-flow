@@ -88,6 +88,8 @@ struct AssetDetailView: View {
       platformPicker
 
       categoryPicker
+
+      currencyPicker
     } header: {
       Text("Asset Details")
     }
@@ -211,6 +213,27 @@ struct AssetDetailView: View {
     showNewCategoryField = false
     newCategoryName = ""
     saveChanges()
+  }
+
+  // MARK: - Currency Picker
+
+  private var currencyPicker: some View {
+    Picker("Currency", selection: currencyBinding) {
+      ForEach(CurrencyService.shared.currencies) { currency in
+        Text(currency.displayName).tag(currency.code)
+      }
+    }
+    .accessibilityIdentifier("Currency Picker")
+  }
+
+  private var currencyBinding: Binding<String> {
+    Binding(
+      get: { viewModel.editedCurrency },
+      set: { newValue in
+        viewModel.editedCurrency = newValue
+        saveChanges()
+      }
+    )
   }
 
   // MARK: - Value History Section

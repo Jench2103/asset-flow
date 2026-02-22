@@ -14,14 +14,7 @@ struct AssetFlowApp: App {
   let sharedModelContainer: ModelContainer
 
   init() {
-    let schema = Schema([
-      Category.self,
-      Asset.self,
-      Snapshot.self,
-      SnapshotAssetValue.self,
-      CashFlowOperation.self,
-    ])
-
+    let schema = Schema(versionedSchema: SchemaV1.self)
     let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
     do {
@@ -108,7 +101,7 @@ struct AssetFlowApp: App {
           credits.append(
             NSAttributedString(
               string:
-                "\n\nAll data is stored locally on your Mac.\nNo data is collected or transmitted.",
+                "\n\nAll data is stored locally on your Mac.\nExchange rates are fetched from cdn.jsdelivr.net.\nNo personal data is collected or transmitted.",
               attributes: [
                 .font: small,
                 .foregroundColor: NSColor.secondaryLabelColor,

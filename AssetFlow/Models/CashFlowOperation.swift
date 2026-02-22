@@ -15,6 +15,7 @@ final class CashFlowOperation {
   var id: UUID
   var cashFlowDescription: String
   var amount: Decimal
+  var currency: String
 
   @Relationship
   var snapshot: Snapshot?
@@ -26,6 +27,7 @@ final class CashFlowOperation {
     self.id = UUID()
     self.cashFlowDescription = cashFlowDescription
     self.amount = amount
+    self.currency = ""
     self.snapshot = nil
   }
 }

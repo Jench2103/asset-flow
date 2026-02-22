@@ -31,6 +31,15 @@ class SnapshotDetailViewModel {
   /// Cash flow operations in this snapshot.
   var cashFlowOperations: [CashFlowOperation] = []
 
+  /// Exchange rate data for currency conversion.
+  var exchangeRate: ExchangeRate?
+
+  /// Whether exchange rates are currently being fetched.
+  var isFetchingRates = false
+
+  /// Error message from exchange rate fetch.
+  var ratesFetchError: String?
+
   init(snapshot: Snapshot, modelContext: ModelContext) {
     self.snapshot = snapshot
     self.modelContext = modelContext
@@ -38,14 +47,21 @@ class SnapshotDetailViewModel {
 
   // MARK: - Computed Properties
 
-  /// Total portfolio value for this snapshot.
-  var totalValue: Decimal {
-    assetValues.reduce(Decimal(0)) { $0 + $1.marketValue }
+  /// Display currency for this snapshot.
+  private var displayCurrency: String {
+    SettingsService.shared.mainCurrency
   }
 
-  /// Net cash flow for this snapshot (sum of all CashFlowOperation amounts).
+  /// Total portfolio value for this snapshot, converted to display currency.
+  var totalValue: Decimal {
+    CurrencyConversionService.totalValue(
+      for: snapshot, displayCurrency: displayCurrency, exchangeRate: exchangeRate)
+  }
+
+  /// Net cash flow for this snapshot, converted to display currency.
   var netCashFlow: Decimal {
-    cashFlowOperations.reduce(Decimal(0)) { $0 + $1.amount }
+    CurrencyConversionService.netCashFlow(
+      for: snapshot, displayCurrency: displayCurrency, exchangeRate: exchangeRate)
   }
 
   /// Asset values sorted by platform (alphabetical), then asset name (alphabetical).
@@ -68,22 +84,18 @@ class SnapshotDetailViewModel {
     cashFlowOperations.sorted { $0.cashFlowDescription < $1.cashFlowDescription }
   }
 
-  /// Category allocation summary for this snapshot.
+  /// Category allocation summary for this snapshot, with currency conversion.
   var categoryAllocations: [CategoryAllocationData] {
     let total = totalValue
     guard total > 0 else { return [] }
 
-    var categoryValues: [String: Decimal] = [:]
+    let catValues = CurrencyConversionService.categoryValues(
+      for: snapshot, displayCurrency: displayCurrency, exchangeRate: exchangeRate)
 
-    for sav in assetValues {
-      guard let asset = sav.asset else { continue }
-      let categoryName = asset.category?.name ?? "Uncategorized"
-      categoryValues[categoryName, default: 0] += sav.marketValue
-    }
-
-    return categoryValues.map { name, value in
-      CategoryAllocationData(
-        categoryName: name,
+    return catValues.compactMap { name, value in
+      let displayName = name.isEmpty ? "Uncategorized" : name
+      return CategoryAllocationData(
+        categoryName: displayName,
         value: value,
         percentage: CalculationService.categoryAllocation(
           categoryValue: value, totalValue: total)
@@ -97,6 +109,55 @@ class SnapshotDetailViewModel {
   func loadData() {
     assetValues = snapshot.assetValues ?? []
     cashFlowOperations = snapshot.cashFlowOperations ?? []
+    exchangeRate = snapshot.exchangeRate
+  }
+
+  /// Fetches exchange rates if not already attached to this snapshot.
+  func fetchExchangeRatesIfNeeded() async {
+    guard snapshot.exchangeRate == nil else {
+      exchangeRate = snapshot.exchangeRate
+      return
+    }
+
+    // Check if any assets use a different currency from the display currency
+    let assetValues = snapshot.assetValues ?? []
+    let cashFlows = snapshot.cashFlowOperations ?? []
+    let display = displayCurrency.lowercased()
+
+    let needsConversion =
+      assetValues.contains {
+        let c = $0.asset?.currency ?? ""
+        return !c.isEmpty && c.lowercased() != display
+      }
+      || cashFlows.contains {
+        !$0.currency.isEmpty && $0.currency.lowercased() != display
+      }
+
+    guard needsConversion else { return }
+
+    isFetchingRates = true
+    ratesFetchError = nil
+
+    do {
+      let service = ExchangeRateService()
+      let rates = try await service.fetchRates(
+        for: snapshot.date, baseCurrency: display)
+      let ratesJSON = try JSONEncoder().encode(rates)
+
+      let er = ExchangeRate(
+        baseCurrency: display,
+        ratesJSON: ratesJSON,
+        fetchDate: snapshot.date
+      )
+      er.snapshot = snapshot
+      modelContext.insert(er)
+
+      exchangeRate = er
+      isFetchingRates = false
+    } catch {
+      ratesFetchError = error.localizedDescription
+      isFetchingRates = false
+    }
   }
 
   // MARK: - Add Asset: Existing
@@ -127,7 +188,8 @@ class SnapshotDetailViewModel {
     name: String,
     platform: String,
     category: Category?,
-    marketValue: Decimal
+    marketValue: Decimal,
+    currency: String = ""
   ) throws {
     // Normalize for matching
     let normalizedName = name.normalizedForIdentity
@@ -145,6 +207,11 @@ class SnapshotDetailViewModel {
 
     // Find or create the asset record
     let asset = modelContext.findOrCreateAsset(name: name, platform: platform)
+
+    // Assign currency if provided
+    if !currency.isEmpty {
+      asset.currency = currency
+    }
 
     // Assign category if provided
     if let category = category {
@@ -177,7 +244,7 @@ class SnapshotDetailViewModel {
   /// Adds a new cash flow operation to this snapshot.
   ///
   /// - Throws: `SnapshotError.duplicateCashFlowDescription` if the description already exists.
-  func addCashFlow(description: String, amount: Decimal) throws {
+  func addCashFlow(description: String, amount: Decimal, currency: String = "") throws {
     let operations = snapshot.cashFlowOperations ?? []
     let normalizedDesc = description.trimmingCharacters(in: .whitespaces).lowercased()
 
@@ -189,6 +256,7 @@ class SnapshotDetailViewModel {
     }
 
     let operation = CashFlowOperation(cashFlowDescription: description, amount: amount)
+    operation.currency = currency
     operation.snapshot = snapshot
     modelContext.insert(operation)
   }

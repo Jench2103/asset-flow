@@ -15,6 +15,7 @@ final class Asset {
   var id: UUID
   var name: String
   var platform: String
+  var currency: String
 
   @Relationship(deleteRule: .nullify)
   var category: Category?
@@ -29,6 +30,7 @@ final class Asset {
     self.id = UUID()
     self.name = name
     self.platform = platform
+    self.currency = ""
     self.category = nil
     self.snapshotAssetValues = []
   }

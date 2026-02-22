@@ -9,7 +9,7 @@ This document outlines the security and privacy considerations for AssetFlow, a 
 **Philosophy**
 
 1. **Privacy by Design**: Minimal data collection, user owns all data
-1. **Local-Only**: Data stays on user's device -- no network, no cloud, no APIs
+1. **Local-First**: Data stays on user's device -- network used only for exchange rate fetching (no authentication, no user data sent)
 1. **Platform Trust**: Leverage Apple's security infrastructure
 1. **Transparency**: Clear communication about data handling
 1. **User Control**: Users can export, delete, or back up their data
@@ -65,7 +65,7 @@ ______________________________________________________________________
 
 **Application-Level Security**:
 
-1. **No Network Access**: No data transmission of any kind -- no APIs, no telemetry, no analytics
+1. **Minimal Network Access**: Only exchange rate fetching from a public CDN (`cdn.jsdelivr.net`). No user data is sent in requests — only the base currency code and date. No authentication or API keys required.
 1. **No API Keys**: No secrets to manage or leak
 1. **SwiftData Encryption**: Leverages platform database encryption (FileVault)
 1. **No Logging of Sensitive Data**: Financial values never logged to console
@@ -131,7 +131,7 @@ ______________________________________________________________________
 - No personal identifiers (name, email, phone)
 - No usage patterns or behavior data
 - No location data
-- No network traffic (the app makes no network requests)
+- Network requests are limited to fetching exchange rates from a public CDN — only the base currency code and date are included in the URL; no user data, financial values, or portfolio information is ever transmitted
 
 **Data Ownership**:
 
@@ -148,7 +148,7 @@ ______________________________________________________________________
 
 **With Third Parties**:
 
-- **No third-party data sharing** -- the app has no network access
+- **No user data shared with third parties** -- exchange rate requests contain only a currency code and date, no personal or financial data
 - No data sold or shared with any entity
 
 ### User Control
@@ -173,7 +173,7 @@ ______________________________________________________________________
 
 - Enabled (App Store requirement)
 - Restricts file system access to app's container
-- No network access entitlement needed (no network features)
+- `com.apple.security.network.client` entitlement required for exchange rate fetching
 
 **Hardened Runtime**:
 
@@ -297,14 +297,14 @@ ______________________________________________________________________
 - [ ] Input validation on all user inputs
 - [ ] Business logic prevents invalid states
 - [ ] SwiftLint checks pass
-- [ ] No hardcoded secrets (none needed -- no APIs)
+- [ ] No hardcoded secrets (exchange rate API is free/public, no key needed)
 - [ ] Code signed with valid developer certificate
 
 ### Pre-Release
 
 - [ ] App sandboxed
 - [ ] Hardened Runtime enabled
-- [ ] No network entitlements
+- [ ] Network entitlement limited to `com.apple.security.network.client` (exchange rates only)
 - [ ] Privacy disclosures accurate
 - [ ] Backup/restore validation thoroughly tested
 
@@ -331,12 +331,12 @@ ______________________________________________________________________
 
 ## Conclusion
 
-AssetFlow's **local-only, privacy-by-design architecture** inherently mitigates many security and privacy risks. With no network access, no external APIs, and no data collection, the primary security concerns are limited to local device protection and backup file security.
+AssetFlow's **local-first, privacy-by-design architecture** inherently mitigates many security and privacy risks. With minimal network access (only exchange rate fetching from a public CDN), no data collection, and no user data transmission, the primary security concerns are limited to local device protection and backup file security.
 
 **Key Principles**:
 
 - All data stays on the user's device
-- No network communication of any kind
+- Network access limited to exchange rate fetching (no user data sent)
 - No third-party data sharing or collection
 - User has full control and ownership
 - Backup files are the user's responsibility to secure

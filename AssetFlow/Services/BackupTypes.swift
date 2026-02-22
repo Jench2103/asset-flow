@@ -61,7 +61,8 @@ enum BackupCSV {
 
   enum Assets {
     static let fileName = "assets.csv"
-    static let headers = ["id", "name", "platform", "categoryID"]
+    static let headers = ["id", "name", "platform", "categoryID", "currency"]
+    static let v2Headers = ["id", "name", "platform", "categoryID"]
   }
 
   enum Snapshots {
@@ -76,7 +77,13 @@ enum BackupCSV {
 
   enum CashFlowOperations {
     static let fileName = "cash_flow_operations.csv"
-    static let headers = ["id", "snapshotID", "description", "amount"]
+    static let headers = ["id", "snapshotID", "description", "amount", "currency"]
+    static let v2Headers = ["id", "snapshotID", "description", "amount"]
+  }
+
+  enum ExchangeRates {
+    static let fileName = "exchange_rates.csv"
+    static let headers = ["snapshotID", "baseCurrency", "fetchDate", "isFallback", "ratesJSON"]
   }
 
   enum Settings {
@@ -93,5 +100,13 @@ enum BackupCSV {
     SnapshotAssetValues.fileName,
     CashFlowOperations.fileName,
     Settings.fileName,
+  ]
+
+  /// CSV files required in all backup versions.
+  static let requiredCSVFileNames = allCSVFileNames
+
+  /// CSV files that are optional (may not exist in older backups).
+  static let optionalCSVFileNames = [
+    ExchangeRates.fileName
   ]
 }

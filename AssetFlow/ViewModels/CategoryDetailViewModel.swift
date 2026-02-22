@@ -40,6 +40,7 @@ struct CategoryAssetRowData: Identifiable {
 final class CategoryDetailViewModel {
   let category: Category
   private let modelContext: ModelContext
+  private let settingsService: SettingsService
 
   var editedName: String
   var editedTargetAllocation: Decimal?
@@ -62,9 +63,10 @@ final class CategoryDetailViewModel {
   var valueHistory: [CategoryValueHistoryEntry] = []
   var allocationHistory: [CategoryAllocationHistoryEntry] = []
 
-  init(category: Category, modelContext: ModelContext) {
+  init(category: Category, modelContext: ModelContext, settingsService: SettingsService = .shared) {
     self.category = category
     self.modelContext = modelContext
+    self.settingsService = settingsService
     self.editedName = category.name
     self.editedTargetAllocation = category.targetAllocationPercentage
     if let target = category.targetAllocationPercentage {
@@ -181,10 +183,15 @@ final class CategoryDetailViewModel {
     var valueEntries: [CategoryValueHistoryEntry] = []
     var allocationEntries: [CategoryAllocationHistoryEntry] = []
 
+    let displayCurrency = settingsService.mainCurrency
+
     for snapshot in allSnapshots {
       let assetValues = snapshot.assetValues ?? []
+      let exchangeRate = snapshot.exchangeRate
 
-      let totalValue = assetValues.reduce(Decimal(0)) { $0 + $1.marketValue }
+      let totalValue = CurrencyConversionService.totalValue(
+        for: snapshot, displayCurrency: displayCurrency,
+        exchangeRate: exchangeRate)
 
       let categoryValue =
         assetValues
@@ -192,7 +199,16 @@ final class CategoryDetailViewModel {
           guard let assetID = sav.asset?.id else { return false }
           return categoryAssetIDs.contains(assetID)
         }
-        .reduce(Decimal(0)) { $0 + $1.marketValue }
+        .reduce(Decimal(0)) { sum, sav in
+          let assetCurrency = sav.asset?.currency ?? ""
+          let effectiveCurrency = assetCurrency.isEmpty ? displayCurrency : assetCurrency
+          return sum
+            + CurrencyConversionService.convert(
+              value: sav.marketValue,
+              from: effectiveCurrency,
+              to: displayCurrency,
+              using: exchangeRate)
+        }
 
       valueEntries.append(
         CategoryValueHistoryEntry(date: snapshot.date, totalValue: categoryValue))

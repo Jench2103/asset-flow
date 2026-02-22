@@ -36,6 +36,7 @@ final class PlatformDetailViewModel {
   /// The current canonical platform name (updated after successful rename).
   private(set) var platformName: String
   private let modelContext: ModelContext
+  private let settingsService: SettingsService
 
   /// Text field binding for the platform name.
   var editedName: String
@@ -49,9 +50,11 @@ final class PlatformDetailViewModel {
   /// Platform total value per snapshot across all snapshots.
   var valueHistory: [PlatformValueHistoryEntry] = []
 
-  init(platformName: String, modelContext: ModelContext) {
+  init(platformName: String, modelContext: ModelContext, settingsService: SettingsService = .shared)
+  {
     self.platformName = platformName
     self.modelContext = modelContext
+    self.settingsService = settingsService
     self.editedName = platformName
   }
 
@@ -143,20 +146,43 @@ final class PlatformDetailViewModel {
         $0.asset.name.localizedCaseInsensitiveCompare($1.asset.name) == .orderedAscending
       }
 
-    totalValue = assets.reduce(Decimal(0)) { $0 + ($1.latestValue ?? 0) }
+    let displayCurrency = settingsService.mainCurrency
+    let latestExchangeRate = allSnapshots.last?.exchangeRate
+    totalValue = assets.reduce(Decimal(0)) { sum, row in
+      guard let value = row.latestValue else { return sum }
+      let assetCurrency = row.asset.currency
+      let effectiveCurrency = assetCurrency.isEmpty ? displayCurrency : assetCurrency
+      return sum
+        + CurrencyConversionService.convert(
+          value: value,
+          from: effectiveCurrency,
+          to: displayCurrency,
+          using: latestExchangeRate)
+    }
   }
 
   /// Computes value history across all snapshots for this platform.
   private func loadHistory(allSnapshots: [Snapshot]) {
+    let displayCurrency = settingsService.mainCurrency
     var entries: [PlatformValueHistoryEntry] = []
 
     for snapshot in allSnapshots {
       let assetValues = snapshot.assetValues ?? []
+      let exchangeRate = snapshot.exchangeRate
 
       let platformValue =
         assetValues
         .filter { $0.asset?.platform == platformName }
-        .reduce(Decimal(0)) { $0 + $1.marketValue }
+        .reduce(Decimal(0)) { sum, sav in
+          let assetCurrency = sav.asset?.currency ?? ""
+          let effectiveCurrency = assetCurrency.isEmpty ? displayCurrency : assetCurrency
+          return sum
+            + CurrencyConversionService.convert(
+              value: sav.marketValue,
+              from: effectiveCurrency,
+              to: displayCurrency,
+              using: exchangeRate)
+        }
 
       entries.append(
         PlatformValueHistoryEntry(date: snapshot.date, totalValue: platformValue))
