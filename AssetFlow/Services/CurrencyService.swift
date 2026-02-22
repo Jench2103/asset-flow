@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Observation
 
 /// Represents a currency with code and display name.
 struct Currency: Identifiable, Hashable {
@@ -22,21 +23,26 @@ struct Currency: Identifiable, Hashable {
 
 /// Service for loading and managing currencies.
 ///
-/// Loads from an expanded hardcoded fallback on init. Can be refreshed
-/// with the full API-fetched list via `loadFromAPI()`.
+/// Loads cached currencies on init (falling back to hardcoded defaults).
+/// Can be refreshed with the full API-fetched list via `loadFromAPI()`,
+/// which also persists the result to UserDefaults for offline use.
+@Observable
 @MainActor
 class CurrencyService {
   static let shared = CurrencyService()
 
   private(set) var currencies: [Currency] = []
 
+  private let cacheKey = "cachedCurrencyList"
+
   private init() {
-    currencies = defaultCurrencies()
+    currencies = loadCachedCurrencies() ?? defaultCurrencies()
   }
 
   /// Fetches the full currency list from the API and replaces the local list.
   ///
-  /// On failure, keeps the existing fallback list.
+  /// On success, caches the result to UserDefaults for future offline use.
+  /// On failure, keeps the existing list.
   func loadFromAPI() async {
     let service = ExchangeRateService()
     do {
@@ -50,10 +56,29 @@ class CurrencyService {
       newCurrencies.sort { $0.code < $1.code }
       if !newCurrencies.isEmpty {
         currencies = newCurrencies
+        saveCurrenciesToCache(newCurrencies)
       }
     } catch {
-      // Keep fallback list on failure
+      // Keep existing list on failure
     }
+  }
+
+  // MARK: - Cache
+
+  private func saveCurrenciesToCache(_ currencies: [Currency]) {
+    let encoded = currencies.map { ["code": $0.code, "name": $0.name] }
+    UserDefaults.standard.set(encoded, forKey: cacheKey)
+  }
+
+  private func loadCachedCurrencies() -> [Currency]? {
+    guard
+      let cached = UserDefaults.standard.array(forKey: cacheKey) as? [[String: String]]
+    else { return nil }
+    let currencies = cached.compactMap { dict -> Currency? in
+      guard let code = dict["code"], let name = dict["name"] else { return nil }
+      return Currency(code: code, name: name)
+    }
+    return currencies.isEmpty ? nil : currencies
   }
 
   /// Default currencies — expanded set of common fiat + crypto

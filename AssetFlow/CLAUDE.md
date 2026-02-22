@@ -100,7 +100,7 @@ Services are stateless enums or classes with no direct SwiftData dependency:
 - **RebalancingCalculator** -- `enum`, computes rebalancing adjustment amounts (buy/sell)
 - **BackupService** -- `@MainActor enum`, exports/validates/restores ZIP backup archives using `/usr/bin/ditto`
 - **SettingsService** -- `@Observable @MainActor class`, manages app-wide settings (currency, date format, default platform)
-- **CurrencyService** -- `class` singleton (`static let shared`), loads ISO 4217 currency data
+- **CurrencyService** -- `@Observable @MainActor class` singleton (`static let shared`), loads currency data with UserDefaults caching
 - **ChartDataService** -- `enum`, stateless time range filtering (`ChartTimeRange` enum, `filter()` overloads) and Y-axis abbreviation (`abbreviatedLabel(for:)` for K/M/B)
 - **DateFormatStyle** -- `enum`, maps user-selectable date formats to `Date.FormatStyle.DateStyle`
 

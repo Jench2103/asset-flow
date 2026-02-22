@@ -45,9 +45,6 @@ struct SettingsView: View {
     }
     .formStyle(.grouped)
     .navigationTitle("Settings")
-    .task {
-      await CurrencyService.shared.loadFromAPI()
-    }
     .alert(
       isError ? "Error" : "Success",
       isPresented: $showResultAlert
