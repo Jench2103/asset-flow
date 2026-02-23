@@ -637,6 +637,34 @@ struct CashFlowOperation {
 
 **Example**: `CashFlowOperation.cashFlowDescription` is used instead of `.description` to avoid protocol conflicts while maintaining clarity.
 
+### Animating Empty↔Content Transitions
+
+**Problem**: Using `.animation(_:value:)` on ViewModel-based views animates the initial `.onAppear` data load, causing a flash of the empty state on every navigation. Adding `.transition(.opacity)` to empty/content branches is also unnecessary and may cause jitter.
+
+**Solution**: Do NOT add `.transition(.opacity)` to empty/content branches. The `withAnimation` in user-action code paths smoothly updates list content; the empty↔content switch itself should be instant. Views using `@Query` (data available synchronously) can use `.animation(_:value:)` safely.
+
+```swift
+// BAD — flashes empty state on initial navigation
+Group {
+    if viewModel.isEmpty { emptyState.transition(.opacity) }
+    else { content.transition(.opacity) }
+}
+.animation(.easeOut, value: viewModel.isEmpty)
+.onAppear { viewModel.load() }
+
+// GOOD — instant empty↔content swap, withAnimation only for list content changes
+Group {
+    if viewModel.isEmpty { emptyState }
+    else { content }
+}
+.onAppear { viewModel.load() }
+.onChange(of: dataFingerprint) {
+    withAnimation(AnimationConstants.standard) { viewModel.load() }
+}
+```
+
+All animation durations are defined in `AnimationConstants` (`Utilities/AnimationConstants.swift`), which automatically respects the Reduce Motion accessibility setting.
+
 ______________________________________________________________________
 
 ## Tools Configuration

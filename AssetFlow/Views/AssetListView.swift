@@ -66,7 +66,9 @@ struct AssetListView: View {
       viewModel.loadAssets()
     }
     .onChange(of: assetsFingerprint) {
-      viewModel.loadAssets()
+      withAnimation(AnimationConstants.standard) {
+        viewModel.loadAssets()
+      }
     }
     .onChange(of: viewModel.groupingMode) {
       viewModel.loadAssets()
@@ -172,7 +174,9 @@ struct AssetListView: View {
       if selectedAsset?.id == asset.id {
         selectedAsset = nil
       }
-      viewModel.loadAssets()
+      withAnimation(AnimationConstants.standard) {
+        viewModel.loadAssets()
+      }
     } catch {
       deleteErrorMessage = error.localizedDescription
       showDeleteError = true

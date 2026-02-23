@@ -42,6 +42,7 @@ The application follows the MVVM architectural pattern to separate concerns and 
   - Observes ViewModel state changes
   - Minimal business logic
   - macOS-optimized layouts (sidebar navigation, list-detail split)
+  - Shared animation constants (`AnimationConstants`) with Reduce Motion support
   - Reusable components
 
 **Example Structure**:

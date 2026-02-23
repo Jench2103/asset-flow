@@ -136,6 +136,7 @@ struct SnapshotDetailView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
+        .transition(.opacity)
       }
 
       if let error = viewModel.ratesFetchError {
@@ -151,10 +152,13 @@ struct SnapshotDetailView: View {
           }
           .font(.caption)
         }
+        .transition(.opacity)
       }
     } header: {
       Text("Summary")
     }
+    .animation(AnimationConstants.standard, value: viewModel.isFetchingRates)
+    .animation(AnimationConstants.standard, value: viewModel.ratesFetchError)
   }
 
   // MARK: - Asset Breakdown Section
@@ -541,6 +545,7 @@ private struct AddAssetSheet: View {
             newPlatformName = ""
           }
         }
+        .transition(.opacity)
       } else {
         Picker("Platform", selection: platformBinding) {
           Text("None").tag("")
@@ -550,8 +555,10 @@ private struct AddAssetSheet: View {
           Divider()
           Text("New Platform...").tag("__new__")
         }
+        .transition(.opacity)
       }
     }
+    .animation(AnimationConstants.standard, value: showNewPlatformField)
   }
 
   private var platformBinding: Binding<String> {
@@ -601,6 +608,7 @@ private struct AddAssetSheet: View {
             newCategoryName = ""
           }
         }
+        .transition(.opacity)
       } else {
         Picker("Category", selection: categoryBinding) {
           Text("None").tag("")
@@ -610,8 +618,10 @@ private struct AddAssetSheet: View {
           Divider()
           Text("New Category...").tag("__new__")
         }
+        .transition(.opacity)
       }
     }
+    .animation(AnimationConstants.standard, value: showNewCategoryField)
   }
 
   private var categoryBinding: Binding<String> {

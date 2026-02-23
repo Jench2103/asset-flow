@@ -54,11 +54,14 @@ struct SnapshotListView: View {
     Group {
       if snapshots.isEmpty {
         emptyState
+          .transition(.opacity)
       } else {
         snapshotList
+          .transition(.opacity)
       }
     }
     .navigationTitle("Snapshots")
+    .animation(AnimationConstants.standard, value: snapshots.isEmpty)
     .toolbar {
       ToolbarItem(placement: .automatic) {
         Button {

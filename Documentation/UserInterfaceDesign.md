@@ -37,6 +37,7 @@ All core screens and features are **implemented**:
 - ✅ `.help()` tooltips on toolbar buttons and interactive controls
 - ✅ Accessibility labels on charts and metric cards
 - ✅ Glass card material adapts to Reduce Transparency accessibility setting
+- ✅ Animations with Reduce Motion support via `AnimationConstants`
 
 ______________________________________________________________________
 
@@ -548,7 +549,7 @@ ______________________________________________________________________
 
 - Use semantic colors (WCAG AA contrast)
 - Support Dynamic Type
-- Provide non-animated alternatives (Reduce Motion)
+- Respect Reduce Motion via `AnimationConstants` (near-instant fallback durations)
 
 ### Screen Reader (VoiceOver)
 
@@ -789,6 +790,26 @@ VStack(alignment: .leading, spacing: 8) {
 .background(.regularMaterial)
 .cornerRadius(10)
 ```
+
+### Animation and Transitions
+
+All animations use shared constants from `AnimationConstants` (`Utilities/AnimationConstants.swift`), which automatically respect the Reduce Motion accessibility setting by falling back to near-instant durations.
+
+**Available animations:**
+
+| Constant       | Duration | Curve     | Usage                                                  |
+| -------------- | -------- | --------- | ------------------------------------------------------ |
+| `.standard`    | 0.25s    | easeOut   | Empty↔content transitions, conditional field show/hide |
+| `.list`        | 0.2s     | easeOut   | List row reordering (`.onMove`)                        |
+| `.chart`       | 0.25s    | easeInOut | Chart time range changes, pie chart cross-fade         |
+| `.numericText` | 0.2s     | easeInOut | Dashboard period picker value changes                  |
+
+**Animation patterns:**
+
+- **Empty state transitions**: Views using ViewModel-based loading (`.onAppear`) must NOT use `.animation(_:value:)` — it animates the initial data load, causing a flash of the empty state. Do NOT add `.transition(.opacity)` to empty/content branches either — the transition is unnecessary and may cause jitter on navigation. The `withAnimation` in user-action code paths (e.g., `onChange`, delete handlers) smoothly updates list content; the empty↔content switch itself should be instant. Views using `@Query` (e.g., `SnapshotListView`) can use `.animation(_:value:)` safely since `@Query` provides data synchronously.
+- **Chart data cross-fade**: When switching between datasets (e.g., pie chart snapshot picker), use `.id(selectedValue)` + `.transition(.opacity)` on the chart content with `.animation()` on the parent container. This produces a clean dissolve instead of morphing artifacts.
+- **Lock screen**: Only the unlock transition animates (security constraint — lock must appear instantly).
+- **Numeric text**: Use `.contentTransition(.numericText())` for metric values that change in place.
 
 ______________________________________________________________________
 

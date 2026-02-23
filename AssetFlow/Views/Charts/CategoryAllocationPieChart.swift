@@ -32,7 +32,10 @@ struct CategoryAllocationPieChart: View {
       }
 
       chartContent
+        .id(selectedDate)
+        .transition(.opacity)
     }
+    .animation(AnimationConstants.chart, value: selectedDate)
     .padding()
     .frame(maxHeight: .infinity, alignment: .topLeading)
     .glassCard()

@@ -40,6 +40,7 @@ struct CategoryListView: View {
     VStack(spacing: 0) {
       if let warning = viewModel.targetAllocationSumWarning {
         warningBanner(warning)
+          .transition(.move(edge: .top).combined(with: .opacity))
       }
 
       if viewModel.categoryRows.isEmpty {
@@ -65,7 +66,9 @@ struct CategoryListView: View {
       viewModel.loadCategories()
     }
     .onChange(of: categoriesFingerprint) {
-      viewModel.loadCategories()
+      withAnimation(AnimationConstants.standard) {
+        viewModel.loadCategories()
+      }
     }
     .sheet(isPresented: $showAddSheet) {
       AddCategorySheet { name, targetAllocation in
@@ -103,7 +106,9 @@ struct CategoryListView: View {
           .tag(rowData.category)
       }
       .onMove { source, destination in
-        viewModel.moveCategories(from: source, to: destination)
+        withAnimation(AnimationConstants.list) {
+          viewModel.moveCategories(from: source, to: destination)
+        }
       }
     }
     .onDeleteCommand {
@@ -207,7 +212,9 @@ struct CategoryListView: View {
       if selectedCategory?.id == category.id {
         selectedCategory = nil
       }
-      viewModel.loadCategories()
+      withAnimation(AnimationConstants.standard) {
+        viewModel.loadCategories()
+      }
     } catch {
       deleteErrorMessage = error.localizedDescription
       showDeleteError = true

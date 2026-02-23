@@ -7,6 +7,7 @@
 
 import Foundation
 import LocalAuthentication
+import SwiftUI
 
 /// User-selectable timeout before the app re-locks after going to background.
 ///
@@ -198,7 +199,9 @@ class AuthenticationService {
         localizedReason: reason
       )
       if success {
-        isLocked = false
+        withAnimation(.easeOut(duration: 0.2)) {
+          isLocked = false
+        }
         lastUnlockDate = Date()
         authWasCancelled = false
       } else {

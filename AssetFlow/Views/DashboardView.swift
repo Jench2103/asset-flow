@@ -54,7 +54,6 @@ struct DashboardView: View {
       }
     }
     .navigationTitle("Dashboard")
-    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: viewModel.isEmpty)
     .onAppear {
       viewModel.loadData()
     }
@@ -198,6 +197,7 @@ struct DashboardView: View {
           "Growth rate is the simple percentage change in portfolio value over the selected period, including the effect of deposits and withdrawals."
         )
       )
+      .animation(AnimationConstants.numericText, value: growthRatePeriod)
 
       // Return Rate card
       VStack(alignment: .leading, spacing: 8) {
@@ -233,6 +233,7 @@ struct DashboardView: View {
           "Return rate uses the Modified Dietz method to calculate a cash-flow adjusted return, isolating actual investment performance."
         )
       )
+      .animation(AnimationConstants.numericText, value: returnRatePeriod)
     }
   }
 

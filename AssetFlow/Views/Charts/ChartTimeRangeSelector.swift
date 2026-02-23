@@ -18,7 +18,7 @@ struct ChartTimeRangeSelector: View {
     HStack(spacing: 4) {
       ForEach(ChartTimeRange.allCases) { range in
         Button {
-          selection = range
+          withAnimation(AnimationConstants.chart) { selection = range }
         } label: {
           let isSelected = selection == range
           Text(range.rawValue)

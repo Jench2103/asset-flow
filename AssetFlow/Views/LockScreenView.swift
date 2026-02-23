@@ -40,8 +40,10 @@ struct LockScreenView: View {
         Text(errorMessage)
           .foregroundStyle(.secondary)
           .font(.callout)
+          .transition(.opacity)
       }
     }
+    .animation(AnimationConstants.standard, value: errorMessage)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(.regularMaterial)
     .task(id: authService.isLocked) {

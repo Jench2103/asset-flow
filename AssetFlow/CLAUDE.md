@@ -155,6 +155,7 @@ nameValidationMessage = String(localized: "Asset name cannot be empty.", table: 
 | `RebalancingView.swift`                    | Rebalancing table with suggestions and summary                 |
 | `Charts/ChartTimeRangeSelector.swift`      | Reusable 8-option segmented picker for chart time ranges       |
 | `Charts/ChartStyles.swift`                 | Shared chart constants (heights, color palette)                |
+| `Utilities/AnimationConstants.swift`       | Shared animation durations with Reduce Motion support          |
 | `Charts/PortfolioValueLineChart.swift`     | Portfolio value line chart with click-to-navigate              |
 | `Charts/CumulativeTWRLineChart.swift`      | Cumulative TWR percentage line chart                           |
 | `Charts/CategoryAllocationPieChart.swift`  | SectorMark pie chart with snapshot picker                      |
@@ -217,6 +218,30 @@ let yMax = yValues.max()!
 Chart(points) { ... }
   .chartXScale(domain: firstDate...lastDate)
   .chartYScale(domain: yMin...yMax)
+```
+
+**Animating empty↔content transitions in ViewModel-based views:**
+
+Views that load data via `.onAppear` (ViewModel pattern) must NOT use `.animation(_:value:)` to animate the empty↔content transition — it animates the initial load, causing a flash of the empty state. Do NOT add `.transition(.opacity)` to the empty/content branches either — the transition is unnecessary and may cause jitter on navigation. The `withAnimation` in user-action code paths (e.g., `onChange(of: fingerprint)`, delete handlers) smoothly updates list content; the empty↔content switch itself should be instant. Views using `@Query` (e.g., `SnapshotListView`) can use `.animation(_:value:)` safely since data is available synchronously.
+
+```swift
+// BAD — flashes empty state on initial navigation
+Group {
+  if viewModel.isEmpty { emptyState.transition(.opacity) }
+  else { content.transition(.opacity) }
+}
+.animation(.easeOut, value: viewModel.isEmpty)
+.onAppear { viewModel.load() }
+
+// GOOD — instant empty↔content swap, withAnimation only for list content changes
+Group {
+  if viewModel.isEmpty { emptyState }
+  else { content }
+}
+.onAppear { viewModel.load() }
+.onChange(of: dataFingerprint) {
+  withAnimation(AnimationConstants.standard) { viewModel.load() }
+}
 ```
 
 **Chart component requirements:**

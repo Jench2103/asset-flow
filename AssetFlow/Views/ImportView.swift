@@ -213,6 +213,7 @@ struct ImportView: View {
             newPlatformName = ""
           }
         }
+        .transition(.opacity)
       } else {
         HStack(spacing: 4) {
           Text("Platform:")
@@ -239,8 +240,10 @@ struct ImportView: View {
         .padding(.vertical, 4)
         .background(.fill.quaternary)
         .clipShape(RoundedRectangle(cornerRadius: 6))
+        .transition(.opacity)
       }
     }
+    .animation(AnimationConstants.standard, value: showNewPlatformField)
   }
 
   private var overrideAllBinding: Binding<Bool> {
@@ -298,6 +301,7 @@ struct ImportView: View {
             newCategoryName = ""
           }
         }
+        .transition(.opacity)
       } else {
         HStack {
           Text("Category:")
@@ -313,8 +317,10 @@ struct ImportView: View {
           .labelsHidden()
           .fixedSize()
         }
+        .transition(.opacity)
       }
     }
+    .animation(AnimationConstants.standard, value: showNewCategoryField)
   }
 
   private var categoryBinding: Binding<String> {
@@ -380,8 +386,10 @@ struct ImportView: View {
             }
           }
           .padding(.leading, 20)
+          .transition(.opacity)
         }
       }
+      .animation(AnimationConstants.standard, value: viewModel.copyForwardEnabled)
     }
   }
 

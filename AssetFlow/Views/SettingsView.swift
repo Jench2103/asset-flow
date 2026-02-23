@@ -129,8 +129,18 @@ struct SettingsView: View {
 
   private var securitySection: some View {
     Section {
-      Toggle("Require Authentication", isOn: $viewModel.isAppLockEnabled)
-        .accessibilityIdentifier("App Lock Toggle")
+      Toggle(
+        "Require Authentication",
+        isOn: Binding(
+          get: { viewModel.isAppLockEnabled },
+          set: { newValue in
+            withAnimation(AnimationConstants.standard) {
+              viewModel.isAppLockEnabled = newValue
+            }
+          }
+        )
+      )
+      .accessibilityIdentifier("App Lock Toggle")
 
       if viewModel.isAppLockEnabled {
         Picker("When Switching Apps", selection: $viewModel.appSwitchTimeout) {
@@ -139,6 +149,7 @@ struct SettingsView: View {
           }
         }
         .accessibilityIdentifier("App Switch Timeout Picker")
+        .transition(.opacity)
 
         Picker("When Locked or Sleeping", selection: $viewModel.screenLockTimeout) {
           ForEach(ReLockTimeout.allCases, id: \.self) { timeout in
@@ -146,6 +157,7 @@ struct SettingsView: View {
           }
         }
         .accessibilityIdentifier("Screen Lock Timeout Picker")
+        .transition(.opacity)
       }
     } header: {
       Text("Security")

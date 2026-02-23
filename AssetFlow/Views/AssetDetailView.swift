@@ -111,6 +111,7 @@ struct AssetDetailView: View {
             newPlatformName = ""
           }
         }
+        .transition(.opacity)
       } else {
         Picker("Platform", selection: platformBinding) {
           Text("None").tag("")
@@ -121,8 +122,10 @@ struct AssetDetailView: View {
           Text("New Platform...").tag("__new__")
         }
         .accessibilityIdentifier("Platform Picker")
+        .transition(.opacity)
       }
     }
+    .animation(AnimationConstants.standard, value: showNewPlatformField)
   }
 
   private var platformBinding: Binding<String> {
@@ -171,6 +174,7 @@ struct AssetDetailView: View {
             newCategoryName = ""
           }
         }
+        .transition(.opacity)
       } else {
         Picker("Category", selection: categoryBinding) {
           Text("None").tag("")
@@ -181,8 +185,10 @@ struct AssetDetailView: View {
           Text("New Category...").tag("__new__")
         }
         .accessibilityIdentifier("Category Picker")
+        .transition(.opacity)
       }
     }
+    .animation(AnimationConstants.standard, value: showNewCategoryField)
   }
 
   private var categoryBinding: Binding<String> {
