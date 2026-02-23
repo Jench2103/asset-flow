@@ -26,8 +26,17 @@ struct AssetListView: View {
   }
 
   private var assetsFingerprint: [String] {
-    assets.map {
-      "\($0.id)-\($0.name)-\($0.platform)-\(String(describing: $0.category?.id))"
+    assets.map { asset in
+      let latestValue = asset.snapshotAssetValues?
+        .compactMap { sav -> (Date, Decimal)? in
+          guard let d = sav.snapshot?.date else { return nil }
+          return (d, sav.marketValue)
+        }
+        .max(by: { $0.0 < $1.0 })?
+        .1
+      return "\(asset.id)-\(asset.name)-\(asset.platform)"
+        + "-\(String(describing: asset.category?.id))"
+        + "-\(String(describing: latestValue))"
     }
   }
 

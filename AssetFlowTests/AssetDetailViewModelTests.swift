@@ -314,6 +314,79 @@ struct AssetDetailViewModelTests {
     #expect(remaining.isEmpty)
   }
 
+  // MARK: - Edit Asset Value
+
+  @Test("Value history entries retain SnapshotAssetValue reference")
+  func valueHistoryEntriesRetainSnapshotAssetValueReference() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "AAPL", platform: "Firstrade")
+    context.insert(asset)
+
+    let snap = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
+    context.insert(snap)
+
+    let sav = SnapshotAssetValue(marketValue: 10000)
+    sav.snapshot = snap
+    sav.asset = asset
+    context.insert(sav)
+
+    let viewModel = AssetDetailViewModel(asset: asset, modelContext: context)
+    viewModel.loadValueHistory()
+
+    #expect(viewModel.valueHistory.count == 1)
+    #expect(viewModel.valueHistory[0].snapshotAssetValue === sav)
+  }
+
+  @Test("editAssetValue updates market value on SnapshotAssetValue")
+  func editAssetValueUpdatesMarketValue() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "AAPL", platform: "Firstrade")
+    context.insert(asset)
+
+    let snap = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
+    context.insert(snap)
+
+    let sav = SnapshotAssetValue(marketValue: 10000)
+    sav.snapshot = snap
+    sav.asset = asset
+    context.insert(sav)
+
+    let viewModel = AssetDetailViewModel(asset: asset, modelContext: context)
+    viewModel.loadValueHistory()
+    viewModel.editAssetValue(sav, newValue: 12500)
+
+    #expect(sav.marketValue == Decimal(12500))
+  }
+
+  @Test("editAssetValue refreshes value history")
+  func editAssetValueRefreshesValueHistory() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let asset = Asset(name: "AAPL", platform: "Firstrade")
+    context.insert(asset)
+
+    let snap = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
+    context.insert(snap)
+
+    let sav = SnapshotAssetValue(marketValue: 10000)
+    sav.snapshot = snap
+    sav.asset = asset
+    context.insert(sav)
+
+    let viewModel = AssetDetailViewModel(asset: asset, modelContext: context)
+    viewModel.loadValueHistory()
+    #expect(viewModel.valueHistory[0].marketValue == Decimal(10000))
+
+    viewModel.editAssetValue(sav, newValue: 15000)
+
+    #expect(viewModel.valueHistory[0].marketValue == Decimal(15000))
+  }
+
   // MARK: - Rename vs CSV Import Behavior
 
   @Test("Rename in-app preserves single asset across all snapshots")

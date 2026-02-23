@@ -25,6 +25,7 @@ struct AssetDetailView: View {
   @State private var saveErrorMessage = ""
   @State private var valueChartRange: ChartTimeRange = .all
   @State private var hoveredValueDate: Date?
+  @State private var editingAssetValue: SnapshotAssetValue?
 
   @State private var newPlatformName = ""
   @State private var showNewPlatformField = false
@@ -268,8 +269,30 @@ struct AssetDetailView: View {
             let effectiveCurrency =
               viewModel.asset.currency.isEmpty
               ? SettingsService.shared.mainCurrency : viewModel.asset.currency
+            let sav = entry.snapshotAssetValue
             Text(entry.marketValue.formatted(currency: effectiveCurrency))
               .monospacedDigit()
+              .frame(maxWidth: .infinity, alignment: .trailing)
+              .contentShape(Rectangle())
+              .onTapGesture(count: 2) {
+                editingAssetValue = sav
+              }
+              .contextMenu {
+                Button("Edit Value") {
+                  editingAssetValue = sav
+                }
+              }
+              .popover(
+                isPresented: Binding(
+                  get: { editingAssetValue?.id == sav.id },
+                  set: { if !$0 { editingAssetValue = nil } }
+                ),
+                arrowEdge: .trailing
+              ) {
+                EditValuePopover(currentValue: sav.marketValue) { newValue in
+                  viewModel.editAssetValue(sav, newValue: newValue)
+                }
+              }
           }
           .alignment(.trailing)
         }

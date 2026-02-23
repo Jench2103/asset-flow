@@ -10,9 +10,10 @@ import SwiftData
 
 /// Value history entry for an asset's recorded market value at a snapshot date.
 struct AssetValueHistoryEntry: Identifiable {
-  var id: String { "\(date.timeIntervalSince1970)-\(marketValue)" }
+  let id: PersistentIdentifier
   let date: Date
   let marketValue: Decimal
+  let snapshotAssetValue: SnapshotAssetValue
 }
 
 /// ViewModel for the Asset detail/edit screen.
@@ -70,11 +71,21 @@ final class AssetDetailViewModel {
     valueHistory = savs.compactMap { sav in
       guard let snapshotDate = sav.snapshot?.date else { return nil }
       return AssetValueHistoryEntry(
+        id: sav.persistentModelID,
         date: snapshotDate,
-        marketValue: sav.marketValue
+        marketValue: sav.marketValue,
+        snapshotAssetValue: sav
       )
     }
     .sorted { $0.date < $1.date }
+  }
+
+  // MARK: - Edit Asset Value
+
+  /// Updates the market value of a snapshot asset value and refreshes the value history.
+  func editAssetValue(_ sav: SnapshotAssetValue, newValue: Decimal) {
+    sav.marketValue = newValue
+    loadValueHistory()
   }
 
   // MARK: - Queries

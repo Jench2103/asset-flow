@@ -772,48 +772,6 @@ private struct AddCashFlowSheet: View {
   }
 }
 
-// MARK: - Edit Value Popover
-
-private struct EditValuePopover: View {
-  let currentValue: Decimal
-  let onSave: (Decimal) -> Void
-  @Environment(\.dismiss) private var dismiss
-  @FocusState private var isValueFocused: Bool
-  @State private var valueText: String
-
-  init(currentValue: Decimal, onSave: @escaping (Decimal) -> Void) {
-    self.currentValue = currentValue
-    self.onSave = onSave
-    _valueText = State(wrappedValue: NSDecimalNumber(decimal: currentValue).stringValue)
-  }
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text("Market Value").font(.headline)
-      TextField("Market Value", text: $valueText)
-        .textFieldStyle(.roundedBorder)
-        .focused($isValueFocused)
-        .accessibilityIdentifier("Edit Market Value Field")
-      HStack {
-        Button("Cancel", role: .cancel) { dismiss() }
-          .keyboardShortcut(.cancelAction)
-        Spacer()
-        Button("Save") {
-          if let newValue = Decimal(string: valueText) {
-            onSave(newValue)
-            dismiss()
-          }
-        }
-        .keyboardShortcut(.defaultAction)
-        .disabled(Decimal(string: valueText) == nil)
-      }
-    }
-    .frame(width: 280)
-    .padding()
-    .onAppear { isValueFocused = true }
-  }
-}
-
 // MARK: - Edit Cash Flow Popover
 
 private struct EditCashFlowPopover: View {
@@ -847,26 +805,29 @@ private struct EditCashFlowPopover: View {
       TextField("Amount", text: $amountText)
         .textFieldStyle(.roundedBorder)
         .focused($focusedField, equals: .amount)
+        .onSubmit { saveIfValid() }
       HStack {
         Button("Cancel", role: .cancel) { dismiss() }
           .keyboardShortcut(.cancelAction)
         Spacer()
-        Button("Save") {
-          if let amount = Decimal(string: amountText) {
-            onSave(description, amount)
-            dismiss()
-          }
-        }
-        .keyboardShortcut(.defaultAction)
-        .disabled(
-          description.trimmingCharacters(in: .whitespaces).isEmpty
-            || Decimal(string: amountText) == nil
-        )
+        Button("Save") { saveIfValid() }
+          .keyboardShortcut(.defaultAction)
+          .disabled(
+            description.trimmingCharacters(in: .whitespaces).isEmpty
+              || Decimal(string: amountText) == nil
+          )
       }
     }
     .frame(width: 280)
     .padding()
     .onAppear { focusedField = .description }
+  }
+
+  private func saveIfValid() {
+    let trimmed = description.trimmingCharacters(in: .whitespaces)
+    guard !trimmed.isEmpty, let amount = Decimal(string: amountText) else { return }
+    onSave(trimmed, amount)
+    dismiss()
   }
 }
 
