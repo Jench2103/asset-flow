@@ -9,6 +9,10 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  SWIFTLINT_VERSION: 0.63.2
+  SWIFT_FORMAT_VERSION: 602.0.0
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
@@ -28,19 +32,36 @@ jobs:
     if: ${{ needs.release-please.outputs.prs_created == 'true' }}
     runs-on: ubuntu-24.04
     steps:
-      - name: Set up Homebrew
-        id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@main
-
       - uses: actions/checkout@v5
         with:
           ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
 
-      - name: Install swift-format
-        run: brew install swift-format
+      - name: Cache lint tools
+        id: cache-tools
+        uses: actions/cache@v4
+        with:
+          path: ~/lint-tools
+          key: lint-tools-swiftlint-${{ env.SWIFTLINT_VERSION }}-swift-format-${{ env.SWIFT_FORMAT_VERSION }}
 
-      - name: Install SwiftLint
-        run: brew install swiftlint
+      - name: Install SwiftLint and swift-format
+        if: steps.cache-tools.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/lint-tools
+
+          # SwiftLint: download pre-built binary from GitHub Releases
+          curl -sL "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/swiftlint_linux_amd64.zip" -o /tmp/swiftlint.zip
+          unzip -o /tmp/swiftlint.zip swiftlint -d ~/lint-tools/
+          chmod +x ~/lint-tools/swiftlint
+
+          # swift-format: download pre-built bottle from Homebrew registry
+          SWIFT_FORMAT_BOTTLE_URL=$(curl -s "https://formulae.brew.sh/api/formula/swift-format.json" | python3 -c "import sys,json; print(json.load(sys.stdin)['bottle']['stable']['files']['x86_64_linux']['url'])")
+          curl -sL -H "Authorization: Bearer QQ==" "$SWIFT_FORMAT_BOTTLE_URL" -o /tmp/swift-format-bottle.tar.gz
+          tar xzf /tmp/swift-format-bottle.tar.gz -C /tmp/
+          cp /tmp/swift-format/${SWIFT_FORMAT_VERSION}/bin/swift-format ~/lint-tools/swift-format
+          chmod +x ~/lint-tools/swift-format
+
+      - name: Add tools to PATH
+        run: echo "$HOME/lint-tools" >> $GITHUB_PATH
 
       - name: Set up Python
         uses: actions/setup-python@v5
