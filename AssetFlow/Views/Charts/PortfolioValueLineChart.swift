@@ -146,7 +146,7 @@ struct PortfolioValueLineChart: View {
     .frame(height: ChartConstants.dashboardChartHeight)
   }
 
-  private func emptyMessage(_ text: String) -> some View {
+  private func emptyMessage(_ text: LocalizedStringKey) -> some View {
     ChartEmptyMessage(text: text, height: ChartConstants.dashboardChartHeight)
   }
 

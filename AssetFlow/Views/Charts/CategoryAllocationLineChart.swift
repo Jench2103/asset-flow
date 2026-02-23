@@ -128,7 +128,7 @@ struct CategoryAllocationLineChart: View {
     .frame(height: ChartConstants.standardChartHeight)
   }
 
-  private func emptyMessage(_ text: String) -> some View {
+  private func emptyMessage(_ text: LocalizedStringKey) -> some View {
     ChartEmptyMessage(text: text, height: ChartConstants.standardChartHeight)
   }
 

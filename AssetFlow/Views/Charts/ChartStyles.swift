@@ -92,7 +92,7 @@ enum ChartHelpers {
 
 /// Empty state message for charts when no data is available.
 struct ChartEmptyMessage: View {
-  let text: String
+  let text: LocalizedStringKey
   let height: CGFloat
 
   var body: some View {
