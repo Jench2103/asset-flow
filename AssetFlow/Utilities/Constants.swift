@@ -26,11 +26,15 @@ enum Constants {
     static let maxDecimalPlaces = 2
     static let defaultDateFormat = DateFormatStyle.abbreviated
     static let defaultPlatform = ""
+    static let defaultAppLockEnabled = false
   }
 
   enum UserDefaultsKeys {
     static let preferredCurrency = "preferredCurrency"
     static let dateFormat = "dateFormat"
     static let defaultPlatform = "defaultPlatform"
+    static let appLockEnabled = "appLockEnabled"
+    static let appSwitchTimeout = "appSwitchTimeout"
+    static let screenLockTimeout = "screenLockTimeout"
   }
 }

@@ -181,7 +181,7 @@ struct SnapshotDetailView: View {
           Image(systemName: "plus")
         }
         .buttonStyle(.plain)
-        .help("Add an asset to this snapshot")
+        .helpWhenUnlocked("Add an asset to this snapshot")
       }
     }
   }
@@ -355,7 +355,7 @@ struct SnapshotDetailView: View {
           Image(systemName: "plus")
         }
         .buttonStyle(.plain)
-        .help("Add a cash flow operation")
+        .helpWhenUnlocked("Add a cash flow operation")
       }
     }
   }

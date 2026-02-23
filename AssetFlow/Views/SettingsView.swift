@@ -29,10 +29,17 @@ struct SettingsView: View {
 
   private let settingsService: SettingsService
 
-  init(settingsService: SettingsService? = nil) {
+  init(
+    settingsService: SettingsService? = nil,
+    authenticationService: AuthenticationService? = nil
+  ) {
     let resolved = settingsService ?? SettingsService.shared
     self.settingsService = resolved
-    _viewModel = State(wrappedValue: SettingsViewModel(settingsService: resolved))
+    _viewModel = State(
+      wrappedValue: SettingsViewModel(
+        settingsService: resolved,
+        authenticationService: authenticationService
+      ))
   }
 
   var body: some View {
@@ -40,6 +47,7 @@ struct SettingsView: View {
       currencySection
       dateFormatSection
       importDefaultsSection
+      securitySection
       dataManagementSection
       aboutSection
     }
@@ -117,6 +125,52 @@ struct SettingsView: View {
     }
   }
 
+  // MARK: - Security Section
+
+  private var securitySection: some View {
+    Section {
+      Toggle("Require Authentication", isOn: $viewModel.isAppLockEnabled)
+        .accessibilityIdentifier("App Lock Toggle")
+
+      if viewModel.isAppLockEnabled {
+        Picker("When Switching Apps", selection: $viewModel.appSwitchTimeout) {
+          ForEach(ReLockTimeout.allCases, id: \.self) { timeout in
+            Text(timeout.localizedName).tag(timeout)
+          }
+        }
+        .accessibilityIdentifier("App Switch Timeout Picker")
+
+        Picker("When Locked or Sleeping", selection: $viewModel.screenLockTimeout) {
+          ForEach(ReLockTimeout.allCases, id: \.self) { timeout in
+            Text(timeout.localizedName).tag(timeout)
+          }
+        }
+        .accessibilityIdentifier("Screen Lock Timeout Picker")
+      }
+    } header: {
+      Text("Security")
+    } footer: {
+      if viewModel.isAppLockEnabled {
+        if viewModel.canUseBiometrics {
+          Text(
+            "Configure when AssetFlow requires authentication. \"When Switching Apps\" applies when you Cmd+Tab or click another window. \"When Locked or Sleeping\" applies when you lock the screen or your Mac sleeps. Set either to \"Never\" to skip locking for that trigger. Uses Touch ID, Apple Watch, or your system password.",
+            tableName: "Settings"
+          )
+        } else {
+          Text(
+            "Configure when AssetFlow requires authentication. \"When Switching Apps\" applies when you Cmd+Tab or click another window. \"When Locked or Sleeping\" applies when you lock the screen or your Mac sleeps. Set either to \"Never\" to skip locking for that trigger. Uses your system password. Touch ID is not available on this Mac.",
+            tableName: "Settings"
+          )
+        }
+      } else {
+        Text(
+          "When enabled, AssetFlow will require authentication after switching apps, locking the screen, or waking from sleep.",
+          tableName: "Settings"
+        )
+      }
+    }
+  }
+
   // MARK: - Data Management Section
 
   private var dataManagementSection: some View {
@@ -124,13 +178,13 @@ struct SettingsView: View {
       Button("Export Backup...") {
         performExport()
       }
-      .help("Export all data as a ZIP archive")
+      .helpWhenUnlocked("Export all data as a ZIP archive")
       .accessibilityIdentifier("Export Backup Button")
 
       Button("Restore from Backup...") {
         openRestorePanel()
       }
-      .help("Restore data from a previous backup")
+      .helpWhenUnlocked("Restore data from a previous backup")
       .accessibilityIdentifier("Restore Backup Button")
     } header: {
       Text("Data Management")

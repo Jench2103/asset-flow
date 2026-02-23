@@ -63,9 +63,47 @@ struct AssetFlowApp: App {
   @FocusedValue(\.newSnapshotAction) private var newSnapshotAction
   @FocusedValue(\.importCSVAction) private var importCSVAction
 
+  private let authService = AuthenticationService.shared
+
   var body: some Scene {
     WindowGroup {
-      ContentView()
+      ZStack {
+        ContentView()
+        if authService.isLocked {
+          LockScreenView(authService: authService)
+            .transition(.opacity)
+        }
+      }
+      .environment(\.isAppLocked, authService.isLocked)
+      .onAppear {
+        authService.lockOnLaunchIfNeeded()
+      }
+      // ── App Activation Lifecycle ──
+      .onReceive(
+        NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
+      ) { _ in
+        authService.isAppActive = false
+        authService.recordBackground(trigger: .appSwitch)
+      }
+      .onReceive(
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+      ) { _ in
+        authService.isAppActive = true
+        authService.evaluateOnBecomeActive()
+      }
+      // ── Screen Lock / Sleep ──
+      .onReceive(
+        NSWorkspace.shared.notificationCenter.publisher(
+          for: NSWorkspace.screensDidSleepNotification)
+      ) { _ in
+        authService.recordBackground(trigger: .screenSleep)
+      }
+      .onReceive(
+        DistributedNotificationCenter.default().publisher(
+          for: Notification.Name("com.apple.screenIsLocked"))
+      ) { _ in
+        authService.recordBackground(trigger: .screenSleep)
+      }
     }
     .modelContainer(sharedModelContainer)
     .windowStyle(.hiddenTitleBar)
@@ -76,7 +114,7 @@ struct AssetFlowApp: App {
           newSnapshotAction?()
         }
         .keyboardShortcut("n")
-        .disabled(newSnapshotAction == nil)
+        .disabled(newSnapshotAction == nil || authService.isLocked)
 
         Divider()
 
@@ -84,7 +122,7 @@ struct AssetFlowApp: App {
           importCSVAction?()
         }
         .keyboardShortcut("i")
-        .disabled(importCSVAction == nil)
+        .disabled(importCSVAction == nil || authService.isLocked)
       }
       CommandGroup(replacing: .appInfo) {
         Button("About AssetFlow") {
@@ -135,7 +173,14 @@ struct AssetFlowApp: App {
     }
 
     Settings {
-      SettingsView()
+      ZStack {
+        SettingsView()
+        if authService.isLocked {
+          LockScreenView(authService: authService)
+            .transition(.opacity)
+        }
+      }
+      .environment(\.isAppLocked, authService.isLocked)
     }
     .modelContainer(sharedModelContainer)
   }

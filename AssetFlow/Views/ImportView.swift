@@ -118,7 +118,7 @@ struct ImportView: View {
             Button("Browse...") {
               showFileImporter = true
             }
-            .help("Browse for a CSV file to import")
+            .helpWhenUnlocked("Browse for a CSV file to import")
           }
           .frame(maxWidth: .infinity, minHeight: 180)
           .background(.fill.quaternary)
@@ -458,7 +458,7 @@ struct ImportView: View {
       }
       .buttonStyle(.borderedProminent)
       .disabled(viewModel.isImportDisabled)
-      .help("Import the CSV data into a snapshot")
+      .helpWhenUnlocked("Import the CSV data into a snapshot")
     }
   }
 

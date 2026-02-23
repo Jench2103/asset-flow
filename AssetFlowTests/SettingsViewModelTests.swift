@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import LocalAuthentication
 import Testing
 
 @testable import AssetFlow
@@ -128,5 +129,178 @@ struct SettingsViewModelTests {
     let viewModel = SettingsViewModel(settingsService: settingsService)
     viewModel.defaultPlatformString = "Schwab"
     #expect(settingsService.defaultPlatform == "Schwab")
+  }
+
+  // MARK: - App Lock (Authentication)
+
+  /// Mock LAContext for testing biometric availability.
+  private class MockLAContext: LAContext {
+    var canEvaluateResult = true
+    var evaluateResult = true
+
+    override func canEvaluatePolicy(
+      _ policy: LAPolicy, error: NSErrorPointer
+    ) -> Bool {
+      canEvaluateResult
+    }
+
+    override func evaluatePolicy(
+      _ policy: LAPolicy, localizedReason: String
+    ) async throws -> Bool {
+      if evaluateResult { return true }
+      throw LAError(.userCancel)
+    }
+  }
+
+  private func createViewModelWithAuth(
+    canEvaluate: Bool = true,
+    evaluateSuccess: Bool = true
+  ) -> (viewModel: SettingsViewModel, authService: AuthenticationService) {
+    let mock = MockLAContext()
+    mock.canEvaluateResult = canEvaluate
+    mock.evaluateResult = evaluateSuccess
+    let settingsService = SettingsService.createForTesting()
+    let authService = AuthenticationService.createForTesting(
+      laContextFactory: { mock }
+    )
+    let viewModel = SettingsViewModel(
+      settingsService: settingsService,
+      authenticationService: authService
+    )
+    return (viewModel, authService)
+  }
+
+  @Test("ViewModel initializes isAppLockEnabled from AuthenticationService")
+  func testInitLoadsAppLockEnabled() {
+    let (viewModel, _) = createViewModelWithAuth()
+    #expect(viewModel.isAppLockEnabled == false)
+  }
+
+  @Test("ViewModel initializes appSwitchTimeout from AuthenticationService")
+  func testInitLoadsAppSwitchTimeout() {
+    let (viewModel, _) = createViewModelWithAuth()
+    #expect(viewModel.appSwitchTimeout == .immediately)
+  }
+
+  @Test("ViewModel initializes screenLockTimeout from AuthenticationService")
+  func testInitLoadsScreenLockTimeout() {
+    let (viewModel, _) = createViewModelWithAuth()
+    #expect(viewModel.screenLockTimeout == .immediately)
+  }
+
+  @Test("Changing appSwitchTimeout syncs to AuthenticationService")
+  func testAppSwitchTimeoutSyncsToAuthService() {
+    let (viewModel, authService) = createViewModelWithAuth()
+    viewModel.appSwitchTimeout = .fiveMinutes
+    #expect(authService.appSwitchTimeout == .fiveMinutes)
+  }
+
+  @Test("Changing screenLockTimeout syncs to AuthenticationService")
+  func testScreenLockTimeoutSyncsToAuthService() {
+    let (viewModel, authService) = createViewModelWithAuth()
+    viewModel.screenLockTimeout = .fifteenMinutes
+    #expect(authService.screenLockTimeout == .fifteenMinutes)
+  }
+
+  @Test("Setting both timeouts to .never auto-disables isAppLockEnabled")
+  func testBothNeverAutoDisablesAppLock() {
+    // Pre-enable app lock at the service level, then create ViewModel
+    // so it picks up isAppLockEnabled = true at init (avoids async auth Task)
+    let mock = MockLAContext()
+    mock.canEvaluateResult = true
+    mock.evaluateResult = true
+    let settingsService = SettingsService.createForTesting()
+    let authService = AuthenticationService.createForTesting(
+      laContextFactory: { mock }
+    )
+    authService.isAppLockEnabled = true
+    let viewModel = SettingsViewModel(
+      settingsService: settingsService,
+      authenticationService: authService
+    )
+    #expect(viewModel.isAppLockEnabled == true)
+
+    viewModel.appSwitchTimeout = .never
+    // Only one is .never — should still be enabled
+    #expect(viewModel.isAppLockEnabled == true)
+
+    viewModel.screenLockTimeout = .never
+    // Both are .never — should auto-disable
+    #expect(viewModel.isAppLockEnabled == false)
+    #expect(authService.isAppLockEnabled == false)
+  }
+
+  @Test("Re-enabling app lock after auto-disable resets timeouts to .immediately")
+  func testReEnableAfterAutoDisableResetsTimeouts() async {
+    // Pre-enable app lock at the service level so ViewModel picks it up at init
+    let mock = MockLAContext()
+    mock.canEvaluateResult = true
+    mock.evaluateResult = true
+    let settingsService = SettingsService.createForTesting()
+    let authService = AuthenticationService.createForTesting(
+      laContextFactory: { mock }
+    )
+    authService.isAppLockEnabled = true
+    let viewModel = SettingsViewModel(
+      settingsService: settingsService,
+      authenticationService: authService
+    )
+    #expect(viewModel.isAppLockEnabled == true)
+
+    // Set both to .never → auto-disables
+    viewModel.appSwitchTimeout = .never
+    viewModel.screenLockTimeout = .never
+    #expect(viewModel.isAppLockEnabled == false)
+    #expect(authService.appSwitchTimeout == .never)
+    #expect(authService.screenLockTimeout == .never)
+
+    // Re-enable toggle → timeouts should reset to .immediately
+    viewModel.isAppLockEnabled = true
+
+    // Wait for the async auth Task to complete
+    try? await Task.sleep(for: .milliseconds(50))
+
+    #expect(viewModel.isAppLockEnabled == true)
+    #expect(authService.isAppLockEnabled == true)
+    #expect(viewModel.appSwitchTimeout == .immediately)
+    #expect(viewModel.screenLockTimeout == .immediately)
+    #expect(authService.appSwitchTimeout == .immediately)
+    #expect(authService.screenLockTimeout == .immediately)
+  }
+
+  @Test("canUseBiometrics reflects AuthenticationService.canEvaluatePolicy")
+  func testCanUseBiometricsReflectsAuthService() {
+    let (viewModel, _) = createViewModelWithAuth(canEvaluate: true)
+    #expect(viewModel.canUseBiometrics == true)
+
+    let (viewModel2, _) = createViewModelWithAuth(canEvaluate: false)
+    #expect(viewModel2.canUseBiometrics == false)
+  }
+
+  @Test("Disabling app lock syncs to AuthenticationService and unlocks")
+  func testDisableAppLockUnlocks() {
+    let mock = MockLAContext()
+    mock.canEvaluateResult = true
+    mock.evaluateResult = true
+    let settingsService = SettingsService.createForTesting()
+    let authService = AuthenticationService.createForTesting(
+      laContextFactory: { mock }
+    )
+    // Pre-enable app lock at the service level
+    authService.isAppLockEnabled = true
+    authService.lockOnLaunchIfNeeded()
+    #expect(authService.isLocked == true)
+
+    // Create ViewModel — it reads isAppLockEnabled = true from authService
+    let viewModel = SettingsViewModel(
+      settingsService: settingsService,
+      authenticationService: authService
+    )
+    #expect(viewModel.isAppLockEnabled == true)
+
+    // Disable via ViewModel
+    viewModel.isAppLockEnabled = false
+    #expect(authService.isAppLockEnabled == false)
+    #expect(authService.isLocked == false)
   }
 }

@@ -519,6 +519,46 @@ Spreadsheet Formulas -> UI
 
 ______________________________________________________________________
 
+## App Lock (Authentication)
+
+### Overview
+
+Optional app-level authentication to protect against casual physical access. Uses macOS `LocalAuthentication` framework with `LAPolicy.deviceOwnerAuthentication`.
+
+### Rules
+
+1. **Off by default** — user enables in Settings → Security
+1. **Enable gate** — toggling app lock on triggers a system authentication prompt first; if auth fails, the toggle reverts to off (prevents accidental lockout)
+1. **Lock on launch** — if app lock is enabled, the app starts locked and requires authentication
+1. **Per-condition re-lock (three-step protocol)** — all lock state is centralized in `AuthenticationService`:
+   - **Step 1: `recordBackground(trigger:)`** — called by notification handlers. Two independent triggers:
+     - **App switch** (`NSApplication.didResignActiveNotification`) — fires when Cmd+Tab, clicking another window, or minimizing
+     - **Screen lock / sleep** — detected via two notifications: `com.apple.screenIsLocked` distributed notification (fires immediately on Ctrl+Cmd+Q and screen lock) and `NSWorkspace.screensDidSleepNotification` (fires on display sleep from lid close or idle timeout). Both are needed because screen lock does not trigger display sleep, and display sleep on external monitors may not trigger screen lock
+   - `screenSleep` always overrides a pending `appSwitch` (higher priority). Recording is suppressed while `isAuthenticating` is true to prevent re-lock loops. If the relevant timeout is `.immediately`, `isLocked` is set eagerly (lock overlay appears immediately, auth dialog deferred)
+   - **Step 2: `evaluateOnBecomeActive()`** — called on `didBecomeActiveNotification`. Evaluates the pending background event against its timeout and locks if elapsed time exceeds the threshold. Always clears background state afterward
+   - **Step 3: `authenticateIfActive()`** — auth dialog is ONLY shown when `isAppActive == true`. This prevents the system authentication dialog from appearing while the user is in another app. `LockScreenView` calls this via `.task(id:)` (for lock-on-launch) and `.onReceive(didBecomeActiveNotification)` (for deferred auth when returning to a locked app)
+   - Note: `ScenePhase` is not used because it is unreliable on macOS (only fires for Cmd+H hide)
+1. **Window protection** — both the main `WindowGroup` and `Settings` scene use the same `ZStack` + `LockScreenView` overlay pattern. No windows are closed when locking — each window independently shows/hides its own lock overlay based on `authService.isLocked`. This eliminates bugs caused by `NSApplication.shared.mainWindow` returning the wrong window
+1. **Menu command gating** — keyboard shortcuts (Cmd+N, Cmd+I) are disabled when `authService.isLocked` is true
+1. **Re-lock timeouts** — Immediately (0s), After 1 Minute (60s), After 5 Minutes (300s), After 15 Minutes (900s), Never (skip locking for that trigger). Default: Immediately for both triggers
+1. **Auto-disable / auto-reset** — when both `appSwitchTimeout` and `screenLockTimeout` are set to `.never`, `isAppLockEnabled` is automatically set to `false` (the user has effectively disabled all lock triggers). Conversely, when re-enabling app lock while both timeouts are still `.never`, both are reset to `.immediately` (the default) so the lock is immediately functional
+1. **Authentication method** — not user-configurable. The system dialog handles fallback: Touch ID → Apple Watch → system password
+1. **Disabling** — toggling app lock off immediately unlocks the app and disables future locking
+
+### State
+
+- `isAppLockEnabled` — persisted in UserDefaults
+- `appSwitchTimeout` — persisted in UserDefaults (raw value of `ReLockTimeout` enum). Timeout for app switch trigger
+- `screenLockTimeout` — persisted in UserDefaults (raw value of `ReLockTimeout` enum). Timeout for screen lock / sleep trigger
+- `isLocked` — runtime only, not persisted. Set to `true` on launch if app lock is enabled
+- `isAppActive` — runtime only, tracks whether the app is the frontmost application. Initialized to `true` (app starts active). Maintained by `didResignActiveNotification` / `didBecomeActiveNotification` handlers in `AssetFlowApp`. Used as a gate for `authenticateIfActive()` to prevent auth dialogs from appearing while the user is in another app
+- `backgroundDate` — runtime only, the timestamp when the app entered the background. Set by `recordBackground()`, cleared by `evaluateOnBecomeActive()`
+- `backgroundTrigger` — runtime only, which trigger (`.appSwitch` or `.screenSleep`) caused the background event
+- `isAuthenticating` — runtime only, `true` while the system authentication dialog is being presented. Used to suppress `recordBackground()` calls
+- `lastUnlockDate` — runtime only, set after each successful authentication
+
+______________________________________________________________________
+
 ## References
 
 ### Financial Concepts

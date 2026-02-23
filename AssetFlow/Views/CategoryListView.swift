@@ -19,6 +19,7 @@ struct CategoryListView: View {
   @State private var viewModel: CategoryListViewModel
   @Binding var selectedCategory: Category?
   @Query private var categories: [Category]
+  @Environment(\.isAppLocked) private var isAppLocked
 
   @State private var showAddSheet = false
   @State private var showDeleteError = false
@@ -55,7 +56,8 @@ struct CategoryListView: View {
         } label: {
           Image(systemName: "plus")
         }
-        .help("Create a new category")
+        .disabled(isAppLocked)
+        .helpWhenUnlocked("Create a new category")
         .accessibilityIdentifier("Add Category Button")
       }
     }

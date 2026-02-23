@@ -193,7 +193,7 @@ struct DashboardView: View {
       .padding()
       .frame(maxWidth: .infinity)
       .glassCard()
-      .help(
+      .helpWhenUnlocked(
         LocalizedStringKey(
           "Growth rate is the simple percentage change in portfolio value over the selected period, including the effect of deposits and withdrawals."
         )
@@ -228,7 +228,7 @@ struct DashboardView: View {
       .padding()
       .frame(maxWidth: .infinity)
       .glassCard()
-      .help(
+      .helpWhenUnlocked(
         LocalizedStringKey(
           "Return rate uses the Modified Dietz method to calculate a cash-flow adjusted return, isolating actual investment performance."
         )
@@ -295,7 +295,7 @@ struct DashboardView: View {
           onNavigateToSnapshots?()
         }
         .font(.callout)
-        .help("View all snapshots")
+        .helpWhenUnlocked("View all snapshots")
       }
 
       if viewModel.recentSnapshots.isEmpty {
@@ -406,7 +406,7 @@ private struct MetricCard: View {
   var helpText: LocalizedStringKey?
 
   var body: some View {
-    let card = VStack(alignment: .leading, spacing: 0) {
+    VStack(alignment: .leading, spacing: 0) {
       Text(title)
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -432,12 +432,7 @@ private struct MetricCard: View {
     .frame(maxWidth: .infinity, minHeight: 80)
     .glassCard()
     .accessibilityElement(children: .combine)
-
-    if let helpText {
-      card.help(helpText)
-    } else {
-      card
-    }
+    .helpWhenUnlocked(helpText)
   }
 }
 

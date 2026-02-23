@@ -11,11 +11,15 @@ import Foundation
 ///
 /// Manages form state for settings including:
 /// - Main currency selection (saved immediately)
+/// - App lock and re-lock timeout (via AuthenticationService)
 @Observable
 @MainActor
 final class SettingsViewModel {
   /// The settings service for persistence
   private let settingsService: SettingsService
+
+  /// The authentication service for app lock settings
+  private let authService: AuthenticationService
 
   /// Selected currency code
   var selectedCurrency: String {
@@ -41,6 +45,68 @@ final class SettingsViewModel {
     }
   }
 
+  /// Whether app lock is enabled
+  var isAppLockEnabled: Bool {
+    didSet {
+      guard isAppLockEnabled != oldValue else { return }
+      if isAppLockEnabled {
+        // Reset timeouts to default if both were .never (from auto-disable).
+        // Done before auth so the pickers update instantly.
+        if authService.appSwitchTimeout == .never
+          && authService.screenLockTimeout == .never
+        {
+          authService.appSwitchTimeout = .immediately
+          authService.screenLockTimeout = .immediately
+          appSwitchTimeout = .immediately
+          screenLockTimeout = .immediately
+        }
+        // Verify identity before enabling — revert if auth fails
+        Task {
+          let success = await authService.authenticate()
+          if success {
+            authService.isAppLockEnabled = true
+          } else {
+            isAppLockEnabled = false
+          }
+        }
+      } else {
+        authService.isAppLockEnabled = false
+        authService.isLocked = false
+      }
+    }
+  }
+
+  /// How long after switching apps before the app re-locks
+  var appSwitchTimeout: ReLockTimeout {
+    didSet {
+      guard appSwitchTimeout != oldValue else { return }
+      authService.appSwitchTimeout = appSwitchTimeout
+      if appSwitchTimeout == .never && screenLockTimeout == .never {
+        authService.isAppLockEnabled = false
+        authService.isLocked = false
+        isAppLockEnabled = false
+      }
+    }
+  }
+
+  /// How long after screen lock or sleep before the app re-locks
+  var screenLockTimeout: ReLockTimeout {
+    didSet {
+      guard screenLockTimeout != oldValue else { return }
+      authService.screenLockTimeout = screenLockTimeout
+      if appSwitchTimeout == .never && screenLockTimeout == .never {
+        authService.isAppLockEnabled = false
+        authService.isLocked = false
+        isAppLockEnabled = false
+      }
+    }
+  }
+
+  /// Whether biometric authentication (Touch ID) is available on this Mac
+  var canUseBiometrics: Bool {
+    authService.canEvaluatePolicy()
+  }
+
   /// Available currencies for picker
   var availableCurrencies: [Currency] {
     CurrencyService.shared.currencies
@@ -57,11 +123,19 @@ final class SettingsViewModel {
     }
   }
 
-  init(settingsService: SettingsService? = nil) {
+  init(
+    settingsService: SettingsService? = nil,
+    authenticationService: AuthenticationService? = nil
+  ) {
     let resolvedSettingsService = settingsService ?? SettingsService.shared
+    let resolvedAuthService = authenticationService ?? AuthenticationService.shared
     self.settingsService = resolvedSettingsService
+    self.authService = resolvedAuthService
     self.selectedCurrency = resolvedSettingsService.mainCurrency
     self.selectedDateFormat = resolvedSettingsService.dateFormat
     self.defaultPlatformString = resolvedSettingsService.defaultPlatform
+    self.isAppLockEnabled = resolvedAuthService.isAppLockEnabled
+    self.appSwitchTimeout = resolvedAuthService.appSwitchTimeout
+    self.screenLockTimeout = resolvedAuthService.screenLockTimeout
   }
 }

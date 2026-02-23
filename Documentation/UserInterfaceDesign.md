@@ -62,8 +62,8 @@ The app uses a **sidebar navigation** layout (standard macOS pattern):
 
 **Toolbar**:
 
-- **Back button** (chevron.left) -- navigates to the previous sidebar section in history; disabled when no history exists
-- **Forward button** (chevron.right) -- navigates to the next sidebar section in forward history; disabled when at the latest entry
+- **Back button** (chevron.left) -- navigates to the previous sidebar section in history; disabled when no history exists or app is locked
+- **Forward button** (chevron.right) -- navigates to the next sidebar section in forward history; disabled when at the latest entry or app is locked
 - Navigation history is tracked for all sidebar selection changes and programmatic navigation (chart click-to-navigate, post-import redirect). Forward history is truncated when navigating to a new section from a non-tail position.
 
 ______________________________________________________________________
@@ -81,7 +81,7 @@ The dashboard provides a portfolio overview using the latest snapshot.
    - Number of Assets
    - Cumulative TWR (All Time) (since first snapshot)
    - CAGR (since first snapshot) -- shown alongside Cumulative TWR (All Time), with a tooltip: "CAGR is the annualized rate at which the portfolio's total value has grown since inception, including the effect of deposits and withdrawals. TWR measures pure investment performance by removing cash flow effects."
-   - Metric cards use a `helpText: String?` parameter on `MetricCard` to display a native `.help()` tooltip on hover
+   - Metric cards use a `helpText: LocalizedStringKey?` parameter on `MetricCard` to display a tooltip via `.helpWhenUnlocked()` (suppressed when app is locked)
 
 1. **Period performance cards**:
 
@@ -336,6 +336,12 @@ Accessible via menu bar (AssetFlow > Settings) or Cmd+,.
 1. **Display currency**: Currency code (e.g., USD, TWD, EUR). Display-only, no FX conversion.
 1. **Date format**: Picker with Swift `Date.FormatStyle` options (`.numeric`, `.abbreviated`, `.long`, `.complete`). Default: system locale or `.abbreviated`.
 1. **Default platform**: Pre-filled platform value during import (can be overridden per import). Default: empty.
+1. **Security**:
+   - **Require Authentication** toggle: Enables/disables app lock. Off by default. When toggling on, the system authentication dialog is presented first to verify identity (prevents accidental lockout). When toggling off, the app unlocks immediately.
+   - **When Switching Apps** picker (shown only when toggle is on): Configures re-lock timeout for app switch events (Cmd+Tab, click another window, minimize) — Immediately, After 1 Minute, After 5 Minutes, After 15 Minutes, Never.
+   - **When Locked or Sleeping** picker (shown only when toggle is on): Configures re-lock timeout for screen lock / sleep events — Immediately, After 1 Minute, After 5 Minutes, After 15 Minutes, Never.
+   - **Auto-disable**: When both pickers are set to "Never", the Require Authentication toggle is automatically turned off.
+   - **Footer text**: Three variants based on state — when disabled: explains what enabling does; when enabled with Touch ID: explains the two trigger conditions, "Never" option, and auth methods; when enabled without Touch ID: same but notes system password only.
 1. **Data Management**:
    - **Export Backup**: Exports all data to ZIP archive. User selects save location. Default filename: `AssetFlow-Backup-YYYY-MM-DD.zip`.
    - **Restore from Backup**: Imports backup archive. Confirmation: "Restoring from backup will replace ALL existing data. This cannot be undone. Continue?" Validates file integrity (CSV presence, headers, foreign key references). On failure, shows detailed error. On success, reloads all views.
@@ -346,9 +352,13 @@ Accessible via menu bar (AssetFlow > Settings) or Cmd+,.
    - **Privacy**: "All data is stored locally. No data is collected or transmitted."
    - **GitHub link**: Tappable `Link` that opens the source repository in the browser.
 
+**Lock screen overlay**: When app lock is enabled and the app is locked (on launch or after returning from background beyond the timeout), a full-window opaque overlay (`LockScreenView`) is displayed in a `ZStack` above `ContentView`. It shows the app icon (128×128), "AssetFlow is Locked" title, and an "Unlock" button. The system authentication dialog is triggered automatically on appear. The overlay uses `.regularMaterial` background to fully obscure content. No custom biometric UI — the system `LAContext.evaluatePolicy` dialog handles Touch ID, Apple Watch, and password fallback. Background-date recording is suppressed while authentication is in progress (`isAuthenticating`) to prevent the system auth dialog from triggering a re-lock loop.
+
+**Consistent lock overlays**: Both the main `WindowGroup` and the `Settings` scene use the same `ZStack` + `LockScreenView` pattern. When `authService.isLocked` is `true`, each window independently shows a full opaque material overlay with an Unlock button. No windows are closed when locking — this avoids bugs caused by `NSApplication.shared.mainWindow` returning the wrong window.
+
 **Native About panel** (App menu → About AssetFlow): Replaced via `CommandGroup(replacing: .appInfo)` in `AssetFlowApp.swift`. Shows version + build number as the version string, with a rich-text credits block containing the commit hash, license, copyright, a clickable "Source Code" hyperlink, and the privacy statement.
 
-**File menu commands**: Replaced via `CommandGroup(replacing: .newItem)`. Includes "New Snapshot..." (Cmd+N) and "Import CSV..." (Cmd+I). Uses `@FocusedValue` to bridge actions from the menu bar to `ContentView`.
+**File menu commands**: Replaced via `CommandGroup(replacing: .newItem)`. Includes "New Snapshot..." (Cmd+N) and "Import CSV..." (Cmd+I). Uses `@FocusedValue` to bridge actions from the menu bar to `ContentView`. Both commands are disabled when `authService.isLocked` is `true`.
 
 ______________________________________________________________________
 

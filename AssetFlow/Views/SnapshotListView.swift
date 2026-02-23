@@ -16,6 +16,7 @@ import SwiftUI
 struct SnapshotListView: View {
   @State private var viewModel: SnapshotListViewModel
   @Binding var selectedSnapshot: Snapshot?
+  @Environment(\.isAppLocked) private var isAppLocked
 
   @Query(sort: \Snapshot.date, order: .reverse) private var snapshots: [Snapshot]
   @Query private var snapshotAssetValues: [SnapshotAssetValue]
@@ -65,7 +66,8 @@ struct SnapshotListView: View {
         } label: {
           Image(systemName: "plus")
         }
-        .help("Create a new snapshot")
+        .disabled(isAppLocked)
+        .helpWhenUnlocked("Create a new snapshot")
         .accessibilityIdentifier("New Snapshot Button")
       }
     }

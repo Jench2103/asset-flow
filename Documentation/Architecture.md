@@ -165,6 +165,8 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 
 1. **SettingsService** (`@Observable @MainActor class`): Manages app-wide user preferences (display currency, date format, default platform) via UserDefaults. Observable for reactive UI updates when settings change.
 
+1. **AuthenticationService** (`@Observable @MainActor class`): Manages optional app lock using macOS LocalAuthentication framework. Persists lock settings (enabled, re-lock timeout) via UserDefaults. Handles authentication via `LAContext.evaluatePolicy(.deviceOwnerAuthentication)` supporting Touch ID, Apple Watch, and system password fallback. Injectable `LAContext` factory for test isolation.
+
 1. **CurrencyService** (`class` with `static let shared` singleton): Provides currency information (codes, names, flag emojis). Loads from a hardcoded fallback list (~30 common currencies) on init, then can fetch the full list (~480 currencies) from the exchange rate API via `loadFromAPI()`.
 
 1. **ExchangeRateService** (`final class`): Fetches exchange rates from the `@fawazahmed0/currency-api` CDN. Provides `fetchRates(for:baseCurrency:)` and `fetchCurrencyList()`. Accepts a `URLSession` for testability. Throws `ExchangeRateError` on failure.

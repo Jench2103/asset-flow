@@ -79,6 +79,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 /// navigation to the created snapshot.
 struct ContentView: View {
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.isAppLocked) private var isAppLocked
 
   @State private var selectedSection: SidebarSection? = .dashboard
   @State private var selectedSnapshot: Snapshot?
@@ -116,16 +117,16 @@ struct ContentView: View {
         Button(action: goBack) {
           Image(systemName: "chevron.left")
         }
-        .disabled(!canGoBack)
-        .help("Go back")
+        .disabled(!canGoBack || isAppLocked)
+        .helpWhenUnlocked("Go back")
         .accessibilityIdentifier("Go Back Button")
       }
       ToolbarItem(placement: .navigation) {
         Button(action: goForward) {
           Image(systemName: "chevron.right")
         }
-        .disabled(!canGoForward)
-        .help("Go forward")
+        .disabled(!canGoForward || isAppLocked)
+        .helpWhenUnlocked("Go forward")
         .accessibilityIdentifier("Go Forward Button")
       }
     }

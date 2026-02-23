@@ -16,6 +16,7 @@ struct AssetListView: View {
   @State private var viewModel: AssetListViewModel
   @Binding var selectedAsset: Asset?
   @Query private var assets: [Asset]
+  @Environment(\.isAppLocked) private var isAppLocked
 
   @State private var showDeleteError = false
   @State private var deleteErrorMessage = ""
@@ -56,7 +57,8 @@ struct AssetListView: View {
           Text("By Category").tag(AssetGroupingMode.byCategory)
         }
         .pickerStyle(.segmented)
-        .help("Group assets by platform or category")
+        .disabled(isAppLocked)
+        .helpWhenUnlocked("Group assets by platform or category")
         .accessibilityIdentifier("Grouping Picker")
       }
     }

@@ -114,6 +114,38 @@ ______________________________________________________________________
 - If validation fails, no data is modified
 - Restore requires explicit confirmation: "Restoring from backup will replace ALL existing data. This cannot be undone."
 
+### App Lock (Optional)
+
+**Purpose**: Protects against casual physical access to portfolio data when the Mac is unlocked but unattended.
+
+**Implementation**: Uses macOS `LocalAuthentication` framework (`LAPolicy.deviceOwnerAuthentication`):
+
+- Touch ID on supported Macs (Apple silicon with compatible keyboard)
+- Apple Watch proximity unlock
+- System password fallback (always available)
+
+**Threat Addressed**: Unauthorized viewing of financial data by someone with physical access to an unlocked Mac. This is a convenience feature, not a security boundary — it does not protect against determined attackers with admin access.
+
+**Security Characteristics**:
+
+- Off by default — user enables in Settings → Security
+- No secrets or credentials stored by the app
+- Biometric evaluation happens entirely in the Secure Enclave — no biometric data leaves the device
+- Lock screen uses an opaque material overlay (both main window and Settings window have independent `LockScreenView` overlays)
+- Centralized lock state machine in `AuthenticationService`: three-step protocol (`recordBackground` → `evaluateOnBecomeActive` → `authenticateIfActive`) with `isAppActive` gate ensures auth dialogs only appear when the app is frontmost
+- Per-condition re-lock timeouts: separate settings for app switching and screen lock/sleep events, each configurable to immediately, 1 minute, 5 minutes, 15 minutes, or never. Setting both to "never" auto-disables app lock
+- Eager lock, deferred auth: lock overlay appears immediately when timeout is "Immediately"; authentication dialog waits until the user returns to the app
+- Enabling app lock requires successful authentication first (prevents accidental lockout)
+- Menu commands (Cmd+N, Cmd+I) are disabled while locked to prevent keyboard shortcut bypass
+- Toolbar buttons (navigation back/forward, add snapshot/category, grouping picker) are disabled while locked
+- All `.help()` tooltips are suppressed while locked via the `.helpWhenUnlocked()` view modifier and `isAppLocked` environment key, preventing tooltip leakage through the lock overlay
+
+**Limitations**:
+
+- Does not encrypt data at rest (use FileVault for that)
+- Does not prevent access via other apps that can read the SwiftData store
+- Not all Macs have Touch ID — system password is the universal fallback
+
 ______________________________________________________________________
 
 ## Privacy
