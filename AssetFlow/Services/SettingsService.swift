@@ -42,6 +42,13 @@ class SettingsService {
     }
   }
 
+  /// The user-defined display order for platforms
+  var platformOrder: [String] {
+    didSet {
+      userDefaults.set(platformOrder, forKey: Constants.UserDefaultsKeys.platformOrder)
+    }
+  }
+
   private init(userDefaults: UserDefaults = .standard) {
     self.userDefaults = userDefaults
 
@@ -60,6 +67,10 @@ class SettingsService {
     self.defaultPlatform =
       userDefaults.string(forKey: Constants.UserDefaultsKeys.defaultPlatform)
       ?? Constants.DefaultValues.defaultPlatform
+
+    self.platformOrder =
+      userDefaults.stringArray(forKey: Constants.UserDefaultsKeys.platformOrder)
+      ?? []
   }
 
   /// Creates an isolated instance for testing purposes

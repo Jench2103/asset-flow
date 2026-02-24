@@ -20,11 +20,15 @@ struct PlatformListViewModelTests {
   private struct TestContext {
     let container: ModelContainer
     let context: ModelContext
+    let settingsService: SettingsService
   }
 
   private func makeTestContext() -> TestContext {
     let container = TestDataManager.createInMemoryContainer()
-    return TestContext(container: container, context: container.mainContext)
+    let settingsService = SettingsService.createForTesting()
+    return TestContext(
+      container: container, context: container.mainContext,
+      settingsService: settingsService)
   }
 
   private func makeDate(year: Int, month: Int, day: Int) -> Date {
@@ -74,7 +78,8 @@ struct PlatformListViewModelTests {
     createAsset(name: "BND", platform: "Vanguard", in: context)
     createAsset(name: "BTC", platform: "Coinbase", in: context)
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
     viewModel.loadPlatforms()
 
     #expect(viewModel.platformRows.count == 3)
@@ -92,7 +97,8 @@ struct PlatformListViewModelTests {
     createAsset(name: "MSFT", platform: "Firstrade", in: context)
     createAsset(name: "BND", platform: "Vanguard", in: context)
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
     viewModel.loadPlatforms()
 
     let firstrade = viewModel.platformRows.first { $0.name == "Firstrade" }
@@ -119,7 +125,8 @@ struct PlatformListViewModelTests {
       name: "BND", platform: "Vanguard",
       marketValue: 2000, snapshot: snapshot, context: context)
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
     viewModel.loadPlatforms()
 
     let firstrade = viewModel.platformRows.first { $0.name == "Firstrade" }
@@ -139,7 +146,8 @@ struct PlatformListViewModelTests {
     let asset2 = createAsset(name: "MSFT", platform: "Firstrade", in: context)
     createAsset(name: "BND", platform: "Vanguard", in: context)
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
     try viewModel.renamePlatform(from: "Firstrade", to: "Interactive Brokers")
 
     #expect(asset1.platform == "Interactive Brokers")
@@ -154,7 +162,8 @@ struct PlatformListViewModelTests {
     createAsset(name: "AAPL", platform: "Firstrade", in: context)
     createAsset(name: "BND", platform: "Vanguard", in: context)
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
 
     #expect(throws: PlatformError.duplicateName("vanguard")) {
       try viewModel.renamePlatform(from: "Firstrade", to: "vanguard")
@@ -168,7 +177,8 @@ struct PlatformListViewModelTests {
 
     let asset = createAsset(name: "AAPL", platform: "Firstrade", in: context)
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
     try viewModel.renamePlatform(from: "Firstrade", to: "  Interactive  Brokers  ")
 
     #expect(asset.platform == "Interactive Brokers")
@@ -182,7 +192,8 @@ struct PlatformListViewModelTests {
     createAsset(name: "AAPL", platform: "Firstrade", in: context)
     createAsset(name: "BND", platform: "Vanguard", in: context)
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
     try viewModel.renamePlatform(from: "Firstrade", to: "Interactive Brokers")
 
     viewModel.loadPlatforms()
@@ -201,7 +212,8 @@ struct PlatformListViewModelTests {
     createAsset(name: "AAPL", platform: "Firstrade", in: context)
     createAsset(name: "Unknown", platform: "", in: context)
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
     viewModel.loadPlatforms()
 
     #expect(viewModel.platformRows.count == 1)
@@ -213,7 +225,8 @@ struct PlatformListViewModelTests {
     let tc = makeTestContext()
     let context = tc.context
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
     viewModel.loadPlatforms()
 
     #expect(viewModel.platformRows.isEmpty)
@@ -240,7 +253,8 @@ struct PlatformListViewModelTests {
       name: "BTC", platform: "Coinbase",
       marketValue: 10000, snapshot: snapshot, context: context)
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
     viewModel.loadPlatforms()
 
     #expect(viewModel.platformRows.count == 3)
@@ -264,7 +278,8 @@ struct PlatformListViewModelTests {
 
     let asset = createAsset(name: "AAPL", platform: "Firstrade", in: context)
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
     try viewModel.renamePlatform(from: "Firstrade", to: "FIRSTRADE")
 
     #expect(asset.platform == "FIRSTRADE")
@@ -292,7 +307,8 @@ struct PlatformListViewModelTests {
       name: "AAPL", platform: "Firstrade",
       marketValue: 7000, snapshot: snap2, context: context)
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
     viewModel.loadPlatforms()
 
     let firstrade = viewModel.platformRows.first { $0.name == "Firstrade" }
@@ -314,7 +330,8 @@ struct PlatformListViewModelTests {
 
     createAsset(name: "AAPL", platform: "Firstrade", in: context)
 
-    let viewModel = PlatformListViewModel(modelContext: context)
+    let viewModel = PlatformListViewModel(
+      modelContext: context, settingsService: tc.settingsService)
 
     #expect(throws: PlatformError.emptyName) {
       try viewModel.renamePlatform(from: "Firstrade", to: "   ")

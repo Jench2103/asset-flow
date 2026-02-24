@@ -18,6 +18,9 @@ struct CategoryRowData: Identifiable {
   let assetCount: Int
 }
 
+/// Deviation threshold (in percentage points) for showing the warning indicator.
+let significantDeviationThreshold: Decimal = 5
+
 /// ViewModel for the Categories list screen.
 ///
 /// Manages category listing with allocation computation,
@@ -30,6 +33,7 @@ final class CategoryListViewModel {
 
   var categoryRows: [CategoryRowData] = []
   var targetAllocationSumWarning: String?
+  var hasSignificantDeviation = false
 
   init(modelContext: ModelContext, settingsService: SettingsService? = nil) {
     self.modelContext = modelContext
@@ -78,6 +82,13 @@ final class CategoryListViewModel {
       }
 
     targetAllocationSumWarning = computeTargetAllocationWarning(categories: allCategories)
+
+    hasSignificantDeviation = categoryRows.contains { row in
+      guard let target = row.targetAllocation, let current = row.currentAllocation else {
+        return false
+      }
+      return abs(current - target) > significantDeviationThreshold
+    }
   }
 
   // MARK: - Create

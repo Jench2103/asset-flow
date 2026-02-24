@@ -2939,6 +2939,28 @@
           }
         }
       }
+    },
+    "Categories marked with ⚠ have current allocations that differ from their target allocations by more than 5 percentage points." : {
+      "comment" : "Info banner shown at the top of the category list when at least one category has a significant allocation deviation.",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標有 ⚠ 的類別，其目前配置與目標配置相差超過 5 個百分點。"
+          }
+        }
+      }
+    },
+    "Current allocation differs from target by more than 5%." : {
+      "comment" : "Tooltip shown on the warning icon next to a category row when its current allocation deviates significantly from the target.",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前配置與目標相差超過 5%。"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

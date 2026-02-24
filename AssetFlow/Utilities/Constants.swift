@@ -36,5 +36,6 @@ enum Constants {
     static let appLockEnabled = "appLockEnabled"
     static let appSwitchTimeout = "appSwitchTimeout"
     static let screenLockTimeout = "screenLockTimeout"
+    static let platformOrder = "platformOrder"
   }
 }

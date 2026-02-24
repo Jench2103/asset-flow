@@ -51,7 +51,7 @@ final class PlatformListViewModel {
     // Build platform → total value lookup from latest snapshot
     let platformValues = buildPlatformValueLookup(allSnapshots: allSnapshots)
 
-    platformRows =
+    let rows =
       assetsByPlatform.map { platform, assets in
         PlatformRowData(
           name: platform,
@@ -59,9 +59,57 @@ final class PlatformListViewModel {
           totalValue: platformValues[platform] ?? 0
         )
       }
-      .sorted {
-        $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+
+    // Sort by stored order; unknown platforms go to the end alphabetically
+    let storedOrder = settingsService.platformOrder
+    let orderLookup = Dictionary(
+      uniqueKeysWithValues: storedOrder.enumerated().map { ($1, $0) }
+    )
+
+    platformRows = rows.sorted { lhs, rhs in
+      let lhsIndex = orderLookup[lhs.name]
+      let rhsIndex = orderLookup[rhs.name]
+      switch (lhsIndex, rhsIndex) {
+      case (.some(let lhsOrder), .some(let rhsOrder)):
+        return lhsOrder < rhsOrder
+
+      case (.some, .none):
+        return true
+
+      case (.none, .some):
+        return false
+
+      case (.none, .none):
+        return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
       }
+    }
+
+    // Sync stored order: prune removed platforms, append new ones
+    let currentNames = Set(platformRows.map(\.name))
+    var updatedOrder = storedOrder.filter { currentNames.contains($0) }
+    let knownNames = Set(updatedOrder)
+    for row in platformRows where !knownNames.contains(row.name) {
+      updatedOrder.append(row.name)
+    }
+    if updatedOrder != storedOrder {
+      settingsService.platformOrder = updatedOrder
+    }
+  }
+
+  // MARK: - Move
+
+  /// Reorders platforms by moving items at the given offsets to the target position.
+  func movePlatforms(from source: IndexSet, to destination: Int) {
+    var names = platformRows.map(\.name)
+    let adjustedDestination = destination - source.filter { $0 < destination }.count
+    let moved = source.sorted().map { names[$0] }
+    for index in source.sorted().reversed() {
+      names.remove(at: index)
+    }
+    let insertAt = min(adjustedDestination, names.count)
+    names.insert(contentsOf: moved, at: insertAt)
+    settingsService.platformOrder = names
+    loadPlatforms()
   }
 
   // MARK: - Rename

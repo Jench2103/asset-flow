@@ -57,6 +57,11 @@ struct PlatformListView: View {
         platformRow(rowData)
           .tag(rowData.name)
       }
+      .onMove { source, destination in
+        withAnimation(AnimationConstants.list) {
+          viewModel.movePlatforms(from: source, to: destination)
+        }
+      }
     }
     .accessibilityIdentifier("Platform List")
   }

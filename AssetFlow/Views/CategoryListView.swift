@@ -8,9 +8,6 @@
 import SwiftData
 import SwiftUI
 
-/// Deviation threshold (in percentage points) for showing the warning indicator.
-private let significantDeviationThreshold: Decimal = 5
-
 /// Category list view with add sheet and target allocation warning.
 ///
 /// Displays all categories with their target allocation, current allocation,
@@ -40,6 +37,11 @@ struct CategoryListView: View {
     VStack(spacing: 0) {
       if let warning = viewModel.targetAllocationSumWarning {
         warningBanner(warning)
+          .transition(.move(edge: .top).combined(with: .opacity))
+      }
+
+      if viewModel.hasSignificantDeviation {
+        deviationInfoBanner
           .transition(.move(edge: .top).combined(with: .opacity))
       }
 
@@ -97,6 +99,21 @@ struct CategoryListView: View {
     .background(.yellow.opacity(0.15))
   }
 
+  private var deviationInfoBanner: some View {
+    HStack {
+      Image(systemName: "info.circle.fill")
+        .foregroundStyle(.blue)
+      Text(
+        // swiftlint:disable:next line_length
+        "Categories marked with ⚠ have current allocations that differ from their target allocations by more than 5 percentage points."
+      )
+      .font(.caption)
+    }
+    .padding(8)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(.blue.opacity(0.08))
+  }
+
   // MARK: - Category List
 
   private var categoryList: some View {
@@ -150,6 +167,7 @@ struct CategoryListView: View {
             Image(systemName: "exclamationmark.triangle.fill")
               .foregroundStyle(.orange)
               .font(.caption)
+              .helpWhenUnlocked("Current allocation differs from target by more than 5%.")
           }
         }
 
