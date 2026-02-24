@@ -66,7 +66,13 @@ enum LockTrigger {
 @Observable
 @MainActor
 class AuthenticationService {
-  static let shared = AuthenticationService()
+  static let shared: AuthenticationService = {
+    #if TESTING
+      return AuthenticationService(laContextFactory: { PassthroughLAContext() })
+    #else
+      return AuthenticationService()
+    #endif
+  }()
 
   /// The UserDefaults instance used for persistence.
   private let userDefaults: UserDefaults
@@ -282,3 +288,16 @@ class AuthenticationService {
     return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
   }
 }
+
+// MARK: - Testing Support
+
+#if TESTING
+  /// An `LAContext` subclass that always succeeds without showing any system dialog.
+  /// Only compiled into the Testing build configuration.
+  private class PassthroughLAContext: LAContext {
+    override func canEvaluatePolicy(_: LAPolicy, error _: NSErrorPointer) -> Bool { true }
+    override func evaluatePolicy(_: LAPolicy, localizedReason _: String) async throws -> Bool {
+      true
+    }
+  }
+#endif
