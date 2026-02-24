@@ -124,6 +124,39 @@ struct ExchangeRateModelTests {
     #expect(decodedRates.count == 3)
   }
 
+  // MARK: - updateRates Tests
+
+  @Test("updateRates updates all fields and clears cache")
+  func testUpdateRatesClearsCacheAndUpdatesFields() throws {
+    let oldRates: [String: Double] = ["twd": 31.5]
+    let oldJSON = try JSONEncoder().encode(oldRates)
+    let oldDate = Date(timeIntervalSince1970: 1_000_000)
+    let exchangeRate = ExchangeRate(
+      baseCurrency: "usd",
+      ratesJSON: oldJSON,
+      fetchDate: oldDate,
+      isFallback: true
+    )
+
+    // Access rates to populate cache
+    _ = exchangeRate.rates
+
+    let newRates: [String: Double] = ["eur": 0.92, "jpy": 149.5]
+    let newJSON = try JSONEncoder().encode(newRates)
+    let newDate = Date(timeIntervalSince1970: 2_000_000)
+
+    exchangeRate.updateRates(baseCurrency: "eur", ratesJSON: newJSON, fetchDate: newDate)
+
+    #expect(exchangeRate.baseCurrency == "eur")
+    #expect(exchangeRate.fetchDate == newDate)
+    #expect(exchangeRate.isFallback == false)
+    // Cache should be cleared — decoded rates should reflect new JSON
+    let decoded = exchangeRate.rates
+    #expect(decoded["eur"] == 0.92)
+    #expect(decoded["jpy"] == 149.5)
+    #expect(decoded["twd"] == nil)
+  }
+
   // MARK: - Model Field Tests
 
   @Test("Asset has currency field")

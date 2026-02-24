@@ -44,6 +44,15 @@ final class ExchangeRate {
     return decoded
   }
 
+  /// Updates rate data in-place and clears the decoded cache.
+  func updateRates(baseCurrency: String, ratesJSON: Data, fetchDate: Date) {
+    self.baseCurrency = baseCurrency
+    self.ratesJSON = ratesJSON
+    self.fetchDate = fetchDate
+    self.isFallback = false
+    self._cachedRates = nil
+  }
+
   /// Convert a value from one currency to another using stored rates.
   ///
   /// Formula: `value / rates[from] * rates[to]`

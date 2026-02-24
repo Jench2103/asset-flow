@@ -56,6 +56,9 @@ struct SnapshotDetailView: View {
       summarySection
       assetBreakdownSection
       categoryAllocationSection
+      if viewModel.exchangeRate != nil && !viewModel.usedCurrencyRates.isEmpty {
+        exchangeRateSection
+      }
       cashFlowSection
       dangerZoneSection
     }
@@ -66,7 +69,7 @@ struct SnapshotDetailView: View {
     .onAppear {
       viewModel.loadData()
     }
-    .task {
+    .task(id: SettingsService.shared.mainCurrency) {
       await viewModel.fetchExchangeRatesIfNeeded()
     }
     .onChange(of: savFingerprint) {
@@ -288,6 +291,29 @@ struct SnapshotDetailView: View {
       }
     } header: {
       Text("Category Allocation")
+    }
+  }
+
+  // MARK: - Exchange Rate Section
+
+  private var exchangeRateSection: some View {
+    Section {
+      let baseCurrency = SettingsService.shared.mainCurrency
+
+      ForEach(viewModel.usedCurrencyRates, id: \.code) { entry in
+        LabeledContent(entry.code.uppercased()) {
+          Text("1 \(entry.code.uppercased()) = \(entry.rate) \(baseCurrency.uppercased())")
+            .monospacedDigit()
+        }
+      }
+    } header: {
+      HStack {
+        Text("Exchange Rates")
+        if viewModel.isFetchingRates {
+          ProgressView()
+            .controlSize(.mini)
+        }
+      }
     }
   }
 

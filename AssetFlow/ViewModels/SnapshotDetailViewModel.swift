@@ -24,6 +24,7 @@ struct CategoryAllocationData: Sendable {
 class SnapshotDetailViewModel {
   let snapshot: Snapshot
   private let modelContext: ModelContext
+  private let settingsService: SettingsService
 
   /// Direct asset values in this snapshot.
   var assetValues: [SnapshotAssetValue] = []
@@ -40,16 +41,17 @@ class SnapshotDetailViewModel {
   /// Error message from exchange rate fetch.
   var ratesFetchError: String?
 
-  init(snapshot: Snapshot, modelContext: ModelContext) {
+  init(snapshot: Snapshot, modelContext: ModelContext, settingsService: SettingsService? = nil) {
     self.snapshot = snapshot
     self.modelContext = modelContext
+    self.settingsService = settingsService ?? .shared
   }
 
   // MARK: - Computed Properties
 
   /// Display currency for this snapshot.
   private var displayCurrency: String {
-    SettingsService.shared.mainCurrency
+    settingsService.mainCurrency
   }
 
   /// Total portfolio value for this snapshot, converted to display currency.
@@ -103,6 +105,36 @@ class SnapshotDetailViewModel {
     }.sorted { $0.value > $1.value }
   }
 
+  /// Exchange rates filtered to only currencies used in this snapshot.
+  ///
+  /// Returns `(code, rate)` pairs where `rate` is the inverse rate (1 foreign = X base),
+  /// sorted alphabetically by currency code.
+  var usedCurrencyRates: [(code: String, rate: Double)] {
+    guard let er = exchangeRate else { return [] }
+    let display = displayCurrency.lowercased()
+    let rates = er.rates
+
+    var usedCodes = Set<String>()
+    for sav in assetValues {
+      let currency = sav.asset?.currency ?? ""
+      if !currency.isEmpty && currency.lowercased() != display {
+        usedCodes.insert(currency.lowercased())
+      }
+    }
+    for cf in cashFlowOperations {
+      if !cf.currency.isEmpty && cf.currency.lowercased() != display {
+        usedCodes.insert(cf.currency.lowercased())
+      }
+    }
+
+    return usedCodes.compactMap { code in
+      if let rate = rates[code], rate != 0 {
+        return (code: code, rate: 1.0 / rate)
+      }
+      return nil
+    }.sorted { $0.code < $1.code }
+  }
+
   // MARK: - Load Data
 
   /// Loads (or reloads) asset values and cash flow operations for the snapshot.
@@ -116,8 +148,10 @@ class SnapshotDetailViewModel {
   func fetchExchangeRatesIfNeeded() async {
     guard !isFetchingRates else { return }
 
-    guard snapshot.exchangeRate == nil else {
-      exchangeRate = snapshot.exchangeRate
+    if let existing = snapshot.exchangeRate,
+      existing.baseCurrency.lowercased() == displayCurrency.lowercased()
+    {
+      exchangeRate = existing
       return
     }
 
@@ -146,15 +180,19 @@ class SnapshotDetailViewModel {
         for: snapshot.date, baseCurrency: display)
       let ratesJSON = try JSONEncoder().encode(rates)
 
-      let er = ExchangeRate(
-        baseCurrency: display,
-        ratesJSON: ratesJSON,
-        fetchDate: snapshot.date
-      )
-      er.snapshot = snapshot
-      modelContext.insert(er)
-
-      exchangeRate = er
+      if let existing = snapshot.exchangeRate {
+        existing.updateRates(baseCurrency: display, ratesJSON: ratesJSON, fetchDate: snapshot.date)
+        exchangeRate = existing
+      } else {
+        let er = ExchangeRate(
+          baseCurrency: display,
+          ratesJSON: ratesJSON,
+          fetchDate: snapshot.date
+        )
+        er.snapshot = snapshot
+        modelContext.insert(er)
+        exchangeRate = er
+      }
       isFetchingRates = false
     } catch {
       ratesFetchError = error.localizedDescription

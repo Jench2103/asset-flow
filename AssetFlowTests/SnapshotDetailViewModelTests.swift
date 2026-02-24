@@ -537,6 +537,147 @@ struct SnapshotDetailViewModelTests {
     #expect(bondAlloc?.percentage == 25)
   }
 
+  // MARK: - Used Currency Rates
+
+  @Test("usedCurrencyRates returns foreign currencies only")
+  func usedCurrencyRatesExcludesDisplayCurrency() throws {
+    let tc = createSnapshotWithContext()
+    let (context, snapshot) = (tc.context, tc.snapshot)
+
+    let settings = SettingsService.createForTesting()
+    settings.mainCurrency = "usd"
+
+    let apple = Asset(name: "AAPL", platform: "Firstrade")
+    apple.currency = "usd"
+    context.insert(apple)
+    let sav1 = SnapshotAssetValue(marketValue: 15000)
+    sav1.snapshot = snapshot
+    sav1.asset = apple
+    context.insert(sav1)
+
+    let twStock = Asset(name: "2330", platform: "Fubon")
+    twStock.currency = "twd"
+    context.insert(twStock)
+    let sav2 = SnapshotAssetValue(marketValue: 500000)
+    sav2.snapshot = snapshot
+    sav2.asset = twStock
+    context.insert(sav2)
+
+    let rates: [String: Double] = ["twd": 31.5, "eur": 0.92]
+    let ratesJSON = try JSONEncoder().encode(rates)
+    let er = ExchangeRate(baseCurrency: "usd", ratesJSON: ratesJSON, fetchDate: Date())
+    er.snapshot = snapshot
+    context.insert(er)
+
+    let viewModel = SnapshotDetailViewModel(
+      snapshot: snapshot, modelContext: context, settingsService: settings)
+    viewModel.loadData()
+    viewModel.exchangeRate = er
+
+    let result = viewModel.usedCurrencyRates
+    // Only TWD should appear (EUR is not used by any asset)
+    #expect(result.count == 1)
+    #expect(result[0].code == "twd")
+    // Inverse rate: 1 / 31.5
+    #expect(abs(result[0].rate - (1.0 / 31.5)) < 0.0001)
+  }
+
+  @Test("usedCurrencyRates is empty when all assets use display currency")
+  func usedCurrencyRatesEmptyForSingleCurrency() throws {
+    let tc = createSnapshotWithContext()
+    let (context, snapshot) = (tc.context, tc.snapshot)
+
+    let settings = SettingsService.createForTesting()
+    settings.mainCurrency = "usd"
+
+    let (_, _) = createAssetWithValue(
+      name: "AAPL", platform: "Firstrade", marketValue: 15000,
+      snapshot: snapshot, context: context)
+
+    let rates: [String: Double] = ["twd": 31.5]
+    let ratesJSON = try JSONEncoder().encode(rates)
+    let er = ExchangeRate(baseCurrency: "usd", ratesJSON: ratesJSON, fetchDate: Date())
+    er.snapshot = snapshot
+    context.insert(er)
+
+    let viewModel = SnapshotDetailViewModel(
+      snapshot: snapshot, modelContext: context, settingsService: settings)
+    viewModel.loadData()
+    viewModel.exchangeRate = er
+
+    #expect(viewModel.usedCurrencyRates.isEmpty)
+  }
+
+  @Test("usedCurrencyRates includes cash flow currencies")
+  func usedCurrencyRatesIncludesCashFlowCurrencies() throws {
+    let tc = createSnapshotWithContext()
+    let (context, snapshot) = (tc.context, tc.snapshot)
+
+    let settings = SettingsService.createForTesting()
+    settings.mainCurrency = "usd"
+
+    let cf = CashFlowOperation(cashFlowDescription: "Transfer", amount: 100000)
+    cf.currency = "twd"
+    cf.snapshot = snapshot
+    context.insert(cf)
+
+    let rates: [String: Double] = ["twd": 31.5, "eur": 0.92]
+    let ratesJSON = try JSONEncoder().encode(rates)
+    let er = ExchangeRate(baseCurrency: "usd", ratesJSON: ratesJSON, fetchDate: Date())
+    er.snapshot = snapshot
+    context.insert(er)
+
+    let viewModel = SnapshotDetailViewModel(
+      snapshot: snapshot, modelContext: context, settingsService: settings)
+    viewModel.loadData()
+    viewModel.exchangeRate = er
+
+    let result = viewModel.usedCurrencyRates
+    #expect(result.count == 1)
+    #expect(result[0].code == "twd")
+  }
+
+  @Test("usedCurrencyRates sorted alphabetically by code")
+  func usedCurrencyRatesSortedAlphabetically() throws {
+    let tc = createSnapshotWithContext()
+    let (context, snapshot) = (tc.context, tc.snapshot)
+
+    let settings = SettingsService.createForTesting()
+    settings.mainCurrency = "usd"
+
+    let twStock = Asset(name: "2330", platform: "Fubon")
+    twStock.currency = "twd"
+    context.insert(twStock)
+    let sav1 = SnapshotAssetValue(marketValue: 500000)
+    sav1.snapshot = snapshot
+    sav1.asset = twStock
+    context.insert(sav1)
+
+    let euStock = Asset(name: "SAP", platform: "IBKR")
+    euStock.currency = "eur"
+    context.insert(euStock)
+    let sav2 = SnapshotAssetValue(marketValue: 10000)
+    sav2.snapshot = snapshot
+    sav2.asset = euStock
+    context.insert(sav2)
+
+    let rates: [String: Double] = ["twd": 31.5, "eur": 0.92]
+    let ratesJSON = try JSONEncoder().encode(rates)
+    let er = ExchangeRate(baseCurrency: "usd", ratesJSON: ratesJSON, fetchDate: Date())
+    er.snapshot = snapshot
+    context.insert(er)
+
+    let viewModel = SnapshotDetailViewModel(
+      snapshot: snapshot, modelContext: context, settingsService: settings)
+    viewModel.loadData()
+    viewModel.exchangeRate = er
+
+    let result = viewModel.usedCurrencyRates
+    #expect(result.count == 2)
+    #expect(result[0].code == "eur")
+    #expect(result[1].code == "twd")
+  }
+
   // MARK: - Sorted Asset Display
 
   @Test("Asset values sorted by platform then asset name")

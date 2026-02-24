@@ -150,6 +150,7 @@ ______________________________________________________________________
 - Full asset breakdown table sorted by platform (alphabetical), then by asset name (alphabetical)
 - Columns: Asset Name, Platform, Category, Market Value
 - Category allocation summary for this snapshot
+- Exchange rates section (only for multi-currency snapshots): shows used currency rates in "1 foreign = X base" format; auto-fetches when missing or when display currency changes
 - Cash flow operations table: Description, Amount
 - Net cash flow summary line
 - Actions: Add asset, Edit values, Remove asset, Delete snapshot, Add cash flow, Edit cash flow, Remove cash flow
