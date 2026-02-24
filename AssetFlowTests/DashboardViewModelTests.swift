@@ -177,48 +177,6 @@ struct DashboardViewModelTests {
     #expect(viewModel.assetCount == 1)
   }
 
-  @Test("Value change from previous snapshot")
-  func valueChange() {
-    let tc = createTestContext()
-
-    createSnapshot(
-      in: tc.context,
-      date: makeDate(year: 2025, month: 1, day: 1),
-      assets: [("AAPL", "Firstrade", 100_000, nil)]
-    )
-    createSnapshot(
-      in: tc.context,
-      date: makeDate(year: 2025, month: 2, day: 1),
-      assets: [("AAPL", "Firstrade", 110_000, nil)]
-    )
-
-    let viewModel = DashboardViewModel(modelContext: tc.context)
-    viewModel.loadData()
-
-    #expect(viewModel.valueChangeAbsolute == 10_000)
-    #expect(viewModel.valueChangePercentage != nil)
-    // 10,000 / 100,000 = 0.10
-    let pct = try! #require(viewModel.valueChangePercentage)
-    #expect(abs(pct - Decimal(string: "0.1")!) < Decimal(string: "0.001")!)
-  }
-
-  @Test("Value change is nil when only one snapshot")
-  func valueChangeNilWithOneSnapshot() {
-    let tc = createTestContext()
-
-    createSnapshot(
-      in: tc.context,
-      date: makeDate(year: 2025, month: 1, day: 1),
-      assets: [("AAPL", "Firstrade", 100_000, nil)]
-    )
-
-    let viewModel = DashboardViewModel(modelContext: tc.context)
-    viewModel.loadData()
-
-    #expect(viewModel.valueChangeAbsolute == nil)
-    #expect(viewModel.valueChangePercentage == nil)
-  }
-
   // MARK: - Cumulative TWR and CAGR
 
   @Test("Cumulative TWR with multiple snapshots and no cash flows")
@@ -780,33 +738,6 @@ struct DashboardViewModelTests {
     #expect(history["Uncategorized"] != nil)
     #expect(history["Equities"]?.first?.value == 75_000)
     #expect(history["Uncategorized"]?.first?.value == 25_000)
-  }
-
-  // MARK: - Percentage Scaling
-
-  @Test("Dashboard percentage metrics require 100x scaling for formattedPercentage")
-  func percentageMetricsRequireScaling() throws {
-    let tc = createTestContext()
-
-    createSnapshot(
-      in: tc.context,
-      date: makeDate(year: 2025, month: 1, day: 1),
-      assets: [("AAPL", "Firstrade", 1_000, nil)]
-    )
-    createSnapshot(
-      in: tc.context,
-      date: makeDate(year: 2025, month: 2, day: 1),
-      assets: [("AAPL", "Firstrade", 2_000, nil)]
-    )
-
-    let viewModel = DashboardViewModel(modelContext: tc.context)
-    viewModel.loadData()
-
-    let pct = try #require(viewModel.valueChangePercentage)
-    // Raw decimal is 1.0 (100% growth). Must scale before formatting.
-    let formatted = (pct * 100).formattedPercentage()
-    // The formatted string should contain "100", not "1" or "0"
-    #expect(formatted.contains("100"))
   }
 
   @Test("categoryValueHistory tracks values across multiple snapshots")

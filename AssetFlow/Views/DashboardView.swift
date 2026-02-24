@@ -96,9 +96,7 @@ struct DashboardView: View {
       HeroMetricCard(
         title: "Total Portfolio Value",
         value: viewModel.totalPortfolioValue.formatted(
-          currency: SettingsService.shared.mainCurrency),
-        subtitle: valueChangeSubtitle,
-        subtitleColor: valueChangeColor
+          currency: SettingsService.shared.mainCurrency)
       )
 
       // Secondary metrics grid
@@ -133,23 +131,6 @@ struct DashboardView: View {
         )
       }
     }
-  }
-
-  private var valueChangeSubtitle: String? {
-    guard let absolute = viewModel.valueChangeAbsolute,
-      let percentage = viewModel.valueChangePercentage
-    else { return nil }
-    let sign = absolute >= 0 ? "+" : ""
-    let currency = SettingsService.shared.mainCurrency
-    let pctStr = (percentage * 100).formattedPercentage()
-    return "\(sign)\(absolute.formatted(currency: currency)) (\(pctStr))"
-  }
-
-  private var valueChangeColor: Color? {
-    guard let absolute = viewModel.valueChangeAbsolute else { return nil }
-    if absolute > 0 { return .green }
-    if absolute < 0 { return .red }
-    return .secondary
   }
 
   private func rateColor(for value: Decimal?) -> Color {
@@ -377,34 +358,26 @@ struct DashboardView: View {
 private struct HeroMetricCard: View {
   let title: LocalizedStringKey
   let value: String
-  var subtitle: String?
-  var subtitleColor: Color?
 
   var body: some View {
-    HStack(alignment: .bottom, spacing: 0) {
-      VStack(alignment: .leading, spacing: 4) {
+    HStack {
+      VStack(alignment: .leading) {
         Text(title)
           .font(.caption)
           .foregroundStyle(.secondary)
-
-        Text(value)
-          .font(.largeTitle.bold())
-          .monospacedDigit()
-          .lineLimit(1)
-          .minimumScaleFactor(0.7)
-          .contentTransition(.numericText())
+        Spacer()
       }
 
-      Spacer(minLength: 12)
+      Spacer()
 
-      if let subtitle {
-        Text(subtitle)
-          .font(.callout)
-          .foregroundStyle(subtitleColor ?? .secondary)
-          .multilineTextAlignment(.trailing)
-          .contentTransition(.numericText())
-          .padding(.bottom, 2)
-      }
+      Text(value)
+        .font(.largeTitle.bold())
+        .monospacedDigit()
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .contentTransition(.numericText())
+
+      Spacer()
     }
     .padding()
     .frame(maxWidth: .infinity)

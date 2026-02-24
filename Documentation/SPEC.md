@@ -79,7 +79,7 @@ The dashboard provides a portfolio overview using the latest snapshot.
 
 1. **Summary cards row:**
 
-   - Total Portfolio Value (with change from previous snapshot, absolute and percentage)
+   - Total Portfolio Value
    - Latest Snapshot Date
    - Number of Assets
    - Cumulative TWR (All Time) (since first snapshot)

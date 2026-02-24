@@ -68,12 +68,6 @@ class DashboardViewModel {
   /// Number of assets in the latest snapshot.
   var assetCount: Int = 0
 
-  /// Absolute value change from previous to latest snapshot.
-  var valueChangeAbsolute: Decimal?
-
-  /// Percentage value change from previous to latest snapshot.
-  var valueChangePercentage: Decimal?
-
   /// Cumulative TWR since first snapshot.
   var cumulativeTWR: Decimal?
 
@@ -117,8 +111,6 @@ class DashboardViewModel {
       totalPortfolioValue = 0
       latestSnapshotDate = nil
       assetCount = 0
-      valueChangeAbsolute = nil
-      valueChangePercentage = nil
       cumulativeTWR = nil
       cagr = nil
       categoryAllocations = []
@@ -253,19 +245,6 @@ class DashboardViewModel {
     totalPortfolioValue = snapshotTotal(for: latestSnapshot)
     latestSnapshotDate = latestSnapshot.date
     assetCount = (latestSnapshot.assetValues ?? []).count
-
-    // Value change from previous snapshot
-    if sortedSnapshots.count >= 2 {
-      let previousSnapshot = sortedSnapshots[sortedSnapshots.count - 2]
-      let previousTotal = snapshotTotal(for: previousSnapshot)
-
-      valueChangeAbsolute = totalPortfolioValue - previousTotal
-      valueChangePercentage = CalculationService.growthRate(
-        beginValue: previousTotal, endValue: totalPortfolioValue)
-    } else {
-      valueChangeAbsolute = nil
-      valueChangePercentage = nil
-    }
 
     // Cumulative TWR — treat nil returns as 0% (identity) to match twrHistory
     if sortedSnapshots.count >= 2 {
