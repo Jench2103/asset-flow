@@ -72,6 +72,8 @@ Stateless enums or classes with no direct SwiftData dependency:
 
 **ViewModel empty↔content transitions:** Don't use `.animation(_:value:)` for empty↔content in ViewModel-based views (flashes on load). Use instant swap; `withAnimation` only in user-action handlers (`onChange`, delete). `@Query`-based views can animate safely.
 
+**Use `.helpWhenUnlocked()` not `.help()`:** The app supports app lock via `AuthenticationService`. `.help("…")` tooltips are visible on the lock screen, leaking content. Always use `.helpWhenUnlocked("…")` to restrict tooltips to authenticated sessions.
+
 **Chart requirements:** Every chart in `Views/Charts/` needs: hover tooltip (`.chartOverlay` + `onContinuousHover` + `RuleMark`), empty state messages (no data, no data for time range, single data point), click-to-navigate where specified, `ChartTimeRangeSelector` binding.
 
 ## Naming
