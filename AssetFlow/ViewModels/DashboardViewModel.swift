@@ -24,6 +24,14 @@ enum DashboardPeriod: CaseIterable {
   }
 }
 
+/// A resolved period with its begin and end snapshots.
+private struct ResolvedPeriod {
+  let beginSnapshot: Snapshot
+  let endSnapshot: Snapshot
+  var beginDate: Date { beginSnapshot.date }
+  var endDate: Date { endSnapshot.date }
+}
+
 /// Data point for portfolio value or TWR history charts.
 struct DashboardDataPoint {
   let date: Date
@@ -156,12 +164,11 @@ class DashboardViewModel {
 
   // MARK: - Period Performance
 
-  /// Growth rate for a given period (SPEC Section 10.3).
+  /// Resolves a period to its begin and end snapshots using bidirectional lookback.
   ///
-  /// Finds the most recent snapshot on or before the lookback date.
-  /// Returns nil if no such snapshot exists, or if it's more than 14 days
-  /// before the lookback target date.
-  func growthRate(for period: DashboardPeriod) -> Decimal? {
+  /// Finds the closest snapshot to the lookback target date (in either direction),
+  /// with no distance limit. When equidistant, prefers the earlier snapshot.
+  private func resolvePeriod(for period: DashboardPeriod) -> ResolvedPeriod? {
     guard sortedSnapshotsCache.count >= 2 else { return nil }
     guard let latestSnapshot = sortedSnapshotsCache.last else { return nil }
 
@@ -171,42 +178,40 @@ class DashboardViewModel {
     else { return nil }
 
     guard
-      let beginSnapshot = findSnapshotForLookback(
-        targetDate: lookbackDate, sortedSnapshots: sortedSnapshotsCache,
-        excludingLatest: latestSnapshot)
+      let beginSnapshot = findClosestSnapshot(
+        to: lookbackDate, excluding: latestSnapshot, in: sortedSnapshotsCache)
     else { return nil }
 
-    let beginValue = snapshotTotal(for: beginSnapshot)
-    let endValue = snapshotTotal(for: latestSnapshot)
+    return ResolvedPeriod(
+      beginSnapshot: beginSnapshot, endSnapshot: latestSnapshot)
+  }
+
+  /// Growth rate for a given period (SPEC Section 10.3).
+  ///
+  /// Uses bidirectional lookback to find the closest snapshot to the target date.
+  /// Returns nil if fewer than 2 snapshots exist.
+  func growthRate(for period: DashboardPeriod) -> Decimal? {
+    guard let resolved = resolvePeriod(for: period) else { return nil }
+
+    let beginValue = snapshotTotal(for: resolved.beginSnapshot)
+    let endValue = snapshotTotal(for: resolved.endSnapshot)
 
     return CalculationService.growthRate(beginValue: beginValue, endValue: endValue)
   }
 
   /// Modified Dietz return for a given period (SPEC Section 10.4).
   ///
-  /// Uses the same lookback logic as growthRate. Gathers intermediate cash flows
-  /// from snapshots strictly after the begin snapshot through the latest.
+  /// Uses the same bidirectional lookback as growthRate. Gathers intermediate cash
+  /// flows from snapshots strictly after the begin snapshot through the latest.
   func returnRate(for period: DashboardPeriod) -> Decimal? {
-    guard sortedSnapshotsCache.count >= 2 else { return nil }
-    guard let latestSnapshot = sortedSnapshotsCache.last else { return nil }
+    guard let resolved = resolvePeriod(for: period) else { return nil }
 
-    guard
-      let lookbackDate = Calendar.current.date(
-        byAdding: .month, value: -period.months, to: latestSnapshot.date)
-    else { return nil }
-
-    guard
-      let beginSnapshot = findSnapshotForLookback(
-        targetDate: lookbackDate, sortedSnapshots: sortedSnapshotsCache,
-        excludingLatest: latestSnapshot)
-    else { return nil }
-
-    let beginValue = snapshotTotal(for: beginSnapshot)
-    let endValue = snapshotTotal(for: latestSnapshot)
+    let beginValue = snapshotTotal(for: resolved.beginSnapshot)
+    let endValue = snapshotTotal(for: resolved.endSnapshot)
 
     let totalDays =
       Calendar.current.dateComponents(
-        [.day], from: beginSnapshot.date, to: latestSnapshot.date
+        [.day], from: resolved.beginDate, to: resolved.endDate
       ).day ?? 0
 
     guard totalDays > 0 else { return nil }
@@ -214,7 +219,7 @@ class DashboardViewModel {
     // Gather cash flows from snapshots strictly after begin through latest (inclusive)
     let displayCurrency = SettingsService.shared.mainCurrency
     let intermediateSnapshots = sortedSnapshotsCache.filter {
-      $0.date > beginSnapshot.date && $0.date <= latestSnapshot.date
+      $0.date > resolved.beginDate && $0.date <= resolved.endDate
     }
 
     var cashFlows: [(amount: Decimal, daysSinceStart: Int)] = []
@@ -223,7 +228,7 @@ class DashboardViewModel {
         for: snapshot, displayCurrency: displayCurrency, exchangeRate: snapshot.exchangeRate)
       if netCashFlow != 0 {
         let daysSinceStart =
-          Calendar.current.dateComponents([.day], from: beginSnapshot.date, to: snapshot.date).day
+          Calendar.current.dateComponents([.day], from: resolved.beginDate, to: snapshot.date).day
           ?? 0
         cashFlows.append((amount: netCashFlow, daysSinceStart: daysSinceStart))
       }
@@ -232,6 +237,12 @@ class DashboardViewModel {
     return CalculationService.modifiedDietzReturn(
       beginValue: beginValue, endValue: endValue,
       cashFlows: cashFlows, totalDays: totalDays)
+  }
+
+  /// Returns the actual date range for a resolved period.
+  func periodDateRange(for period: DashboardPeriod) -> (begin: Date, end: Date)? {
+    guard let resolved = resolvePeriod(for: period) else { return nil }
+    return (begin: resolved.beginDate, end: resolved.endDate)
   }
 
   // MARK: - Private: Summary Cards
@@ -427,7 +438,7 @@ class DashboardViewModel {
 
       // Cash flows from snapshots strictly after begin through end (inclusive)
       let displayCurrency = SettingsService.shared.mainCurrency
-      let intermediateSnapshots = sortedSnapshotsCache.filter {
+      let intermediateSnapshots = sortedSnapshots.filter {
         $0.date > begin.date && $0.date <= end.date
       }
 
@@ -451,24 +462,26 @@ class DashboardViewModel {
     return returns
   }
 
-  /// Finds the most recent snapshot on or before the target lookback date.
-  /// Returns nil if none exists or if the found snapshot is more than 14 days
-  /// before the target date (SPEC Section 10.3/10.4 lookback tolerance).
-  private func findSnapshotForLookback(
-    targetDate: Date, sortedSnapshots: [Snapshot], excludingLatest: Snapshot
+  /// Finds the closest snapshot to the target date in either direction.
+  ///
+  /// Uses absolute day distance with no distance limit. When equidistant,
+  /// prefers the earlier snapshot.
+  private func findClosestSnapshot(
+    to targetDate: Date, excluding excluded: Snapshot, in snapshots: [Snapshot]
   ) -> Snapshot? {
-    let candidates = sortedSnapshots.filter {
-      $0.date <= targetDate && $0.id != excludingLatest.id
+    let candidates = snapshots.filter { $0.id != excluded.id }
+    guard !candidates.isEmpty else { return nil }
+
+    return candidates.min { lhs, rhs in
+      let distLHS = abs(
+        Calendar.current.dateComponents([.day], from: lhs.date, to: targetDate).day ?? 0)
+      let distRHS = abs(
+        Calendar.current.dateComponents([.day], from: rhs.date, to: targetDate).day ?? 0)
+      if distLHS != distRHS {
+        return distLHS < distRHS
+      }
+      // Tie-break: prefer earlier snapshot
+      return lhs.date < rhs.date
     }
-    guard let closest = candidates.last else { return nil }
-
-    let daysDifference =
-      Calendar.current.dateComponents(
-        [.day], from: closest.date, to: targetDate
-      ).day ?? 0
-
-    guard daysDifference <= 14 else { return nil }
-
-    return closest
   }
 }

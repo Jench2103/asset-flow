@@ -363,11 +363,12 @@ struct DashboardViewModelTests {
     }
   }
 
-  @Test("Growth rate returns nil when no snapshot within lookback window")
-  func growthRateNilOutsideLookback() {
+  @Test("Growth rate uses distant snapshot when no closer one exists (no distance limit)")
+  func growthRateUsesDistantSnapshot() {
     let tc = createTestContext()
 
     // Snapshot very old - more than 14 days before 1M lookback target
+    // With bidirectional lookback and no distance limit, this should still be found
     createSnapshot(
       in: tc.context,
       date: makeDate(year: 2020, month: 1, day: 1),
@@ -384,9 +385,14 @@ struct DashboardViewModelTests {
     let viewModel = DashboardViewModel(modelContext: tc.context)
     viewModel.loadData()
 
-    // 1M growth: lookback target is ~30 days ago, but closest prior is 5+ years ago
-    // That's >14 days before the target, so N/A
-    #expect(viewModel.growthRate(for: .oneMonth) == nil)
+    // 1M growth: lookback target is ~30 days ago, closest is 5+ years ago
+    // With no distance limit, the distant snapshot IS used
+    let growth = viewModel.growthRate(for: .oneMonth)
+    #expect(growth != nil)
+    // growth = (110,000 - 100,000) / 100,000 = 0.10
+    if let g = growth {
+      #expect(abs(g - Decimal(string: "0.1")!) < Decimal(string: "0.01")!)
+    }
   }
 
   // MARK: - Period Performance: Return Rate (Modified Dietz)
@@ -829,4 +835,187 @@ struct DashboardViewModelTests {
     #expect(equitySeries?[0].value == 100_000)
     #expect(equitySeries?[1].value == 120_000)
   }
+
+  // MARK: - Bidirectional Lookback
+
+  @Test("Bidirectional lookback finds snapshot after target date")
+  func bidirectionalLookbackFindsAfterTarget() {
+    let tc = createTestContext()
+
+    // Latest snapshot: Feb 14
+    // 1M lookback target: Jan 14
+    // Only other snapshot: Jan 24 (AFTER target)
+    // Old behavior: N/A (only searched on-or-before). New: finds Jan 24.
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 24),
+      assets: [("AAPL", "Firstrade", 100_000, nil)]
+    )
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 2, day: 14),
+      assets: [("AAPL", "Firstrade", 110_000, nil)]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    // 1M lookback from Feb 14 → target Jan 14. Closest is Jan 24 (10 days after).
+    let growth = viewModel.growthRate(for: .oneMonth)
+    #expect(growth != nil)
+    // growth = (110,000 - 100,000) / 100,000 = 0.10
+    if let g = growth {
+      #expect(abs(g - Decimal(string: "0.1")!) < Decimal(string: "0.01")!)
+    }
+  }
+
+  @Test("Closest snapshot wins regardless of direction")
+  func closestSnapshotWinsRegardlessOfDirection() {
+    let tc = createTestContext()
+
+    // Latest: Feb 14. 1M target: Jan 14.
+    // Candidate A: Jan 10 (4 days before target)
+    // Candidate B: Jan 20 (6 days after target)
+    // Closest to target is Jan 10.
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 10),
+      assets: [("AAPL", "Firstrade", 100_000, nil)]
+    )
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 20),
+      assets: [("AAPL", "Firstrade", 105_000, nil)]
+    )
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 2, day: 14),
+      assets: [("AAPL", "Firstrade", 110_000, nil)]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    // Growth from Jan 10 → Feb 14: (110,000 - 100,000) / 100,000 = 0.10
+    let growth = viewModel.growthRate(for: .oneMonth)
+    #expect(growth != nil)
+    if let g = growth {
+      #expect(abs(g - Decimal(string: "0.1")!) < Decimal(string: "0.01")!)
+    }
+  }
+
+  @Test("Equidistant snapshots: prefer earlier one")
+  func equidistantPreferEarlier() {
+    let tc = createTestContext()
+
+    // Latest: Feb 14. 1M target: Jan 14.
+    // Candidate A: Jan 12 (2 days before target)
+    // Candidate B: Jan 16 (2 days after target)
+    // Equidistant → prefer earlier (Jan 12).
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 12),
+      assets: [("AAPL", "Firstrade", 100_000, nil)]
+    )
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 16),
+      assets: [("AAPL", "Firstrade", 105_000, nil)]
+    )
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 2, day: 14),
+      assets: [("AAPL", "Firstrade", 110_000, nil)]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    // Growth from Jan 12 → Feb 14: (110,000 - 100,000) / 100,000 = 0.10
+    let growth = viewModel.growthRate(for: .oneMonth)
+    #expect(growth != nil)
+    if let g = growth {
+      #expect(abs(g - Decimal(string: "0.1")!) < Decimal(string: "0.01")!)
+    }
+
+    // Explicitly verify the begin date is Jan 12 (not Jan 16)
+    let range = viewModel.periodDateRange(for: .oneMonth)
+    #expect(range?.begin == makeDate(year: 2025, month: 1, day: 12))
+  }
+
+  @Test("Return rate works when begin snapshot is after target date")
+  func returnRateWithAfterTargetBegin() {
+    let tc = createTestContext()
+
+    // Latest: Feb 14. 1M target: Jan 14.
+    // Begin: Jan 24 (after target). Should still compute Modified Dietz.
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 24),
+      assets: [("AAPL", "Firstrade", 100_000, nil)]
+    )
+
+    // Intermediate snapshot with cash flow
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 2, day: 4),
+      assets: [("AAPL", "Firstrade", 115_000, nil)],
+      cashFlows: [("Deposit", 10_000)]
+    )
+
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 2, day: 14),
+      assets: [("AAPL", "Firstrade", 120_000, nil)]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    let returnRate = viewModel.returnRate(for: .oneMonth)
+    #expect(returnRate != nil)
+  }
+
+  @Test("periodDateRange returns correct begin and end dates")
+  func periodDateRangeReturnsCorrectDates() {
+    let tc = createTestContext()
+
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 24),
+      assets: [("AAPL", "Firstrade", 100_000, nil)]
+    )
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 2, day: 14),
+      assets: [("AAPL", "Firstrade", 110_000, nil)]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    let range = viewModel.periodDateRange(for: .oneMonth)
+    #expect(range != nil)
+    #expect(range?.begin == makeDate(year: 2025, month: 1, day: 24))
+    #expect(range?.end == makeDate(year: 2025, month: 2, day: 14))
+  }
+
+  @Test("periodDateRange returns nil with only one snapshot")
+  func periodDateRangeNilWithOneSnapshot() {
+    let tc = createTestContext()
+
+    createSnapshot(
+      in: tc.context,
+      date: makeDate(year: 2025, month: 1, day: 1),
+      assets: [("AAPL", "Firstrade", 100_000, nil)]
+    )
+
+    let viewModel = DashboardViewModel(modelContext: tc.context)
+    viewModel.loadData()
+
+    #expect(viewModel.periodDateRange(for: .oneMonth) == nil)
+    #expect(viewModel.periodDateRange(for: .threeMonths) == nil)
+    #expect(viewModel.periodDateRange(for: .oneYear) == nil)
+  }
+
 }

@@ -161,33 +161,44 @@ struct DashboardView: View {
 
   // MARK: - Period Performance
 
+  private func dateRangeSubtitle(for period: DashboardPeriod) -> String? {
+    guard let range = viewModel.periodDateRange(for: period) else { return nil }
+    let beginStr = range.begin.settingsFormatted()
+    let endStr = range.end.settingsFormatted()
+    return "\(beginStr) – \(endStr)"
+  }
+
   private var periodPerformanceRow: some View {
     HStack(spacing: 12) {
       // Growth Rate card
-      VStack(alignment: .leading, spacing: 8) {
-        HStack(alignment: .center) {
+      HStack {
+        VStack(alignment: .leading) {
           Text("Growth Rate")
             .font(.caption)
             .foregroundStyle(.secondary)
           Spacer()
-          Picker("Period", selection: $growthRatePeriod) {
-            Text("1M").tag(DashboardPeriod.oneMonth)
-            Text("3M").tag(DashboardPeriod.threeMonths)
-            Text("1Y").tag(DashboardPeriod.oneYear)
-          }
-          .pickerStyle(.segmented)
-          .labelsHidden()
-          .controlSize(.small)
-          .fixedSize()
         }
+
+        Spacer()
 
         let growthValue = viewModel.growthRate(for: growthRatePeriod)
         Text(growthValue.map { ($0 * 100).formattedPercentage() } ?? "N/A")
-          .font(.title2.bold())
+          .font(.title.bold())
           .monospacedDigit()
-          .frame(maxWidth: .infinity, alignment: .trailing)
           .foregroundStyle(rateColor(for: growthValue))
           .contentTransition(.numericText())
+
+        Spacer()
+
+        VStack(alignment: .trailing) {
+          periodPicker(selection: $growthRatePeriod)
+          Spacer()
+          if growthValue != nil, let subtitle = dateRangeSubtitle(for: growthRatePeriod) {
+            Text(subtitle)
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+          }
+        }
       }
       .padding()
       .frame(maxWidth: .infinity)
@@ -200,30 +211,34 @@ struct DashboardView: View {
       .animation(AnimationConstants.numericText, value: growthRatePeriod)
 
       // Return Rate card
-      VStack(alignment: .leading, spacing: 8) {
-        HStack(alignment: .center) {
+      HStack {
+        VStack(alignment: .leading) {
           Text("Return Rate")
             .font(.caption)
             .foregroundStyle(.secondary)
           Spacer()
-          Picker("Period", selection: $returnRatePeriod) {
-            Text("1M").tag(DashboardPeriod.oneMonth)
-            Text("3M").tag(DashboardPeriod.threeMonths)
-            Text("1Y").tag(DashboardPeriod.oneYear)
-          }
-          .pickerStyle(.segmented)
-          .labelsHidden()
-          .controlSize(.small)
-          .fixedSize()
         }
+
+        Spacer()
 
         let returnValue = viewModel.returnRate(for: returnRatePeriod)
         Text(returnValue.map { ($0 * 100).formattedPercentage() } ?? "N/A")
-          .font(.title2.bold())
+          .font(.title.bold())
           .monospacedDigit()
-          .frame(maxWidth: .infinity, alignment: .trailing)
           .foregroundStyle(rateColor(for: returnValue))
           .contentTransition(.numericText())
+
+        Spacer()
+
+        VStack(alignment: .trailing) {
+          periodPicker(selection: $returnRatePeriod)
+          Spacer()
+          if returnValue != nil, let subtitle = dateRangeSubtitle(for: returnRatePeriod) {
+            Text(subtitle)
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+          }
+        }
       }
       .padding()
       .frame(maxWidth: .infinity)
@@ -235,6 +250,18 @@ struct DashboardView: View {
       )
       .animation(AnimationConstants.numericText, value: returnRatePeriod)
     }
+  }
+
+  private func periodPicker(selection: Binding<DashboardPeriod>) -> some View {
+    Picker("Period", selection: selection) {
+      Text("1M").tag(DashboardPeriod.oneMonth)
+      Text("3M").tag(DashboardPeriod.threeMonths)
+      Text("1Y").tag(DashboardPeriod.oneYear)
+    }
+    .pickerStyle(.segmented)
+    .labelsHidden()
+    .controlSize(.small)
+    .fixedSize()
   }
 
   // MARK: - Charts Section

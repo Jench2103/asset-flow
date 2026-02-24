@@ -679,7 +679,7 @@ growth_rate = (Ending_Value - Beginning_Value) / Beginning_Value
 
 Useful for tracking how total wealth changes over time.
 
-**Period lookback:** For 1M, 3M, and 1Y growth, find the most recent snapshot whose date is on or before the target lookback date (current date minus 1/3/12 months). If that snapshot's date is more than 14 calendar days before the target lookback date, return N/A for that period — using a distant snapshot would misrepresent the actual time span. If no such snapshot exists at all, also return N/A.
+**Period lookback:** For 1M, 3M, and 1Y growth, compute the target lookback date (latest snapshot date minus 1/3/12 months), then find the closest snapshot to that target in either direction (before or after), with no distance limit. When two snapshots are equidistant from the target, prefer the earlier one. The actual date range is displayed below the rate value so users can see the true period covered.
 
 ### 10.4 Modified Dietz Return
 
@@ -719,7 +719,7 @@ Weighted cash flow = 0.667 * 100,000 = 66,700 (added to denominator)
 
 A cash flow at the very start (day 0) gets weight 1.0 (fully invested for the period). A cash flow at the very end (day 90) gets weight 0.0 (not invested at all during the period).
 
-**Period lookback:** For 1M, 3M, and 1Y returns, find the most recent snapshot whose date is on or before the target lookback date. If that snapshot's date is more than 14 calendar days before the target lookback date, return N/A for that period. Otherwise, use it as the beginning snapshot and gather all cash flows from intermediate snapshots for time-weighting.
+**Period lookback:** For 1M, 3M, and 1Y returns, use the same bidirectional lookback as growth rate: find the closest snapshot to the target date in either direction, with no distance limit. When equidistant, prefer the earlier snapshot. Use the resolved snapshot as the beginning and gather all cash flows from intermediate snapshots for time-weighting.
 
 **Supported levels:**
 
@@ -751,18 +751,18 @@ Available for portfolio-level only in v1.
 
 ### 10.7 Edge Cases
 
-| Scenario                            | Behavior                                                                                                                                                                                                                           |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Only one snapshot                   | Growth/return/TWR/CAGR = N/A. Display "Insufficient data"                                                                                                                                                                          |
-| Beginning value = 0                 | Return = N/A for that period. Display "Cannot calculate"                                                                                                                                                                           |
-| Beginning value < 0                 | Return = N/A for that period. Display "Cannot calculate"                                                                                                                                                                           |
-| Denominator (BMV + weighted CF) ≤ 0 | Return = N/A. Display "Cannot calculate"                                                                                                                                                                                           |
-| Category has no assets              | Allocation = 0%, return = N/A                                                                                                                                                                                                      |
-| All assets uncategorized            | Uncategorized group shows 100% allocation                                                                                                                                                                                          |
-| No snapshot within lookback window  | That period metric = N/A. Specifically: find the most recent snapshot on or before the target lookback date; if none exists, or if that snapshot's date is more than 14 calendar days before the target lookback date, return N/A. |
-| Period < 1 year for CAGR            | Still calculate using fractional years (may produce large annualized numbers — display with note)                                                                                                                                  |
-| Negative period return > -100%      | Display normally                                                                                                                                                                                                                   |
-| Net cash flow but no value change   | Return is negative (cash added but no growth). Display normally                                                                                                                                                                    |
+| Scenario                            | Behavior                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Only one snapshot                   | Growth/return/TWR/CAGR = N/A. Display "Insufficient data"                                         |
+| Beginning value = 0                 | Return = N/A for that period. Display "Cannot calculate"                                          |
+| Beginning value < 0                 | Return = N/A for that period. Display "Cannot calculate"                                          |
+| Denominator (BMV + weighted CF) ≤ 0 | Return = N/A. Display "Cannot calculate"                                                          |
+| Category has no assets              | Allocation = 0%, return = N/A                                                                     |
+| All assets uncategorized            | Uncategorized group shows 100% allocation                                                         |
+| Fewer than 2 snapshots              | All period metrics = N/A. At least 2 snapshots are required.                                      |
+| Period < 1 year for CAGR            | Still calculate using fractional years (may produce large annualized numbers — display with note) |
+| Negative period return > -100%      | Display normally                                                                                  |
+| Net cash flow but no value change   | Return is negative (cash added but no growth). Display normally                                   |
 
 ______________________________________________________________________
 

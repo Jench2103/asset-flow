@@ -88,6 +88,7 @@ The dashboard provides a portfolio overview using the latest snapshot.
 
    - **Growth Rate** card -- simple percentage change with 1M / 3M / 1Y segmented control. Shows "N/A" if insufficient history.
    - **Return Rate** card -- Modified Dietz return with 1M / 3M / 1Y segmented control. Shows "N/A" if insufficient history.
+   - Each card displays a date range subtitle (e.g., "Jan 24 – Feb 14") below the rate value when a rate is available, showing the actual period covered.
    - Each card uses the same `helpText` parameter on `MetricCard` for its `.help()` tooltip
 
 1. **Allocation pie chart**:

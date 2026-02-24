@@ -94,10 +94,10 @@ growth_rate = (Ending_Value - Beginning_Value) / Beginning_Value
 
 **Period Lookback**: For 1M, 3M, and 1Y growth:
 
-1. Calculate the target lookback date (current date minus 1/3/12 months)
-1. Find the most recent snapshot whose date is on or before the target lookback date
-1. If that snapshot's date is more than **14 calendar days** before the target lookback date, return N/A -- using a distant snapshot would misrepresent the actual time span
-1. If no such snapshot exists at all, return N/A
+1. Calculate the target lookback date (latest snapshot date minus 1/3/12 months)
+1. Find the closest snapshot to the target date in either direction (before or after), with no distance limit
+1. When two snapshots are equidistant from the target, prefer the earlier one
+1. If fewer than 2 snapshots exist, return N/A
 
 ### Modified Dietz Return
 
@@ -137,7 +137,7 @@ Weighted cash flow = 0.667 * 100,000 = 66,700 (added to denominator)
 
 A cash flow at the very start (day 0) gets weight 1.0 (fully invested). A cash flow at the very end (day 90) gets weight 0.0 (not invested during the period).
 
-**Period Lookback**: Same 14-day staleness threshold as growth rate.
+**Period Lookback**: Same bidirectional closest-snapshot lookback as growth rate (no distance limit, prefer earlier on tie).
 
 **Supported Levels**: Portfolio-level return only in v1. Category-level return is not tracked because category-level cash flow data is unavailable.
 
@@ -173,7 +173,7 @@ Available for portfolio-level only in v1.
 | Denominator (BMV + weighted CF) \<= 0 | Return = N/A. Display "Cannot calculate"                                                     |
 | Category has no assets                | Allocation = 0%, return = N/A                                                                |
 | All assets uncategorized              | Uncategorized group shows 100% allocation                                                    |
-| No snapshot within lookback window    | Period metric = N/A (14-day threshold)                                                       |
+| Fewer than 2 snapshots                | All period metrics = N/A                                                                     |
 | Period < 1 year for CAGR              | Calculate using fractional years (may produce large annualized numbers -- display with note) |
 | Negative period return > -100%        | Display normally                                                                             |
 | Net cash flow but no value change     | Return is negative (cash added but no growth). Display normally                              |
