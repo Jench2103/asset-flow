@@ -111,9 +111,32 @@ class SnapshotListViewModel {
   private let modelContext: ModelContext
   private let settingsService: SettingsService
 
+  /// Pre-computed row data for all snapshots, keyed by snapshot ID.
+  var rowDataMap: [UUID: SnapshotRowData] = [:]
+
   init(modelContext: ModelContext, settingsService: SettingsService? = nil) {
     self.modelContext = modelContext
     self.settingsService = settingsService ?? .shared
+  }
+
+  // MARK: - Row Data Loading
+
+  /// Loads row data for all snapshots with observation tracking.
+  ///
+  /// Wraps the load in `withObservationTracking` so that any `@Observable`/`@Model`
+  /// property change (e.g. currency, asset values) automatically triggers a reload.
+  func loadRowData() {
+    withObservationTracking {
+      performLoadRowData()
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.loadRowData()
+      }
+    }
+  }
+
+  private func performLoadRowData() {
+    rowDataMap = loadAllSnapshotRowData()
   }
 
   // MARK: - Creation

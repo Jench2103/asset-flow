@@ -121,6 +121,19 @@ class ImportViewModel {
 }
 ```
 
+##### Automatic Data Reload
+
+ViewModels that compute aggregate or currency-converted values use `withObservationTracking` to automatically re-trigger their load method when any `@Observable`/`@Model` property read during computation changes. This provides reactive updates for property mutations (e.g., display currency change, asset value edit, exchange rate update).
+
+**Two complementary mechanisms:**
+
+1. `withObservationTracking` — detects property changes on existing objects (currency change, value edit, exchange rate update)
+1. `@Query` + `.onChange(of:)` in views — detects collection membership changes (new/deleted objects), which `modelContext.fetch()` inside `withObservationTracking` cannot track
+
+**Applied to:** `DashboardViewModel`, `SnapshotDetailViewModel`, `SnapshotListViewModel`, `CategoryListViewModel`, `CategoryDetailViewModel`, `PlatformListViewModel`, `PlatformDetailViewModel`, `AssetListViewModel`, `AssetDetailViewModel`, `RebalancingViewModel`.
+
+**Not applied to:** `ImportViewModel`, `SettingsViewModel` (do not display converted aggregate values).
+
 #### Model Layer (SwiftData)
 
 - **Purpose**: Data structure and persistence

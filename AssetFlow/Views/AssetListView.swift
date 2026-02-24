@@ -26,21 +26,6 @@ struct AssetListView: View {
     _selectedAsset = selectedAsset
   }
 
-  private var assetsFingerprint: [String] {
-    assets.map { asset in
-      let latestValue = asset.snapshotAssetValues?
-        .compactMap { sav -> (Date, Decimal)? in
-          guard let d = sav.snapshot?.date else { return nil }
-          return (d, sav.marketValue)
-        }
-        .max(by: { $0.0 < $1.0 })?
-        .1
-      return "\(asset.id)-\(asset.name)-\(asset.platform)"
-        + "-\(String(describing: asset.category?.id))"
-        + "-\(String(describing: latestValue))"
-    }
-  }
-
   var body: some View {
     Group {
       if viewModel.groups.isEmpty {
@@ -65,7 +50,7 @@ struct AssetListView: View {
     .onAppear {
       viewModel.loadAssets()
     }
-    .onChange(of: assetsFingerprint) {
+    .onChange(of: assets) {
       withAnimation(AnimationConstants.standard) {
         viewModel.loadAssets()
       }

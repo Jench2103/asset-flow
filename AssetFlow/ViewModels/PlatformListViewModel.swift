@@ -38,7 +38,20 @@ final class PlatformListViewModel {
 
   /// Fetches all assets, computes platform totals from the latest snapshot,
   /// and builds sorted row data.
+  ///
+  /// Wraps the load in `withObservationTracking` so that any `@Observable`/`@Model`
+  /// property change automatically triggers a reload.
   func loadPlatforms() {
+    withObservationTracking {
+      performLoadPlatforms()
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.loadPlatforms()
+      }
+    }
+  }
+
+  private func performLoadPlatforms() {
     let allAssets = fetchAllAssets()
     let allSnapshots = fetchAllSnapshots()
 

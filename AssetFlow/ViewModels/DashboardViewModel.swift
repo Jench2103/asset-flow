@@ -103,7 +103,21 @@ class DashboardViewModel {
   // MARK: - Load Data
 
   /// Loads all dashboard data from the model context.
+  ///
+  /// Wraps the load in `withObservationTracking` so that any `@Observable`/`@Model`
+  /// property change (e.g. currency, asset values, exchange rates) automatically
+  /// triggers a reload.
   func loadData() {
+    withObservationTracking {
+      performLoadData()
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.loadData()
+      }
+    }
+  }
+
+  private func performLoadData() {
     allSnapshots = fetchAllSnapshots()
 
     guard !allSnapshots.isEmpty else {

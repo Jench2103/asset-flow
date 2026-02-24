@@ -665,6 +665,27 @@ Group {
 
 All animation durations are defined in `AnimationConstants` (`Utilities/AnimationConstants.swift`), which automatically respects the Reduce Motion accessibility setting.
 
+### ViewModel Auto-Reload with `withObservationTracking`
+
+**Problem**: ViewModels compute aggregate/converted values eagerly in their load method (called from `.onAppear`). When external dependencies change (e.g., display currency, asset currency, exchange rates), computed values become stale.
+
+**Solution**: Wrap the load method body with `withObservationTracking`. All `@Observable`/`@Model` property reads during execution are automatically tracked. When any tracked property changes, `onChange` fires and re-triggers the load.
+
+```swift
+func loadData() {
+  withObservationTracking {
+    performLoadData()
+  } onChange: { [weak self] in
+    Task { @MainActor [weak self] in
+      self?.loadData()
+    }
+  }
+}
+private func performLoadData() { /* original load body */ }
+```
+
+**Convention**: Always use double `[weak self]` — on both the outer `onChange` closure and the inner `Task` closure. This prevents the ViewModel from being retained after its `ModelContainer` is deallocated, which causes SIGTRAP crashes in tests with in-memory containers.
+
 ______________________________________________________________________
 
 ## Tools Configuration

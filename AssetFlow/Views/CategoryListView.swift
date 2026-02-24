@@ -27,12 +27,6 @@ struct CategoryListView: View {
     _selectedCategory = selectedCategory
   }
 
-  private var categoriesFingerprint: [String] {
-    categories.map {
-      "\($0.id)-\($0.name)-\(String(describing: $0.targetAllocationPercentage))-\($0.displayOrder)"
-    }
-  }
-
   var body: some View {
     VStack(spacing: 0) {
       if let warning = viewModel.targetAllocationSumWarning {
@@ -67,7 +61,7 @@ struct CategoryListView: View {
     .onAppear {
       viewModel.loadCategories()
     }
-    .onChange(of: categoriesFingerprint) {
+    .onChange(of: categories) {
       withAnimation(AnimationConstants.standard) {
         viewModel.loadCategories()
       }

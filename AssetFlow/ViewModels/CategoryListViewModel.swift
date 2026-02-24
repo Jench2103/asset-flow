@@ -44,7 +44,20 @@ final class CategoryListViewModel {
 
   /// Fetches all categories, computes current values and allocations from the
   /// most recent snapshot, and builds sorted row data.
+  ///
+  /// Wraps the load in `withObservationTracking` so that any `@Observable`/`@Model`
+  /// property change automatically triggers a reload.
   func loadCategories() {
+    withObservationTracking {
+      performLoadCategories()
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.loadCategories()
+      }
+    }
+  }
+
+  private func performLoadCategories() {
     let allCategories = fetchAllCategories()
     let allSnapshots = fetchAllSnapshots()
 

@@ -138,7 +138,20 @@ class SnapshotDetailViewModel {
   // MARK: - Load Data
 
   /// Loads (or reloads) asset values and cash flow operations for the snapshot.
+  ///
+  /// Wraps the load in `withObservationTracking` so that any `@Observable`/`@Model`
+  /// property change automatically triggers a reload.
   func loadData() {
+    withObservationTracking {
+      performLoadData()
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.loadData()
+      }
+    }
+  }
+
+  private func performLoadData() {
     assetValues = snapshot.assetValues ?? []
     cashFlowOperations = snapshot.cashFlowOperations ?? []
     exchangeRate = snapshot.exchangeRate

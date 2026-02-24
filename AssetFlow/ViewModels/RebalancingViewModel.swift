@@ -61,7 +61,20 @@ final class RebalancingViewModel {
   // MARK: - Loading
 
   /// Loads all rebalancing data from the latest snapshot.
+  ///
+  /// Wraps the load in `withObservationTracking` so that any `@Observable`/`@Model`
+  /// property change automatically triggers a reload.
   func loadRebalancing() {
+    withObservationTracking {
+      performLoadRebalancing()
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.loadRebalancing()
+      }
+    }
+  }
+
+  private func performLoadRebalancing() {
     let allSnapshots = fetchAllSnapshots()
     let allCategories = fetchAllCategories()
 

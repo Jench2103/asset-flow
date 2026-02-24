@@ -47,7 +47,20 @@ final class AssetListViewModel {
 
   /// Fetches all assets, computes latest values from the most recent snapshot,
   /// and groups them by the current grouping mode.
+  ///
+  /// Wraps the load in `withObservationTracking` so that any `@Observable`/`@Model`
+  /// property change automatically triggers a reload.
   func loadAssets() {
+    withObservationTracking {
+      performLoadAssets()
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.loadAssets()
+      }
+    }
+  }
+
+  private func performLoadAssets() {
     let allAssets = fetchAllAssets()
     let allSnapshots = fetchAllSnapshots()
 

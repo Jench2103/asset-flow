@@ -17,8 +17,6 @@ import SwiftUI
 /// to force view recreation when the selected snapshot changes.
 struct SnapshotDetailView: View {
   @State private var viewModel: SnapshotDetailViewModel
-  @Query private var snapshotAssetValues: [SnapshotAssetValue]
-  @Query private var cashFlowOps: [CashFlowOperation]
 
   @State private var showAddAssetSheet = false
   @State private var showAddCashFlowSheet = false
@@ -33,22 +31,9 @@ struct SnapshotDetailView: View {
   let onDelete: () -> Void
 
   init(snapshot: Snapshot, modelContext: ModelContext, onDelete: @escaping () -> Void) {
-    let snapshotID = snapshot.persistentModelID
     _viewModel = State(
       wrappedValue: SnapshotDetailViewModel(snapshot: snapshot, modelContext: modelContext))
-    _snapshotAssetValues = Query(
-      filter: #Predicate<SnapshotAssetValue> { $0.snapshot?.persistentModelID == snapshotID })
-    _cashFlowOps = Query(
-      filter: #Predicate<CashFlowOperation> { $0.snapshot?.persistentModelID == snapshotID })
     self.onDelete = onDelete
-  }
-
-  private var savFingerprint: [String] {
-    snapshotAssetValues.map { "\($0.id)-\($0.marketValue)" }
-  }
-
-  private var cfFingerprint: [String] {
-    cashFlowOps.map { "\($0.id)-\($0.amount)" }
   }
 
   var body: some View {
@@ -71,12 +56,6 @@ struct SnapshotDetailView: View {
     }
     .task(id: SettingsService.shared.mainCurrency) {
       await viewModel.fetchExchangeRatesIfNeeded()
-    }
-    .onChange(of: savFingerprint) {
-      viewModel.loadData()
-    }
-    .onChange(of: cfFingerprint) {
-      viewModel.loadData()
     }
     .alert("Error", isPresented: $showError) {
       Button("OK") {}

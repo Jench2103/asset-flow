@@ -19,11 +19,8 @@ struct SnapshotListView: View {
   @Environment(\.isAppLocked) private var isAppLocked
 
   @Query(sort: \Snapshot.date, order: .reverse) private var snapshots: [Snapshot]
-  @Query private var snapshotAssetValues: [SnapshotAssetValue]
-  @Query private var cashFlowOps: [CashFlowOperation]
 
   @Binding var showNewSnapshotSheet: Bool
-  @State private var rowDataMap: [UUID: SnapshotRowData] = [:]
   @State private var snapshotToDelete: Snapshot?
   @State private var showDeleteConfirmation = false
   @State private var expandedSections: Set<SnapshotTimeBucket> = Set(SnapshotTimeBucket.allCases)
@@ -40,14 +37,6 @@ struct SnapshotListView: View {
     _selectedSnapshot = selectedSnapshot
     _showNewSnapshotSheet = showNewSnapshotSheet
     self.onNavigateToImport = onNavigateToImport
-  }
-
-  private var savFingerprint: [String] {
-    snapshotAssetValues.map { "\($0.id)-\($0.marketValue)" }
-  }
-
-  private var cfFingerprint: [String] {
-    cashFlowOps.map { "\($0.id)-\($0.amount)" }
   }
 
   var body: some View {
@@ -75,20 +64,14 @@ struct SnapshotListView: View {
       }
     }
     .onAppear {
-      reloadRowData()
+      viewModel.loadRowData()
     }
     .onChange(of: snapshots) {
-      reloadRowData()
-    }
-    .onChange(of: savFingerprint) {
-      reloadRowData()
-    }
-    .onChange(of: cfFingerprint) {
-      reloadRowData()
+      viewModel.loadRowData()
     }
     .sheet(isPresented: $showNewSnapshotSheet) {
       NewSnapshotSheet(viewModel: viewModel) { snapshot in
-        reloadRowData()
+        viewModel.loadRowData()
         selectedSnapshot = snapshot
       }
     }
@@ -102,7 +85,7 @@ struct SnapshotListView: View {
         if selectedSnapshot?.id == snapshot.id {
           selectedSnapshot = nil
         }
-        reloadRowData()
+        viewModel.loadRowData()
       }
       Button("Cancel", role: .cancel) {}
     } message: { snapshot in
@@ -161,7 +144,7 @@ struct SnapshotListView: View {
   }
 
   private func snapshotRow(_ snapshot: Snapshot) -> some View {
-    let rowData = rowDataMap[snapshot.id]
+    let rowData = viewModel.rowDataMap[snapshot.id]
 
     return HStack {
       VStack(alignment: .leading, spacing: 2) {
@@ -246,11 +229,6 @@ struct SnapshotListView: View {
     }
   }
 
-  // MARK: - Helpers
-
-  private func reloadRowData() {
-    rowDataMap = viewModel.loadAllSnapshotRowData()
-  }
 }
 
 // MARK: - New Snapshot Sheet

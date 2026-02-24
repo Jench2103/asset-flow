@@ -65,7 +65,20 @@ final class AssetDetailViewModel {
   // MARK: - Value History
 
   /// Loads the value history from directly recorded snapshot asset values (no carry-forward).
+  ///
+  /// Wraps the load in `withObservationTracking` so that any `@Observable`/`@Model`
+  /// property change automatically triggers a reload.
   func loadValueHistory() {
+    withObservationTracking {
+      performLoadValueHistory()
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.loadValueHistory()
+      }
+    }
+  }
+
+  private func performLoadValueHistory() {
     let savs = asset.snapshotAssetValues ?? []
 
     valueHistory = savs.compactMap { sav in

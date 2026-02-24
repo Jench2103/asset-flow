@@ -27,6 +27,29 @@ var name: String = "" {
 }
 ```
 
+### ViewModel Data Reload
+
+ViewModels that compute aggregate/converted values wrap their load method with `withObservationTracking` to auto-reload when any `@Observable`/`@Model` dependency changes:
+
+```swift
+func loadData() {
+  withObservationTracking {
+    performLoadData()
+  } onChange: { [weak self] in
+    Task { @MainActor [weak self] in
+      self?.loadData()
+    }
+  }
+}
+private func performLoadData() { /* original load body */ }
+```
+
+- `onChange` fires exactly once per registration, then re-registers on next `loadData()` call — no accumulation
+- Double `[weak self]` prevents ViewModel retention after container deallocation (critical for tests with in-memory containers)
+- Complements `@Query` + `.onChange(of:)` in views for collection membership detection (add/delete objects), which `modelContext.fetch()` inside `withObservationTracking` cannot track
+- Explicit `viewModel.loadData()` calls in mutation handlers are intentional — they provide immediate synchronous UI response; `withObservationTracking` handles external changes (e.g., currency switch from Settings)
+- Applied to: all ViewModels except `ImportViewModel` and `SettingsViewModel` (no converted aggregate values)
+
 ### Model
 
 `@Model final class` with `Decimal` for money, `#Unique` for constraints, explicit `@Relationship` with delete rules (`.cascade`, `.deny`, `.nullify`). Register new models in `SchemaV1.models` (`Models/SchemaVersioning.swift`).
