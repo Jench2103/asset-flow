@@ -229,29 +229,31 @@ struct ContentView: View {
       )
 
     case .snapshots:
-      HStack(spacing: 0) {
-        SnapshotListView(
-          modelContext: modelContext,
-          selectedSnapshot: $selectedSnapshot,
-          showNewSnapshotSheet: $showNewSnapshotSheet,
-          onNavigateToImport: { navigateToImport() }
-        )
-        .frame(minWidth: 250, idealWidth: 300)
-
-        Divider()
-
-        if let snapshot = selectedSnapshot {
-          SnapshotDetailView(
-            snapshot: snapshot,
+      GeometryReader { geometry in
+        HStack(spacing: 0) {
+          SnapshotListView(
             modelContext: modelContext,
-            onDelete: {
-              selectedSnapshot = nil
-            }
+            selectedSnapshot: $selectedSnapshot,
+            showNewSnapshotSheet: $showNewSnapshotSheet,
+            onNavigateToImport: { navigateToImport() }
           )
-          .id(snapshot.id)
-          .frame(maxWidth: .infinity)
-        } else {
-          placeholderView("Select a snapshot", systemImage: "calendar")
+          .frame(width: max(250, geometry.size.width * 0.4))
+
+          Divider()
+
+          if let snapshot = selectedSnapshot {
+            SnapshotDetailView(
+              snapshot: snapshot,
+              modelContext: modelContext,
+              onDelete: {
+                selectedSnapshot = nil
+              }
+            )
+            .id(snapshot.id)
+            .frame(maxWidth: .infinity)
+          } else {
+            placeholderView("Select a snapshot", systemImage: "calendar")
+          }
         }
       }
 
@@ -281,47 +283,51 @@ struct ContentView: View {
       }
 
     case .categories:
-      HStack(spacing: 0) {
-        CategoryListView(
-          modelContext: modelContext,
-          selectedCategory: $selectedCategory
-        )
-        .frame(minWidth: 250, idealWidth: 300)
-
-        Divider()
-
-        if let category = selectedCategory {
-          CategoryDetailView(
-            category: category,
+      GeometryReader { geometry in
+        HStack(spacing: 0) {
+          CategoryListView(
             modelContext: modelContext,
-            onDelete: {
-              selectedCategory = nil
-            }
+            selectedCategory: $selectedCategory
           )
-          .id(category.id)
-          .frame(maxWidth: .infinity)
-        } else {
-          placeholderView("Select a category", systemImage: "folder")
+          .frame(width: max(250, geometry.size.width * 0.35))
+
+          Divider()
+
+          if let category = selectedCategory {
+            CategoryDetailView(
+              category: category,
+              modelContext: modelContext,
+              onDelete: {
+                selectedCategory = nil
+              }
+            )
+            .id(category.id)
+            .frame(maxWidth: .infinity)
+          } else {
+            placeholderView("Select a category", systemImage: "folder")
+          }
         }
       }
 
     case .platforms:
-      HStack(spacing: 0) {
-        PlatformListView(modelContext: modelContext, selectedPlatform: $selectedPlatform)
-          .frame(minWidth: 250, idealWidth: 300)
+      GeometryReader { geometry in
+        HStack(spacing: 0) {
+          PlatformListView(modelContext: modelContext, selectedPlatform: $selectedPlatform)
+            .frame(width: max(250, geometry.size.width * 0.35))
 
-        Divider()
+          Divider()
 
-        if let platform = selectedPlatform {
-          PlatformDetailView(
-            platformName: platform,
-            modelContext: modelContext,
-            onRename: { selectedPlatform = $0 }
-          )
-          .id(platform)
-          .frame(maxWidth: .infinity)
-        } else {
-          placeholderView("Select a platform", systemImage: "building.columns")
+          if let platform = selectedPlatform {
+            PlatformDetailView(
+              platformName: platform,
+              modelContext: modelContext,
+              onRename: { selectedPlatform = $0 }
+            )
+            .id(platform)
+            .frame(maxWidth: .infinity)
+          } else {
+            placeholderView("Select a platform", systemImage: "building.columns")
+          }
         }
       }
 

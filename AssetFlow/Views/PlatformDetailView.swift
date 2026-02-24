@@ -71,56 +71,14 @@ struct PlatformDetailView: View {
         Text("No assets on this platform")
           .foregroundStyle(.secondary)
       } else {
-        Table(viewModel.assets) {
-          TableColumn("Name") { row in
-            Text(row.asset.name)
+        AssetTableView(rows: viewModel.assets, secondColumnTitle: "Category") { row in
+          if let category = row.asset.category {
+            Text(category.name)
+          } else {
+            Text("\u{2014}")
+              .foregroundStyle(.secondary)
           }
-          TableColumn("Category") { row in
-            if let category = row.asset.category {
-              Text(category.name)
-            } else {
-              Text("\u{2014}")
-                .foregroundStyle(.secondary)
-            }
-          }
-          TableColumn("Original Value") { row in
-            if let value = row.latestValue {
-              let effectiveCurrency =
-                row.asset.currency.isEmpty
-                ? SettingsService.shared.mainCurrency : row.asset.currency
-              HStack(spacing: 4) {
-                if effectiveCurrency != SettingsService.shared.mainCurrency {
-                  Text(effectiveCurrency.uppercased())
-                    .font(.caption2)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .background(.quaternary, in: Capsule())
-                }
-                Text(value.formatted(currency: effectiveCurrency))
-                  .monospacedDigit()
-              }
-            } else {
-              Text("\u{2014}")
-                .foregroundStyle(.secondary)
-            }
-          }
-          .alignment(.trailing)
-          TableColumn("Converted Value") { row in
-            if let converted = row.convertedValue {
-              Text(converted.formatted(currency: SettingsService.shared.mainCurrency))
-                .monospacedDigit()
-            } else {
-              Text("\u{2014}")
-                .foregroundStyle(.secondary)
-            }
-          }
-          .alignment(.trailing)
         }
-        .tableStyle(.bordered(alternatesRowBackgrounds: true))
-        .scrollDisabled(true)
-        .frame(height: CGFloat(viewModel.assets.count) * 24 + 32)
-        .padding(-1)
-        .clipped()
       }
     } header: {
       Text("Assets on Platform")

@@ -96,52 +96,10 @@ struct CategoryDetailView: View {
         Text("No assets in this category")
           .foregroundStyle(.secondary)
       } else {
-        Table(viewModel.assets) {
-          TableColumn("Name") { row in
-            Text(row.asset.name)
-          }
-          TableColumn("Platform") { row in
-            Text(row.asset.platform.isEmpty ? "\u{2014}" : row.asset.platform)
-              .foregroundStyle(row.asset.platform.isEmpty ? .secondary : .primary)
-          }
-          TableColumn("Original Value") { row in
-            if let value = row.latestValue {
-              let effectiveCurrency =
-                row.asset.currency.isEmpty
-                ? SettingsService.shared.mainCurrency : row.asset.currency
-              HStack(spacing: 4) {
-                if effectiveCurrency != SettingsService.shared.mainCurrency {
-                  Text(effectiveCurrency.uppercased())
-                    .font(.caption2)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .background(.quaternary, in: Capsule())
-                }
-                Text(value.formatted(currency: effectiveCurrency))
-                  .monospacedDigit()
-              }
-            } else {
-              Text("\u{2014}")
-                .foregroundStyle(.secondary)
-            }
-          }
-          .alignment(.trailing)
-          TableColumn("Converted Value") { row in
-            if let converted = row.convertedValue {
-              Text(converted.formatted(currency: SettingsService.shared.mainCurrency))
-                .monospacedDigit()
-            } else {
-              Text("\u{2014}")
-                .foregroundStyle(.secondary)
-            }
-          }
-          .alignment(.trailing)
+        AssetTableView(rows: viewModel.assets, secondColumnTitle: "Platform") { row in
+          Text(row.asset.platform.isEmpty ? "\u{2014}" : row.asset.platform)
+            .foregroundStyle(row.asset.platform.isEmpty ? .secondary : .primary)
         }
-        .tableStyle(.bordered(alternatesRowBackgrounds: true))
-        .scrollDisabled(true)
-        .frame(height: CGFloat(viewModel.assets.count) * 24 + 32)
-        .padding(-1)
-        .clipped()
       }
     } header: {
       Text("Assets in Category")

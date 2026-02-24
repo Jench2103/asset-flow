@@ -222,7 +222,7 @@ ______________________________________________________________________
 
 - **CategoryListView** (`AssetFlow/Views/CategoryListView.swift`): Takes `modelContext` and `selectedCategory: Binding<Category?>`. Uses `@State private var viewModel: CategoryListViewModel`. List selection drives the binding. Toolbar "+" button opens add category sheet. Target allocation sum warning banner shown at top when allocations don't sum to 100%. Deviation indicator (orange `exclamationmark.triangle.fill`) shown when `abs(current - target) > 5`. Empty state uses folder icon.
 - **CategoryListViewModel** (`AssetFlow/ViewModels/CategoryListViewModel.swift`): `CategoryRowData` struct bundles category, target/current allocation, value, and asset count. `loadCategories()` batch-fetches all data and computes values from the latest snapshot. `createCategory`/`editCategory`/`deleteCategory` with validation via `CategoryError`. `moveCategories(from:to:)` handles drag-to-reorder by updating `displayOrder` on each category. On first load, if all categories have the same `displayOrder` (migration scenario), they are normalized alphabetically.
-- **CategoryDetailView** (`AssetFlow/Views/CategoryDetailView.swift`): Takes `category`, `modelContext`, `onDelete`. Parent must apply `.id(category.id)` for proper state reset. Form sections: Category Details (name + target allocation), Assets in Category (Table), Value History (LineMark + PointMark chart), Allocation History (LineMark + PointMark chart), Danger Zone (delete button).
+- **CategoryDetailView** (`AssetFlow/Views/CategoryDetailView.swift`): Takes `category`, `modelContext`, `onDelete`. Parent must apply `.id(category.id)` for proper state reset. Form sections: Category Details (name + target allocation), Assets in Category (`AssetTableView` with "Platform" second column), Value History (LineMark + PointMark chart), Allocation History (LineMark + PointMark chart), Danger Zone (delete button).
 - **CategoryDetailViewModel** (`AssetFlow/ViewModels/CategoryDetailViewModel.swift`): `editedName`/`editedTargetAllocation` initialized from category. `loadData()` computes asset list with latest values, value history, and allocation history across all snapshots. Single snapshot renders as PointMark only.
 
 **Implementation notes (Charts):**
@@ -255,7 +255,7 @@ Assets with no platform are NOT shown on the Platforms screen.
 
 ### Implementation Notes
 
-**Layout**: 3-column split (sidebar | platform list | platform detail), consistent with Snapshots, Assets, and Categories. `ContentView` uses an `HStack(spacing: 0)` with `PlatformListView`, a `Divider`, and `PlatformDetailView` (or a "Select a platform" placeholder when nothing is selected). `PlatformDetailView` uses `.id(platform)` for forced recreation on rename.
+**Layout**: 3-column split (sidebar | platform list | platform detail), consistent with Snapshots, Assets, and Categories. `ContentView` uses a `GeometryReader` wrapping an `HStack(spacing: 0)` with `PlatformListView` (30% width, 250pt minimum), a `Divider`, and `PlatformDetailView` (or a "Select a platform" placeholder when nothing is selected). Categories use the same 3:7 ratio; Snapshots use 4:6. `PlatformDetailView` uses `.id(platform)` for forced recreation on rename.
 
 **Rename-propagation flow**:
 
@@ -269,7 +269,7 @@ Assets with no platform are NOT shown on the Platforms screen.
 **Platforms are not SwiftData model objects** — they are derived from distinct non-empty `Asset.platform` string values. Selection binding is `String?` (not a model ID), and rename mutates all `Asset` records with the old platform name.
 
 - **PlatformListView** (`AssetFlow/Views/PlatformListView.swift`): List-detail split with `List(selection: $selectedPlatform)`. Row context menu retains rename popover for quick renaming. `.onChange(of: selectedPlatform)` reloads platforms after rename propagation. Empty state with `building.columns` icon.
-- **PlatformDetailView** (`AssetFlow/Views/PlatformDetailView.swift`): `Form(.grouped)` with three sections: Platform Details (editable name `TextField`), Assets on Platform (`Table` with Name, Category, Value columns), and Value History (line chart with `ChartTimeRangeSelector` and hover tooltip). No delete section — platforms disappear when all assets are reassigned.
+- **PlatformDetailView** (`AssetFlow/Views/PlatformDetailView.swift`): `Form(.grouped)` with three sections: Platform Details (editable name `TextField`), Assets on Platform (`AssetTableView` with "Category" second column), and Value History (line chart with `ChartTimeRangeSelector` and hover tooltip). No delete section — platforms disappear when all assets are reassigned.
 - **PlatformListViewModel** (`AssetFlow/ViewModels/PlatformListViewModel.swift`): Derives platforms from `Asset.platform` values. `loadPlatforms()` computes totals from the latest snapshot. `renamePlatform(from:to:)` validates uniqueness (case-insensitive), trims and normalizes whitespace, then updates all matching assets.
 - **PlatformDetailViewModel** (`AssetFlow/ViewModels/PlatformDetailViewModel.swift`): Tracks `platformName` (updated after rename), `assets` (filtered to this platform, sorted alphabetically), `totalValue` (sum of latest values), and `valueHistory` (platform total per snapshot). `save()` validates and renames all matching Asset records.
 
@@ -791,6 +791,8 @@ VStack(alignment: .leading, spacing: 8) {
 .background(.regularMaterial)
 .cornerRadius(10)
 ```
+
+**AssetTableView** (`Views/Components/AssetTableView.swift`): Generic `AssetTableView<SecondColumn>` for displaying asset rows with Name, a configurable second column (e.g., "Category" or "Platform"), Original Value, and an optional Converted Value column. The Converted Value column is automatically hidden when no rows have converted values. Uses `DetailAssetRowData` as the shared row data type. Used by `PlatformDetailView` and `CategoryDetailView`.
 
 ### Animation and Transitions
 

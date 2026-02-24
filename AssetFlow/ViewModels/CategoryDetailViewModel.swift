@@ -22,14 +22,6 @@ struct CategoryAllocationHistoryEntry: Identifiable {
   let allocationPercentage: Decimal
 }
 
-/// Data for a single asset row within a category detail view.
-struct CategoryAssetRowData: Identifiable {
-  var id: UUID { asset.id }
-  let asset: Asset
-  let latestValue: Decimal?
-  let convertedValue: Decimal?
-}
-
 /// ViewModel for the Category detail/edit screen.
 ///
 /// Manages editing category properties (name, target allocation),
@@ -60,7 +52,7 @@ final class CategoryDetailViewModel {
     }
   }
 
-  var assets: [CategoryAssetRowData] = []
+  var assets: [DetailAssetRowData] = []
   var valueHistory: [CategoryValueHistoryEntry] = []
   var allocationHistory: [CategoryAllocationHistoryEntry] = []
 
@@ -178,7 +170,7 @@ final class CategoryDetailViewModel {
           } else {
             nil
           }
-        return CategoryAssetRowData(
+        return DetailAssetRowData(
           asset: asset,
           latestValue: value,
           convertedValue: converted

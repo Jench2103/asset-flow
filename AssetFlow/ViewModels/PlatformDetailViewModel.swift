@@ -8,14 +8,6 @@
 import Foundation
 import SwiftData
 
-/// Data for a single asset row within a platform detail view.
-struct PlatformAssetRowData: Identifiable {
-  var id: UUID { asset.id }
-  let asset: Asset
-  let latestValue: Decimal?
-  let convertedValue: Decimal?
-}
-
 /// Value history entry for a platform's total value at a snapshot date.
 struct PlatformValueHistoryEntry: Identifiable {
   var id: String { "\(date.timeIntervalSince1970)-\(totalValue)" }
@@ -43,7 +35,7 @@ final class PlatformDetailViewModel {
   var editedName: String
 
   /// Assets on this platform with their latest composite values.
-  var assets: [PlatformAssetRowData] = []
+  var assets: [DetailAssetRowData] = []
 
   /// Sum of latest values for all assets on this platform.
   var totalValue: Decimal = 0
@@ -153,7 +145,7 @@ final class PlatformDetailViewModel {
           } else {
             nil
           }
-        return PlatformAssetRowData(
+        return DetailAssetRowData(
           asset: asset,
           latestValue: value,
           convertedValue: converted
