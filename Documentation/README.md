@@ -13,7 +13,7 @@ The foundational requirements document defining what AssetFlow does:
 - Core concept: snapshot-based portfolio model
 - User interface design and navigation
 - CSV import system and validation rules
-- Data model (Category, Asset, Snapshot, SnapshotAssetValue, CashFlowOperation)
+- Data model (Category, Asset, Snapshot, SnapshotAssetValue, CashFlowOperation, ExchangeRate)
 - Calculation logic (growth rate, Modified Dietz, TWR, CAGR)
 - Rebalancing engine, visualizations, error handling
 - Architecture requirements and non-goals

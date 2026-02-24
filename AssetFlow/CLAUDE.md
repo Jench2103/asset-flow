@@ -2,261 +2,91 @@
 
 ## Directory Structure
 
-| Directory     | Purpose                                                                                                                                                                                                   |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Models/`     | SwiftData `@Model` classes (see `Models/README.md` for full reference)                                                                                                                                    |
-| `Views/`      | SwiftUI view structs (includes `Charts/` subdirectory for chart components)                                                                                                                               |
-| `ViewModels/` | `@Observable @MainActor` classes for form state and business logic                                                                                                                                        |
-| `Services/`   | Stateless utilities: CalculationService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, AuthenticationService, CurrencyService, ExchangeRateService, CurrencyConversionService |
-| `Utilities/`  | Extensions and helpers (e.g., `Decimal.formatted(currency:)`)                                                                                                                                             |
-| `Resources/`  | Non-code assets (XML data files, etc.)                                                                                                                                                                    |
+| Directory     | Purpose                                                            |
+| ------------- | ------------------------------------------------------------------ |
+| `Models/`     | SwiftData `@Model` classes (see `Models/README.md`)                |
+| `Views/`      | SwiftUI views (includes `Charts/` and `Components/` subdirs)       |
+| `ViewModels/` | `@Observable @MainActor` classes for form state and business logic |
+| `Services/`   | Stateless utilities (see list below)                               |
+| `Utilities/`  | Extensions and helpers (e.g., `Decimal.formatted(currency:)`)      |
+| `Resources/`  | Non-code assets (XML data, `.xcstrings` localization catalogs)     |
 
 ## Patterns
 
 ### ViewModel
 
+`@Observable @MainActor` class with `didSet` validation on form fields, `hasUserInteracted` flag to defer errors, `isSaveDisabled` computed property, and `save()` using injected `ModelContext`. Use `@State var viewModel` in views (not `@StateObject`).
+
 ```swift
-@Observable
-@MainActor
-class FooFormViewModel {
-  // Form fields with real-time validation via didSet
-  var name: String = "" {
-    didSet {
-      guard name != oldValue else { return }
-      hasUserInteracted = true
-      validateName()
-    }
+var name: String = "" {
+  didSet {
+    guard name != oldValue else { return }
+    hasUserInteracted = true
+    validateName()
   }
-  var nameValidationMessage: String?
-  var hasUserInteracted = false
-
-  // Disable save until valid
-  var isSaveDisabled: Bool { /* validation logic */ }
-
-  // Persist changes
-  func save() { /* modelContext.insert(...) */ }
 }
 ```
-
-Key points:
-
-- `@Observable` for SwiftUI reactivity (not `ObservableObject`/`@Published`)
-- `@MainActor` for thread safety
-- `didSet` on form properties triggers validation; guard against same-value sets
-- Interaction flags (`hasUserInteracted`) to defer showing errors until user edits
-- `isSaveDisabled` computed property drives UI button state
-- `save()` uses injected `ModelContext` for persistence
-
-### View
-
-```swift
-struct FooFormView: View {
-  @State var viewModel: FooFormViewModel
-  @Environment(\.dismiss) private var dismiss
-  @Environment(\.modelContext) private var modelContext
-
-  var body: some View { /* ... */ }
-}
-```
-
-Key points:
-
-- `@State var viewModel` (not `@StateObject` -- using Observation framework)
-- `@Environment(\.dismiss)` for navigation
-- macOS only -- no platform conditionals needed
 
 ### Model
 
-```swift
-@Model
-final class Foo {
-  #Unique<Foo>([\.someProperty])
+`@Model final class` with `Decimal` for money, `#Unique` for constraints, explicit `@Relationship` with delete rules (`.cascade`, `.deny`, `.nullify`). Register new models in `SchemaV1.models` (`Models/SchemaVersioning.swift`).
 
-  var id: UUID
-  var amount: Decimal  // Always Decimal for money
+### Services
 
-  @Relationship(deleteRule: .cascade, inverse: \Bar.foo)
-  var children: [Bar]?
+Stateless enums or classes with no direct SwiftData dependency:
 
-  @Relationship(deleteRule: .nullify, inverse: \Baz.foos)
-  var parent: Baz?
-}
-```
-
-Key points:
-
-- `@Model` macro, `final class`
-- `Decimal` for all monetary values (never Float/Double)
-- `#Unique` macro for uniqueness constraints
-- Explicit `@Relationship` with delete rules (`.cascade`, `.deny`, or `.nullify`)
-- Register new models in `AssetFlowApp.swift` `sharedModelContainer` Schema
-
-### Service
-
-Services are stateless enums or classes with no direct SwiftData dependency:
-
-- **CalculationService** -- `enum`, unified calculation engine: growth rate, Modified Dietz return, cumulative TWR, CAGR, category allocation
-- **CSVParsingService** -- `enum`, parses asset/cash flow CSV files with within-CSV duplicate detection
-- **RebalancingCalculator** -- `enum`, computes rebalancing adjustment amounts (buy/sell)
-- **BackupService** -- `@MainActor enum`, exports/validates/restores ZIP backup archives using `/usr/bin/ditto`
-- **SettingsService** -- `@Observable @MainActor class`, manages app-wide settings (currency, date format, default platform)
-- **AuthenticationService** -- `@Observable @MainActor class` singleton, manages optional app lock via LocalAuthentication (Touch ID, Apple Watch, system password)
-- **CurrencyService** -- `@Observable @MainActor class` singleton (`static let shared`), loads currency data with UserDefaults caching
-- **ChartDataService** -- `enum`, stateless time range filtering (`ChartTimeRange` enum, `filter()` overloads) and Y-axis abbreviation (`abbreviatedLabel(for:)` for K/M/B)
-- **DateFormatStyle** -- `enum`, maps user-selectable date formats to `Date.FormatStyle.DateStyle`
+- **CalculationService** -- `enum`, growth rate, Modified Dietz, cumulative TWR, CAGR, category allocation
+- **CSVParsingService** -- `enum`, parses asset/cash flow CSV with duplicate detection
+- **RebalancingCalculator** -- `enum`, rebalancing adjustment amounts (buy/sell)
+- **BackupService** -- `@MainActor enum`, ZIP backup via `/usr/bin/ditto`
+- **SettingsService** -- `@Observable @MainActor class`, app-wide settings (currency, date format, default platform)
+- **AuthenticationService** -- `@Observable @MainActor class` singleton, app lock via LocalAuthentication (Touch ID, Apple Watch, system password)
+- **CurrencyService** -- `@Observable @MainActor class` singleton (`static let shared`), currency data with UserDefaults caching
+- **ExchangeRateService** -- `final class` (`@unchecked Sendable`), fetches rates from cdn.jsdelivr.net, graceful degradation when offline
+- **CurrencyConversionService** -- `enum`, stateless currency conversion using ExchangeRate data, returns unconverted values when rates unavailable
+- **ChartDataService** -- `enum` (in `ViewModels/`), time range filtering and Y-axis abbreviation
+- **DateFormatStyle** -- `enum`, user-selectable date formats → `Date.FormatStyle.DateStyle`
 
 ### Localization
 
-String Catalogs (`.xcstrings`) organize localized strings by feature:
+- **Views**: String literals in `Text()`, `Label()`, etc. auto-extract into `Localizable.xcstrings`
+- **ViewModels/Services**: `String(localized: "message", table: "Asset")` with tables: `Asset`, `Snapshot`, `Category`, `Import`, `Services`, `Settings`, `Platform`, `Rebalancing`
+- **Enums**: `localizedName` for display; `rawValue` for persistence only
+- Avoid `+` concatenation in `Text()` — prevents auto-extraction
 
-- **Views**: String literals in `Text()`, `Label()`, etc. auto-extract into `Localizable.xcstrings`.
-- **ViewModels/Services**: Use `String(localized:table:)` with feature tables (`Asset`, `Snapshot`, `Category`, `Import`, `Services`, `Settings`, `Platform`, `Rebalancing`).
-- **Enums**: Use `localizedName` for display; `rawValue` is for SwiftData persistence only.
+## SwiftData Notes
 
-```swift
-// ViewModel validation message
-nameValidationMessage = String(localized: "Asset name cannot be empty.", table: "Asset")
-```
-
-## Key Files
-
-### ViewModels
-
-| File                            | Purpose                                                               |
-| ------------------------------- | --------------------------------------------------------------------- |
-| `SnapshotListViewModel.swift`   | Snapshot creation, deletion, row data                                 |
-| `SnapshotDetailViewModel.swift` | Snapshot detail editing, asset/cash flow management                   |
-| `AssetListViewModel.swift`      | Asset listing with platform/category grouping, latest values          |
-| `AssetDetailViewModel.swift`    | Asset editing, value history, delete validation                       |
-| `DashboardViewModel.swift`      | Dashboard metrics, charts, portfolio overview, category value history |
-| `ChartDataService.swift`        | Chart time range filtering, abbreviated axis labels                   |
-| `ImportViewModel.swift`         | CSV import workflow, validation, preview                              |
-| `SettingsViewModel.swift`       | App settings management                                               |
-| `CategoryListViewModel.swift`   | Category listing, creation, editing, deletion with allocation         |
-| `CategoryDetailViewModel.swift` | Category detail, value/allocation history, edit/delete                |
-| `PlatformListViewModel.swift`   | Platform listing with values, rename with validation                  |
-| `RebalancingViewModel.swift`    | Rebalancing suggestions, allocation comparison, summary text          |
-
-### Views
-
-| File                                       | Purpose                                                        |
-| ------------------------------------------ | -------------------------------------------------------------- |
-| `ContentView.swift`                        | Full sidebar navigation shell with 7-section SidebarSection    |
-| `DashboardView.swift`                      | Dashboard with metrics, period performance, interactive charts |
-| `SnapshotListView.swift`                   | Snapshot list with creation                                    |
-| `SnapshotDetailView.swift`                 | Snapshot detail with asset/cash flow CRUD                      |
-| `AssetListView.swift`                      | Asset list with grouping segmented control                     |
-| `AssetDetailView.swift`                    | Asset detail/edit with sparkline and value history             |
-| `ImportView.swift`                         | CSV import screen (accepts ViewModel from ContentView)         |
-| `SettingsView.swift`                       | App settings screen                                            |
-| `CategoryListView.swift`                   | Category list with add sheet and allocation warning            |
-| `CategoryDetailView.swift`                 | Category detail/edit with history charts                       |
-| `PlatformListView.swift`                   | Platform list with rename sheet and empty state                |
-| `RebalancingView.swift`                    | Rebalancing table with suggestions and summary                 |
-| `Charts/ChartTimeRangeSelector.swift`      | Reusable 8-option segmented picker for chart time ranges       |
-| `Charts/ChartStyles.swift`                 | Shared chart constants (heights, color palette)                |
-| `Utilities/AnimationConstants.swift`       | Shared animation durations with Reduce Motion support          |
-| `Charts/PortfolioValueLineChart.swift`     | Portfolio value line chart with click-to-navigate              |
-| `Charts/CumulativeTWRLineChart.swift`      | Cumulative TWR percentage line chart                           |
-| `Charts/CategoryAllocationPieChart.swift`  | SectorMark pie chart with snapshot picker                      |
-| `Charts/CategoryValueLineChart.swift`      | Multi-line chart with legend toggle per category               |
-| `Charts/CategoryAllocationLineChart.swift` | Single-category allocation % line chart                        |
+- Single shared `ModelContainer` injected at app root
+- No manual `save()` — SwiftData auto-persists
+- Snapshots contain only directly-recorded values; no carry-forward
 
 ## SwiftUI Pitfalls
 
-**Stable `Identifiable` IDs in computed properties:**
+**`formattedPercentage()` expects percentage-scale input:** Pass `Decimal(60)` for 60%, not `0.6`. It divides by 100 internally. Raw decimals like TWR (0.21 for 21%) need `(twr * 100).formattedPercentage()`.
 
-Never use `let id = UUID()` in structs created inside computed properties (e.g., chart data). Each body evaluation creates new UUIDs, so SwiftUI/Charts treats every render as a full data replacement — breaking animations and diffing. Use a stable composite key instead:
+**Stable IDs in computed properties:** Never `let id = UUID()` in structs from computed properties — creates new IDs each render. Use stable composite keys: `var id: String { "\(category)-\(date.timeIntervalSince1970)" }`.
 
-```swift
-// BAD — new UUID every recompute
-struct ChartPoint: Identifiable {
-  let id = UUID()
-  let date: Date
-  let category: String
-}
+**Optional Picker needs nil tag:** Include `Text("Label").tag(Optional<T>.none)` when `Picker` selection is `Optional<T>`.
 
-// GOOD — stable identity
-struct ChartPoint: Identifiable {
-  var id: String { "\(category)-\(date.timeIntervalSince1970)" }
-  let date: Date
-  let category: String
-}
-```
+**Pin chart axis domains on interactive charts:** Set explicit `.chartXScale(domain:)` and `.chartYScale(domain:)` when using hover/tap overlays with conditional marks, otherwise axes shift during interaction.
 
-**Optional Picker selection needs a nil tag:**
+**ViewModel empty↔content transitions:** Don't use `.animation(_:value:)` for empty↔content in ViewModel-based views (flashes on load). Use instant swap; `withAnimation` only in user-action handlers (`onChange`, delete). `@Query`-based views can animate safely.
 
-When a `Picker` uses `Optional<T>` as its selection type, include an explicit tag for `nil`. Otherwise, the picker shows no selection even when data is displayed:
+**Chart requirements:** Every chart in `Views/Charts/` needs: hover tooltip (`.chartOverlay` + `onContinuousHover` + `RuleMark`), empty state messages (no data, no data for time range, single data point), click-to-navigate where specified, `ChartTimeRangeSelector` binding.
+
+## Naming
+
+- PascalCase: `AssetFormViewModel`, `AssetFormView`, `CurrencyService`
+- File name matches primary type
+- Suffixes: `*View`, `*Row`, `*Section`, `*ViewModel`, `*Service`, `*Calculator`
+
+**File headers (SwiftLint enforced):**
 
 ```swift
-// BAD — no tag for nil, picker appears empty initially
-Picker("Snapshot", selection: $selectedDate) {
-  ForEach(dates, id: \.self) { date in
-    Text(date.formatted(...)).tag(Optional(date))
-  }
-}
-
-// GOOD — explicit nil tag
-Picker("Snapshot", selection: $selectedDate) {
-  Text("Latest").tag(Optional<Date>.none)
-  ForEach(dates, id: \.self) { date in
-    Text(date.formatted(...)).tag(Optional(date))
-  }
-}
+//
+//  FileName.swift
+//  AssetFlow
+//
+//  Created by [Name] on YYYY/MM/DD.
+//
 ```
-
-**Pin both axis domains on interactive charts:**
-
-When a chart uses interactive overlays (hover via `onContinuousHover`, tap via `onTapGesture`) with conditional marks (e.g., `RuleMark` + annotation), always set explicit `.chartXScale(domain:)` and `.chartYScale(domain:)`. Without fixed domains, adding/removing conditional marks triggers Swift Charts auto-scale recalculation, causing visible Y-axis shifts during hover.
-
-```swift
-// GOOD — axes stay stable during hover
-let yValues = points.map { $0.value.doubleValue }
-let yMin = yValues.min()!
-let yMax = yValues.max()!
-
-Chart(points) { ... }
-  .chartXScale(domain: firstDate...lastDate)
-  .chartYScale(domain: yMin...yMax)
-```
-
-**Animating empty↔content transitions in ViewModel-based views:**
-
-Views that load data via `.onAppear` (ViewModel pattern) must NOT use `.animation(_:value:)` to animate the empty↔content transition — it animates the initial load, causing a flash of the empty state. Do NOT add `.transition(.opacity)` to the empty/content branches either — the transition is unnecessary and may cause jitter on navigation. The `withAnimation` in user-action code paths (e.g., `onChange(of: fingerprint)`, delete handlers) smoothly updates list content; the empty↔content switch itself should be instant. Views using `@Query` (e.g., `SnapshotListView`) can use `.animation(_:value:)` safely since data is available synchronously.
-
-```swift
-// BAD — flashes empty state on initial navigation
-Group {
-  if viewModel.isEmpty { emptyState.transition(.opacity) }
-  else { content.transition(.opacity) }
-}
-.animation(.easeOut, value: viewModel.isEmpty)
-.onAppear { viewModel.load() }
-
-// GOOD — instant empty↔content swap, withAnimation only for list content changes
-Group {
-  if viewModel.isEmpty { emptyState }
-  else { content }
-}
-.onAppear { viewModel.load() }
-.onChange(of: dataFingerprint) {
-  withAnimation(AnimationConstants.standard) { viewModel.load() }
-}
-```
-
-**Chart component requirements:**
-
-Every chart view in `Views/Charts/` must implement:
-
-1. Hover tooltip (via `.chartOverlay` + `onContinuousHover` + `RuleMark` annotation)
-1. Empty state messages for: no data at all, no data for selected time range, single data point
-1. Click-to-navigate where specified by SPEC (e.g., pie chart sectors, portfolio value data points)
-1. Time range selector via `ChartTimeRangeSelector` binding
-
-## Naming Conventions
-
-- PascalCase with descriptive suffix: `AssetFormViewModel`, `AssetFormView`, `CurrencyService`
-- File name matches primary type name: `AssetFormViewModel.swift`
-- Views: `*View`, `*Row`, `*Section`
-- ViewModels: `*ViewModel`
-- Services: `*Service`, `*Calculator`

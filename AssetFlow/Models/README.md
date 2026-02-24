@@ -90,7 +90,7 @@ Exchange rate data for currency conversion at a specific snapshot date.
 **Key Properties:**
 
 - `baseCurrency` - Base currency code (lowercase, e.g., "usd")
-- `ratesJSON` - JSON-encoded `[String: Double]` of currency rates
+- `ratesJSON` - `Data` blob containing JSON-encoded `[String: Double]` of currency rates
 - `fetchDate` - Date these rates apply to
 - `isFallback` - Whether rates came from a fallback source
 

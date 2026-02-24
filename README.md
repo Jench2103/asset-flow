@@ -123,11 +123,11 @@ The application follows the MVVM (Model-View-ViewModel) architecture pattern:
 - **Models**: SwiftData models (Category, Asset, Snapshot, SnapshotAssetValue, CashFlowOperation, ExchangeRate)
 - **Views**: SwiftUI components for UI presentation
 - **ViewModels**: `@Observable @MainActor` classes for business logic and state management
-- **Services**: Stateless calculation utilities (CalculationService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, CurrencyService, ChartDataService, ExchangeRateService, CurrencyConversionService)
+- **Services**: Stateless calculation utilities (CalculationService, CSVParsingService, RebalancingCalculator, BackupService, SettingsService, AuthenticationService, CurrencyService, ChartDataService, ExchangeRateService, CurrencyConversionService, DateFormatStyle)
 
 ## Features
 
-- Snapshot-based portfolio tracking with carry-forward for partial imports
+- Snapshot-based portfolio tracking with point-in-time recording
 - CSV import for assets and cash flows with validation and duplicate detection
 - Category management with target allocation percentages
 - Multi-currency support with automatic exchange rate fetching
@@ -136,6 +136,7 @@ The application follows the MVVM (Model-View-ViewModel) architecture pattern:
 - Data visualization with pie charts, line charts, and cumulative TWR charts
 - Backup and restore via ZIP archive
 - Settings for display currency, date format, and default platform
+- Optional app lock with Touch ID and system password authentication
 - Localization support (English and Traditional Chinese)
 
 ## Contributing
@@ -145,7 +146,3 @@ This is a personal project. Contributions, issues, and feature requests are welc
 ## License
 
 [Apache License 2.0](LICENSE) — Copyright © 2026 Jen-Chien Chang
-
-## Contact
-
-Jen-Chien Chang
