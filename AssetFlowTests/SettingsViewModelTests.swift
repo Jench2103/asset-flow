@@ -258,7 +258,7 @@ struct SettingsViewModelTests {
     viewModel.isAppLockEnabled = true
 
     // Wait for the async auth Task to complete
-    try? await Task.sleep(for: .milliseconds(50))
+    await viewModel.authTask?.value
 
     #expect(viewModel.isAppLockEnabled == true)
     #expect(authService.isAppLockEnabled == true)

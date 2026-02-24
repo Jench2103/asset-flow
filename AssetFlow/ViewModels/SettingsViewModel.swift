@@ -45,6 +45,9 @@ final class SettingsViewModel {
     }
   }
 
+  /// Task handle for the in-flight authentication request, exposed for testability.
+  private(set) var authTask: Task<Void, Never>?
+
   /// Whether app lock is enabled
   var isAppLockEnabled: Bool {
     didSet {
@@ -61,7 +64,7 @@ final class SettingsViewModel {
           screenLockTimeout = .immediately
         }
         // Verify identity before enabling — revert if auth fails
-        Task {
+        authTask = Task {
           let success = await authService.authenticate()
           if success {
             authService.isAppLockEnabled = true
