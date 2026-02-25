@@ -303,14 +303,24 @@ See [BusinessLogic.md](BusinessLogic.md) for the detailed CSV import flow.
 - **File selector**: Drag-and-drop zone or "Browse" button (filtered to `.csv`)
 - **Expected schema display**: Show the expected CSV column names for the selected import type and provide downloadable sample CSVs
 - **Configuration** (after file selected):
-  - Asset import: Snapshot date picker (future dates disabled), Platform picker, Category picker
+  - Asset import: Snapshot date picker (future dates disabled), Platform picker (with "All Rows" toggle when mixed platforms), Category picker (with "All Rows" toggle when mixed categories)
   - Cash flow import: Snapshot date picker (future dates disabled)
-- **Preview table**: Parsed data with validation indicators and per-row remove buttons. Asset preview includes Currency column showing the effective currency (CSV value, or existing asset currency as fallback).
-  - If an asset already exists with a different category than the import-level category, a warning indicator (yellow triangle) is shown on the row with a hover popover explaining the change
-  - If an asset already exists with a different currency than the CSV-provided currency, a warning indicator (yellow triangle) is shown on the currency cell with a hover popover showing current vs. new currency
-  - If a row has an unsupported currency code, an error indicator (red circle) is shown on the currency cell with a hover popover; this error takes precedence over the currency change warning
-- **Validation summary**: Errors (red) and warnings (yellow)
-- **Import button**: Disabled if validation errors exist
+  - Platform and Category pickers use pill-style background (`.fill.quaternary` with rounded corners). The "All Rows" checkbox toggle appears when the CSV contains a mix of values that make the apply mode meaningful.
+  - Category apply mode: "All Rows" checked (default) = override all assets with the selected category; unchecked = only assign category to assets that don't already have one.
+- **Preview table**: Parsed data with validation indicators and per-row remove buttons.
+  - Asset preview columns: Asset Name, Market Value, Currency, Platform, Category
+  - Currency column shows the effective currency (CSV value, or existing asset currency as fallback)
+  - Category column shows the effective post-import category based on apply mode
+  - **Per-row error/warning popovers** (hover to reveal):
+    - Within-CSV duplicate errors (red circle) — shown next to asset name
+    - Snapshot duplicate errors (red circle) — shown next to asset name
+    - Category reassignment warnings (yellow triangle) — shown next to asset name (only in "All Rows" mode)
+    - Market value warnings (zero/negative, yellow triangle) — shown next to market value
+    - Currency errors (unsupported code, red circle) — shown next to currency cell
+    - Currency change warnings (yellow triangle) — shown next to currency cell
+  - Cash flow preview shows duplicate/snapshot-duplicate popovers next to description
+- **Validation summary**: File-level parsing errors (red) and warnings (yellow) only; row-level issues are shown as per-row popovers
+- **Import button**: Disabled if validation errors or per-row errors exist on included rows
 - **On successful import**: Snapshot is created (or updated if one exists for that date); user is navigated to the snapshot detail view
 
 If user navigates away (including sidebar navigation) with file loaded but not imported, confirmation dialog: "Discard import? The selected file has not been imported yet."

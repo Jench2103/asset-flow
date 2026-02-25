@@ -24,6 +24,12 @@ struct ImportView: View {
   @State var activeCategoryWarningRowID: UUID?
   @State var activeCurrencyWarningRowID: UUID?
   @State var activeCurrencyErrorRowID: UUID?
+  @State var activeDuplicateErrorRowID: UUID?
+  @State var activeSnapshotDuplicateErrorRowID: UUID?
+  @State var activeMarketValueWarningRowID: UUID?
+  @State var activeCFDuplicateErrorRowID: UUID?
+  @State var activeCFSnapshotDuplicateErrorRowID: UUID?
+  @State var activeCFAmountWarningRowID: UUID?
 
   init(viewModel: ImportViewModel) {
     _viewModel = State(wrappedValue: viewModel)
@@ -311,7 +317,7 @@ struct ImportView: View {
         }
         .transition(.opacity)
       } else {
-        HStack {
+        HStack(spacing: 4) {
           Text("Category:")
             .foregroundStyle(.secondary)
           Picker("Category", selection: categoryBinding) {
@@ -324,11 +330,29 @@ struct ImportView: View {
           }
           .labelsHidden()
           .fixedSize()
+
+          if viewModel.hasMixedCategories {
+            Toggle("All Rows", isOn: categoryOverrideAllBinding)
+              .toggleStyle(.checkbox)
+              .fixedSize()
+              .disabled(viewModel.selectedCategory == nil)
+          }
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.fill.quaternary)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
         .transition(.opacity)
       }
     }
     .animation(AnimationConstants.standard, value: showNewCategoryField)
+  }
+
+  private var categoryOverrideAllBinding: Binding<Bool> {
+    Binding(
+      get: { viewModel.categoryApplyMode == .overrideAll },
+      set: { viewModel.categoryApplyMode = $0 ? .overrideAll : .fillEmptyOnly }
+    )
   }
 
   private var categoryBinding: Binding<String> {

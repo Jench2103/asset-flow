@@ -60,10 +60,7 @@ struct CSVParsingCurrencyTests {
 
     #expect(result.isValid)
     // "Currency" should be a known column — no "unrecognized column" warning
-    let unrecognizedWarnings = result.warnings.filter {
-      $0.message.contains("Unrecognized column")
-    }
-    #expect(unrecognizedWarnings.isEmpty)
+    #expect(!result.warnings.contains(where: { $0.column == "Currency" }))
   }
 
   // MARK: - Cash Flow CSV Currency Tests
@@ -108,9 +105,6 @@ struct CSVParsingCurrencyTests {
     let result = CSVParsingService.parseCashFlowCSV(data: data)
 
     #expect(result.isValid)
-    let unrecognizedWarnings = result.warnings.filter {
-      $0.message.contains("Unrecognized column")
-    }
-    #expect(unrecognizedWarnings.isEmpty)
+    #expect(!result.warnings.contains(where: { $0.column == "Currency" }))
   }
 }

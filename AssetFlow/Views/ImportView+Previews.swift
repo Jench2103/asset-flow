@@ -39,7 +39,7 @@ private struct HoverPopoverIcon: View {
         Text(message)
           .font(.callout)
           .fixedSize(horizontal: false, vertical: true)
-          .frame(maxWidth: 300, alignment: .leading)
+          .frame(idealWidth: 300, alignment: .leading)
           .padding()
       }
   }
@@ -65,6 +65,9 @@ extension ImportView {
         Text(verbatim: "Platform")
           .fontWeight(.semibold)
           .frame(width: 150, alignment: .leading)
+        Text(verbatim: "Category")
+          .fontWeight(.semibold)
+          .frame(width: 120, alignment: .leading)
         Text("")
           .frame(width: 30)
       }
@@ -82,6 +85,24 @@ extension ImportView {
           HStack {
             HStack(spacing: 4) {
               Text(row.csvRow.assetName)
+              if let error = row.duplicateError {
+                HoverPopoverIcon(
+                  systemName: "xmark.circle.fill",
+                  color: .red,
+                  message: error,
+                  activeRowID: $activeDuplicateErrorRowID,
+                  rowID: row.id
+                )
+              }
+              if let error = row.snapshotDuplicateError {
+                HoverPopoverIcon(
+                  systemName: "xmark.circle.fill",
+                  color: .red,
+                  message: error,
+                  activeRowID: $activeSnapshotDuplicateErrorRowID,
+                  rowID: row.id
+                )
+              }
               if let warning = row.categoryWarning {
                 HoverPopoverIcon(
                   systemName: "exclamationmark.triangle.fill",
@@ -94,9 +115,20 @@ extension ImportView {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(row.csvRow.marketValue.formatted())
-              .frame(width: 120, alignment: .trailing)
-              .monospacedDigit()
+            HStack(spacing: 4) {
+              Text(row.csvRow.marketValue.formatted())
+                .monospacedDigit()
+              if let warning = row.marketValueWarning {
+                HoverPopoverIcon(
+                  systemName: "exclamationmark.triangle.fill",
+                  color: .yellow,
+                  message: warning,
+                  activeRowID: $activeMarketValueWarningRowID,
+                  rowID: row.id
+                )
+              }
+            }
+            .frame(width: 120, alignment: .trailing)
 
             HStack(spacing: 4) {
               Text(row.effectiveCurrency.isEmpty ? "-" : row.effectiveCurrency)
@@ -124,6 +156,10 @@ extension ImportView {
             Text(row.csvRow.platform.isEmpty ? "-" : row.csvRow.platform)
               .frame(width: 150, alignment: .leading)
               .foregroundStyle(row.csvRow.platform.isEmpty ? .tertiary : .primary)
+
+            Text(row.effectiveCategory.isEmpty ? "-" : row.effectiveCategory)
+              .frame(width: 120, alignment: .leading)
+              .foregroundStyle(row.effectiveCategory.isEmpty ? .tertiary : .primary)
 
             Button {
               viewModel.removeAssetPreviewRow(at: index)
@@ -174,13 +210,44 @@ extension ImportView {
       ) { index, row in
         if row.isIncluded {
           HStack {
-            Text(row.csvRow.description)
-              .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 4) {
+              Text(row.csvRow.description)
+              if let error = row.duplicateError {
+                HoverPopoverIcon(
+                  systemName: "xmark.circle.fill",
+                  color: .red,
+                  message: error,
+                  activeRowID: $activeCFDuplicateErrorRowID,
+                  rowID: row.id
+                )
+              }
+              if let error = row.snapshotDuplicateError {
+                HoverPopoverIcon(
+                  systemName: "xmark.circle.fill",
+                  color: .red,
+                  message: error,
+                  activeRowID: $activeCFSnapshotDuplicateErrorRowID,
+                  rowID: row.id
+                )
+              }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(row.csvRow.amount.formatted())
-              .frame(width: 120, alignment: .trailing)
-              .monospacedDigit()
-              .foregroundStyle(row.csvRow.amount < 0 ? .red : .primary)
+            HStack(spacing: 4) {
+              Text(row.csvRow.amount.formatted())
+                .monospacedDigit()
+                .foregroundStyle(row.csvRow.amount < 0 ? .red : .primary)
+              if let warning = row.amountWarning {
+                HoverPopoverIcon(
+                  systemName: "exclamationmark.triangle.fill",
+                  color: .yellow,
+                  message: warning,
+                  activeRowID: $activeCFAmountWarningRowID,
+                  rowID: row.id
+                )
+              }
+            }
+            .frame(width: 120, alignment: .trailing)
 
             Button {
               viewModel.removeCashFlowPreviewRow(at: index)

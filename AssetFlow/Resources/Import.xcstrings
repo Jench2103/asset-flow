@@ -1,12 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Could not open file. Please check the file is a valid CSV." : {
+    "Amount is zero for '%@'." : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "無法開啟檔案。請確認該檔案為有效的 CSV 格式。"
+            "value" : "「%@」的金額為零。"
           }
         }
       }
@@ -37,6 +37,79 @@
         }
       }
     },
+    "Could not open file. Please check the file is a valid CSV." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法開啟檔案。請確認該檔案為有效的 CSV 格式。"
+          }
+        }
+      }
+    },
+    "Duplicate asset '%@' (platform: '%@') — first appeared as '%@'." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Duplicate asset '%1$@' (platform: '%2$@') — first appeared as '%3$@'."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重複的資產「%1$@」（平台：%2$@）— 首次出現為「%3$@」。"
+          }
+        }
+      }
+    },
+    "Duplicate description '%@' — first appeared as '%@'." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Duplicate description '%1$@' — first appeared as '%2$@'."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重複的描述「%1$@」— 首次出現為「%2$@」。"
+          }
+        }
+      }
+    },
+    "None" : {
+      "comment" : "Label used when an asset has no platform assigned.",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無"
+          }
+        }
+      }
+    },
+    "Market value is negative for '%@'." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」的市場價值為負數。"
+          }
+        }
+      }
+    },
+    "Market value is zero for '%@'." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」的市場價值為零。"
+          }
+        }
+      }
+    },
     "Snapshot date cannot be in the future." : {
       "localizations" : {
         "zh-Hant" : {
@@ -47,28 +120,18 @@
         }
       }
     },
-    "Unsupported currency '%@'." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "幣別「%@」不被支援。"
-          }
-        }
-      }
-    },
-    "Unsupported currency '%@' in row %lld." : {
+    "This asset is currently assigned to %@. Importing will reassign it to %@." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Unsupported currency '%1$@' in row %2$lld."
+            "value" : "This asset is currently assigned to %1$@. Importing will reassign it to %2$@."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "第 %2$lld 列的幣別「%1$@」不被支援。"
+            "value" : "此資產目前歸類於「%1$@」。匯入後將重新歸類至「%2$@」。"
           }
         }
       }
@@ -89,18 +152,45 @@
         }
       }
     },
-    "This asset is currently assigned to %@. Importing will reassign it to %@." : {
+    "Unrecognized column: %@ (will be ignored)" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "This asset is currently assigned to %1$@. Importing will reassign it to %2$@."
+            "value" : "Unrecognized column: %@ (will be ignored)"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此資產目前歸類於「%1$@」。匯入後將重新歸類至「%2$@」。"
+            "value" : "無法識別的欄位：%@（將被忽略）"
+          }
+        }
+      }
+    },
+    "Unsupported currency '%@' in row %lld." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unsupported currency '%1$@' in row %2$lld."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %2$lld 列的幣別「%1$@」不被支援。"
+          }
+        }
+      }
+    },
+    "Unsupported currency '%@'." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "幣別「%@」不被支援。"
           }
         }
       }

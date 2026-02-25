@@ -172,8 +172,10 @@ extension CSVParsingService {
     where !knownColumns.contains(header) {
       warnings.append(
         CSVWarning(
-          row: 1, column: headers[idx],
-          message: "Unrecognized column: \(headers[idx]) (will be ignored)"))
+          row: 0, column: headers[idx],
+          message: String(
+            localized: "Unrecognized column: \(headers[idx]) (will be ignored)",
+            table: "Import")))
     }
     return warnings
   }
@@ -495,7 +497,7 @@ extension CSVParsingService {
     return errors
   }
 
-  private static func normalizedAssetIdentity(
+  static func normalizedAssetIdentity(
     row: AssetCSVRow
   ) -> String {
     let name = row.assetName

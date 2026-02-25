@@ -319,24 +319,35 @@ Cash flow CSV currency handling follows the same pattern: CSV currency is assign
 
 ### Duplicate Detection
 
-Duplicates cause the **entire import to be rejected** -- no partial imports.
+Duplicates are shown as per-row error popovers on the affected preview rows. Rows with duplicate errors block import.
 
 **Asset CSV duplicates**:
 
-- **Within CSV**: Two rows with the same (Asset Name, Platform) after applying platform handling rules and normalized identity comparison
+- **Within CSV**: Two rows with the same (Asset Name, Platform) after applying platform handling rules and normalized identity comparison. The second occurrence gets the error.
 - **Between CSV and existing snapshot**: An asset in the CSV matches an asset already recorded in the target snapshot (same date)
 
 **Cash flow CSV duplicates**:
 
-- **Within CSV**: Two rows with the same Description (case-insensitive)
+- **Within CSV**: Two rows with the same Description (case-insensitive). The second occurrence gets the error.
 - **Between CSV and existing snapshot**: A Description matches an existing CashFlowOperation in the target snapshot
+
+Excluding (removing) a row with a duplicate error triggers revalidation; if the remaining rows have no duplicates, the errors are cleared.
 
 ### Category Assignment During Import
 
-- If user selects a category, ALL assets in the import are assigned to that category
-- If no category selected, imported assets are uncategorized
+Category for each asset is determined by the import-level category selection and apply mode:
+
+1. If no category is selected, imported assets are uncategorized (existing assets retain their current category)
+1. If a category is selected:
+   1. **Override All** (default): Every asset receives the selected category, overriding existing categories
+   1. **Fill Empty Only**: Only assets that have no existing category receive the selected category; assets with existing categories keep their original category
+
+The apply mode toggle ("All Rows" checkbox) appears only when a category is selected AND the import contains a mix of categorized and uncategorized existing assets (`hasMixedCategories`).
+
+- In **Override All** mode, a category reassignment warning is shown on rows where the existing asset has a different category
+- In **Fill Empty Only** mode, no category reassignment warning is shown (existing categories won't change)
+- The preview table's Category column shows the effective post-import category reflecting the apply mode
 - "New Category..." option: if entered name matches existing category (case-insensitive), the existing one is used; otherwise a new category is created with no target allocation
-- If an imported asset already exists with a different category, the import-level category overrides (warning shown in preview)
 
 ______________________________________________________________________
 

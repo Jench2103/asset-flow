@@ -128,7 +128,7 @@ struct ImportViewModelTests {
     #expect(!viewModel.validationErrors.isEmpty)
   }
 
-  @Test("Loading asset CSV with warnings populates validation warnings")
+  @Test("Loading asset CSV with warnings populates per-row parsing warnings")
   func loadAssetCSVWithWarnings() {
     let tc = createTestContext()
     let viewModel = ImportViewModel(modelContext: tc.context)
@@ -141,7 +141,9 @@ struct ImportViewModelTests {
       """)
     viewModel.loadCSVData(csv)
 
-    #expect(!viewModel.validationWarnings.isEmpty)
+    // Zero/negative market value warnings are now per-row
+    #expect(viewModel.assetPreviewRows[0].marketValueWarning != nil)
+    #expect(viewModel.assetPreviewRows[1].marketValueWarning != nil)
   }
 
   @Test("Loading empty file shows error")
@@ -636,18 +638,19 @@ struct ImportViewModelTests {
       """)
     viewModel.loadCSVData(csv)
 
-    #expect(!viewModel.validationErrors.isEmpty)
+    // Second row should have per-row duplicate error
+    #expect(viewModel.assetPreviewRows[1].duplicateError != nil)
 
     // Remove the duplicate row
     viewModel.removeAssetPreviewRow(at: 1)
 
-    // After removing the duplicate, errors should be re-evaluated
-    #expect(viewModel.validationErrors.isEmpty)
+    // After removing the duplicate, per-row errors should be cleared on remaining rows
+    #expect(viewModel.assetPreviewRows[0].duplicateError == nil)
   }
 
   // MARK: - Duplicate Detection (CSV vs Existing Snapshot)
 
-  @Test("Duplicate asset between CSV and existing snapshot produces error")
+  @Test("Duplicate asset between CSV and existing snapshot produces per-row error")
   func duplicateAssetWithExistingSnapshot() {
     let tc = createTestContext()
 
@@ -666,14 +669,14 @@ struct ImportViewModelTests {
     viewModel.snapshotDate = date
     viewModel.loadCSVData(validAssetCSVData())
 
-    // Should detect duplicate AAPL on Interactive Brokers
-    let hasDuplicateError = viewModel.validationErrors.contains {
-      $0.message.contains("AAPL")
+    // Should detect per-row snapshot duplicate error on AAPL row
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
     }
-    #expect(hasDuplicateError)
+    #expect(aaplRow?.snapshotDuplicateError != nil)
   }
 
-  @Test("Duplicate cash flow between CSV and existing snapshot produces error")
+  @Test("Duplicate cash flow between CSV and existing snapshot produces per-row error")
   func duplicateCashFlowWithExistingSnapshot() {
     let tc = createTestContext()
 
@@ -690,10 +693,56 @@ struct ImportViewModelTests {
     viewModel.snapshotDate = date
     viewModel.loadCSVData(validCashFlowCSVData())
 
-    let hasDuplicateError = viewModel.validationErrors.contains {
-      $0.message.lowercased().contains("salary deposit")
+    let salaryRow = viewModel.cashFlowPreviewRows.first {
+      $0.csvRow.description == "Salary deposit"
     }
-    #expect(hasDuplicateError)
+    #expect(salaryRow?.snapshotDuplicateError != nil)
+  }
+
+  @Test("Loading cash flow CSV with zero amount populates per-row amount warning")
+  func loadCashFlowWithZeroAmountWarning() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.importType = .cashFlows
+
+    let csv = csvData(
+      """
+      Description,Amount
+      Salary deposit,0
+      Rent payment,-2000
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Zero amount gets a per-row warning
+    let salaryRow = viewModel.cashFlowPreviewRows.first {
+      $0.csvRow.description == "Salary deposit"
+    }
+    #expect(salaryRow?.amountWarning != nil)
+
+    // Non-zero amount has no warning (negative is valid for cash flows)
+    let rentRow = viewModel.cashFlowPreviewRows.first {
+      $0.csvRow.description == "Rent payment"
+    }
+    #expect(rentRow?.amountWarning == nil)
+  }
+
+  @Test("Cash flow zero-amount warning does not appear in file-level validationWarnings")
+  func cashFlowZeroAmountWarningIsPerRowOnly() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.importType = .cashFlows
+
+    let csv = csvData(
+      """
+      Description,Amount
+      Salary deposit,0
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Row-level warnings are filtered out of validationWarnings
+    #expect(viewModel.validationWarnings.isEmpty)
+    // But per-row warning is set
+    #expect(viewModel.cashFlowPreviewRows[0].amountWarning != nil)
   }
 
   @Test("No duplicates when snapshot is new")
@@ -703,7 +752,9 @@ struct ImportViewModelTests {
     viewModel.snapshotDate = makeDate(year: 2025, month: 6, day: 15)
     viewModel.loadCSVData(validAssetCSVData())
 
-    #expect(viewModel.validationErrors.isEmpty)
+    // No per-row duplicate errors
+    #expect(viewModel.assetPreviewRows.allSatisfy { $0.duplicateError == nil })
+    #expect(viewModel.assetPreviewRows.allSatisfy { $0.snapshotDuplicateError == nil })
   }
 
   @Test("Excluded rows do not participate in duplicate detection with snapshot")
@@ -732,14 +783,16 @@ struct ImportViewModelTests {
       """)
     viewModel.loadCSVData(csv)
 
-    // Initially there should be a duplicate error for AAPL
-    #expect(!viewModel.validationErrors.isEmpty)
+    // Initially AAPL should have a snapshot duplicate error
+    #expect(viewModel.assetPreviewRows[0].snapshotDuplicateError != nil)
 
     // Remove the AAPL row
     viewModel.removeAssetPreviewRow(at: 0)
 
-    // Duplicate error should be cleared
-    #expect(viewModel.validationErrors.isEmpty)
+    // Per-row error should be cleared on excluded row
+    #expect(viewModel.assetPreviewRows[0].snapshotDuplicateError == nil)
+    // VTI should have no errors
+    #expect(viewModel.assetPreviewRows[1].snapshotDuplicateError == nil)
   }
 
   // MARK: - Import Execution: Asset CSV
@@ -1191,17 +1244,17 @@ struct ImportViewModelTests {
     viewModel.snapshotDate = makeDate(year: 2025, month: 6, day: 16)
     viewModel.loadCSVData(validAssetCSVData())
 
-    // No duplicate error on June 16
-    #expect(viewModel.validationErrors.isEmpty)
+    // No per-row snapshot duplicate error on June 16
+    #expect(viewModel.assetPreviewRows.allSatisfy { $0.snapshotDuplicateError == nil })
 
     // Now change date to June 15 where AAPL already exists
     viewModel.snapshotDate = date1
 
-    // Should detect duplicate AAPL on the new date
-    let hasDuplicateError = viewModel.validationErrors.contains {
-      $0.message.contains("AAPL")
+    // Should detect per-row snapshot duplicate error on AAPL row
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
     }
-    #expect(hasDuplicateError)
+    #expect(aaplRow?.snapshotDuplicateError != nil)
   }
 
   // MARK: - Revalidation Preserves Parsing Errors
@@ -1224,13 +1277,13 @@ struct ImportViewModelTests {
       """)
     viewModel.loadCSVData(csv)
 
-    // Should have parsing error (empty name) AND duplicate error (two AAPLs)
-    let initialErrors = viewModel.validationErrors
-    #expect(initialErrors.count >= 2)
-    let hasEmptyNameError = initialErrors.contains {
+    // Should have: parsing error in validationErrors + per-row duplicate error on second AAPL
+    #expect(!viewModel.validationErrors.isEmpty)
+    let hasEmptyNameError = viewModel.validationErrors.contains {
       $0.message.lowercased().contains("empty")
     }
     #expect(hasEmptyNameError)
+    #expect(viewModel.assetPreviewRows[1].duplicateError != nil)
 
     // Preview rows: AAPL(0), AAPL(1), VTI(2) - 3 rows
     #expect(viewModel.assetPreviewRows.count == 3)
@@ -1239,8 +1292,9 @@ struct ImportViewModelTests {
     viewModel.removeAssetPreviewRow(at: 1)
 
     // After revalidation:
-    // - Duplicate error should be gone (only one AAPL now)
+    // - Per-row duplicate error should be gone (only one AAPL now)
     // - But the parsing error for empty name should still be present
+    #expect(viewModel.assetPreviewRows[0].duplicateError == nil)
     let hasEmptyNameErrorAfter = viewModel.validationErrors.contains {
       $0.message.lowercased().contains("empty")
     }
@@ -1887,7 +1941,7 @@ struct ImportViewModelTests {
 
   // MARK: - Currency Validation
 
-  @Test("Unsupported currency code produces validation error")
+  @Test("Unsupported currency code produces per-row error")
   func unsupportedCurrencyProducesError() {
     let tc = createTestContext()
     let viewModel = ImportViewModel(modelContext: tc.context)
@@ -1899,10 +1953,10 @@ struct ImportViewModelTests {
       """)
     viewModel.loadCSVData(csv)
 
-    let hasCurrencyError = viewModel.validationErrors.contains {
-      $0.message.contains("XYZ")
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
     }
-    #expect(hasCurrencyError)
+    #expect(aaplRow?.currencyError != nil)
     #expect(viewModel.isImportDisabled)
   }
 
@@ -1918,10 +1972,10 @@ struct ImportViewModelTests {
       """)
     viewModel.loadCSVData(csv)
 
-    let hasCurrencyError = viewModel.validationErrors.contains {
-      $0.column == "Currency"
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
     }
-    #expect(!hasCurrencyError)
+    #expect(aaplRow?.currencyError == nil)
   }
 
   @Test("Case-insensitive currency codes are accepted")
@@ -1936,10 +1990,10 @@ struct ImportViewModelTests {
       """)
     viewModel.loadCSVData(csv)
 
-    let hasCurrencyError = viewModel.validationErrors.contains {
-      $0.column == "Currency"
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
     }
-    #expect(!hasCurrencyError)
+    #expect(aaplRow?.currencyError == nil)
   }
 
   @Test("Unsupported currency error suppresses currency change warning")
@@ -1970,7 +2024,260 @@ struct ImportViewModelTests {
     #expect(aaplRow?.currencyWarning == nil)
   }
 
-  @Test("Removing row with unsupported currency clears the error")
+  // MARK: - Category Apply Mode
+
+  @Test("Category apply mode overrideAll assigns category to all assets")
+  func categoryApplyMode_overrideAll_assignsToAllAssets() throws {
+    let tc = createTestContext()
+
+    // Create existing asset with category
+    let bonds = Category(name: "Bonds")
+    tc.context.insert(bonds)
+    let existingAsset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    existingAsset.category = bonds
+    tc.context.insert(existingAsset)
+
+    let equities = Category(name: "Equities")
+    tc.context.insert(equities)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.selectedCategory = equities
+    viewModel.categoryApplyMode = .overrideAll
+    viewModel.snapshotDate = makeDate(year: 2025, month: 6, day: 15)
+    viewModel.loadCSVData(validAssetCSVData())
+
+    let snapshot = viewModel.executeImport()
+    #expect(snapshot != nil)
+
+    let assetDescriptor = FetchDescriptor<Asset>()
+    let assets = try tc.context.fetch(assetDescriptor)
+    for asset in assets {
+      #expect(asset.category?.id == equities.id)
+    }
+  }
+
+  @Test("Category apply mode fillEmptyOnly only assigns to uncategorized assets")
+  func categoryApplyMode_fillEmptyOnly_onlyAssignsToUncategorized() throws {
+    let tc = createTestContext()
+
+    // Create existing asset with category
+    let bonds = Category(name: "Bonds")
+    tc.context.insert(bonds)
+    let existingAsset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    existingAsset.category = bonds
+    tc.context.insert(existingAsset)
+
+    let equities = Category(name: "Equities")
+    tc.context.insert(equities)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.selectedCategory = equities
+    viewModel.categoryApplyMode = .fillEmptyOnly
+    viewModel.snapshotDate = makeDate(year: 2025, month: 6, day: 15)
+    viewModel.loadCSVData(validAssetCSVData())
+
+    let snapshot = viewModel.executeImport()
+    #expect(snapshot != nil)
+
+    let assetDescriptor = FetchDescriptor<Asset>()
+    let assets = try tc.context.fetch(assetDescriptor)
+
+    // AAPL (existing with Bonds) should keep Bonds
+    let aapl = assets.first { $0.name == "AAPL" }
+    #expect(aapl?.category?.id == bonds.id)
+
+    // VTI (new) should get Equities
+    let vti = assets.first { $0.name == "VTI" }
+    #expect(vti?.category?.id == equities.id)
+
+    // Bitcoin (new) should get Equities
+    let bitcoin = assets.first { $0.name == "Bitcoin" }
+    #expect(bitcoin?.category?.id == equities.id)
+  }
+
+  @Test("hasMixedCategories is true when some existing assets have categories and some don't")
+  func hasMixedCategories_trueWhenMixed() {
+    let tc = createTestContext()
+
+    // Create one asset with category, one without
+    let bonds = Category(name: "Bonds")
+    tc.context.insert(bonds)
+    let aapl = Asset(name: "AAPL", platform: "Interactive Brokers")
+    aapl.category = bonds
+    tc.context.insert(aapl)
+    let vti = Asset(name: "VTI", platform: "Interactive Brokers")
+    tc.context.insert(vti)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.loadCSVData(validAssetCSVData())
+
+    #expect(viewModel.hasMixedCategories)
+  }
+
+  @Test("effectiveCategory reflects apply mode correctly")
+  func effectiveCategory_reflectsApplyMode() {
+    let tc = createTestContext()
+
+    // Create existing AAPL with Bonds category
+    let bonds = Category(name: "Bonds")
+    tc.context.insert(bonds)
+    let existingAsset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    existingAsset.category = bonds
+    tc.context.insert(existingAsset)
+
+    let equities = Category(name: "Equities")
+    tc.context.insert(equities)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.selectedCategory = equities
+
+    // overrideAll: all rows show selected category
+    viewModel.categoryApplyMode = .overrideAll
+    viewModel.loadCSVData(validAssetCSVData())
+
+    let aaplOverride = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
+    }
+    #expect(aaplOverride?.effectiveCategory == "Equities")
+
+    // fillEmptyOnly: AAPL keeps existing, new assets get selected
+    viewModel.categoryApplyMode = .fillEmptyOnly
+
+    let aaplFill = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
+    }
+    #expect(aaplFill?.effectiveCategory == "Bonds")
+
+    let bitcoinFill = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "Bitcoin"
+    }
+    #expect(bitcoinFill?.effectiveCategory == "Equities")
+  }
+
+  // MARK: - Per-Row Errors
+
+  @Test("Per-row duplicate errors are set on revalidation")
+  func perRowDuplicateErrors_setOnRevalidation() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let csv = csvData(
+      """
+      Asset Name,Market Value
+      AAPL,15000
+      AAPL,20000
+      """)
+    viewModel.loadCSVData(csv)
+
+    // First row should have no error
+    #expect(viewModel.assetPreviewRows[0].duplicateError == nil)
+    // Second row should have duplicate error
+    #expect(viewModel.assetPreviewRows[1].duplicateError != nil)
+  }
+
+  @Test("Per-row snapshot duplicate errors are set on revalidation")
+  func perRowSnapshotDuplicateErrors_setOnRevalidation() {
+    let tc = createTestContext()
+
+    // Create existing snapshot with AAPL
+    let date = makeDate(year: 2025, month: 6, day: 15)
+    let snapshot = Snapshot(date: date)
+    tc.context.insert(snapshot)
+    let asset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    tc.context.insert(asset)
+    let sav = SnapshotAssetValue(marketValue: 10000)
+    sav.snapshot = snapshot
+    sav.asset = asset
+    tc.context.insert(sav)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.snapshotDate = date
+    viewModel.loadCSVData(validAssetCSVData())
+
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
+    }
+    #expect(aaplRow?.snapshotDuplicateError != nil)
+
+    // VTI and Bitcoin should have no snapshot duplicate error
+    let vtiRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "VTI"
+    }
+    #expect(vtiRow?.snapshotDuplicateError == nil)
+  }
+
+  @Test("isImportDisabled is true when included rows have per-row errors")
+  func isImportDisabled_trueWithPerRowErrors() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let csv = csvData(
+      """
+      Asset Name,Market Value
+      AAPL,15000
+      AAPL,20000
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Should be disabled due to per-row duplicate error
+    #expect(viewModel.isImportDisabled)
+  }
+
+  @Test("Row exclusion clears per-row errors for that row")
+  func rowExclusion_clearsPerRowErrors() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let csv = csvData(
+      """
+      Asset Name,Market Value
+      AAPL,15000
+      AAPL,20000
+      VTI,10000
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Initially second AAPL has duplicate error
+    #expect(viewModel.assetPreviewRows[1].duplicateError != nil)
+    #expect(viewModel.isImportDisabled)
+
+    // Exclude the second AAPL row
+    viewModel.removeAssetPreviewRow(at: 1)
+
+    // First AAPL should have no duplicate error anymore
+    #expect(viewModel.assetPreviewRows[0].duplicateError == nil)
+    // Import should be enabled again
+    #expect(!viewModel.isImportDisabled)
+  }
+
+  @Test("Category reassignment warning not shown in fillEmptyOnly mode")
+  func categoryWarningNotShownInFillEmptyOnly() {
+    let tc = createTestContext()
+
+    // Create an existing asset with category "Bonds"
+    let bonds = Category(name: "Bonds")
+    tc.context.insert(bonds)
+    let asset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    asset.category = bonds
+    tc.context.insert(asset)
+
+    // Import with different category in fillEmptyOnly mode
+    let equities = Category(name: "Equities")
+    tc.context.insert(equities)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.selectedCategory = equities
+    viewModel.categoryApplyMode = .fillEmptyOnly
+    viewModel.loadCSVData(validAssetCSVData())
+
+    // The AAPL row should NOT have a category warning (won't be overridden)
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
+    }
+    #expect(aaplRow?.categoryWarning == nil)
+  }
+
+  @Test("Removing row with unsupported currency makes import possible")
   func removingRowWithUnsupportedCurrencyClearsError() {
     let tc = createTestContext()
     let viewModel = ImportViewModel(modelContext: tc.context)
@@ -1983,13 +2290,14 @@ struct ImportViewModelTests {
       """)
     viewModel.loadCSVData(csv)
 
-    // Should have a currency error for XYZ
-    #expect(viewModel.validationErrors.contains { $0.message.contains("XYZ") })
+    // Should have a per-row currency error for XYZ
+    #expect(viewModel.assetPreviewRows[0].currencyError != nil)
+    #expect(viewModel.isImportDisabled)
 
     // Remove the row with unsupported currency
     viewModel.removeAssetPreviewRow(at: 0)
 
-    // Error should be cleared
-    #expect(!viewModel.validationErrors.contains { $0.message.contains("XYZ") })
+    // Import should now be possible (the excluded row's error doesn't block)
+    #expect(!viewModel.isImportDisabled)
   }
 }

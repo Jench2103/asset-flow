@@ -12,80 +12,6 @@ import SwiftData
 
 extension ImportViewModel {
 
-  // MARK: - Duplicate Detection (CSV vs Snapshot)
-
-  func detectAssetSnapshotDuplicates(rows: [AssetCSVRow]) -> [CSVError] {
-    let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
-
-    // Find existing snapshot for this date
-    let snapshotDescriptor = FetchDescriptor<Snapshot>()
-    let allSnapshots = (try? modelContext.fetch(snapshotDescriptor)) ?? []
-    guard let existingSnapshot = allSnapshots.first(where: { $0.date == normalizedDate }) else {
-      return []
-    }
-
-    let existingValues = existingSnapshot.assetValues ?? []
-    var errors: [CSVError] = []
-
-    for (index, row) in rows.enumerated() {
-      let normalizedName = row.assetName.normalizedForIdentity
-      let normalizedPlatform = row.platform.normalizedForIdentity
-
-      let isDuplicate = existingValues.contains { sav in
-        guard let asset = sav.asset else { return false }
-        return asset.normalizedName == normalizedName
-          && asset.normalizedPlatform == normalizedPlatform
-      }
-
-      if isDuplicate {
-        errors.append(
-          CSVError(
-            row: index + 2, column: nil,
-            message: String(
-              localized:
-                "Asset '\(row.assetName)' (platform: '\(row.platform)') already exists in the snapshot for this date.",
-              table: "Import"
-            )))
-      }
-    }
-
-    return errors
-  }
-
-  func detectCashFlowSnapshotDuplicates(rows: [CashFlowCSVRow]) -> [CSVError] {
-    let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
-
-    let snapshotDescriptor = FetchDescriptor<Snapshot>()
-    let allSnapshots = (try? modelContext.fetch(snapshotDescriptor)) ?? []
-    guard let existingSnapshot = allSnapshots.first(where: { $0.date == normalizedDate }) else {
-      return []
-    }
-
-    let existingOps = existingSnapshot.cashFlowOperations ?? []
-    var errors: [CSVError] = []
-
-    for (index, row) in rows.enumerated() {
-      let normalizedDesc = row.description.trimmingCharacters(in: .whitespaces).lowercased()
-
-      let isDuplicate = existingOps.contains {
-        $0.cashFlowDescription.trimmingCharacters(in: .whitespaces).lowercased() == normalizedDesc
-      }
-
-      if isDuplicate {
-        errors.append(
-          CSVError(
-            row: index + 2, column: nil,
-            message: String(
-              localized:
-                "Cash flow '\(row.description)' already exists in the snapshot for this date.",
-              table: "Import"
-            )))
-      }
-    }
-
-    return errors
-  }
-
   // MARK: - Revalidation
 
   /// Re-runs duplicate detection considering only included rows.
@@ -99,46 +25,121 @@ extension ImportViewModel {
     }
   }
 
-  private func detectUnsupportedCurrencies(rows: [AssetPreviewRow]) -> [CSVError] {
-    let currencyService = CurrencyService.shared
-    var errors: [CSVError] = []
-    for (index, row) in rows.enumerated() where row.isIncluded {
-      let code = row.csvRow.currency
-      guard !code.isEmpty else { continue }
-      if currencyService.currency(for: code) == nil {
-        errors.append(
-          CSVError(
-            row: index + 2, column: "Currency",
-            message: String(
-              localized: "Unsupported currency '\(code)' in row \(index + 2).",
-              table: "Import")))
+  private func revalidateAssets() {
+    // Clear per-row duplicate errors first (marketValueWarning is set during rebuild)
+    for idx in assetPreviewRows.indices {
+      assetPreviewRows[idx].duplicateError = nil
+      assetPreviewRows[idx].snapshotDuplicateError = nil
+    }
+
+    // Detect within-CSV duplicates on included rows, assign per-row
+    var seenIdentities: [String: Int] = [:]
+    for (index, row) in assetPreviewRows.enumerated() where row.isIncluded {
+      let identity = CSVParsingService.normalizedAssetIdentity(row: row.csvRow)
+      if let firstIndex = seenIdentities[identity] {
+        let firstRow = assetPreviewRows[firstIndex]
+        let platformLabel =
+          row.csvRow.platform.isEmpty
+          ? String(localized: "None", table: "Import")
+          : row.csvRow.platform
+        assetPreviewRows[index].duplicateError = String(
+          localized:
+            "Duplicate asset '\(row.csvRow.assetName)' (platform: '\(platformLabel)') — first appeared as '\(firstRow.csvRow.assetName)'.",
+          table: "Import")
+      } else {
+        seenIdentities[identity] = index
       }
     }
-    return errors
-  }
 
-  private func revalidateAssets() {
-    let includedRows = assetPreviewRows.filter { $0.isIncluded }.map { $0.csvRow }
+    // Detect CSV-vs-snapshot duplicates on included rows, assign per-row.
+    // Note: uses String.normalizedForIdentity (equivalent to CSVParsingService.normalizedAssetIdentity)
+    // because we compare against stored Asset.normalizedName/normalizedPlatform model properties.
+    let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
+    let snapshotDescriptor = FetchDescriptor<Snapshot>()
+    let allSnapshots = (try? modelContext.fetch(snapshotDescriptor)) ?? []
+    if let existingSnapshot = allSnapshots.first(where: { $0.date == normalizedDate }) {
+      let existingValues = existingSnapshot.assetValues ?? []
+      for (index, row) in assetPreviewRows.enumerated() where row.isIncluded {
+        let normalizedName = row.csvRow.assetName.normalizedForIdentity
+        let normalizedPlatform = row.csvRow.platform.normalizedForIdentity
+        let isDuplicate = existingValues.contains { sav in
+          guard let asset = sav.asset else { return false }
+          return asset.normalizedName == normalizedName
+            && asset.normalizedPlatform == normalizedPlatform
+        }
+        if isDuplicate {
+          let platformLabel =
+            row.csvRow.platform.isEmpty
+            ? String(localized: "None", table: "Import")
+            : row.csvRow.platform
+          assetPreviewRows[index].snapshotDuplicateError = String(
+            localized:
+              "Asset '\(row.csvRow.assetName)' (platform: '\(platformLabel)') already exists in the snapshot for this date.",
+            table: "Import")
+        }
+      }
+    }
 
-    // Re-detect within-CSV duplicates on included rows only
-    let withinCSVErrors = CSVParsingService.detectAssetDuplicates(rows: includedRows)
+    // Parsing errors stay in validationErrors — these represent rows that failed to parse
+    // and don't appear in the preview (e.g., empty name, unparseable value, missing columns)
+    validationErrors = parsingErrors
 
-    // Re-detect CSV-vs-snapshot duplicates on included rows only
-    let snapshotErrors = detectAssetSnapshotDuplicates(rows: includedRows)
-
-    // Re-detect unsupported currencies on included rows only
-    let currencyErrors = detectUnsupportedCurrencies(rows: assetPreviewRows)
-
-    validationErrors = parsingErrors + withinCSVErrors + snapshotErrors + currencyErrors
+    // File-level warnings only (row <= 1) go into validationWarnings;
+    // row-level warnings are shown as per-row popovers via marketValueWarning
+    validationWarnings = baseAssetWarnings.filter { $0.row <= 1 }
   }
 
   private func revalidateCashFlows() {
-    let includedRows = cashFlowPreviewRows.filter { $0.isIncluded }.map { $0.csvRow }
+    // Clear all per-row errors first
+    for idx in cashFlowPreviewRows.indices {
+      cashFlowPreviewRows[idx].duplicateError = nil
+      cashFlowPreviewRows[idx].snapshotDuplicateError = nil
+    }
 
-    let withinCSVErrors = CSVParsingService.detectCashFlowDuplicates(rows: includedRows)
-    let snapshotErrors = detectCashFlowSnapshotDuplicates(rows: includedRows)
+    // Detect within-CSV duplicates on included rows, assign per-row
+    var seenDescriptions: [String: Int] = [:]
+    for (index, row) in cashFlowPreviewRows.enumerated() where row.isIncluded {
+      let normalized = row.csvRow.description.lowercased()
+        .trimmingCharacters(in: .whitespaces)
+      if let firstIndex = seenDescriptions[normalized] {
+        let firstRow = cashFlowPreviewRows[firstIndex]
+        cashFlowPreviewRows[index].duplicateError = String(
+          localized:
+            "Duplicate description '\(row.csvRow.description)' — first appeared as '\(firstRow.csvRow.description)'.",
+          table: "Import")
+      } else {
+        seenDescriptions[normalized] = index
+      }
+    }
 
-    validationErrors = parsingErrors + withinCSVErrors + snapshotErrors
+    // Detect CSV-vs-snapshot duplicates on included rows, assign per-row
+    let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
+    let snapshotDescriptor = FetchDescriptor<Snapshot>()
+    let allSnapshots = (try? modelContext.fetch(snapshotDescriptor)) ?? []
+    if let existingSnapshot = allSnapshots.first(where: { $0.date == normalizedDate }) {
+      let existingOps = existingSnapshot.cashFlowOperations ?? []
+      for (index, row) in cashFlowPreviewRows.enumerated() where row.isIncluded {
+        let normalizedDesc = row.csvRow.description.trimmingCharacters(in: .whitespaces)
+          .lowercased()
+        let isDuplicate = existingOps.contains {
+          $0.cashFlowDescription.trimmingCharacters(in: .whitespaces).lowercased()
+            == normalizedDesc
+        }
+        if isDuplicate {
+          cashFlowPreviewRows[index].snapshotDuplicateError = String(
+            localized:
+              "Cash flow '\(row.csvRow.description)' already exists in the snapshot for this date.",
+            table: "Import")
+        }
+      }
+    }
+
+    // Parsing errors stay in validationErrors — rows that failed to parse
+    validationErrors = parsingErrors
+
+    // File-level warnings only (row <= 1) go into validationWarnings;
+    // row-level warnings are shown as per-row popovers via amountWarning
+    validationWarnings = baseCashFlowWarnings.filter { $0.row <= 1 }
   }
 
   // MARK: - Import Execution
@@ -169,9 +170,17 @@ extension ImportViewModel {
         asset.currency = rowCurrency
       }
 
-      // Assign category if selected
+      // Assign category based on apply mode
       if let category = selectedCategory {
-        asset.category = category
+        switch categoryApplyMode {
+        case .overrideAll:
+          asset.category = category
+
+        case .fillEmptyOnly:
+          if asset.category == nil {
+            asset.category = category
+          }
+        }
       }
 
       // Create SnapshotAssetValue
@@ -251,10 +260,12 @@ extension ImportViewModel {
     selectedFileData = nil
     importError = nil
     platformApplyMode = .overrideAll
+    categoryApplyMode = .overrideAll
     copyForwardPlatforms = []
     baseAssetRows = []
     baseAssetParsingErrors = []
     baseAssetWarnings = []
+    baseCashFlowWarnings = []
     excludedAssetIndices = []
   }
 

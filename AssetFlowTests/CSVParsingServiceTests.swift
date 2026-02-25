@@ -195,7 +195,7 @@ struct CSVParsingServiceTests {
     let result = CSVParsingService.parseAssetCSV(data: csvData(csv), importPlatform: nil)
 
     #expect(result.isValid)
-    #expect(result.warnings.contains(where: { $0.message.contains("Unrecognized") }))
+    #expect(result.warnings.contains(where: { $0.column == "Extra Column" }))
   }
 
   // MARK: - Asset CSV: Duplicate Detection (SPEC 4.6)

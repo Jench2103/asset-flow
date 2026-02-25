@@ -21,6 +21,14 @@ enum PlatformApplyMode: String, CaseIterable {
   case fillEmptyOnly
 }
 
+/// How the import-level category is applied to CSV rows.
+enum CategoryApplyMode: String, CaseIterable {
+  /// Override all rows with the selected category.
+  case overrideAll
+  /// Only fill rows whose existing asset has no category.
+  case fillEmptyOnly
+}
+
 /// A preview row for an asset CSV import, with inclusion state and category warning.
 struct AssetPreviewRow: Identifiable {
   let id: UUID
@@ -30,6 +38,10 @@ struct AssetPreviewRow: Identifiable {
   var currencyWarning: String?
   var currencyError: String?
   var effectiveCurrency: String
+  var effectiveCategory: String
+  var duplicateError: String?
+  var snapshotDuplicateError: String?
+  var marketValueWarning: String?
 }
 
 /// A preview row for a cash flow CSV import, with inclusion state.
@@ -37,4 +49,7 @@ struct CashFlowPreviewRow: Identifiable {
   let id: UUID
   let csvRow: CashFlowCSVRow
   var isIncluded: Bool
+  var duplicateError: String?
+  var snapshotDuplicateError: String?
+  var amountWarning: String?
 }

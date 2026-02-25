@@ -78,6 +78,14 @@ class ImportViewModel {
     }
   }
 
+  /// How the import-level category is applied to preview rows.
+  var categoryApplyMode: CategoryApplyMode = .overrideAll {
+    didSet {
+      guard categoryApplyMode != oldValue else { return }
+      rebuildPreviewIfNeeded()
+    }
+  }
+
   /// Import-level category assignment (nil = uncategorized).
   var selectedCategory: Category? {
     didSet {
@@ -85,6 +93,10 @@ class ImportViewModel {
       rebuildPreviewIfNeeded()
     }
   }
+
+  /// Whether existing assets have a mix of categorized and uncategorized states,
+  /// making the category apply mode toggle meaningful.
+  var hasMixedCategories: Bool = false
 
   /// Preview rows for asset CSV import.
   var assetPreviewRows: [AssetPreviewRow] = []
@@ -119,8 +131,11 @@ class ImportViewModel {
   /// Parsing errors from the base parse (excludes within-CSV duplicate errors).
   var baseAssetParsingErrors: [CSVError] = []
 
-  /// Warnings from the base parse.
+  /// Warnings from the base asset parse.
   var baseAssetWarnings: [CSVWarning] = []
+
+  /// Warnings from the base cash flow parse.
+  var baseCashFlowWarnings: [CSVWarning] = []
 
   /// Indices of rows excluded by the user (via minus button).
   var excludedAssetIndices: Set<Int> = []
@@ -130,14 +145,23 @@ class ImportViewModel {
   /// Whether the Import button should be disabled.
   var isImportDisabled: Bool {
     let hasIncludedRows: Bool
+    let hasPerRowErrors: Bool
     switch importType {
     case .assets:
       hasIncludedRows = assetPreviewRows.contains { $0.isIncluded }
+      hasPerRowErrors = assetPreviewRows.contains {
+        $0.isIncluded
+          && ($0.duplicateError != nil || $0.snapshotDuplicateError != nil
+            || $0.currencyError != nil)
+      }
 
     case .cashFlows:
       hasIncludedRows = cashFlowPreviewRows.contains { $0.isIncluded }
+      hasPerRowErrors = cashFlowPreviewRows.contains {
+        $0.isIncluded && ($0.duplicateError != nil || $0.snapshotDuplicateError != nil)
+      }
     }
-    return !hasIncludedRows || !validationErrors.isEmpty
+    return !hasIncludedRows || !validationErrors.isEmpty || hasPerRowErrors
   }
 
   // MARK: - Init
@@ -386,6 +410,9 @@ class ImportViewModel {
   /// platform/category settings and preserving exclusion state.
   func rebuildAssetPreviewRows() {
     let allAssets = fetchAllAssets()
+    var hasAnyCategorized = false
+    var hasAnyUncategorized = false
+
     assetPreviewRows = baseAssetRows.enumerated().map { index, baseRow in
       let effectiveRow = effectiveAssetRow(baseRow: baseRow)
       let normalizedName = effectiveRow.assetName.normalizedForIdentity
@@ -403,18 +430,33 @@ class ImportViewModel {
         effectiveCurrency = ""
       }
 
+      let existingCategoryName = existingAsset?.category?.name
+      let effectiveCategory = effectiveCategoryName(existingCategoryName: existingCategoryName)
+
+      // Track mixed state for the toggle
+      if existingCategoryName != nil {
+        hasAnyCategorized = true
+      } else {
+        hasAnyUncategorized = true
+      }
+
       let currError = currencyValidationError(for: effectiveRow)
       return AssetPreviewRow(
         id: UUID(),
         csvRow: effectiveRow,
         isIncluded: !excludedAssetIndices.contains(index),
-        categoryWarning: categoryWarning(for: effectiveRow, existingAssets: allAssets),
+        categoryWarning: categoryWarning(
+          for: effectiveRow, existingAsset: existingAsset),
         currencyWarning: currError == nil
           ? currencyWarning(for: effectiveRow, existingAssets: allAssets) : nil,
         currencyError: currError,
-        effectiveCurrency: effectiveCurrency
+        effectiveCurrency: effectiveCurrency,
+        effectiveCategory: effectiveCategory,
+        marketValueWarning: marketValueWarning(for: effectiveRow)
       )
     }
+
+    hasMixedCategories = hasAnyCategorized && hasAnyUncategorized
 
     parsingErrors = baseAssetParsingErrors
     validationWarnings = baseAssetWarnings
@@ -466,20 +508,51 @@ class ImportViewModel {
     return nil
   }
 
-  private func categoryWarning(for row: AssetCSVRow, existingAssets: [Asset]) -> String? {
+  /// Computes the effective category name for a row based on apply mode and existing state.
+  private func effectiveCategoryName(existingCategoryName: String?) -> String {
+    guard let selected = selectedCategory else {
+      return existingCategoryName ?? ""
+    }
+    switch categoryApplyMode {
+    case .overrideAll:
+      return selected.name
+
+    case .fillEmptyOnly:
+      return existingCategoryName ?? selected.name
+    }
+  }
+
+  private func marketValueWarning(for row: AssetCSVRow) -> String? {
+    if row.marketValue == 0 {
+      return String(
+        localized: "Market value is zero for '\(row.assetName)'.",
+        table: "Import")
+    } else if row.marketValue < 0 {
+      return String(
+        localized: "Market value is negative for '\(row.assetName)'.",
+        table: "Import")
+    }
+    return nil
+  }
+
+  private func cashFlowAmountWarning(for row: CashFlowCSVRow) -> String? {
+    if row.amount == 0 {
+      return String(
+        localized: "Amount is zero for '\(row.description)'.",
+        table: "Import")
+    }
+    return nil
+  }
+
+  private func categoryWarning(for row: AssetCSVRow, existingAsset: Asset?) -> String? {
     guard let selectedCategory = selectedCategory else { return nil }
-
-    let normalizedName = row.assetName.normalizedForIdentity
-    let normalizedPlatform = row.platform.normalizedForIdentity
-
-    guard
-      let existingAsset = existingAssets.first(where: {
-        $0.normalizedName == normalizedName
-          && $0.normalizedPlatform == normalizedPlatform
-      })
-    else { return nil }
-
+    guard let existingAsset else { return nil }
     guard let existingCategory = existingAsset.category else { return nil }
+
+    // In fillEmptyOnly mode, assets that already have a category won't be overridden
+    if categoryApplyMode == .fillEmptyOnly {
+      return nil
+    }
 
     if existingCategory.name.lowercased() != selectedCategory.name.lowercased() {
       return String(
@@ -520,7 +593,8 @@ class ImportViewModel {
       CashFlowPreviewRow(
         id: UUID(),
         csvRow: row,
-        isIncluded: true
+        isIncluded: true,
+        amountWarning: cashFlowAmountWarning(for: row)
       )
     }
 
@@ -531,10 +605,8 @@ class ImportViewModel {
     let duplicateMessages = Set(withinCSVDuplicates.map { $0.message })
     parsingErrors = result.errors.filter { !duplicateMessages.contains($0.message) }
 
-    let snapshotErrors = detectCashFlowSnapshotDuplicates(rows: result.rows)
-
-    validationErrors = parsingErrors + withinCSVDuplicates + snapshotErrors
-    validationWarnings = result.warnings
+    baseCashFlowWarnings = result.warnings
+    revalidate()
   }
 
 }
