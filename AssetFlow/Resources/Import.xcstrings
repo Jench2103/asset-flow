@@ -47,6 +47,48 @@
         }
       }
     },
+    "Unsupported currency '%@'." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "幣別「%@」不被支援。"
+          }
+        }
+      }
+    },
+    "Unsupported currency '%@' in row %lld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unsupported currency '%1$@' in row %2$lld."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %2$lld 列的幣別「%1$@」不被支援。"
+          }
+        }
+      }
+    },
+    "This asset's currency is currently '%@'. Importing will change it to '%@'." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "This asset's currency is currently '%1$@'. Importing will change it to '%2$@'."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此資產的幣別目前為「%1$@」。匯入後將變更為「%2$@」。"
+          }
+        }
+      }
+    },
     "This asset is currently assigned to %@. Importing will reassign it to %@." : {
       "localizations" : {
         "en" : {

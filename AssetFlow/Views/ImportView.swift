@@ -20,6 +20,10 @@ struct ImportView: View {
   @State private var showNewPlatformField = false
   @State private var newCategoryName = ""
   @State private var showNewCategoryField = false
+  // internal (not private) because these are used from the extension in ImportView+Previews.swift
+  @State var activeCategoryWarningRowID: UUID?
+  @State var activeCurrencyWarningRowID: UUID?
+  @State var activeCurrencyErrorRowID: UUID?
 
   init(viewModel: ImportViewModel) {
     _viewModel = State(wrappedValue: viewModel)
@@ -148,10 +152,14 @@ struct ImportView: View {
           Text("Expected columns:")
             .font(.caption)
             .foregroundStyle(.secondary)
-          // CSV column names are intentionally non-localizable — they must match parsing expectations
-          Text(verbatim: "Asset Name (required), Market Value (required), Platform (optional)")
-            .font(.caption)
-            .foregroundStyle(.tertiary)
+          // CSV column names are intentionally non-localizable
+          Text(
+            verbatim:
+              "Asset Name (required), Market Value (required), "
+              + "Platform (optional), Currency (optional)"
+          )
+          .font(.caption)
+          .foregroundStyle(.tertiary)
         }
 
       case .cashFlows:
@@ -160,7 +168,7 @@ struct ImportView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
           // CSV column names are intentionally non-localizable — they must match parsing expectations
-          Text(verbatim: "Description (required), Amount (required)")
+          Text(verbatim: "Description (required), Amount (required), Currency (optional)")
             .font(.caption)
             .foregroundStyle(.tertiary)
         }

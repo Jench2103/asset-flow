@@ -309,20 +309,21 @@ The app supports two CSV formats, selected by the user via the import type selec
 
 **Optional columns:**
 
-| Column     | Description                                                          |
-| ---------- | -------------------------------------------------------------------- |
-| `Platform` | Platform/brokerage name (overridden by import-level platform if set) |
+| Column     | Description                                                                          |
+| ---------- | ------------------------------------------------------------------------------------ |
+| `Platform` | Platform/brokerage name (overridden by import-level platform if set)                 |
+| `Currency` | ISO 4217 currency code (e.g., "USD", "TWD"); must be a currency supported by the app |
 
 **Column mapping:** Deferred to a future version. For v1, the CSV must use the exact column names above. The app must display the expected schema and provide a downloadable sample CSV.
 
 **Sample CSV:**
 
 ```csv
-Asset Name,Market Value,Platform
-AAPL,15000,Interactive Brokers
-VTI,28000,Interactive Brokers
-Bitcoin,5000,Coinbase
-Savings Account,20000,Chase Bank
+Asset Name,Market Value,Platform,Currency
+AAPL,15000,Interactive Brokers,USD
+VTI,28000,Interactive Brokers,USD
+Bitcoin,5000,Coinbase,USD
+Savings Account,20000,Chase Bank,TWD
 ```
 
 #### 4.2.2 Cash Flow CSV
@@ -334,13 +335,19 @@ Savings Account,20000,Chase Bank
 | `Description` | Description of the cash flow (e.g., "Salary deposit", "Rent withdrawal")                       |
 | `Amount`      | Cash flow amount as a number. Positive = money added to portfolio; Negative = money withdrawn. |
 
+**Optional columns:**
+
+| Column     | Description                                                                          |
+| ---------- | ------------------------------------------------------------------------------------ |
+| `Currency` | ISO 4217 currency code (e.g., "USD", "TWD"); must be a currency supported by the app |
+
 **Sample CSV:**
 
 ```csv
-Description,Amount
-Salary deposit,50000
-Emergency fund transfer,-10000
-Dividend reinvestment,1500
+Description,Amount,Currency
+Salary deposit,50000,TWD
+Emergency fund transfer,-10000,TWD
+Dividend reinvestment,1500,USD
 ```
 
 ______________________________________________________________________
@@ -372,6 +379,7 @@ The import preview screen must show validation status:
 - File is empty or contains only headers
 - Duplicate entries detected within the CSV (see 4.6)
 - Duplicate entries detected between CSV and existing snapshot data (see 4.6)
+- Unsupported currency code for any row (must match a currency supported by the app)
 
 **Errors (block import) — Cash Flow CSV:**
 
@@ -388,6 +396,7 @@ The import preview screen must show validation status:
 - `Market Value` is negative for an asset
 - Unrecognized columns (ignored but noted)
 - Asset already exists with a different category than the import-level selection (shows current vs. new category)
+- Asset already exists with a different currency than the CSV-provided currency (shows current vs. new currency)
 
 **Warnings (allow import with acknowledgment) — Cash Flow CSV:**
 

@@ -305,8 +305,10 @@ See [BusinessLogic.md](BusinessLogic.md) for the detailed CSV import flow.
 - **Configuration** (after file selected):
   - Asset import: Snapshot date picker (future dates disabled), Platform picker, Category picker
   - Cash flow import: Snapshot date picker (future dates disabled)
-- **Preview table**: Parsed data with validation indicators and per-row remove buttons
-  - If an asset already exists with a different category than the import-level category, a warning indicator is shown on that row
+- **Preview table**: Parsed data with validation indicators and per-row remove buttons. Asset preview includes Currency column showing the effective currency (CSV value, or existing asset currency as fallback).
+  - If an asset already exists with a different category than the import-level category, a warning indicator (yellow triangle) is shown on the row with a hover popover explaining the change
+  - If an asset already exists with a different currency than the CSV-provided currency, a warning indicator (yellow triangle) is shown on the currency cell with a hover popover showing current vs. new currency
+  - If a row has an unsupported currency code, an error indicator (red circle) is shown on the currency cell with a hover popover; this error takes precedence over the currency change warning
 - **Validation summary**: Errors (red) and warnings (yellow)
 - **Import button**: Disabled if validation errors exist
 - **On successful import**: Snapshot is created (or updated if one exists for that date); user is navigated to the snapshot detail view

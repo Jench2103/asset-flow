@@ -270,6 +270,7 @@ Emergency fund transfer,-10000
 - Empty `Asset Name` for any row
 - File is empty or contains only headers
 - Duplicate entries detected (within CSV or against existing snapshot)
+- Unsupported currency code for any row (must match a currency supported by the app)
 
 **Errors (block import) -- Cash Flow CSV**:
 
@@ -285,6 +286,7 @@ Emergency fund transfer,-10000
 - `Market Value` is negative for an asset
 - Unrecognized columns (ignored but noted)
 - Asset already exists with a different category than import-level selection
+- Asset already exists with a different currency than the CSV-provided currency
 
 **Warnings (allow import) -- Cash Flow CSV**:
 
@@ -303,6 +305,17 @@ Platform for each asset is determined by the import-level platform selection and
    1. **Fill Empty Only**: Only rows whose CSV platform is empty receive the selected platform; rows with existing CSV platforms keep their original values
 
 The apply mode toggle appears only when a platform is selected AND the CSV has a mix of empty and non-empty platform values.
+
+### Currency Handling
+
+Currency for each asset is determined by the CSV data and existing asset state:
+
+1. If the CSV provides a `Currency` column value for a row, that currency is assigned to the asset on import (takes precedence over any existing currency)
+1. If the CSV has no currency for a row (no `Currency` column or empty value), the existing asset's currency is preserved unchanged
+1. Unsupported currency codes (not recognized by `CurrencyService`) produce a validation error that blocks import
+1. When an unsupported currency error exists for a row, it takes precedence over the currency change warning (both are not shown simultaneously)
+
+Cash flow CSV currency handling follows the same pattern: CSV currency is assigned if provided, otherwise no currency is set on the new cash flow operation.
 
 ### Duplicate Detection
 

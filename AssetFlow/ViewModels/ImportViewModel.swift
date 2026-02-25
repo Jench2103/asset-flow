@@ -78,14 +78,6 @@ class ImportViewModel {
     }
   }
 
-  /// Currency to assign to imported assets/cash flows.
-  var selectedImportCurrency: String = SettingsService.shared.mainCurrency {
-    didSet {
-      guard selectedImportCurrency != oldValue else { return }
-      rebuildPreviewIfNeeded()
-    }
-  }
-
   /// Import-level category assignment (nil = uncategorized).
   var selectedCategory: Category? {
     didSet {
@@ -313,10 +305,16 @@ class ImportViewModel {
 
     let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
 
-    // Find the most recent prior snapshot
     let snapshotDescriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
     let allSnapshots = (try? modelContext.fetch(snapshotDescriptor)) ?? []
 
+    // No copy-forward when importing into an existing snapshot
+    if allSnapshots.contains(where: { $0.date == normalizedDate }) {
+      copyForwardPlatforms = []
+      return
+    }
+
+    // Find the most recent prior snapshot
     let priorSnapshots =
       allSnapshots
       .filter { $0.date < normalizedDate }
@@ -390,11 +388,31 @@ class ImportViewModel {
     let allAssets = fetchAllAssets()
     assetPreviewRows = baseAssetRows.enumerated().map { index, baseRow in
       let effectiveRow = effectiveAssetRow(baseRow: baseRow)
+      let normalizedName = effectiveRow.assetName.normalizedForIdentity
+      let normalizedPlatform = effectiveRow.platform.normalizedForIdentity
+      let existingAsset = allAssets.first {
+        $0.normalizedName == normalizedName && $0.normalizedPlatform == normalizedPlatform
+      }
+
+      let effectiveCurrency: String
+      if !effectiveRow.currency.isEmpty {
+        effectiveCurrency = effectiveRow.currency
+      } else if let existing = existingAsset, !existing.currency.isEmpty {
+        effectiveCurrency = existing.currency
+      } else {
+        effectiveCurrency = ""
+      }
+
+      let currError = currencyValidationError(for: effectiveRow)
       return AssetPreviewRow(
         id: UUID(),
         csvRow: effectiveRow,
         isIncluded: !excludedAssetIndices.contains(index),
-        categoryWarning: categoryWarning(for: effectiveRow, existingAssets: allAssets)
+        categoryWarning: categoryWarning(for: effectiveRow, existingAssets: allAssets),
+        currencyWarning: currError == nil
+          ? currencyWarning(for: effectiveRow, existingAssets: allAssets) : nil,
+        currencyError: currError,
+        effectiveCurrency: effectiveCurrency
       )
     }
 
@@ -408,6 +426,44 @@ class ImportViewModel {
   private func rebuildPreviewIfNeeded() {
     guard !baseAssetRows.isEmpty else { return }
     rebuildAssetPreviewRows()
+  }
+
+  private func currencyValidationError(for row: AssetCSVRow) -> String? {
+    let code = row.currency
+    guard !code.isEmpty else { return nil }
+    if CurrencyService.shared.currency(for: code) == nil {
+      return String(
+        localized: "Unsupported currency '\(code)'.",
+        table: "Import")
+    }
+    return nil
+  }
+
+  private func currencyWarning(for row: AssetCSVRow, existingAssets: [Asset]) -> String? {
+    let csvCurrency = row.currency
+    guard !csvCurrency.isEmpty else { return nil }
+
+    let normalizedName = row.assetName.normalizedForIdentity
+    let normalizedPlatform = row.platform.normalizedForIdentity
+
+    guard
+      let existingAsset = existingAssets.first(where: {
+        $0.normalizedName == normalizedName
+          && $0.normalizedPlatform == normalizedPlatform
+      })
+    else { return nil }
+
+    let existingCurrency = existingAsset.currency
+    guard !existingCurrency.isEmpty else { return nil }
+
+    if existingCurrency != csvCurrency {
+      return String(
+        localized:
+          "This asset's currency is currently '\(existingCurrency)'. Importing will change it to '\(csvCurrency)'.",
+        table: "Import")
+    }
+
+    return nil
   }
 
   private func categoryWarning(for row: AssetCSVRow, existingAssets: [Asset]) -> String? {

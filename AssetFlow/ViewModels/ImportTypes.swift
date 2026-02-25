@@ -27,6 +27,9 @@ struct AssetPreviewRow: Identifiable {
   let csvRow: AssetCSVRow
   var isIncluded: Bool
   var categoryWarning: String?
+  var currencyWarning: String?
+  var currencyError: String?
+  var effectiveCurrency: String
 }
 
 /// A preview row for a cash flow CSV import, with inclusion state.

@@ -99,6 +99,24 @@ extension ImportViewModel {
     }
   }
 
+  private func detectUnsupportedCurrencies(rows: [AssetPreviewRow]) -> [CSVError] {
+    let currencyService = CurrencyService.shared
+    var errors: [CSVError] = []
+    for (index, row) in rows.enumerated() where row.isIncluded {
+      let code = row.csvRow.currency
+      guard !code.isEmpty else { continue }
+      if currencyService.currency(for: code) == nil {
+        errors.append(
+          CSVError(
+            row: index + 2, column: "Currency",
+            message: String(
+              localized: "Unsupported currency '\(code)' in row \(index + 2).",
+              table: "Import")))
+      }
+    }
+    return errors
+  }
+
   private func revalidateAssets() {
     let includedRows = assetPreviewRows.filter { $0.isIncluded }.map { $0.csvRow }
 
@@ -108,7 +126,10 @@ extension ImportViewModel {
     // Re-detect CSV-vs-snapshot duplicates on included rows only
     let snapshotErrors = detectAssetSnapshotDuplicates(rows: includedRows)
 
-    validationErrors = parsingErrors + withinCSVErrors + snapshotErrors
+    // Re-detect unsupported currencies on included rows only
+    let currencyErrors = detectUnsupportedCurrencies(rows: assetPreviewRows)
+
+    validationErrors = parsingErrors + withinCSVErrors + snapshotErrors + currencyErrors
   }
 
   private func revalidateCashFlows() {
@@ -142,9 +163,11 @@ extension ImportViewModel {
       let row = previewRow.csvRow
       let asset = modelContext.findOrCreateAsset(name: row.assetName, platform: row.platform)
 
-      // Assign currency (per-row override from CSV, or import-level default)
+      // Assign currency only when the CSV explicitly provides one
       let rowCurrency = row.currency
-      asset.currency = rowCurrency.isEmpty ? selectedImportCurrency : rowCurrency
+      if !rowCurrency.isEmpty {
+        asset.currency = rowCurrency
+      }
 
       // Assign category if selected
       if let category = selectedCategory {
@@ -208,7 +231,9 @@ extension ImportViewModel {
       let operation = CashFlowOperation(
         cashFlowDescription: row.description, amount: row.amount)
       let rowCurrency = row.currency
-      operation.currency = rowCurrency.isEmpty ? selectedImportCurrency : rowCurrency
+      if !rowCurrency.isEmpty {
+        operation.currency = rowCurrency
+      }
       operation.snapshot = snapshot
       modelContext.insert(operation)
     }

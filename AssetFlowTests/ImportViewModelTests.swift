@@ -1621,4 +1621,375 @@ struct ImportViewModelTests {
     // No prior snapshot before Dec 2024, so copy-forward should be empty
     #expect(viewModel.copyForwardPlatforms.isEmpty)
   }
+
+  @Test("Copy-forward platforms empty when snapshot already exists for selected date")
+  func copyForwardPlatformsEmptyWhenSnapshotExistsForDate() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Create snapshot on Jan 1 with Binance assets
+    let jan1 = makeDate(year: 2025, month: 1, day: 1)
+    _ = createPriorSnapshot(
+      date: jan1,
+      assets: [("BTC", "Binance", 50000)],
+      context: tc.context)
+
+    // Create snapshot on Feb 1 with Schwab assets (this is the existing snapshot)
+    let feb1 = makeDate(year: 2025, month: 2, day: 1)
+    _ = createPriorSnapshot(
+      date: feb1,
+      assets: [("VTI", "Schwab", 28000)],
+      context: tc.context)
+
+    // Import into Feb 1 (snapshot already exists)
+    viewModel.snapshotDate = feb1
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      AAPL,15000,Interactive Brokers
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Copy-forward should NOT be offered since snapshot already exists for this date
+    #expect(viewModel.copyForwardPlatforms.isEmpty)
+  }
+
+  // MARK: - Currency Preservation
+
+  @Test("Import preserves existing asset currency when CSV has no currency column")
+  func importPreservesExistingAssetCurrency() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Create existing asset with currency set
+    let asset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    asset.currency = "USD"
+    tc.context.insert(asset)
+
+    let asset2 = Asset(name: "Bitcoin", platform: "Coinbase")
+    asset2.currency = "TWD"
+    tc.context.insert(asset2)
+
+    // Import CSV without currency column
+    viewModel.snapshotDate = makeDate(year: 2025, month: 2, day: 1)
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform
+      AAPL,16000,Interactive Brokers
+      Bitcoin,60000,Coinbase
+      """)
+    viewModel.loadCSVData(csv)
+
+    let snapshot = viewModel.executeImport()
+    #expect(snapshot != nil)
+
+    // Currencies should remain unchanged
+    #expect(asset.currency == "USD")
+    #expect(asset2.currency == "TWD")
+  }
+
+  @Test("Import uses CSV currency when currency column is present")
+  func importUsesCSVCurrencyWhenProvided() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Create existing asset with currency set
+    let asset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    asset.currency = "TWD"
+    tc.context.insert(asset)
+
+    // Import CSV with explicit currency column
+    viewModel.snapshotDate = makeDate(year: 2025, month: 2, day: 1)
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform,Currency
+      AAPL,16000,Interactive Brokers,USD
+      """)
+    viewModel.loadCSVData(csv)
+
+    let snapshot = viewModel.executeImport()
+    #expect(snapshot != nil)
+
+    // Currency should be updated to the CSV value
+    #expect(asset.currency == "USD")
+  }
+
+  @Test("Import preserves cash flow currency when CSV has no currency column")
+  func importPreservesCashFlowCurrencyWithoutColumn() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // Create existing snapshot with a cash flow that has a currency
+    let feb1 = makeDate(year: 2025, month: 2, day: 1)
+    let snapshot = Snapshot(date: Calendar.current.startOfDay(for: feb1))
+    tc.context.insert(snapshot)
+    let existingOp = CashFlowOperation(cashFlowDescription: "Salary", amount: 5000)
+    existingOp.currency = "USD"
+    existingOp.snapshot = snapshot
+    tc.context.insert(existingOp)
+
+    // Import a new cash flow without currency column into a different date
+    viewModel.importType = .cashFlows
+    viewModel.snapshotDate = makeDate(year: 2025, month: 3, day: 1)
+    let csv = csvData(
+      """
+      Description,Amount
+      Bonus,2000
+      """)
+    viewModel.loadCSVData(csv)
+
+    let importedSnapshot = viewModel.executeImport()
+    #expect(importedSnapshot != nil)
+
+    // The new cash flow should have empty currency (not overwritten with default)
+    let newOps = importedSnapshot?.cashFlowOperations ?? []
+    let bonus = newOps.first { $0.cashFlowDescription == "Bonus" }
+    #expect(bonus != nil)
+    #expect(bonus?.currency.isEmpty != false)
+  }
+
+  // MARK: - Currency Warning
+
+  @Test("Currency warning when CSV currency differs from existing asset currency")
+  func currencyWarningWhenDifferent() {
+    let tc = createTestContext()
+
+    // Create existing asset with currency "TWD"
+    let asset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    asset.currency = "TWD"
+    tc.context.insert(asset)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform,Currency
+      AAPL,16000,Interactive Brokers,USD
+      """)
+    viewModel.loadCSVData(csv)
+
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
+    }
+    #expect(aaplRow?.currencyWarning != nil)
+    #expect(aaplRow?.currencyWarning?.contains("TWD") == true)
+    #expect(aaplRow?.currencyWarning?.contains("USD") == true)
+  }
+
+  @Test("No currency warning when CSV currency matches existing asset currency")
+  func noCurrencyWarningWhenMatching() {
+    let tc = createTestContext()
+
+    let asset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    asset.currency = "USD"
+    tc.context.insert(asset)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform,Currency
+      AAPL,16000,Interactive Brokers,USD
+      """)
+    viewModel.loadCSVData(csv)
+
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
+    }
+    #expect(aaplRow?.currencyWarning == nil)
+  }
+
+  @Test("No currency warning when CSV has no currency column")
+  func noCurrencyWarningWithoutCurrencyColumn() {
+    let tc = createTestContext()
+
+    let asset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    asset.currency = "USD"
+    tc.context.insert(asset)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.loadCSVData(validAssetCSVData())
+
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
+    }
+    #expect(aaplRow?.currencyWarning == nil)
+  }
+
+  @Test("No currency warning when existing asset has no currency")
+  func noCurrencyWarningWhenExistingHasNoCurrency() {
+    let tc = createTestContext()
+
+    let asset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    tc.context.insert(asset)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform,Currency
+      AAPL,16000,Interactive Brokers,USD
+      """)
+    viewModel.loadCSVData(csv)
+
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
+    }
+    #expect(aaplRow?.currencyWarning == nil)
+  }
+
+  // MARK: - Effective Currency
+
+  @Test("Effective currency uses CSV currency when provided")
+  func effectiveCurrencyFromCSV() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform,Currency
+      AAPL,16000,Interactive Brokers,USD
+      """)
+    viewModel.loadCSVData(csv)
+
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
+    }
+    #expect(aaplRow?.effectiveCurrency == "USD")
+  }
+
+  @Test("Effective currency falls back to existing asset currency")
+  func effectiveCurrencyFallsBackToExisting() {
+    let tc = createTestContext()
+
+    let asset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    asset.currency = "TWD"
+    tc.context.insert(asset)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.loadCSVData(validAssetCSVData())
+
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
+    }
+    #expect(aaplRow?.effectiveCurrency == "TWD")
+  }
+
+  @Test("Effective currency is empty when no CSV currency and no existing asset")
+  func effectiveCurrencyEmptyWhenNone() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    viewModel.loadCSVData(validAssetCSVData())
+
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
+    }
+    #expect(aaplRow?.effectiveCurrency.isEmpty == true)
+  }
+
+  // MARK: - Currency Validation
+
+  @Test("Unsupported currency code produces validation error")
+  func unsupportedCurrencyProducesError() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform,Currency
+      AAPL,16000,Interactive Brokers,XYZ
+      """)
+    viewModel.loadCSVData(csv)
+
+    let hasCurrencyError = viewModel.validationErrors.contains {
+      $0.message.contains("XYZ")
+    }
+    #expect(hasCurrencyError)
+    #expect(viewModel.isImportDisabled)
+  }
+
+  @Test("Supported currency code produces no validation error")
+  func supportedCurrencyProducesNoError() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform,Currency
+      AAPL,16000,Interactive Brokers,USD
+      """)
+    viewModel.loadCSVData(csv)
+
+    let hasCurrencyError = viewModel.validationErrors.contains {
+      $0.column == "Currency"
+    }
+    #expect(!hasCurrencyError)
+  }
+
+  @Test("Case-insensitive currency codes are accepted")
+  func caseInsensitiveCurrencyAccepted() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform,Currency
+      AAPL,16000,Interactive Brokers,usd
+      """)
+    viewModel.loadCSVData(csv)
+
+    let hasCurrencyError = viewModel.validationErrors.contains {
+      $0.column == "Currency"
+    }
+    #expect(!hasCurrencyError)
+  }
+
+  @Test("Unsupported currency error suppresses currency change warning")
+  func unsupportedCurrencyErrorSuppressesWarning() {
+    let tc = createTestContext()
+
+    // Create existing asset with currency "TWD"
+    let asset = Asset(name: "AAPL", platform: "Interactive Brokers")
+    asset.currency = "TWD"
+    tc.context.insert(asset)
+
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    // CSV provides unsupported currency "XYZ" — different from existing "TWD"
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform,Currency
+      AAPL,16000,Interactive Brokers,XYZ
+      """)
+    viewModel.loadCSVData(csv)
+
+    let aaplRow = viewModel.assetPreviewRows.first {
+      $0.csvRow.assetName == "AAPL"
+    }
+    // Error should be set (unsupported currency)
+    #expect(aaplRow?.currencyError != nil)
+    // Warning should be suppressed (error takes precedence)
+    #expect(aaplRow?.currencyWarning == nil)
+  }
+
+  @Test("Removing row with unsupported currency clears the error")
+  func removingRowWithUnsupportedCurrencyClearsError() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let csv = csvData(
+      """
+      Asset Name,Market Value,Platform,Currency
+      AAPL,16000,Interactive Brokers,XYZ
+      VTI,28000,Interactive Brokers,USD
+      """)
+    viewModel.loadCSVData(csv)
+
+    // Should have a currency error for XYZ
+    #expect(viewModel.validationErrors.contains { $0.message.contains("XYZ") })
+
+    // Remove the row with unsupported currency
+    viewModel.removeAssetPreviewRow(at: 0)
+
+    // Error should be cleared
+    #expect(!viewModel.validationErrors.contains { $0.message.contains("XYZ") })
+  }
 }
