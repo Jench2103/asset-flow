@@ -117,7 +117,7 @@ The dashboard provides a portfolio overview using the latest snapshot.
 **Implementation notes (Charts)**:
 
 - **DashboardView** (`AssetFlow/Views/DashboardView.swift`): Replaced chart placeholders with 2x2 grid of interactive charts. Row 1: `CategoryAllocationPieChart` (with snapshot date picker, click-to-navigate to category) + `PortfolioValueLineChart` (with click-to-navigate to snapshot). Row 2: `CumulativeTWRLineChart` + `CategoryValueLineChart` (multi-line with legend toggle). Each line chart has an independent `ChartTimeRange` `@State` that defaults to `.all` and resets on navigation via `dashboardRefreshID`.
-- **`CategoryAllocationPieChart`**: HStack layout with pie chart (flexible width) and legend panel (150pt fixed width).
+- **`CategoryAllocationPieChart`**: HStack layout with pie chart (fixed square, centered) and dynamic multi-column legend panel (right-aligned). Legend uses `LazyVGrid` with column count adapting to both category count and available width — uses the fewest columns needed to display all categories without scrolling. Column width is measured dynamically from the widest legend item (capped at 180pt). Total content width is measured via `onGeometryChange` to derive available legend space.
 - **DashboardViewModel** (`AssetFlow/ViewModels/DashboardViewModel.swift`): Added `snapshotDates`, `categoryValueHistory` (per-category `[DashboardDataPoint]`), and `categoryAllocations(forSnapshotDate:)` for historical pie chart data. Extracted `computeCategoryAllocationsForSnapshot` helper for reuse.
 - **ChartDataService** (`AssetFlow/ViewModels/ChartDataService.swift`): Stateless `enum` with `ChartTimeRange` (8 cases: 1W/1M/3M/6M/1Y/3Y/5Y/All), `filter()` overloads for `DashboardDataPoint`/`CategoryValueHistoryEntry`/`CategoryAllocationHistoryEntry`, and `abbreviatedLabel(for:)` for K/M/B Y-axis formatting. Filtering uses latest data point's date as reference (not `Date.now`).
 - **Shared chart components** in `AssetFlow/Views/Charts/`: `ChartTimeRangeSelector` (segmented picker), `ChartStyles` (constants and color palette), and 5 chart views. All charts handle empty/edge states per SPEC 12.5.
@@ -455,7 +455,7 @@ All line charts include a zoom selector:
 - Slices sorted by value (largest first, clockwise from 12 o'clock)
 - Uncategorized shown as distinct slice (uses a neutral/gray tone to indicate it is not a user-defined category)
 - Labels: category name, percentage, value
-- Legend is displayed as a fixed-width (150pt) vertical panel to the right of the pie chart, showing color swatch, category name, and percentage for each category. Legend items are interactive: hovering highlights the corresponding slice, and clicking navigates to category detail.
+- Legend is displayed as a dynamic multi-column grid to the right of the pie chart, showing color swatch, category name, and percentage for each category. The number of columns adapts to both the category count and the available width — using the fewest columns needed to fit all categories without scrolling. Column width is measured from the widest item content (capped at 180pt). The pie chart is fixed to a square aspect ratio and centered in the remaining space, with the legend right-aligned. Legend items are interactive: hovering highlights the corresponding slice, and clicking navigates to category detail.
 - Hover: tooltip with details. Click: navigates to category detail.
 
 ### Line Chart -- Portfolio Value Over Time (Section 12.2)

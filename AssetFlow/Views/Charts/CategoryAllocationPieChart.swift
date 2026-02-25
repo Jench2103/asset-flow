@@ -21,6 +21,8 @@ struct CategoryAllocationPieChart: View {
 
   @State private var hoveredCategory: String?
   @State private var selectedAngle: Double?
+  @State private var contentWidth: CGFloat = 400
+  @State private var legendItemWidth: CGFloat = 120
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
@@ -65,9 +67,35 @@ struct CategoryAllocationPieChart: View {
   private var pieChart: some View {
     HStack(alignment: .top, spacing: 12) {
       chartView
+        .frame(
+          width: ChartConstants.dashboardChartHeight,
+          height: ChartConstants.dashboardChartHeight
+        )
+        .frame(maxWidth: .infinity)
       legendPanel
+        .frame(width: legendGridMaxWidth)
     }
     .frame(height: ChartConstants.dashboardChartHeight)
+    .onGeometryChange(for: CGFloat.self) { proxy in
+      proxy.size.width
+    } action: { width in
+      contentWidth = width
+    }
+    .background {
+      // Invisible view to measure the natural width of the widest legend item.
+      VStack(alignment: .leading, spacing: 0) {
+        ForEach(allocations, id: \.categoryName) { allocation in
+          legendItemLabel(allocation)
+        }
+      }
+      .fixedSize()
+      .hidden()
+      .onGeometryChange(for: CGFloat.self) { proxy in
+        proxy.size.width
+      } action: { width in
+        legendItemWidth = min(width, 180)
+      }
+    }
   }
 
   private var chartView: some View {
@@ -134,43 +162,82 @@ struct CategoryAllocationPieChart: View {
     }
   }
 
+  private static let legendColumnSpacing: CGFloat = 12
+  private static let legendHorizontalPadding: CGFloat = 8
+
   private var legendPanel: some View {
-    ScrollView(.vertical, showsIndicators: false) {
-      VStack(alignment: .leading, spacing: 4) {
+    ScrollView(.vertical, showsIndicators: true) {
+      LazyVGrid(
+        columns: Array(
+          repeating: GridItem(
+            .flexible(), spacing: Self.legendColumnSpacing, alignment: .topLeading),
+          count: legendColumnCount),
+        alignment: .leading,
+        spacing: 4
+      ) {
         ForEach(allocations, id: \.categoryName) { allocation in
-          Button {
-            if allocation.categoryName != "Uncategorized" {
-              onSelectCategory?(allocation.categoryName)
-            }
-          } label: {
-            HStack(spacing: 4) {
-              Circle()
-                .fill(colorForCategory(allocation.categoryName))
-                .frame(width: 8, height: 8)
-                .fixedSize()
-              VStack(alignment: .leading, spacing: 0) {
-                Text(allocation.categoryName)
-                  .font(.caption2)
-                  .lineLimit(1)
-                  .truncationMode(.tail)
-                Text(allocation.percentage.formattedPercentage())
-                  .font(.caption2)
-                  .foregroundStyle(.secondary)
-              }
-            }
-          }
-          .buttonStyle(.plain)
-          .opacity(
-            hoveredCategory == nil || hoveredCategory == allocation.categoryName
-              ? 1.0 : 0.5
-          )
-          .onHover { isHovering in
-            hoveredCategory = isHovering ? allocation.categoryName : nil
-          }
+          legendItem(allocation)
         }
       }
+      .padding(.horizontal, Self.legendHorizontalPadding)
     }
-    .frame(width: 150)
+  }
+
+  /// Available width for legend columns, after subtracting the chart, HStack spacing, and legend padding.
+  private var legendAvailableWidth: CGFloat {
+    contentWidth - ChartConstants.dashboardChartHeight - 12 - Self.legendHorizontalPadding * 2
+  }
+
+  /// Width for the legend panel including grid columns, inter-column spacing, and horizontal padding.
+  private var legendGridMaxWidth: CGFloat {
+    let count = CGFloat(legendColumnCount)
+    let gridWidth = count * legendItemWidth + max(0, count - 1) * Self.legendColumnSpacing
+    return gridWidth + Self.legendHorizontalPadding * 2
+  }
+
+  private func legendItem(_ allocation: CategoryAllocationData) -> some View {
+    Button {
+      if allocation.categoryName != "Uncategorized" {
+        onSelectCategory?(allocation.categoryName)
+      }
+    } label: {
+      legendItemLabel(allocation)
+    }
+    .buttonStyle(.plain)
+    .opacity(
+      hoveredCategory == nil || hoveredCategory == allocation.categoryName
+        ? 1.0 : 0.5
+    )
+    .onHover { isHovering in
+      hoveredCategory = isHovering ? allocation.categoryName : nil
+    }
+  }
+
+  private func legendItemLabel(_ allocation: CategoryAllocationData) -> some View {
+    HStack(spacing: 4) {
+      Circle()
+        .fill(colorForCategory(allocation.categoryName))
+        .frame(width: 8, height: 8)
+        .fixedSize()
+      VStack(alignment: .leading, spacing: 0) {
+        Text(allocation.categoryName)
+          .font(.caption2)
+          .lineLimit(1)
+        Text(allocation.percentage.formattedPercentage())
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+      }
+    }
+  }
+
+  /// Computes the fewest legend columns needed to display all categories without scrolling,
+  /// bounded by the available width.
+  private var legendColumnCount: Int {
+    let estimatedItemHeight: CGFloat = 30
+    let maxRows = max(1, Int(ChartConstants.dashboardChartHeight / estimatedItemHeight))
+    let neededColumns = max(1, (allocations.count + maxRows - 1) / maxRows)
+    let maxColumns = max(1, Int(legendAvailableWidth / legendItemWidth))
+    return min(neededColumns, maxColumns)
   }
 
   /// Maps a cumulative angle value to the category at that position in the pie chart.
