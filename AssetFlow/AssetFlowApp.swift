@@ -143,7 +143,7 @@ struct AssetFlowApp: App {
           // Source code link
           credits.append(
             NSAttributedString(
-              string: "View Source Code on GitHub",
+              string: String(localized: "View Source Code on GitHub"),
               attributes: [
                 .font: body,
                 .link: Constants.AppInfo.repositoryURL,
@@ -155,7 +155,11 @@ struct AssetFlowApp: App {
           credits.append(
             NSAttributedString(
               string:
-                "\n\nAll data is stored locally on your Mac.\nExchange rates are fetched from cdn.jsdelivr.net.\nNo personal data is collected or transmitted.",
+                "\n\n"
+                + String(
+                  localized:
+                    "All data is stored locally on your Mac.\nExchange rates are fetched from cdn.jsdelivr.net.\nNo personal data is collected or transmitted."
+                ),
               attributes: [
                 .font: small,
                 .foregroundColor: NSColor.secondaryLabelColor,

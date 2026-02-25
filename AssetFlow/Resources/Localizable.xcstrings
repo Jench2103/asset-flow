@@ -321,6 +321,16 @@
         }
       }
     },
+    "All data is stored locally on your Mac.\nExchange rates are fetched from cdn.jsdelivr.net.\nNo personal data is collected or transmitted.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所有資料均儲存於您的 Mac 上。\n匯率資料取自 cdn.jsdelivr.net。\n不會收集或傳輸任何個人資料。"
+          }
+        }
+      }
+    },
     "All Rows": {
       "localizations": {
         "zh-Hant": {
