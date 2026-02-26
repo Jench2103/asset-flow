@@ -62,4 +62,5 @@ Before completing any task, review and update affected docs. Key mappings:
 - **Commits**: [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) — `type(scope): description`. Types: `feat`, `fix`, `refactor`, `ci`, `build`, `chore`, `docs`, `style`, `test`, `perf`. Scope optional but encouraged (e.g., `feat(dashboard):`). Breaking changes: append `!` (e.g., `feat!:`) or add `BREAKING CHANGE:` footer.
 - **Testing**: Swift Testing (`import Testing`), NOT XCTest. TDD: red-green-refactor. See `AssetFlowTests/CLAUDE.md`.
 - **Tooltip help text**: Always use `.helpWhenUnlocked("…")` instead of `.help("…")`. The app uses `AuthenticationService` for app lock; `.help()` exposes tooltip content on the lock screen, while `.helpWhenUnlocked()` only shows tooltips after the user has authenticated.
+- **Hover interactions**: Always use `.onHoverWhenUnlocked()` and `.onContinuousHoverWhenUnlocked()` instead of `.onHover()` and `.onContinuousHover()`. Hover effects (chart tooltips, highlights) can leak data through the lock overlay. See `AssetFlow/Utilities/WhenUnlockedModifiers.swift`.
 - **macOS only (v1)**: No iOS/iPadOS. No `#if os(...)` needed.

@@ -139,6 +139,7 @@ ______________________________________________________________________
 - Menu commands (Cmd+N, Cmd+I) are disabled while locked to prevent keyboard shortcut bypass
 - Toolbar buttons (navigation back/forward, add snapshot/category, grouping picker) are disabled while locked
 - All `.help()` tooltips are suppressed while locked via the `.helpWhenUnlocked()` view modifier and `isAppLocked` environment key, preventing tooltip leakage through the lock overlay
+- All `.onHover()` and `.onContinuousHover()` interactions are suppressed while locked via `.onHoverWhenUnlocked()` and `.onContinuousHoverWhenUnlocked()`, preventing chart tooltip and highlight leakage through the lock overlay
 
 **Limitations**:
 

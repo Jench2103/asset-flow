@@ -448,7 +448,7 @@ private struct SnapshotRowButtonStyle: ButtonStyle {
         RoundedRectangle(cornerRadius: 4)
           .fill(isHovered ? Color.primary.opacity(0.06) : Color.clear)
       )
-      .onHover { hovering in
+      .onHoverWhenUnlocked { hovering in
         isHovered = hovering
       }
   }

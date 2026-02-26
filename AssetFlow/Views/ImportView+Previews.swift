@@ -22,12 +22,8 @@ private struct HoverPopoverIcon: View {
     Image(systemName: systemName)
       .font(.caption2)
       .foregroundStyle(color)
-      .onHover { hovering in
-        if isLocked {
-          activeRowID = nil
-        } else {
-          activeRowID = hovering ? rowID : nil
-        }
+      .onHoverWhenUnlocked { hovering in
+        activeRowID = hovering ? rowID : nil
       }
       .popover(
         isPresented: Binding(

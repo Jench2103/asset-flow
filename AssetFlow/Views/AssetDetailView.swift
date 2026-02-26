@@ -370,7 +370,7 @@ struct AssetDetailView: View {
         Rectangle()
           .fill(.clear)
           .contentShape(Rectangle())
-          .onContinuousHover { phase in
+          .onContinuousHoverWhenUnlocked { phase in
             switch phase {
             case .active(let location):
               hoveredValueDate = ChartHelpers.findNearestDate(

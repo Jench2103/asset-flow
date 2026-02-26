@@ -132,7 +132,7 @@ struct CategoryAllocationPieChart: View {
         Rectangle()
           .fill(.clear)
           .contentShape(Rectangle())
-          .onContinuousHover { phase in
+          .onContinuousHoverWhenUnlocked { phase in
             switch phase {
             case .active(let location):
               let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
@@ -208,7 +208,7 @@ struct CategoryAllocationPieChart: View {
       hoveredCategory == nil || hoveredCategory == allocation.categoryName
         ? 1.0 : 0.5
     )
-    .onHover { isHovering in
+    .onHoverWhenUnlocked { isHovering in
       hoveredCategory = isHovering ? allocation.categoryName : nil
     }
   }
