@@ -40,8 +40,10 @@ struct AssetDetailView: View {
   let onDelete: () -> Void
 
   init(asset: Asset, modelContext: ModelContext, onDelete: @escaping () -> Void) {
-    _viewModel = State(
-      wrappedValue: AssetDetailViewModel(asset: asset, modelContext: modelContext))
+    let vm = AssetDetailViewModel(asset: asset, modelContext: modelContext)
+    _viewModel = State(wrappedValue: vm)
+    _cachedPlatforms = State(wrappedValue: vm.existingPlatforms())
+    _cachedCategories = State(wrappedValue: vm.existingCategories())
     self.onDelete = onDelete
   }
 
