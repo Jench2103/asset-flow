@@ -168,6 +168,7 @@ struct DashboardView: View {
           .monospacedDigit()
           .foregroundStyle(rateColor(for: growthValue))
           .contentTransition(.numericText())
+          .fixedSize()
 
         Spacer()
 
@@ -180,6 +181,7 @@ struct DashboardView: View {
               .foregroundStyle(.secondary)
           }
         }
+        .layoutPriority(1)
       }
       .padding()
       .frame(maxWidth: .infinity)
@@ -208,6 +210,7 @@ struct DashboardView: View {
           .monospacedDigit()
           .foregroundStyle(rateColor(for: returnValue))
           .contentTransition(.numericText())
+          .fixedSize()
 
         Spacer()
 
@@ -220,6 +223,7 @@ struct DashboardView: View {
               .foregroundStyle(.secondary)
           }
         }
+        .layoutPriority(1)
       }
       .padding()
       .frame(maxWidth: .infinity)
