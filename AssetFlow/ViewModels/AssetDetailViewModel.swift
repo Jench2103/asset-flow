@@ -13,6 +13,7 @@ struct AssetValueHistoryEntry: Identifiable {
   let id: PersistentIdentifier
   let date: Date
   let marketValue: Decimal
+  let convertedMarketValue: Decimal?
   let snapshotAssetValue: SnapshotAssetValue
 }
 
@@ -32,6 +33,13 @@ final class AssetDetailViewModel {
   var editedCurrency: String
   var valueHistory: [AssetValueHistoryEntry] = []
 
+  /// Whether the asset uses a currency different from the global display currency.
+  ///
+  /// Stored (not computed) so it updates in the async `loadValueHistory()` cycle,
+  /// preventing synchronous view structural changes during picker callbacks
+  /// that would crash SwiftUI's AttributeGraph.
+  private(set) var isDifferentCurrency = false
+
   init(asset: Asset, modelContext: ModelContext) {
     self.asset = asset
     self.modelContext = modelContext
@@ -40,6 +48,10 @@ final class AssetDetailViewModel {
     self.editedCategory = asset.category
     self.editedCurrency =
       asset.currency.isEmpty ? SettingsService.shared.mainCurrency : asset.currency
+    let effectiveCurrency =
+      asset.currency.isEmpty ? SettingsService.shared.mainCurrency : asset.currency
+    self.isDifferentCurrency =
+      effectiveCurrency.lowercased() != SettingsService.shared.mainCurrency.lowercased()
   }
 
   // MARK: - Computed Properties
@@ -80,13 +92,34 @@ final class AssetDetailViewModel {
 
   private func performLoadValueHistory() {
     let savs = asset.snapshotAssetValues ?? []
+    let displayCurrency = SettingsService.shared.mainCurrency
+    let assetCurrency = asset.currency.isEmpty ? displayCurrency : asset.currency
+    let needsConversion = assetCurrency.lowercased() != displayCurrency.lowercased()
+    isDifferentCurrency = needsConversion
 
     valueHistory = savs.compactMap { sav in
       guard let snapshotDate = sav.snapshot?.date else { return nil }
+      let converted: Decimal?
+      if needsConversion,
+        CurrencyConversionService.canConvert(
+          from: assetCurrency, to: displayCurrency, using: sav.snapshot?.exchangeRate)
+      {
+        converted = CurrencyConversionService.convert(
+          value: sav.marketValue,
+          from: assetCurrency,
+          to: displayCurrency,
+          using: sav.snapshot?.exchangeRate
+        )
+      } else if needsConversion {
+        converted = nil
+      } else {
+        converted = nil
+      }
       return AssetValueHistoryEntry(
         id: sav.persistentModelID,
         date: snapshotDate,
         marketValue: sav.marketValue,
+        convertedMarketValue: converted,
         snapshotAssetValue: sav
       )
     }

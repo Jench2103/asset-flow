@@ -26,6 +26,7 @@ struct AssetDetailView: View {
   @State private var valueChartRange: ChartTimeRange = .all
   @State private var hoveredValueDate: Date?
   @State private var editingAssetValue: SnapshotAssetValue?
+  @State private var showConvertedChart = false
 
   @State private var newPlatformName = ""
   @State private var showNewPlatformField = false
@@ -56,6 +57,9 @@ struct AssetDetailView: View {
       viewModel.loadValueHistory()
       cachedPlatforms = viewModel.existingPlatforms()
       cachedCategories = viewModel.existingCategories()
+    }
+    .onChange(of: viewModel.isDifferentCurrency) { _, newValue in
+      if !newValue { showConvertedChart = false }
     }
     .alert("Save Error", isPresented: $showSaveError) {
       Button("OK") {}
@@ -255,58 +259,31 @@ struct AssetDetailView: View {
         Text("No recorded values")
           .foregroundStyle(.secondary)
       } else {
-        ChartTimeRangeSelector(selection: $valueChartRange)
+        HStack {
+          ChartTimeRangeSelector(selection: $valueChartRange)
+          Spacer()
+          convertedChartToggle
+            .opacity(viewModel.isDifferentCurrency ? 1 : 0)
+            .allowsHitTesting(viewModel.isDifferentCurrency)
+        }
 
         let points = filteredValueHistory
         if points.isEmpty {
           Text("No data for selected period")
             .foregroundStyle(.secondary)
+        } else if showConvertedChart && viewModel.isDifferentCurrency {
+          if points.count == 1 {
+            singlePointConvertedChart(points)
+          } else {
+            convertedValueLineChart(points)
+          }
         } else if points.count == 1 {
           singlePointValueChart(points)
         } else {
           valueLineChart(points)
         }
 
-        Table(viewModel.valueHistory) {
-          TableColumn("Date") { entry in
-            Text(entry.date.settingsFormatted())
-          }
-          TableColumn("Market Value") { entry in
-            let effectiveCurrency =
-              viewModel.asset.currency.isEmpty
-              ? SettingsService.shared.mainCurrency : viewModel.asset.currency
-            let sav = entry.snapshotAssetValue
-            Text(entry.marketValue.formatted(currency: effectiveCurrency))
-              .monospacedDigit()
-              .frame(maxWidth: .infinity, alignment: .trailing)
-              .contentShape(Rectangle())
-              .onTapGesture(count: 2) {
-                editingAssetValue = sav
-              }
-              .contextMenu {
-                Button("Edit Value") {
-                  editingAssetValue = sav
-                }
-              }
-              .popover(
-                isPresented: Binding(
-                  get: { editingAssetValue?.id == sav.id },
-                  set: { if !$0 { editingAssetValue = nil } }
-                ),
-                arrowEdge: .trailing
-              ) {
-                EditValuePopover(currentValue: sav.marketValue) { newValue in
-                  viewModel.editAssetValue(sav, newValue: newValue)
-                }
-              }
-          }
-          .alignment(.trailing)
-        }
-        .tableStyle(.bordered(alternatesRowBackgrounds: true))
-        .scrollDisabled(true)
-        .frame(height: CGFloat(viewModel.valueHistory.count) * 28 + 32)
-        .padding(-1)
-        .clipped()
+        valueHistoryTable
       }
     } header: {
       Text("Value History")
@@ -394,6 +371,209 @@ struct AssetDetailView: View {
       .foregroundStyle(.blue)
     }
     .frame(height: ChartConstants.standardChartHeight)
+  }
+
+  // MARK: - Converted Value Chart
+
+  private var convertedChartToggle: some View {
+    Button {
+      withAnimation(AnimationConstants.chart) { showConvertedChart.toggle() }
+    } label: {
+      Text(SettingsService.shared.mainCurrency.uppercased())
+        .font(.caption2)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(
+          showConvertedChart
+            ? AnyShapeStyle(.tint.opacity(0.15))
+            : AnyShapeStyle(.clear)
+        )
+        .foregroundStyle(showConvertedChart ? .primary : .secondary)
+        .clipShape(Capsule())
+        .overlay(
+          Capsule()
+            .stroke(
+              showConvertedChart
+                ? AnyShapeStyle(.tint.opacity(0.3))
+                : AnyShapeStyle(.clear),
+              lineWidth: 0.5)
+        )
+    }
+    .buttonStyle(.plain)
+    .helpWhenUnlocked("Show values converted to \(SettingsService.shared.mainCurrency)")
+    .accessibilityLabel("Show values converted to \(SettingsService.shared.mainCurrency)")
+    .accessibilityAddTraits(showConvertedChart ? .isSelected : [])
+  }
+
+  private func convertedValueLineChart(_ points: [AssetValueHistoryEntry]) -> some View {
+    let displayCurrency = SettingsService.shared.mainCurrency
+    let firstDate = points.first!.date
+    let lastDate = points.last!.date
+    let yValues = points.map { ($0.convertedMarketValue ?? $0.marketValue).doubleValue }
+    let yMin = yValues.min()!
+    let yMax = yValues.max()!
+    return Chart(points) { entry in
+      let value = (entry.convertedMarketValue ?? entry.marketValue).doubleValue
+      LineMark(
+        x: .value("Date", entry.date),
+        y: .value("Value", value)
+      )
+      .foregroundStyle(.green)
+      PointMark(
+        x: .value("Date", entry.date),
+        y: .value("Value", value)
+      )
+      .foregroundStyle(.green)
+
+      if let hoveredValueDate, entry.date == hoveredValueDate {
+        RuleMark(x: .value("Date", hoveredValueDate))
+          .foregroundStyle(.secondary.opacity(0.5))
+          .lineStyle(StrokeStyle(dash: [4, 4]))
+          .annotation(
+            position: .top,
+            alignment: entry.date == firstDate
+              ? .leading
+              : entry.date == lastDate ? .trailing : .center
+          ) {
+            ChartTooltipView {
+              Text(entry.date.settingsFormatted())
+                .font(.caption2)
+              Text(
+                (entry.convertedMarketValue ?? entry.marketValue)
+                  .formatted(currency: displayCurrency)
+              )
+              .font(.caption.bold())
+            }
+          }
+      }
+    }
+    .chartXScale(domain: firstDate...lastDate)
+    .chartYScale(domain: yMin...yMax)
+    .chartYAxis {
+      AxisMarks { value in
+        AxisGridLine()
+        AxisValueLabel {
+          if let val = value.as(Double.self) {
+            Text(ChartDataService.abbreviatedLabel(for: val))
+          }
+        }
+      }
+    }
+    .chartOverlay { proxy in
+      GeometryReader { _ in
+        Rectangle()
+          .fill(.clear)
+          .contentShape(Rectangle())
+          .onContinuousHoverWhenUnlocked { phase in
+            switch phase {
+            case .active(let location):
+              hoveredValueDate = ChartHelpers.findNearestDate(
+                at: location, in: proxy, points: points, dateKeyPath: \.date)
+
+            case .ended:
+              hoveredValueDate = nil
+            }
+          }
+      }
+    }
+    .frame(height: ChartConstants.standardChartHeight)
+  }
+
+  private func singlePointConvertedChart(_ points: [AssetValueHistoryEntry]) -> some View {
+    Chart(points) { entry in
+      PointMark(
+        x: .value("Date", entry.date),
+        y: .value("Value", (entry.convertedMarketValue ?? entry.marketValue).doubleValue)
+      )
+      .foregroundStyle(.green)
+    }
+    .frame(height: ChartConstants.standardChartHeight)
+  }
+
+  // MARK: - Value History Table
+
+  private func marketValueCell(
+    for entry: AssetValueHistoryEntry, currency: String
+  ) -> some View {
+    let sav = entry.snapshotAssetValue
+    return Text(entry.marketValue.formatted(currency: currency))
+      .monospacedDigit()
+      .frame(maxWidth: .infinity, alignment: .trailing)
+      .contentShape(Rectangle())
+      .onTapGesture(count: 2) {
+        editingAssetValue = sav
+      }
+      .contextMenu {
+        Button("Edit Value") {
+          editingAssetValue = sav
+        }
+      }
+      .popover(
+        isPresented: Binding(
+          get: { editingAssetValue?.id == sav.id },
+          set: { if !$0 { editingAssetValue = nil } }
+        ),
+        arrowEdge: .trailing
+      ) {
+        EditValuePopover(currentValue: sav.marketValue) { newValue in
+          viewModel.editAssetValue(sav, newValue: newValue)
+        }
+      }
+  }
+
+  private var valueHistoryTable: some View {
+    let effectiveCurrency =
+      viewModel.asset.currency.isEmpty
+      ? SettingsService.shared.mainCurrency : viewModel.asset.currency
+    let displayCurrency = SettingsService.shared.mainCurrency
+    let showConverted = viewModel.isDifferentCurrency
+    let tableHeight = CGFloat(viewModel.valueHistory.count) * 28 + 32
+
+    return Group {
+      if showConverted {
+        Table(viewModel.valueHistory) {
+          TableColumn("Date") { entry in
+            Text(entry.date.settingsFormatted())
+          }
+          TableColumn("Market Value") { entry in
+            marketValueCell(for: entry, currency: effectiveCurrency)
+          }
+          .alignment(.trailing)
+          TableColumn("Converted Value") { entry in
+            if let converted = entry.convertedMarketValue {
+              Text(converted.formatted(currency: displayCurrency))
+                .monospacedDigit()
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            } else {
+              Text("—")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+          }
+          .alignment(.trailing)
+        }
+        .tableStyle(.bordered(alternatesRowBackgrounds: true))
+        .scrollDisabled(true)
+        .frame(height: tableHeight)
+        .padding(-1)
+        .clipped()
+      } else {
+        Table(viewModel.valueHistory) {
+          TableColumn("Date") { entry in
+            Text(entry.date.settingsFormatted())
+          }
+          TableColumn("Market Value") { entry in
+            marketValueCell(for: entry, currency: effectiveCurrency)
+          }
+          .alignment(.trailing)
+        }
+        .tableStyle(.bordered(alternatesRowBackgrounds: true))
+        .scrollDisabled(true)
+        .frame(height: tableHeight)
+        .padding(-1)
+        .clipped()
+      }
+    }
   }
 
   // MARK: - Delete Section
