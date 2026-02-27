@@ -94,6 +94,18 @@ class DashboardViewModel {
   private var allSnapshots: [Snapshot] = []
   private var sortedSnapshotsCache: [Snapshot] = []
 
+  /// Total value per snapshot (built once per load cycle).
+  private var snapshotTotalCache: [UUID: Decimal] = [:]
+
+  /// Category breakdown per snapshot (built once per load cycle).
+  private var categoryValuesCache: [UUID: [String: Decimal]] = [:]
+
+  /// Modified Dietz returns per consecutive pair (built once per load cycle).
+  private var cachedPeriodReturns: [Decimal?] = []
+
+  /// Display currency used when caches were built.
+  private var cachedDisplayCurrency: String = ""
+
   // MARK: - Init
 
   init(modelContext: ModelContext) {
@@ -133,12 +145,37 @@ class DashboardViewModel {
       categoryValueHistory = [:]
       recentSnapshots = []
       sortedSnapshotsCache = []
+      snapshotTotalCache = [:]
+      categoryValuesCache = [:]
+      cachedPeriodReturns = []
+      cachedDisplayCurrency = ""
       return
     }
 
     isEmpty = false
     let sortedSnapshots = allSnapshots.sorted { $0.date < $1.date }
     sortedSnapshotsCache = sortedSnapshots
+
+    // Build caches once: categoryValues per snapshot, derive totals from sums
+    let displayCurrency = SettingsService.shared.mainCurrency
+    cachedDisplayCurrency = displayCurrency
+    var totalCache: [UUID: Decimal] = [:]
+    var catCache: [UUID: [String: Decimal]] = [:]
+    for snapshot in sortedSnapshots {
+      let catValues = CurrencyConversionService.categoryValues(
+        for: snapshot, displayCurrency: displayCurrency, exchangeRate: snapshot.exchangeRate)
+      catCache[snapshot.id] = catValues
+      totalCache[snapshot.id] = catValues.values.reduce(0, +)
+    }
+    snapshotTotalCache = totalCache
+    categoryValuesCache = catCache
+
+    // Build period returns cache once
+    if sortedSnapshots.count >= 2 {
+      cachedPeriodReturns = computePeriodReturns(sortedSnapshots: sortedSnapshots)
+    } else {
+      cachedPeriodReturns = []
+    }
 
     computeSummaryCards(sortedSnapshots: sortedSnapshots)
     computeCategoryAllocations(sortedSnapshots: sortedSnapshots)
@@ -262,8 +299,7 @@ class DashboardViewModel {
 
     // Cumulative TWR — treat nil returns as 0% (identity) to match twrHistory
     if sortedSnapshots.count >= 2 {
-      let periodReturns = computePeriodReturns(sortedSnapshots: sortedSnapshots)
-      let product = periodReturns.reduce(Decimal(1)) { acc, periodReturn in
+      let product = cachedPeriodReturns.reduce(Decimal(1)) { acc, periodReturn in
         acc * (1 + (periodReturn ?? 0))
       }
       cumulativeTWR = product - 1
@@ -300,12 +336,19 @@ class DashboardViewModel {
   private func computeCategoryAllocationsForSnapshot(
     _ snapshot: Snapshot
   ) -> [CategoryAllocationData] {
-    let displayCurrency = SettingsService.shared.mainCurrency
     let total = snapshotTotal(for: snapshot)
     guard total > 0 else { return [] }
 
-    let catValues = CurrencyConversionService.categoryValues(
-      for: snapshot, displayCurrency: displayCurrency, exchangeRate: snapshot.exchangeRate)
+    let catValues: [String: Decimal]
+    if let cached = categoryValuesCache[snapshot.id] {
+      catValues = cached
+    } else {
+      let currency =
+        cachedDisplayCurrency.isEmpty
+        ? SettingsService.shared.mainCurrency : cachedDisplayCurrency
+      catValues = CurrencyConversionService.categoryValues(
+        for: snapshot, displayCurrency: currency, exchangeRate: snapshot.exchangeRate)
+    }
 
     return
       catValues.map { name, value in
@@ -322,12 +365,10 @@ class DashboardViewModel {
   // MARK: - Private: Category Value History
 
   private func computeCategoryValueHistory(sortedSnapshots: [Snapshot]) {
-    let displayCurrency = SettingsService.shared.mainCurrency
     var result: [String: [DashboardDataPoint]] = [:]
 
     for snapshot in sortedSnapshots {
-      let catValues = CurrencyConversionService.categoryValues(
-        for: snapshot, displayCurrency: displayCurrency, exchangeRate: snapshot.exchangeRate)
+      guard let catValues = categoryValuesCache[snapshot.id] else { continue }
 
       for (categoryName, value) in catValues {
         let displayName = categoryName.isEmpty ? "Uncategorized" : categoryName
@@ -358,15 +399,13 @@ class DashboardViewModel {
       return
     }
 
-    let periodReturns = computePeriodReturns(sortedSnapshots: sortedSnapshots)
-
     // Start with 0% at the first snapshot (inception point)
     var history: [DashboardDataPoint] = [
       DashboardDataPoint(date: sortedSnapshots[0].date, value: 0)
     ]
     var cumulativeProduct = Decimal(1)
 
-    for (index, periodReturn) in periodReturns.enumerated() {
+    for (index, periodReturn) in cachedPeriodReturns.enumerated() {
       if let returnValue = periodReturn {
         cumulativeProduct *= (1 + returnValue)
       }
@@ -403,9 +442,14 @@ class DashboardViewModel {
   }
 
   private func snapshotTotal(for snapshot: Snapshot) -> Decimal {
-    let displayCurrency = SettingsService.shared.mainCurrency
+    if let cached = snapshotTotalCache[snapshot.id] {
+      return cached
+    }
+    let currency =
+      cachedDisplayCurrency.isEmpty
+      ? SettingsService.shared.mainCurrency : cachedDisplayCurrency
     return CurrencyConversionService.totalValue(
-      for: snapshot, displayCurrency: displayCurrency, exchangeRate: snapshot.exchangeRate)
+      for: snapshot, displayCurrency: currency, exchangeRate: snapshot.exchangeRate)
   }
 
   /// Computes Modified Dietz returns for each consecutive pair of snapshots.

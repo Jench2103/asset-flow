@@ -39,9 +39,6 @@ struct PlatformListView: View {
     .onAppear {
       viewModel.loadPlatforms()
     }
-    .onChange(of: selectedPlatform) { _, _ in
-      viewModel.loadPlatforms()
-    }
     .alert("Error", isPresented: $showError) {
       Button("OK") {}
     } message: {

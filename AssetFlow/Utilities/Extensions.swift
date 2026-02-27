@@ -110,10 +110,22 @@ extension String {
   /// Normalizes a string for identity comparison (SPEC 6.1):
   /// trims whitespace, collapses internal runs of whitespace, lowercases.
   var normalizedForIdentity: String {
-    self
-      .trimmingCharacters(in: .whitespaces)
-      .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-      .lowercased()
+    let trimmed = self.trimmingCharacters(in: .whitespaces)
+    var result = ""
+    result.reserveCapacity(trimmed.count)
+    var previousWasWhitespace = false
+    for char in trimmed {
+      if char.isWhitespace {
+        if !previousWasWhitespace {
+          result.append(" ")
+          previousWasWhitespace = true
+        }
+      } else {
+        result.append(char)
+        previousWasWhitespace = false
+      }
+    }
+    return result.lowercased()
   }
 }
 

@@ -58,9 +58,6 @@ struct AssetListView: View {
     .onChange(of: viewModel.groupingMode) {
       viewModel.loadAssets()
     }
-    .onChange(of: selectedAsset) {
-      viewModel.loadAssets()
-    }
     .alert("Cannot Delete Asset", isPresented: $showDeleteError) {
       Button("OK") {}
     } message: {
