@@ -135,10 +135,7 @@ final class PlatformListViewModel {
   /// - Throws: `PlatformError.emptyName` if new name is blank after trimming,
   ///   `PlatformError.duplicateName` if new name conflicts with an existing platform.
   func renamePlatform(from oldName: String, to newName: String) throws {
-    let trimmed =
-      newName
-      .trimmingCharacters(in: .whitespaces)
-      .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    let trimmed = newName.collapsingWhitespace
 
     guard !trimmed.isEmpty else { throw PlatformError.emptyName }
 

@@ -142,8 +142,7 @@ struct CategoryAllocationPieChart: View {
               var angle = atan2(dx, -dy) * 180 / .pi
               if angle < 0 { angle += 360 }
               // Map angle to cumulative value
-              let totalValue = allocations.reduce(0.0) { $0 + $1.value.doubleValue }
-              let angleValue = (angle / 360) * totalValue
+              let angleValue = (angle / 360) * totalAllocatedValue
               hoveredCategory = categoryAtAngleValue(angleValue)
 
             case .ended:
@@ -256,15 +255,22 @@ struct CategoryAllocationPieChart: View {
     ChartEmptyMessage(text: text, height: ChartConstants.dashboardChartHeight)
   }
 
+  /// Total allocated value for angle-to-category mapping in hover callbacks.
+  private var totalAllocatedValue: Double {
+    allocations.reduce(0.0) { $0 + $1.value.doubleValue }
+  }
+
+  /// Precomputed category name → color dictionary, built in a single O(N) pass.
+  private var categoryColorMap: [String: Color] {
+    var map: [String: Color] = ["Uncategorized": .gray]
+    let sorted = allocations.filter { $0.categoryName != "Uncategorized" }.map(\.categoryName)
+    for (index, name) in sorted.enumerated() {
+      map[name] = ChartConstants.color(forIndex: index)
+    }
+    return map
+  }
+
   private func colorForCategory(_ name: String) -> Color {
-    if name == "Uncategorized" {
-      return .gray
-    }
-    let sortedNames = allocations.filter { $0.categoryName != "Uncategorized" }
-      .map(\.categoryName)
-    if let index = sortedNames.firstIndex(of: name) {
-      return ChartConstants.color(forIndex: index)
-    }
-    return .gray
+    categoryColorMap[name] ?? .gray
   }
 }

@@ -107,9 +107,9 @@ extension ModelContext {
 
 // MARK: - String Extensions
 extension String {
-  /// Normalizes a string for identity comparison (SPEC 6.1):
-  /// trims whitespace, collapses internal runs of whitespace, lowercases.
-  var normalizedForIdentity: String {
+  /// Trims leading/trailing whitespace and collapses internal whitespace runs to a single space.
+  /// Preserves original casing — suitable for display normalization.
+  var collapsingWhitespace: String {
     let trimmed = self.trimmingCharacters(in: .whitespaces)
     var result = ""
     result.reserveCapacity(trimmed.count)
@@ -125,7 +125,13 @@ extension String {
         previousWasWhitespace = false
       }
     }
-    return result.lowercased()
+    return result
+  }
+
+  /// Normalizes a string for identity comparison (SPEC 6.1):
+  /// trims whitespace, collapses internal runs of whitespace, lowercases.
+  var normalizedForIdentity: String {
+    collapsingWhitespace.lowercased()
   }
 }
 

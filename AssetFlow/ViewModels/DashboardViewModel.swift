@@ -149,6 +149,7 @@ class DashboardViewModel {
       categoryValuesCache = [:]
       cachedPeriodReturns = []
       cachedDisplayCurrency = ""
+      snapshotDates = []
       return
     }
 
@@ -183,14 +184,13 @@ class DashboardViewModel {
     computeTWRHistory(sortedSnapshots: sortedSnapshots)
     computeCategoryValueHistory(sortedSnapshots: sortedSnapshots)
     computeRecentSnapshots(sortedSnapshots: sortedSnapshots)
+    snapshotDates = sortedSnapshots.map(\.date)
   }
 
   // MARK: - Snapshot Dates
 
   /// All snapshot dates sorted ascending, for chart snapshot pickers.
-  var snapshotDates: [Date] {
-    sortedSnapshotsCache.map(\.date)
-  }
+  var snapshotDates: [Date] = []
 
   // MARK: - Category Allocations for Specific Date
 
