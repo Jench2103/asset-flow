@@ -132,9 +132,11 @@ final class PlatformListViewModel {
   /// - Parameters:
   ///   - oldName: The current platform name to rename.
   ///   - newName: The desired new platform name.
+  /// - Returns: The trimmed new platform name.
   /// - Throws: `PlatformError.emptyName` if new name is blank after trimming,
   ///   `PlatformError.duplicateName` if new name conflicts with an existing platform.
-  func renamePlatform(from oldName: String, to newName: String) throws {
+  @discardableResult
+  func renamePlatform(from oldName: String, to newName: String) throws -> String {
     let trimmed = newName.collapsingWhitespace
 
     guard !trimmed.isEmpty else { throw PlatformError.emptyName }
@@ -161,6 +163,8 @@ final class PlatformListViewModel {
     for asset in allAssets where asset.platform == oldName {
       asset.platform = trimmed
     }
+
+    return trimmed
   }
 
   // MARK: - Private Helpers

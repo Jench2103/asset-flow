@@ -16,6 +16,7 @@ import SwiftUI
 struct PlatformListView: View {
   @State private var viewModel: PlatformListViewModel
   @Binding var selectedPlatform: String?
+  @Query private var assets: [Asset]
 
   @State private var renamingPlatform: String?
 
@@ -37,6 +38,9 @@ struct PlatformListView: View {
     }
     .navigationTitle("Platforms")
     .onAppear {
+      viewModel.loadPlatforms()
+    }
+    .onChange(of: assets) {
       viewModel.loadPlatforms()
     }
     .alert("Error", isPresented: $showError) {
@@ -100,7 +104,10 @@ struct PlatformListView: View {
       arrowEdge: .trailing
     ) {
       RenamePlatformPopover(currentName: rowData.name) { newName in
-        try viewModel.renamePlatform(from: rowData.name, to: newName)
+        let trimmed = try viewModel.renamePlatform(from: rowData.name, to: newName)
+        if selectedPlatform == rowData.name {
+          selectedPlatform = trimmed
+        }
         viewModel.loadPlatforms()
       } onError: { message in
         errorMessage = message
@@ -151,6 +158,7 @@ private struct RenamePlatformPopover: View {
 
       TextField("Platform Name", text: $newName)
         .textFieldStyle(.roundedBorder)
+        .onSubmit { renamePlatform() }
         .accessibilityIdentifier("Platform Name Field")
 
       HStack {
