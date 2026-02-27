@@ -473,21 +473,15 @@ class DashboardViewModel {
         continue
       }
 
-      // Cash flows from snapshots strictly after begin through end (inclusive)
-      let displayCurrency = SettingsService.shared.mainCurrency
-      let intermediateSnapshots = sortedSnapshots.filter {
-        $0.date > begin.date && $0.date <= end.date
-      }
-
+      // For consecutive pairs, only the end snapshot falls in (begin, end].
+      let displayCurrency =
+        cachedDisplayCurrency.isEmpty
+        ? SettingsService.shared.mainCurrency : cachedDisplayCurrency
       var cashFlows: [(amount: Decimal, daysSinceStart: Int)] = []
-      for snapshot in intermediateSnapshots {
-        let netCashFlow = CurrencyConversionService.netCashFlow(
-          for: snapshot, displayCurrency: displayCurrency, exchangeRate: snapshot.exchangeRate)
-        if netCashFlow != 0 {
-          let daysSinceStart =
-            Calendar.current.dateComponents([.day], from: begin.date, to: snapshot.date).day ?? 0
-          cashFlows.append((amount: netCashFlow, daysSinceStart: daysSinceStart))
-        }
+      let netCashFlow = CurrencyConversionService.netCashFlow(
+        for: end, displayCurrency: displayCurrency, exchangeRate: end.exchangeRate)
+      if netCashFlow != 0 {
+        cashFlows.append((amount: netCashFlow, daysSinceStart: totalDays))
       }
 
       returns.append(
