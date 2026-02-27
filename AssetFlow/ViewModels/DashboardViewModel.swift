@@ -103,6 +103,9 @@ class DashboardViewModel {
   /// Modified Dietz returns per consecutive pair (built once per load cycle).
   private var cachedPeriodReturns: [Decimal?] = []
 
+  /// Resolved periods for growth/return rate lookups (built once per load cycle).
+  private var resolvedPeriodCache: [DashboardPeriod: ResolvedPeriod] = [:]
+
   /// Display currency used when caches were built.
   private var cachedDisplayCurrency: String = ""
 
@@ -148,6 +151,7 @@ class DashboardViewModel {
       snapshotTotalCache = [:]
       categoryValuesCache = [:]
       cachedPeriodReturns = []
+      resolvedPeriodCache = [:]
       cachedDisplayCurrency = ""
       snapshotDates = []
       return
@@ -178,6 +182,15 @@ class DashboardViewModel {
       cachedPeriodReturns = []
     }
 
+    // Build resolved period cache once (avoids repeated findClosestSnapshot calls per render)
+    var periodCache: [DashboardPeriod: ResolvedPeriod] = [:]
+    for period in DashboardPeriod.allCases {
+      if let resolved = buildResolvedPeriod(for: period) {
+        periodCache[period] = resolved
+      }
+    }
+    resolvedPeriodCache = periodCache
+
     computeSummaryCards(sortedSnapshots: sortedSnapshots)
     computeCategoryAllocations(sortedSnapshots: sortedSnapshots)
     computePortfolioValueHistory(sortedSnapshots: sortedSnapshots)
@@ -207,11 +220,17 @@ class DashboardViewModel {
 
   // MARK: - Period Performance
 
+  /// Returns the cached resolved period for a given dashboard period.
+  private func resolvePeriod(for period: DashboardPeriod) -> ResolvedPeriod? {
+    resolvedPeriodCache[period]
+  }
+
   /// Resolves a period to its begin and end snapshots using bidirectional lookback.
   ///
   /// Finds the closest snapshot to the lookback target date (in either direction),
   /// with no distance limit. When equidistant, prefers the earlier snapshot.
-  private func resolvePeriod(for period: DashboardPeriod) -> ResolvedPeriod? {
+  /// Called once per period during `performLoadData()` to build `resolvedPeriodCache`.
+  private func buildResolvedPeriod(for period: DashboardPeriod) -> ResolvedPeriod? {
     guard sortedSnapshotsCache.count >= 2 else { return nil }
     guard let latestSnapshot = sortedSnapshotsCache.last else { return nil }
 
