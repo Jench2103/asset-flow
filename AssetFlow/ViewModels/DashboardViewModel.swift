@@ -185,7 +185,7 @@ class DashboardViewModel {
     // Build resolved period cache once (avoids repeated findClosestSnapshot calls per render)
     var periodCache: [DashboardPeriod: ResolvedPeriod] = [:]
     for period in DashboardPeriod.allCases {
-      if let resolved = buildResolvedPeriod(for: period) {
+      if let resolved = buildResolvedPeriod(for: period, sortedSnapshots: sortedSnapshots) {
         periodCache[period] = resolved
       }
     }
@@ -230,9 +230,11 @@ class DashboardViewModel {
   /// Finds the closest snapshot to the lookback target date (in either direction),
   /// with no distance limit. When equidistant, prefers the earlier snapshot.
   /// Called once per period during `performLoadData()` to build `resolvedPeriodCache`.
-  private func buildResolvedPeriod(for period: DashboardPeriod) -> ResolvedPeriod? {
-    guard sortedSnapshotsCache.count >= 2 else { return nil }
-    guard let latestSnapshot = sortedSnapshotsCache.last else { return nil }
+  private func buildResolvedPeriod(
+    for period: DashboardPeriod, sortedSnapshots: [Snapshot]
+  ) -> ResolvedPeriod? {
+    guard sortedSnapshots.count >= 2 else { return nil }
+    guard let latestSnapshot = sortedSnapshots.last else { return nil }
 
     guard
       let lookbackDate = Calendar.current.date(
@@ -241,7 +243,7 @@ class DashboardViewModel {
 
     guard
       let beginSnapshot = findClosestSnapshot(
-        to: lookbackDate, excluding: latestSnapshot, in: sortedSnapshotsCache)
+        to: lookbackDate, excluding: latestSnapshot, in: sortedSnapshots)
     else { return nil }
 
     return ResolvedPeriod(
@@ -279,7 +281,9 @@ class DashboardViewModel {
     guard totalDays > 0 else { return nil }
 
     // Gather cash flows from snapshots strictly after begin through latest (inclusive)
-    let displayCurrency = SettingsService.shared.mainCurrency
+    let displayCurrency =
+      cachedDisplayCurrency.isEmpty
+      ? SettingsService.shared.mainCurrency : cachedDisplayCurrency
     let intermediateSnapshots = sortedSnapshotsCache.filter {
       $0.date > resolved.beginDate && $0.date <= resolved.endDate
     }
