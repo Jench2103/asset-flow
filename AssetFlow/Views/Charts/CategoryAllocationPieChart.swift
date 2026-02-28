@@ -260,7 +260,7 @@ struct CategoryAllocationPieChart: View {
     allocations.reduce(0.0) { $0 + $1.value.doubleValue }
   }
 
-  /// Precomputed category name → color dictionary, built in a single O(N) pass.
+  /// Category name → color dictionary, built in a single O(N) pass.
   private var categoryColorMap: [String: Color] {
     var map: [String: Color] = ["Uncategorized": .gray]
     let sorted = allocations.filter { $0.categoryName != "Uncategorized" }.map(\.categoryName)

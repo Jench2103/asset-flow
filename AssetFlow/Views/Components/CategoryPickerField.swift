@@ -60,8 +60,8 @@ struct CategoryPickerField: View {
         } else if newValue.isEmpty {
           selectedCategory = nil
           onCommit?()
-        } else {
-          selectedCategory = cachedCategories.first { $0.id.uuidString == newValue }
+        } else if let found = cachedCategories.first(where: { $0.id.uuidString == newValue }) {
+          selectedCategory = found
           onCommit?()
         }
       }

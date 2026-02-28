@@ -29,12 +29,12 @@ All core screens and features are **implemented**:
 - ✅ All 12 Views: Dashboard, Snapshots (list + detail), Assets (list + detail), Categories (list + detail), Platforms, Rebalancing, Import, Settings
 - ✅ All 7 chart components with interactive features (hover tooltips, click-to-navigate, time range selectors, empty states)
 - ✅ Empty states use `ContentUnavailableView` for consistent macOS-native appearance
-- ✅ Metric card explanations via `.help()` tooltips (SPEC 3.2)
+- ✅ Metric card explanations via `.helpWhenUnlocked()` tooltips (SPEC 3.2)
 - ✅ Keyboard shortcuts (Delete key for deletion confirmations)
 - ✅ Menu bar commands: File > New Snapshot (Cmd+N), File > Import CSV (Cmd+I)
 - ✅ Sheet standardization: all sheets use `NavigationStack` + toolbar placements
 - ✅ `@FocusState` auto-focus in all sheets and popovers
-- ✅ `.help()` tooltips on toolbar buttons and interactive controls
+- ✅ `.helpWhenUnlocked()` tooltips on toolbar buttons and interactive controls
 - ✅ Accessibility labels on charts and metric cards
 - ✅ Glass card material adapts to Reduce Transparency accessibility setting
 - ✅ Animations with Reduce Motion support via `AnimationConstants`
@@ -89,7 +89,7 @@ The dashboard provides a portfolio overview using the latest snapshot.
    - **Growth Rate** card -- simple percentage change with 1M / 3M / 1Y segmented control. Shows "N/A" if insufficient history.
    - **Return Rate** card -- Modified Dietz return with 1M / 3M / 1Y segmented control. Shows "N/A" if insufficient history.
    - Each card displays a date range subtitle (e.g., "Jan 24 – Feb 14") below the rate value when a rate is available, showing the actual period covered.
-   - Each card uses the same `helpText` parameter on `MetricCard` for its `.help()` tooltip
+   - Each card uses the same `helpText` parameter on `MetricCard` for its `.helpWhenUnlocked()` tooltip
 
 1. **Allocation pie chart**:
 
@@ -876,7 +876,7 @@ ______________________________________________________________________
 | View                           | Status      | Notes                                                                                                                                                     |
 | ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation                                         |
-| DashboardView                  | Implemented | Summary cards with `.help()` tooltips, period performance (1M/3M/1Y), interactive charts, ContentUnavailableView, recent snapshots                        |
+| DashboardView                  | Implemented | Summary cards with `.helpWhenUnlocked()` tooltips, period performance (1M/3M/1Y), interactive charts, ContentUnavailableView, recent snapshots            |
 | SnapshotListView               | Implemented | @Query live list, relative time bucket grouping (collapsible sections), New Snapshot sheet (NavigationStack), ContentUnavailableView, Delete key shortcut |
 | SnapshotDetailView             | Implemented | Asset breakdown, category allocation, cash flow CRUD, edit popovers, delete confirmation                                                                  |
 | AssetListView                  | Implemented | Platform/category grouping, selection binding, ContentUnavailableView, Delete key shortcut                                                                |
