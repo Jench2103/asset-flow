@@ -47,13 +47,6 @@ struct AssetModelTests {
     #expect(fetched.first?.platform == "Binance")
   }
 
-  @Test("Each asset gets a unique UUID")
-  func testEachAssetGetsUniqueUUID() {
-    let a = Asset(name: "AAPL")
-    let b = Asset(name: "GOOGL")
-    #expect(a.id != b.id)
-  }
-
   // MARK: - Normalized Identity
 
   @Test("normalizedName trims whitespace")

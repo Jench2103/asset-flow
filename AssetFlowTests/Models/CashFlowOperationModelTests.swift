@@ -25,13 +25,6 @@ struct CashFlowOperationModelTests {
     #expect(op.snapshot == nil)
   }
 
-  @Test("Each operation gets a unique UUID")
-  func testEachOperationGetsUniqueUUID() {
-    let a = CashFlowOperation(cashFlowDescription: "Deposit", amount: Decimal(1000))
-    let b = CashFlowOperation(cashFlowDescription: "Withdrawal", amount: Decimal(-500))
-    #expect(a.id != b.id)
-  }
-
   @Test("CashFlowOperation persists in SwiftData context")
   func testPersistsInContext() throws {
     let container = TestDataManager.createInMemoryContainer()

@@ -222,60 +222,6 @@ struct SpecVerificationTests {
     )
   }
 
-  @Test("Backup restore round trip preserves all data")
-  func backupRestoreRoundTripPreservesAllData() {
-    let tc = createTestContext()
-
-    // Create comprehensive test data
-    let stocks = AssetFlow.Category(name: "Stocks")
-    stocks.targetAllocationPercentage = 60
-    tc.context.insert(stocks)
-
-    let bonds = AssetFlow.Category(name: "Bonds")
-    bonds.targetAllocationPercentage = 40
-    tc.context.insert(bonds)
-
-    let date1 = makeDate(year: 2025, month: 1, day: 1)
-    createSnapshot(
-      in: tc.context,
-      date: date1,
-      assets: [
-        ("AAPL", "Firstrade", Decimal(10_000), stocks),
-        ("BND", "Vanguard", Decimal(15_000), bonds),
-      ],
-      cashFlows: [
-        ("January Contribution", Decimal(5_000))
-      ]
-    )
-
-    let date2 = makeDate(year: 2025, month: 2, day: 1)
-    createSnapshot(
-      in: tc.context,
-      date: date2,
-      assets: [
-        ("AAPL", "Firstrade", Decimal(12_000), stocks),
-        ("BND", "Vanguard", Decimal(16_000), bonds),
-      ]
-    )
-
-    // Count entities before backup
-    let categoryDescriptor = FetchDescriptor<AssetFlow.Category>()
-    let assetDescriptor = FetchDescriptor<Asset>()
-    let snapshotDescriptor = FetchDescriptor<Snapshot>()
-
-    let categoriesCount = (try? tc.context.fetch(categoryDescriptor).count) ?? 0
-    let assetsCount = (try? tc.context.fetch(assetDescriptor).count) ?? 0
-    let snapshotsCount = (try? tc.context.fetch(snapshotDescriptor).count) ?? 0
-
-    #expect(categoriesCount == 2, "Should have 2 categories before backup")
-    #expect(assetsCount == 2, "Should have 2 assets before backup")
-    #expect(snapshotsCount == 2, "Should have 2 snapshots before backup")
-
-    // Note: Full backup/restore round-trip testing requires proper file system access
-    // and SettingsService integration. This test verifies data setup is correct.
-    // BackupService is tested separately in BackupServiceTests.swift with full round-trip.
-  }
-
   @Test("SPEC 9.4: Cash flow timing assumption at snapshot date")
   func cashFlowTimingAssumptionAtSnapshotDate() {
     // Verify Modified Dietz uses snapshot dates for cash flow timing
