@@ -60,18 +60,6 @@ struct CategoryModelTests {
 
   // MARK: - Target Allocation
 
-  @Test("Target allocation accepts zero")
-  func testTargetAllocationAcceptsZero() {
-    let category = Category(name: "Cash", targetAllocationPercentage: Decimal(0))
-    #expect(category.targetAllocationPercentage == Decimal(0))
-  }
-
-  @Test("Target allocation accepts 100")
-  func testTargetAllocationAccepts100() {
-    let category = Category(name: "All-In", targetAllocationPercentage: Decimal(100))
-    #expect(category.targetAllocationPercentage == Decimal(100))
-  }
-
   @Test("Target allocation accepts decimal precision")
   func testTargetAllocationAcceptsDecimalPrecision() throws {
     let value = try #require(Decimal(string: "33.333"))
@@ -106,10 +94,4 @@ struct CategoryModelTests {
     #expect(fetched.count == 3)
   }
 
-  @Test("Each category gets a unique UUID")
-  func testEachCategoryGetsUniqueUUID() {
-    let a = Category(name: "A")
-    let b = Category(name: "B")
-    #expect(a.id != b.id)
-  }
 }

@@ -67,73 +67,19 @@ class SnapshotDetailViewModel {
   }
 
   /// Asset values sorted by platform (alphabetical), then asset name (alphabetical).
-  var sortedAssetValues: [SnapshotAssetValue] {
-    assetValues
-      .filter { $0.asset != nil }
-      .sorted { lhs, rhs in
-        let lhsAsset = lhs.asset!
-        let rhsAsset = rhs.asset!
-        if lhsAsset.platform != rhsAsset.platform {
-          return lhsAsset.platform.localizedCaseInsensitiveCompare(rhsAsset.platform)
-            == .orderedAscending
-        }
-        return lhsAsset.name.localizedCaseInsensitiveCompare(rhsAsset.name) == .orderedAscending
-      }
-  }
+  var sortedAssetValues: [SnapshotAssetValue] = []
 
   /// Cash flow operations sorted by description for stable display order.
-  var sortedCashFlowOperations: [CashFlowOperation] {
-    cashFlowOperations.sorted { $0.cashFlowDescription < $1.cashFlowDescription }
-  }
+  var sortedCashFlowOperations: [CashFlowOperation] = []
 
   /// Category allocation summary for this snapshot, with currency conversion.
-  var categoryAllocations: [CategoryAllocationData] {
-    let total = totalValue
-    guard total > 0 else { return [] }
-
-    let catValues = CurrencyConversionService.categoryValues(
-      for: snapshot, displayCurrency: displayCurrency, exchangeRate: exchangeRate)
-
-    return catValues.compactMap { name, value in
-      let displayName = name.isEmpty ? "Uncategorized" : name
-      return CategoryAllocationData(
-        categoryName: displayName,
-        value: value,
-        percentage: CalculationService.categoryAllocation(
-          categoryValue: value, totalValue: total)
-      )
-    }.sorted { $0.value > $1.value }
-  }
+  var categoryAllocations: [CategoryAllocationData] = []
 
   /// Exchange rates filtered to only currencies used in this snapshot.
   ///
   /// Returns `(code, rate)` pairs where `rate` is the inverse rate (1 foreign = X base),
   /// sorted alphabetically by currency code.
-  var usedCurrencyRates: [(code: String, rate: Double)] {
-    guard let er = exchangeRate else { return [] }
-    let display = displayCurrency.lowercased()
-    let rates = er.rates
-
-    var usedCodes = Set<String>()
-    for sav in assetValues {
-      let currency = sav.asset?.currency ?? ""
-      if !currency.isEmpty && currency.lowercased() != display {
-        usedCodes.insert(currency.lowercased())
-      }
-    }
-    for cf in cashFlowOperations {
-      if !cf.currency.isEmpty && cf.currency.lowercased() != display {
-        usedCodes.insert(cf.currency.lowercased())
-      }
-    }
-
-    return usedCodes.compactMap { code in
-      if let rate = rates[code], rate != 0 {
-        return (code: code, rate: 1.0 / rate)
-      }
-      return nil
-    }.sorted { $0.code < $1.code }
-  }
+  var usedCurrencyRates: [(code: String, rate: Double)] = []
 
   // MARK: - Load Data
 
@@ -155,6 +101,84 @@ class SnapshotDetailViewModel {
     assetValues = snapshot.assetValues ?? []
     cashFlowOperations = snapshot.cashFlowOperations ?? []
     exchangeRate = snapshot.exchangeRate
+
+    computeSortedAssetValues()
+    computeSortedCashFlowOperations()
+    computeCategoryAllocations()
+    computeUsedCurrencyRates()
+  }
+
+  private func computeSortedAssetValues() {
+    sortedAssetValues =
+      assetValues
+      .filter { $0.asset != nil }
+      .sorted { lhs, rhs in
+        let lhsAsset = lhs.asset!
+        let rhsAsset = rhs.asset!
+        if lhsAsset.platform != rhsAsset.platform {
+          return lhsAsset.platform.localizedCaseInsensitiveCompare(rhsAsset.platform)
+            == .orderedAscending
+        }
+        return lhsAsset.name.localizedCaseInsensitiveCompare(rhsAsset.name) == .orderedAscending
+      }
+  }
+
+  private func computeSortedCashFlowOperations() {
+    sortedCashFlowOperations = cashFlowOperations.sorted {
+      $0.cashFlowDescription < $1.cashFlowDescription
+    }
+  }
+
+  private func computeCategoryAllocations() {
+    let total = totalValue
+    guard total > 0 else {
+      categoryAllocations = []
+      return
+    }
+
+    let catValues = CurrencyConversionService.categoryValues(
+      for: snapshot, displayCurrency: displayCurrency, exchangeRate: exchangeRate)
+
+    categoryAllocations =
+      catValues.map { name, value in
+        let displayName = name.isEmpty ? "Uncategorized" : name
+        return CategoryAllocationData(
+          categoryName: displayName,
+          value: value,
+          percentage: CalculationService.categoryAllocation(
+            categoryValue: value, totalValue: total)
+        )
+      }.sorted { $0.value > $1.value }
+  }
+
+  private func computeUsedCurrencyRates() {
+    guard let er = exchangeRate else {
+      usedCurrencyRates = []
+      return
+    }
+    let display = displayCurrency.lowercased()
+    let rates = er.rates
+
+    var usedCodes = Set<String>()
+    for sav in assetValues {
+      let currency = sav.asset?.currency ?? ""
+      if !currency.isEmpty && currency.lowercased() != display {
+        usedCodes.insert(currency.lowercased())
+      }
+    }
+    for cf in cashFlowOperations {
+      if !cf.currency.isEmpty && cf.currency.lowercased() != display {
+        usedCodes.insert(cf.currency.lowercased())
+      }
+    }
+
+    usedCurrencyRates =
+      usedCodes.compactMap { code in
+        if let rate = rates[code], rate != 0 {
+          return (code: code, rate: 1.0 / rate)
+        }
+        return nil
+      }.sorted { $0.code < $1.code }
   }
 
   /// Fetches exchange rates if not already attached to this snapshot.

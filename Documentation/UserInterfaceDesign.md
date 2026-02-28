@@ -29,12 +29,12 @@ All core screens and features are **implemented**:
 - ✅ All 12 Views: Dashboard, Snapshots (list + detail), Assets (list + detail), Categories (list + detail), Platforms, Rebalancing, Import, Settings
 - ✅ All 7 chart components with interactive features (hover tooltips, click-to-navigate, time range selectors, empty states)
 - ✅ Empty states use `ContentUnavailableView` for consistent macOS-native appearance
-- ✅ Metric card explanations via `.help()` tooltips (SPEC 3.2)
+- ✅ Metric card explanations via `.helpWhenUnlocked()` tooltips (SPEC 3.2)
 - ✅ Keyboard shortcuts (Delete key for deletion confirmations)
 - ✅ Menu bar commands: File > New Snapshot (Cmd+N), File > Import CSV (Cmd+I)
 - ✅ Sheet standardization: all sheets use `NavigationStack` + toolbar placements
 - ✅ `@FocusState` auto-focus in all sheets and popovers
-- ✅ `.help()` tooltips on toolbar buttons and interactive controls
+- ✅ `.helpWhenUnlocked()` tooltips on toolbar buttons and interactive controls
 - ✅ Accessibility labels on charts and metric cards
 - ✅ Glass card material adapts to Reduce Transparency accessibility setting
 - ✅ Animations with Reduce Motion support via `AnimationConstants`
@@ -89,7 +89,7 @@ The dashboard provides a portfolio overview using the latest snapshot.
    - **Growth Rate** card -- simple percentage change with 1M / 3M / 1Y segmented control. Shows "N/A" if insufficient history.
    - **Return Rate** card -- Modified Dietz return with 1M / 3M / 1Y segmented control. Shows "N/A" if insufficient history.
    - Each card displays a date range subtitle (e.g., "Jan 24 – Feb 14") below the rate value when a rate is available, showing the actual period covered.
-   - Each card uses the same `helpText` parameter on `MetricCard` for its `.help()` tooltip
+   - Each card uses the same `helpText` parameter on `MetricCard` for its `.helpWhenUnlocked()` tooltip
 
 1. **Allocation pie chart**:
 
@@ -119,7 +119,7 @@ The dashboard provides a portfolio overview using the latest snapshot.
 - **DashboardView** (`AssetFlow/Views/DashboardView.swift`): Replaced chart placeholders with 2x2 grid of interactive charts. Row 1: `CategoryAllocationPieChart` (with snapshot date picker, click-to-navigate to category) + `PortfolioValueLineChart` (with click-to-navigate to snapshot). Row 2: `CumulativeTWRLineChart` + `CategoryValueLineChart` (multi-line with legend toggle). Each line chart has an independent `ChartTimeRange` `@State` that defaults to `.all` and resets on navigation via `dashboardRefreshID`.
 - **`CategoryAllocationPieChart`**: HStack layout with pie chart (fixed square, centered) and dynamic multi-column legend panel (right-aligned). Legend uses `LazyVGrid` with column count adapting to both category count and available width — uses the fewest columns needed to display all categories without scrolling. Column width is measured dynamically from the widest legend item (capped at 180pt). Total content width is measured via `onGeometryChange` to derive available legend space.
 - **DashboardViewModel** (`AssetFlow/ViewModels/DashboardViewModel.swift`): Added `snapshotDates`, `categoryValueHistory` (per-category `[DashboardDataPoint]`), and `categoryAllocations(forSnapshotDate:)` for historical pie chart data. Extracted `computeCategoryAllocationsForSnapshot` helper for reuse.
-- **ChartDataService** (`AssetFlow/ViewModels/ChartDataService.swift`): Stateless `enum` with `ChartTimeRange` (8 cases: 1W/1M/3M/6M/1Y/3Y/5Y/All), `filter()` overloads for `DashboardDataPoint`/`CategoryValueHistoryEntry`/`CategoryAllocationHistoryEntry`, and `abbreviatedLabel(for:)` for K/M/B Y-axis formatting. Filtering uses latest data point's date as reference (not `Date.now`).
+- **ChartDataService** (`AssetFlow/Services/ChartDataService.swift`): Stateless `enum` with `ChartTimeRange` (8 cases: 1W/1M/3M/6M/1Y/3Y/5Y/All), `filter()` overloads for `DashboardDataPoint`/`CategoryValueHistoryEntry`/`CategoryAllocationHistoryEntry`, and `abbreviatedLabel(for:)` for K/M/B Y-axis formatting. Filtering uses latest data point's date as reference (not `Date.now`).
 - **Shared chart components** in `AssetFlow/Views/Charts/`: `ChartTimeRangeSelector` (segmented picker), `ChartStyles` (constants and color palette), and 5 chart views. All charts handle empty/edge states per SPEC 12.5.
 - **ContentView** (`AssetFlow/Views/ContentView.swift`): Added `navigateToCategoryByName(_:)` to wire pie chart click → sidebar Categories selection. Guards against "Uncategorized" (not a real Category).
 
@@ -876,7 +876,7 @@ ______________________________________________________________________
 | View                           | Status      | Notes                                                                                                                                                     |
 | ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation                                         |
-| DashboardView                  | Implemented | Summary cards with `.help()` tooltips, period performance (1M/3M/1Y), interactive charts, ContentUnavailableView, recent snapshots                        |
+| DashboardView                  | Implemented | Summary cards with `.helpWhenUnlocked()` tooltips, period performance (1M/3M/1Y), interactive charts, ContentUnavailableView, recent snapshots            |
 | SnapshotListView               | Implemented | @Query live list, relative time bucket grouping (collapsible sections), New Snapshot sheet (NavigationStack), ContentUnavailableView, Delete key shortcut |
 | SnapshotDetailView             | Implemented | Asset breakdown, category allocation, cash flow CRUD, edit popovers, delete confirmation                                                                  |
 | AssetListView                  | Implemented | Platform/category grouping, selection binding, ContentUnavailableView, Delete key shortcut                                                                |

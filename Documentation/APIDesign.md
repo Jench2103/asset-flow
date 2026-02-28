@@ -262,6 +262,8 @@ struct BackupManifest: Codable {
 }
 ```
 
+**File Organization**: The BackupService implementation is split across extension files: `BackupService+Export.swift` (CSV writing and export helpers), `BackupService+Restore.swift` (restore and delete methods), and `BackupService+Validation.swift` (validation, FK checks, CSV parsing, ZIP operations).
+
 **Export Format**: ZIP archive containing:
 
 - `manifest.json` -- format version (currently 3), export timestamp, app version
@@ -456,7 +458,7 @@ ______________________________________________________________________
 
 **Purpose**: Stateless service for chart data filtering by time range and Y-axis label abbreviation.
 
-**File**: `AssetFlow/ViewModels/ChartDataService.swift`
+**File**: `AssetFlow/Services/ChartDataService.swift`
 
 ```swift
 enum ChartTimeRange: String, CaseIterable, Identifiable {

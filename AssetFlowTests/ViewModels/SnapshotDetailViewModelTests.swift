@@ -736,4 +736,21 @@ struct SnapshotDetailViewModelTests {
     #expect(data.assetCount == 1)
     #expect(data.cashFlowCount == 1)
   }
+
+  @Test("deleteSnapshot removes snapshot from context")
+  func deleteSnapshotRemovesFromContext() throws {
+    let tc = createSnapshotWithContext()
+    let (context, snapshot) = (tc.context, tc.snapshot)
+
+    let (_, _) = createAssetWithValue(
+      name: "AAPL", platform: "Firstrade", marketValue: 15000,
+      snapshot: snapshot, context: context)
+
+    let viewModel = SnapshotDetailViewModel(snapshot: snapshot, modelContext: context)
+    viewModel.deleteSnapshot()
+
+    let descriptor = FetchDescriptor<Snapshot>()
+    let remaining = try context.fetch(descriptor)
+    #expect(remaining.isEmpty)
+  }
 }

@@ -80,10 +80,7 @@ final class PlatformDetailViewModel {
   /// - Throws: `PlatformError.emptyName` if name is blank after trimming,
   ///   `PlatformError.duplicateName` if name conflicts with another existing platform.
   func save() throws {
-    let trimmed =
-      editedName
-      .trimmingCharacters(in: .whitespaces)
-      .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    let trimmed = editedName.collapsingWhitespace
 
     guard !trimmed.isEmpty else { throw PlatformError.emptyName }
 
@@ -168,15 +165,7 @@ final class PlatformDetailViewModel {
         $0.asset.name.localizedCaseInsensitiveCompare($1.asset.name) == .orderedAscending
       }
     totalValue = assets.reduce(Decimal(0)) { sum, row in
-      guard let value = row.latestValue else { return sum }
-      let assetCurrency = row.asset.currency
-      let effectiveCurrency = assetCurrency.isEmpty ? displayCurrency : assetCurrency
-      return sum
-        + CurrencyConversionService.convert(
-          value: value,
-          from: effectiveCurrency,
-          to: displayCurrency,
-          using: latestExchangeRate)
+      sum + (row.convertedValue ?? row.latestValue ?? 0)
     }
   }
 

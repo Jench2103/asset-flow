@@ -28,22 +28,14 @@ struct AssetDetailView: View {
   @State private var editingAssetValue: SnapshotAssetValue?
   @State private var showConvertedChart = false
 
-  @State private var newPlatformName = ""
-  @State private var showNewPlatformField = false
-
-  @State private var newCategoryName = ""
-  @State private var showNewCategoryField = false
-
   @State private var cachedPlatforms: [String] = []
   @State private var cachedCategories: [Category] = []
 
   let onDelete: () -> Void
 
   init(asset: Asset, modelContext: ModelContext, onDelete: @escaping () -> Void) {
-    let vm = AssetDetailViewModel(asset: asset, modelContext: modelContext)
-    _viewModel = State(wrappedValue: vm)
-    _cachedPlatforms = State(wrappedValue: vm.existingPlatforms())
-    _cachedCategories = State(wrappedValue: vm.existingCategories())
+    _viewModel = State(
+      wrappedValue: AssetDetailViewModel(asset: asset, modelContext: modelContext))
     self.onDelete = onDelete
   }
 
@@ -105,127 +97,24 @@ struct AssetDetailView: View {
   // MARK: - Platform Picker
 
   private var platformPicker: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      if showNewPlatformField {
-        HStack {
-          TextField("New platform name", text: $newPlatformName)
-            .textFieldStyle(.roundedBorder)
-            .onSubmit { commitNewPlatform() }
-          Button("OK") { commitNewPlatform() }
-          Button("Cancel") {
-            showNewPlatformField = false
-            newPlatformName = ""
-          }
-        }
-        .transition(.opacity)
-      } else {
-        Picker("Platform", selection: platformBinding) {
-          Text("None").tag("")
-          ForEach(cachedPlatforms, id: \.self) { platform in
-            Text(platform).tag(platform)
-          }
-          Divider()
-          Text("New Platform...").tag("__new__")
-        }
-        .accessibilityIdentifier("Platform Picker")
-        .transition(.opacity)
-      }
-    }
-    .animation(AnimationConstants.standard, value: showNewPlatformField)
-  }
-
-  private var platformBinding: Binding<String> {
-    Binding(
-      get: { viewModel.editedPlatform },
-      set: { newValue in
-        if newValue == "__new__" {
-          showNewPlatformField = true
-          newPlatformName = ""
-        } else {
-          viewModel.editedPlatform = newValue
-          saveChanges()
-        }
-      }
+    PlatformPickerField(
+      selectedPlatform: $viewModel.editedPlatform,
+      cachedPlatforms: $cachedPlatforms,
+      onCommit: { saveChanges() }
     )
-  }
-
-  private func commitNewPlatform() {
-    let trimmed = newPlatformName.trimmingCharacters(in: .whitespaces)
-    guard !trimmed.isEmpty else { return }
-
-    let platforms = cachedPlatforms
-    if let match = platforms.first(where: { $0.lowercased() == trimmed.lowercased() }) {
-      viewModel.editedPlatform = match
-    } else {
-      viewModel.editedPlatform = trimmed
-    }
-
-    showNewPlatformField = false
-    newPlatformName = ""
-    saveChanges()
+    .accessibilityIdentifier("Platform Picker")
   }
 
   // MARK: - Category Picker
 
   private var categoryPicker: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      if showNewCategoryField {
-        HStack {
-          TextField("New category name", text: $newCategoryName)
-            .textFieldStyle(.roundedBorder)
-            .onSubmit { commitNewCategory() }
-          Button("OK") { commitNewCategory() }
-          Button("Cancel") {
-            showNewCategoryField = false
-            newCategoryName = ""
-          }
-        }
-        .transition(.opacity)
-      } else {
-        Picker("Category", selection: categoryBinding) {
-          Text("None").tag("")
-          ForEach(cachedCategories) { category in
-            Text(category.name).tag(category.id.uuidString)
-          }
-          Divider()
-          Text("New Category...").tag("__new__")
-        }
-        .accessibilityIdentifier("Category Picker")
-        .transition(.opacity)
-      }
-    }
-    .animation(AnimationConstants.standard, value: showNewCategoryField)
-  }
-
-  private var categoryBinding: Binding<String> {
-    Binding(
-      get: { viewModel.editedCategory?.id.uuidString ?? "" },
-      set: { newValue in
-        if newValue == "__new__" {
-          showNewCategoryField = true
-          newCategoryName = ""
-        } else if newValue.isEmpty {
-          viewModel.editedCategory = nil
-          saveChanges()
-        } else {
-          let categories = cachedCategories
-          viewModel.editedCategory = categories.first { $0.id.uuidString == newValue }
-          saveChanges()
-        }
-      }
+    CategoryPickerField(
+      selectedCategory: $viewModel.editedCategory,
+      cachedCategories: $cachedCategories,
+      resolveCategory: { viewModel.resolveCategory(name: $0) },
+      onCommit: { saveChanges() }
     )
-  }
-
-  private func commitNewCategory() {
-    let trimmed = newCategoryName.trimmingCharacters(in: .whitespaces)
-    guard !trimmed.isEmpty else { return }
-
-    let resolved = viewModel.resolveCategory(name: trimmed)
-    viewModel.editedCategory = resolved
-
-    showNewCategoryField = false
-    newCategoryName = ""
-    saveChanges()
+    .accessibilityIdentifier("Category Picker")
   }
 
   // MARK: - Currency Picker
@@ -277,12 +166,26 @@ struct AssetDetailView: View {
           if points.count == 1 {
             singlePointConvertedChart(points)
           } else {
-            convertedValueLineChart(points)
+            let displayCurrency = SettingsService.shared.mainCurrency
+            assetLineChart(
+              points,
+              valueFor: { $0.convertedMarketValue ?? $0.marketValue },
+              currency: displayCurrency,
+              color: .green
+            )
           }
         } else if points.count == 1 {
           singlePointValueChart(points)
         } else {
-          valueLineChart(points)
+          let effectiveCurrency =
+            viewModel.asset.currency.isEmpty
+            ? SettingsService.shared.mainCurrency : viewModel.asset.currency
+          assetLineChart(
+            points,
+            valueFor: { $0.marketValue },
+            currency: effectiveCurrency,
+            color: .blue
+          )
         }
 
         valueHistoryTable
@@ -292,23 +195,29 @@ struct AssetDetailView: View {
     }
   }
 
-  private func valueLineChart(_ points: [AssetValueHistoryEntry]) -> some View {
+  private func assetLineChart(
+    _ points: [AssetValueHistoryEntry],
+    valueFor: @escaping (AssetValueHistoryEntry) -> Decimal,
+    currency: String,
+    color: Color
+  ) -> some View {
     let firstDate = points.first!.date
     let lastDate = points.last!.date
-    let yValues = points.map { $0.marketValue.doubleValue }
+    let yValues = points.map { valueFor($0).doubleValue }
     let yMin = yValues.min()!
     let yMax = yValues.max()!
     return Chart(points) { entry in
+      let value = valueFor(entry).doubleValue
       LineMark(
         x: .value("Date", entry.date),
-        y: .value("Value", entry.marketValue.doubleValue)
+        y: .value("Value", value)
       )
-      .foregroundStyle(.blue)
+      .foregroundStyle(color)
       PointMark(
         x: .value("Date", entry.date),
-        y: .value("Value", entry.marketValue.doubleValue)
+        y: .value("Value", value)
       )
-      .foregroundStyle(.blue)
+      .foregroundStyle(color)
 
       if let hoveredValueDate, entry.date == hoveredValueDate {
         RuleMark(x: .value("Date", hoveredValueDate))
@@ -321,12 +230,9 @@ struct AssetDetailView: View {
               : entry.date == lastDate ? .trailing : .center
           ) {
             ChartTooltipView {
-              let effectiveCurrency =
-                viewModel.asset.currency.isEmpty
-                ? SettingsService.shared.mainCurrency : viewModel.asset.currency
               Text(entry.date.settingsFormatted())
                 .font(.caption2)
-              Text(entry.marketValue.formatted(currency: effectiveCurrency))
+              Text(valueFor(entry).formatted(currency: currency))
                 .font(.caption.bold())
             }
           }
@@ -405,80 +311,6 @@ struct AssetDetailView: View {
     .helpWhenUnlocked("Show values converted to \(SettingsService.shared.mainCurrency)")
     .accessibilityLabel("Show values converted to \(SettingsService.shared.mainCurrency)")
     .accessibilityAddTraits(showConvertedChart ? .isSelected : [])
-  }
-
-  private func convertedValueLineChart(_ points: [AssetValueHistoryEntry]) -> some View {
-    let displayCurrency = SettingsService.shared.mainCurrency
-    let firstDate = points.first!.date
-    let lastDate = points.last!.date
-    let yValues = points.map { ($0.convertedMarketValue ?? $0.marketValue).doubleValue }
-    let yMin = yValues.min()!
-    let yMax = yValues.max()!
-    return Chart(points) { entry in
-      let value = (entry.convertedMarketValue ?? entry.marketValue).doubleValue
-      LineMark(
-        x: .value("Date", entry.date),
-        y: .value("Value", value)
-      )
-      .foregroundStyle(.green)
-      PointMark(
-        x: .value("Date", entry.date),
-        y: .value("Value", value)
-      )
-      .foregroundStyle(.green)
-
-      if let hoveredValueDate, entry.date == hoveredValueDate {
-        RuleMark(x: .value("Date", hoveredValueDate))
-          .foregroundStyle(.secondary.opacity(0.5))
-          .lineStyle(StrokeStyle(dash: [4, 4]))
-          .annotation(
-            position: .top,
-            alignment: entry.date == firstDate
-              ? .leading
-              : entry.date == lastDate ? .trailing : .center
-          ) {
-            ChartTooltipView {
-              Text(entry.date.settingsFormatted())
-                .font(.caption2)
-              Text(
-                (entry.convertedMarketValue ?? entry.marketValue)
-                  .formatted(currency: displayCurrency)
-              )
-              .font(.caption.bold())
-            }
-          }
-      }
-    }
-    .chartXScale(domain: firstDate...lastDate)
-    .chartYScale(domain: yMin...yMax)
-    .chartYAxis {
-      AxisMarks { value in
-        AxisGridLine()
-        AxisValueLabel {
-          if let val = value.as(Double.self) {
-            Text(ChartDataService.abbreviatedLabel(for: val))
-          }
-        }
-      }
-    }
-    .chartOverlay { proxy in
-      GeometryReader { _ in
-        Rectangle()
-          .fill(.clear)
-          .contentShape(Rectangle())
-          .onContinuousHoverWhenUnlocked { phase in
-            switch phase {
-            case .active(let location):
-              hoveredValueDate = ChartHelpers.findNearestDate(
-                at: location, in: proxy, points: points, dateKeyPath: \.date)
-
-            case .ended:
-              hoveredValueDate = nil
-            }
-          }
-      }
-    }
-    .frame(height: ChartConstants.standardChartHeight)
   }
 
   private func singlePointConvertedChart(_ points: [AssetValueHistoryEntry]) -> some View {

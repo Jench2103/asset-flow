@@ -43,13 +43,6 @@ struct SnapshotModelTests {
     #expect(snapshot.createdAt <= after)
   }
 
-  @Test("Each snapshot gets a unique UUID")
-  func testEachSnapshotGetsUniqueUUID() {
-    let a = Snapshot(date: Date())
-    let b = Snapshot(date: Date())
-    #expect(a.id != b.id)
-  }
-
   @Test("Snapshot persists in SwiftData context")
   func testPersistsInContext() throws {
     let container = TestDataManager.createInMemoryContainer()

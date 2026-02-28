@@ -500,18 +500,6 @@ extension CSVParsingService {
   static func normalizedAssetIdentity(
     row: AssetCSVRow
   ) -> String {
-    let name = row.assetName
-      .trimmingCharacters(in: .whitespaces)
-      .replacingOccurrences(
-        of: "\\s+", with: " ", options: .regularExpression
-      )
-      .lowercased()
-    let platform = row.platform
-      .trimmingCharacters(in: .whitespaces)
-      .replacingOccurrences(
-        of: "\\s+", with: " ", options: .regularExpression
-      )
-      .lowercased()
-    return "\(name)|\(platform)"
+    "\(row.assetName.normalizedForIdentity)|\(row.platform.normalizedForIdentity)"
   }
 }

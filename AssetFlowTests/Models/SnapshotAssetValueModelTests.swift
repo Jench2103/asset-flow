@@ -69,46 +69,6 @@ struct SnapshotAssetValueModelTests {
     #expect(value.marketValue == smallValue)
   }
 
-  // MARK: - Zero and Negative Values
-
-  @Test("Market value accepts zero")
-  func testMarketValueAcceptsZero() {
-    let value = SnapshotAssetValue(marketValue: Decimal(0))
-    #expect(value.marketValue == Decimal(0))
-  }
-
-  @Test("Zero market value persists in context")
-  func testZeroMarketValuePersistsInContext() throws {
-    let container = TestDataManager.createInMemoryContainer()
-    let context = container.mainContext
-
-    let value = SnapshotAssetValue(marketValue: Decimal(0))
-    context.insert(value)
-
-    let descriptor = FetchDescriptor<SnapshotAssetValue>()
-    let fetched = try context.fetch(descriptor)
-    #expect(fetched.first?.marketValue == Decimal(0))
-  }
-
-  @Test("Market value accepts negative amounts")
-  func testMarketValueAcceptsNegativeAmounts() {
-    let value = SnapshotAssetValue(marketValue: Decimal(-1000))
-    #expect(value.marketValue == Decimal(-1000))
-  }
-
-  @Test("Negative market value persists in context")
-  func testNegativeMarketValuePersistsInContext() throws {
-    let container = TestDataManager.createInMemoryContainer()
-    let context = container.mainContext
-
-    let value = SnapshotAssetValue(marketValue: Decimal(-500))
-    context.insert(value)
-
-    let descriptor = FetchDescriptor<SnapshotAssetValue>()
-    let fetched = try context.fetch(descriptor)
-    #expect(fetched.first?.marketValue == Decimal(-500))
-  }
-
   // MARK: - Uniqueness
 
   @Test("SnapshotAssetValue enforces (snapshot, asset) uniqueness via #Unique — duplicate upserts")

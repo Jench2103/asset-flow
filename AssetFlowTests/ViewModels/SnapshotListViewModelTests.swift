@@ -388,4 +388,36 @@ struct SnapshotListViewModelTests {
     #expect(rowData.totalValue == Decimal(15000))
     #expect(rowData.assetCount == 1)
   }
+
+  // MARK: - Row Data Map
+
+  @Test("loadAllSnapshotRowData returns empty map when no snapshots exist")
+  func loadAllSnapshotRowDataEmptyContext() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = createViewModel(context: context)
+
+    let rowDataMap = viewModel.loadAllSnapshotRowData()
+
+    #expect(rowDataMap.isEmpty)
+  }
+
+  @Test("loadAllSnapshotRowData keys results by snapshot UUID")
+  func loadAllSnapshotRowDataKeyedByUUID() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = createViewModel(context: context)
+
+    let snap = Snapshot(date: makeDate(year: 2025, month: 6, day: 1))
+    context.insert(snap)
+    let (_, _) = createAssetWithValue(
+      name: "AAPL", platform: "Firstrade", marketValue: 5000,
+      snapshot: snap, context: context)
+
+    let rowDataMap = viewModel.loadAllSnapshotRowData()
+
+    #expect(rowDataMap.count == 1)
+    #expect(rowDataMap[snap.id] != nil)
+    #expect(rowDataMap[snap.id]?.totalValue == Decimal(5000))
+  }
 }

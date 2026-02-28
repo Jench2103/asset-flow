@@ -211,26 +211,22 @@ final class CategoryDetailViewModel {
       let assetValues = snapshot.assetValues ?? []
       let exchangeRate = snapshot.exchangeRate
 
-      let totalValue = CurrencyConversionService.totalValue(
-        for: snapshot, displayCurrency: displayCurrency,
-        exchangeRate: exchangeRate)
-
-      let categoryValue =
-        assetValues
-        .filter { sav in
-          guard let assetID = sav.asset?.id else { return false }
-          return categoryAssetIDs.contains(assetID)
+      // Single pass: accumulate both totalValue and categoryValue simultaneously
+      var totalValue: Decimal = 0
+      var categoryValue: Decimal = 0
+      for sav in assetValues {
+        let assetCurrency = sav.asset?.currency ?? ""
+        let effectiveCurrency = assetCurrency.isEmpty ? displayCurrency : assetCurrency
+        let converted = CurrencyConversionService.convert(
+          value: sav.marketValue,
+          from: effectiveCurrency,
+          to: displayCurrency,
+          using: exchangeRate)
+        totalValue += converted
+        if let assetID = sav.asset?.id, categoryAssetIDs.contains(assetID) {
+          categoryValue += converted
         }
-        .reduce(Decimal(0)) { sum, sav in
-          let assetCurrency = sav.asset?.currency ?? ""
-          let effectiveCurrency = assetCurrency.isEmpty ? displayCurrency : assetCurrency
-          return sum
-            + CurrencyConversionService.convert(
-              value: sav.marketValue,
-              from: effectiveCurrency,
-              to: displayCurrency,
-              using: exchangeRate)
-        }
+      }
 
       valueEntries.append(
         CategoryValueHistoryEntry(date: snapshot.date, totalValue: categoryValue))

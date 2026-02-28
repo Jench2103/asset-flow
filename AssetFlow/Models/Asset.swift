@@ -42,26 +42,12 @@ final class Asset {
   /// 2. Collapse multiple consecutive spaces to a single space
   /// 3. Lowercased for case-insensitive comparison
   var normalizedName: String {
-    name
-      .trimmingCharacters(in: .whitespaces)
-      .replacingOccurrences(
-        of: "\\s+",
-        with: " ",
-        options: .regularExpression
-      )
-      .lowercased()
+    name.normalizedForIdentity
   }
 
   /// Normalized platform for case-insensitive matching.
   var normalizedPlatform: String {
-    platform
-      .trimmingCharacters(in: .whitespaces)
-      .replacingOccurrences(
-        of: "\\s+",
-        with: " ",
-        options: .regularExpression
-      )
-      .lowercased()
+    platform.normalizedForIdentity
   }
 
   /// Combined normalized identity tuple for matching.

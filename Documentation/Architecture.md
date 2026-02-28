@@ -175,7 +175,7 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 
 1. **RebalancingCalculator** (`enum`): Computes target vs. current allocation differences and suggested buy/sell adjustment amounts for each category. Returns signed `Decimal` values (positive = buy, negative = sell).
 
-1. **BackupService** (`@MainActor enum`): Exports all application data to a ZIP archive (via `/usr/bin/ditto`) containing CSV files and a manifest.json. Restores from a backup archive with full validation (file integrity, column headers, foreign key references). **Note**: BackupService requires `@MainActor` annotation because it accepts `ModelContext`, which is `@MainActor`-isolated. This is an exception to the general "services are not `@MainActor`" principle.
+1. **BackupService** (`@MainActor enum`): Exports all application data to a ZIP archive (via `/usr/bin/ditto`) containing CSV files and a manifest.json. Restores from a backup archive with full validation (file integrity, column headers, foreign key references). **Note**: BackupService requires `@MainActor` annotation because it accepts `ModelContext`, which is `@MainActor`-isolated. This is an exception to the general "services are not `@MainActor`" principle. BackupService is organized across extension files: `BackupService+Export.swift` (CSV writing and export helpers), `BackupService+Restore.swift` (restore and delete methods), and `BackupService+Validation.swift` (validation, FK checks, CSV parsing, ZIP operations).
 
 1. **SettingsService** (`@Observable @MainActor class`): Manages app-wide user preferences (display currency, date format, default platform) via UserDefaults. Observable for reactive UI updates when settings change.
 
@@ -192,7 +192,7 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 - **CSV-internal duplicates**: Detected by `CSVParsingService` during parsing (same name+platform within file, or same description within cash flow CSV)
 - **CSV-vs-snapshot duplicates**: Detected by `ImportViewModel` when loading preview (checks CSV rows against existing snapshot data)
 
-**Supporting Types**: `DateFormatStyle`, `BackupTypes`, `CSVParsingTypes` (error enums and result types), `ChartDataService` (chart data filtering and axis formatting)
+**Supporting Types**: `DateFormatStyle`, `BackupTypes`, `CSVParsingTypes` (result types), `ChartDataService` (chart data filtering and axis formatting). Domain error enums (`AssetError`, `CategoryError`, `PlatformError`) are in `Models/`.
 
 **Design Principles**:
 

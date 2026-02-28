@@ -218,12 +218,18 @@ struct CategoryValueLineChart: View {
     ChartEmptyMessage(text: text, height: ChartConstants.dashboardChartHeight)
   }
 
+  /// Category name → color dictionary, built in a single O(N) pass.
+  private var categoryColorMap: [String: Color] {
+    var map: [String: Color] = ["Uncategorized": .gray]
+    let sorted = sortedCategoryNames.filter { $0 != "Uncategorized" }
+    for (index, name) in sorted.enumerated() {
+      map[name] = ChartConstants.color(forIndex: index)
+    }
+    return map
+  }
+
   private func colorForCategory(_ name: String) -> Color {
-    if name == "Uncategorized" { return .gray }
-    let index =
-      sortedCategoryNames.filter { $0 != "Uncategorized" }
-      .firstIndex(of: name) ?? 0
-    return ChartConstants.color(forIndex: index)
+    categoryColorMap[name] ?? .gray
   }
 }
 

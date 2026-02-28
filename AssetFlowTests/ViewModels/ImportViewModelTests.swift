@@ -1320,8 +1320,8 @@ struct ImportViewModelTests {
     #expect(viewModel.importedSnapshot?.id == snapshot?.id)
   }
 
-  @Test("Failed import does not set importedSnapshot")
-  func failedImportDoesNotSetImportedSnapshot() {
+  @Test("Unsuccessful import does not set importedSnapshot")
+  func unsuccessfulImportDoesNotSetImportedSnapshot() {
     let tc = createTestContext()
     let viewModel = ImportViewModel(modelContext: tc.context)
 
