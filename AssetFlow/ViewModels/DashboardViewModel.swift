@@ -110,7 +110,7 @@ class DashboardViewModel {
   private var intermediateSnapshotsCache: [DashboardPeriod: [Snapshot]] = [:]
 
   /// Display currency used when caches were built.
-  private var cachedDisplayCurrency: String = ""
+  private var cachedDisplayCurrency: String?
 
   // MARK: - Init
 
@@ -156,7 +156,7 @@ class DashboardViewModel {
       cachedPeriodReturns = []
       resolvedPeriodCache = [:]
       intermediateSnapshotsCache = [:]
-      cachedDisplayCurrency = ""
+      cachedDisplayCurrency = nil
       snapshotDates = []
       return
     }
@@ -295,8 +295,7 @@ class DashboardViewModel {
 
     // Gather cash flows from snapshots strictly after begin through latest (inclusive)
     let displayCurrency =
-      cachedDisplayCurrency.isEmpty
-      ? SettingsService.shared.mainCurrency : cachedDisplayCurrency
+      cachedDisplayCurrency ?? SettingsService.shared.mainCurrency
     let intermediateSnapshots = intermediateSnapshotsCache[period] ?? []
 
     var cashFlows: [(amount: Decimal, daysSinceStart: Int)] = []
@@ -378,8 +377,7 @@ class DashboardViewModel {
       catValues = cached
     } else {
       let currency =
-        cachedDisplayCurrency.isEmpty
-        ? SettingsService.shared.mainCurrency : cachedDisplayCurrency
+        cachedDisplayCurrency ?? SettingsService.shared.mainCurrency
       catValues = CurrencyConversionService.categoryValues(
         for: snapshot, displayCurrency: currency, exchangeRate: snapshot.exchangeRate)
     }
@@ -480,8 +478,7 @@ class DashboardViewModel {
       return cached
     }
     let currency =
-      cachedDisplayCurrency.isEmpty
-      ? SettingsService.shared.mainCurrency : cachedDisplayCurrency
+      cachedDisplayCurrency ?? SettingsService.shared.mainCurrency
     return CurrencyConversionService.totalValue(
       for: snapshot, displayCurrency: currency, exchangeRate: snapshot.exchangeRate)
   }
@@ -509,8 +506,7 @@ class DashboardViewModel {
 
       // For consecutive pairs, only the end snapshot falls in (begin, end].
       let displayCurrency =
-        cachedDisplayCurrency.isEmpty
-        ? SettingsService.shared.mainCurrency : cachedDisplayCurrency
+        cachedDisplayCurrency ?? SettingsService.shared.mainCurrency
       var cashFlows: [(amount: Decimal, daysSinceStart: Int)] = []
       let netCashFlow = CurrencyConversionService.netCashFlow(
         for: end, displayCurrency: displayCurrency, exchangeRate: end.exchangeRate)

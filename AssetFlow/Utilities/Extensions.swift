@@ -14,7 +14,7 @@ extension Decimal {
     NSDecimalNumber(decimal: self).doubleValue
   }
 
-  private static var currencyFormatters: [String: NumberFormatter] = [:]
+  @MainActor private static var currencyFormatters: [String: NumberFormatter] = [:]
 
   func formatted(currency: String = "USD", locale: Locale = .current) -> String {
     let key = "\(currency)-\(locale.identifier)"
@@ -32,7 +32,7 @@ extension Decimal {
     return formatter.string(from: NSDecimalNumber(decimal: self)) ?? "\(self)"
   }
 
-  private static var percentageFormatters: [Int: NumberFormatter] = [:]
+  @MainActor private static var percentageFormatters: [Int: NumberFormatter] = [:]
 
   /// Formats a percentage value for display.
   ///
@@ -110,7 +110,7 @@ extension String {
   /// Trims leading/trailing whitespace and collapses internal whitespace runs to a single space.
   /// Preserves original casing — suitable for display normalization.
   var collapsingWhitespace: String {
-    let trimmed = self.trimmingCharacters(in: .whitespaces)
+    let trimmed = self.trimmingCharacters(in: .whitespacesAndNewlines)
     var result = ""
     result.reserveCapacity(trimmed.count)
     var previousWasWhitespace = false
@@ -137,7 +137,7 @@ extension String {
 
 // MARK: - Date Extensions
 extension Date {
-  private static var dateStyleFormatters: [DateFormatter.Style: DateFormatter] = [:]
+  @MainActor private static var dateStyleFormatters: [DateFormatter.Style: DateFormatter] = [:]
 
   func formatted(style: DateFormatter.Style = .medium) -> String {
     let formatter: DateFormatter
@@ -153,7 +153,7 @@ extension Date {
     return formatter.string(from: self)
   }
 
-  private static var dateTimeFormatters: [String: DateFormatter] = [:]
+  @MainActor private static var dateTimeFormatters: [String: DateFormatter] = [:]
 
   func formattedWithTime(
     dateStyle: DateFormatter.Style = .medium, timeStyle: DateFormatter.Style = .short
