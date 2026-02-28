@@ -135,7 +135,7 @@ var marketValue: Double   // Never do this
 
 ### Schema Registration
 
-All models are registered via `SchemaV1` (versioned schema) in `AssetFlowApp.swift`:
+All models are registered via `SchemaV1` (versioned schema) in `Models/SchemaVersioning.swift`:
 
 ```swift
 let schema = Schema(versionedSchema: SchemaV1.self)
@@ -146,7 +146,7 @@ let schema = Schema(versionedSchema: SchemaV1.self)
 ### When Adding/Modifying Models
 
 1. Update the model file
-1. Register in `AssetFlowApp.swift` Schema (if new)
+1. Register in `SchemaV1.models` (`Models/SchemaVersioning.swift`) if new
 1. Update this README
 1. Update [Documentation/DataModel.md](../../Documentation/DataModel.md)
 1. Consider migration strategy if changing existing models

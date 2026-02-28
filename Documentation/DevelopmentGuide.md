@@ -6,7 +6,7 @@
 
 Before you begin development, ensure you have the following installed:
 
-- **Xcode 15.0+** (with Command Line Tools)
+- **Xcode 26.3+** (with Command Line Tools)
 - **macOS 15.0+** (for development and running the app)
 - **Git** (for version control)
 - **Homebrew** (recommended for tool installation)
@@ -64,13 +64,13 @@ AssetFlow/
 |   +-- Models/                 # SwiftData models
 |   +-- Views/                  # SwiftUI views
 |   |   +-- Charts/             # Chart components (7 interactive charts)
-|   |   +-- Components/         # Reusable view components (EmptyStateView)
+|   |   +-- Components/         # Reusable view components (AssetTableView, CategoryPickerField, EditValuePopover, PlatformPickerField)
 |   +-- ViewModels/             # ViewModels
 |   +-- Services/               # Stateless services and utilities
 |   +-- Utilities/              # Helper functions and extensions
 |   +-- Resources/              # Assets, localization
 |   +-- AssetFlowApp.swift      # App entry point
-+-- AssetFlowTests/             # Test target (468+ tests across 27 files)
++-- AssetFlowTests/             # Test target (642+ tests across 44 files)
 +-- AssetFlow.xcodeproj/        # Xcode project
 +-- Documentation/              # Design documents (this folder)
 +-- .gitignore                  # Git ignore rules
@@ -132,8 +132,8 @@ swift-format format --in-place --recursive --parallel .
 # Lint Swift code
 swift-format lint --strict --recursive --parallel .
 
-# Lint with SwiftLint
-swiftlint
+# Lint and fix with SwiftLint
+swiftlint --fix
 
 # Format markdown only
 pre-commit run mdformat --all-files
@@ -151,7 +151,9 @@ Pre-commit hooks are configured in `.pre-commit-config.yaml` and run automatical
 - **Trailing whitespace**: Removes trailing whitespace
 - **Case conflicts**: Checks for case-sensitive filename conflicts
 - **Merge conflicts**: Prevents committing merge conflict markers
-- **JSON formatting**: Formats JSON files with 2-space indent
+- **YAML validation**: Validates YAML file syntax (`check-yaml`)
+- **Line ending normalization**: Converts line endings to LF (`mixed-line-ending --fix=lf`)
+- **JSON formatting**: Formats JSON files with 2-space indent, preserving key order (`pretty-format-json --no-sort-keys`)
 
 **Setup Pre-commit Hooks**:
 
@@ -218,16 +220,19 @@ ______________________________________________________________________
    }
    ```
 
-1. **Register in Schema** (update `AssetFlowApp.swift`):
+1. **Register in Schema** (update `SchemaV1.models` in `Models/SchemaVersioning.swift`):
 
    ```swift
-   let schema = Schema([
+   static var models: [any PersistentModel.Type] {
+     [
        Category.self,
        Asset.self,
        Snapshot.self,
        SnapshotAssetValue.self,
        CashFlowOperation.self,
-   ])
+       ExchangeRate.self,
+     ]
+   }
    ```
 
 1. **Update Documentation**
@@ -312,10 +317,7 @@ Configuration: `.swift-format`
 ### SwiftLint (for Linting)
 
 ```bash
-# Lint all files
-swiftlint
-
-# Automatically correct violations where possible
+# Lint and automatically correct violations where possible
 swiftlint --fix
 ```
 
@@ -343,6 +345,46 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## App Lock Conventions
+
+AssetFlow supports app locking via `AuthenticationService`. When the app is locked, a full-screen opaque overlay is shown over all windows. Two SwiftUI modifier conventions prevent financial data from leaking through this overlay:
+
+### Tooltips: `.helpWhenUnlocked()` instead of `.help()`
+
+Always use `.helpWhenUnlocked("…")` instead of `.help("…")` for tooltip help text. The standard `.help()` modifier shows tooltips even when the lock overlay is active, exposing content before the user has authenticated. `.helpWhenUnlocked()` suppresses the tooltip when the app is locked.
+
+```swift
+// Correct
+Button("Info") { ... }
+    .helpWhenUnlocked("Shows the current portfolio value")
+
+// Incorrect — tooltip visible on lock screen
+Button("Info") { ... }
+    .help("Shows the current portfolio value")
+```
+
+### Hover interactions: `.onHoverWhenUnlocked()` and `.onContinuousHoverWhenUnlocked()`
+
+Always use `.onHoverWhenUnlocked()` and `.onContinuousHoverWhenUnlocked()` instead of `.onHover()` and `.onContinuousHover()`. Hover callbacks (chart tooltips, highlight effects) can fire through the lock overlay, leaking financial data. The lock-aware variants reset hover state (`false` / `.ended`) when the app is locked.
+
+```swift
+// Correct
+Rectangle()
+    .onContinuousHoverWhenUnlocked { phase in
+        // handle hover — only fires when unlocked
+    }
+
+// Incorrect — hover fires through lock overlay
+Rectangle()
+    .onContinuousHover { phase in
+        // ...
+    }
+```
+
+Both modifiers are defined in `AssetFlow/Utilities/WhenUnlockedModifiers.swift`.
+
+______________________________________________________________________
+
 ## Localization
 
 ### Overview
@@ -360,7 +402,10 @@ Strings are organized into feature-scoped tables:
 | `Resources/Asset.xcstrings`       | AssetDetailViewModel, AssetListViewModel             | Asset validation and errors    |
 | `Resources/Category.xcstrings`    | CategoryListViewModel, CategoryDetailViewModel       | Category validation and errors |
 | `Resources/Import.xcstrings`      | ImportViewModel                                      | Import validation and errors   |
+| `Resources/Platform.xcstrings`    | PlatformDetailViewModel, PlatformListViewModel       | Platform validation and errors |
+| `Resources/Rebalancing.xcstrings` | RebalancingViewModel                                 | Rebalancing validation         |
 | `Resources/Services.xcstrings`    | BackupService, SettingsService                       | Service error messages         |
+| `Resources/Settings.xcstrings`    | SettingsViewModel                                    | Settings validation and errors |
 
 ### How Strings Are Localized
 
@@ -498,6 +543,8 @@ Before submitting code:
 - [ ] No force unwrapping without good reason
 - [ ] Commit messages are descriptive
 - [ ] Build produces zero warnings
+- [ ] All tooltip help text uses `.helpWhenUnlocked()` (not `.help()`)
+- [ ] All hover interactions use `.onHoverWhenUnlocked()` / `.onContinuousHoverWhenUnlocked()` (not `.onHover()` / `.onContinuousHover()`)
 
 ______________________________________________________________________
 
@@ -513,7 +560,7 @@ ______________________________________________________________________
   ```swift
   #Preview(traits: .fixedLayout(width: 900, height: 600)) {
       DashboardView()
-          .modelContainer(PreviewContainer.shared)
+          .modelContainer(PreviewContainer.container)
   }
   ```
 - Use `@Previewable` macro for preview-specific state injection

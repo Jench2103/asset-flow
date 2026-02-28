@@ -33,7 +33,7 @@ The data model captures portfolio state through snapshots rather than transactio
 
 ### Schema Management
 
-- All models registered via `SchemaV1` (versioned schema) in `AssetFlowApp.swift`
+- All models registered via `SchemaV1` (versioned schema) in `Models/SchemaVersioning.swift`
 - `SchemaV1: VersionedSchema` defines all model types with `versionIdentifier = Schema.Version(1, 0, 0)`
 - `destroyExistingStore()` fallback handles dev database incompatibility
 - When adding models, update `SchemaV1.models`, this documentation, and `Models/README.md`
@@ -109,7 +109,7 @@ Represents an individual investment identified by the tuple (name, platform). As
 #### Relationships
 
 ```swift
-@Relationship(deleteRule: .nullify, inverse: \Category.assets)
+@Relationship(deleteRule: .nullify)
 var category: Category?
 
 @Relationship(deleteRule: .deny, inverse: \SnapshotAssetValue.asset)
@@ -234,7 +234,11 @@ var asset: Asset?        // Inverse of Asset.snapshotAssetValues
 
 #### Uniqueness Constraints
 
-- `(snapshot, asset)` must be unique (one value per asset per snapshot). Enforced in business logic since compound uniqueness across relationships requires ViewModel validation.
+```swift
+#Unique<SnapshotAssetValue>([\.snapshot, \.asset])
+```
+
+- `(snapshot, asset)` must be unique (one value per asset per snapshot). Enforced at the SwiftData level via `#Unique` macro, and also validated in business logic.
 
 #### Notes
 
@@ -281,7 +285,11 @@ var snapshot: Snapshot?  // Inverse of Snapshot.cashFlowOperations
 
 #### Uniqueness Constraints
 
-- `(snapshotID, cashFlowDescription)` must be unique (case-insensitive comparison on cashFlowDescription)
+```swift
+#Unique<CashFlowOperation>([\.snapshot, \.cashFlowDescription])
+```
+
+- `(snapshot, cashFlowDescription)` must be unique (case-insensitive comparison on cashFlowDescription)
 
 #### Notes
 
@@ -326,10 +334,20 @@ var snapshot: Snapshot?  // Inverse of Snapshot.exchangeRate
 
 - **Snapshot**: Parent snapshot (1:1). Deletion governed by Snapshot -> exchangeRate `.cascade` rule.
 
-#### Computed Properties
+#### Transient Cache
 
-- `rates: [String: Double]` — Decodes `ratesJSON` to a dictionary. Returns empty dict on decode failure.
+```swift
+@Transient
+private var _cachedRates: [String: Double]?
+```
+
+- `_cachedRates` is a `@Transient` property that caches the decoded `rates` dictionary after first access. It is not persisted by SwiftData. The cache is cleared whenever `updateRates(baseCurrency:ratesJSON:fetchDate:)` is called.
+
+#### Computed Properties and Methods
+
+- `rates: [String: Double]` — Decodes `ratesJSON` to a dictionary (cached after first access via `_cachedRates`). Returns empty dict on decode failure.
 - `func convert(value: Decimal, from: String, to: String) -> Decimal?` — Converts a value between currencies using cross-rates. Returns `nil` if either currency is missing from rates.
+- `func updateRates(baseCurrency:ratesJSON:fetchDate:)` — Updates rate data in-place (sets `baseCurrency`, `ratesJSON`, `fetchDate`, clears `isFallback` to `false`) and invalidates the decoded cache (`_cachedRates = nil`). Use this method to refresh exchange rate data without replacing the model object.
 
 #### Usage Example
 
@@ -464,7 +482,7 @@ When adding a new model to the schema:
 
 1. Create the model file in `AssetFlow/Models/`
 1. Add `@Model` macro to the class
-1. Register in `AssetFlowApp.swift` Schema
+1. Register in `SchemaV1.models` (`Models/SchemaVersioning.swift`)
 1. Update this documentation
 1. Update `AssetFlow/Models/README.md`
 1. Consider migration strategy if needed

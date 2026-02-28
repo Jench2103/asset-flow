@@ -12,7 +12,7 @@ Red-Green-Refactor: write a failing test first, implement minimum code to pass, 
 
 ```swift
 import Foundation
-import SwiftData
+import SwiftData  // omit for tests that don't use SwiftData types
 import Testing
 
 @testable import AssetFlow
@@ -73,7 +73,9 @@ AssetFlowTests/
 ├── ViewModels/      ViewModel tests (including currency-specific)
 ├── Services/        Service and calculator tests
 ├── Integration/     Cross-cutting and spec verification tests
-├── TestDataManager.swift   Shared in-memory container helper
+├── DateFormattingTests.swift      Date formatting tests (root level)
+├── SnapshotTimeBucketTests.swift  Snapshot time-bucket tests (root level)
+├── TestDataManager.swift          @MainActor class, shared in-memory container helper
 └── CLAUDE.md
 ```
 

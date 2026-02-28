@@ -43,39 +43,33 @@ ______________________________________________________________________
 
 ```swift
 enum CSVParsingService {
-    /// Parse an asset CSV file into structured rows
+    /// Parse asset CSV data into structured rows
     static func parseAssetCSV(
-        url: URL,
-        importPlatform: String?,
-        importCategory: Category?
-    ) throws -> AssetCSVResult
+        data: Data,
+        importPlatform: String?
+    ) -> CSVParseResult<AssetCSVRow>
 
-    /// Parse a cash flow CSV file into structured rows
-    static func parseCashFlowCSV(url: URL) throws -> CashFlowCSVResult
+    /// Parse cash flow CSV data into structured rows
+    static func parseCashFlowCSV(data: Data) -> CSVParseResult<CashFlowCSVRow>
 }
 
-struct AssetCSVResult {
-    let rows: [AssetCSVRow]
+struct CSVParseResult<T> {
+    let rows: [T]
+    let errors: [CSVError]
     let warnings: [CSVWarning]
-    let unrecognizedColumns: [String]
+
+    var hasErrors: Bool
+    var isValid: Bool
 }
 
 struct AssetCSVRow {
-    let rowNumber: Int
     let assetName: String
     let marketValue: Decimal
     let platform: String  // Resolved via platform handling rules
     let currency: String  // From optional Currency column (empty if absent)
 }
 
-struct CashFlowCSVResult {
-    let rows: [CashFlowCSVRow]
-    let warnings: [CSVWarning]
-    let unrecognizedColumns: [String]
-}
-
 struct CashFlowCSVRow {
-    let rowNumber: Int
     let description: String  // Maps to CashFlowOperation.cashFlowDescription in the model
     let amount: Decimal
     let currency: String  // From optional Currency column (empty if absent)
@@ -92,18 +86,23 @@ struct CashFlowCSVRow {
 - Empty rows: silently skipped
 - Header row: required as first row
 
-**Error Cases**:
+**Error and Warning Types**:
 
 ```swift
-enum CSVParsingError: LocalizedError {
-    case fileCannotBeOpened
-    case missingRequiredColumns([String])
-    case emptyFile
-    case noDataRows
-    case invalidNumber(row: Int, column: String, value: String)
-    case emptyRequiredField(row: Int, column: String)
+struct CSVError: Error, Equatable {
+    let row: Int
+    let column: String?
+    let message: String
+}
+
+struct CSVWarning: Equatable {
+    let row: Int
+    let column: String?
+    let message: String
 }
 ```
+
+Methods do not throw — errors are embedded in the returned `CSVParseResult`. Check `result.hasErrors` or inspect `result.errors` after parsing.
 
 ______________________________________________________________________
 
@@ -207,18 +206,41 @@ enum CalculationService {
 **File**: `AssetFlow/Services/RebalancingCalculator.swift`
 
 ```swift
+struct CategoryAllocation {
+    let name: String
+    let currentValue: Decimal
+    let targetPercentage: Decimal?
+}
+
+enum RebalancingActionType {
+    case buy
+    case sell
+    case noAction
+}
+
+struct RebalancingAction {
+    let categoryName: String
+    let currentValue: Decimal
+    let currentPercentage: Decimal
+    let targetPercentage: Decimal
+    let adjustmentAmount: Decimal
+    let action: RebalancingActionType
+}
+
 enum RebalancingCalculator {
-    /// Calculate the adjustment amount needed to reach target allocation
+    /// Minimum adjustment threshold — adjustments under $1 are classified as `.noAction` (SPEC 11.4)
+    static let minimumThreshold: Decimal  // = 1
+
+    /// Calculate rebalancing adjustments for all categories with target allocations
     /// - Parameters:
-    ///   - currentAllocation: Current allocation percentage (0-100)
-    ///   - targetAllocation: Target allocation percentage (0-100)
-    ///   - totalPortfolioValue: Total portfolio value
-    /// - Returns: Signed Decimal (positive = buy, negative = sell)
-    static func adjustment(
-        currentAllocation: Decimal,
-        targetAllocation: Decimal,
-        totalPortfolioValue: Decimal
-    ) -> Decimal
+    ///   - categories: Current category allocations (categories without targets are skipped)
+    ///   - totalValue: Total composite portfolio value
+    /// - Returns: Array of RebalancingAction sorted by absolute adjustment magnitude (largest first),
+    ///   or empty array if totalValue is zero
+    static func calculateAdjustments(
+        categories: [CategoryAllocation],
+        totalValue: Decimal
+    ) -> [RebalancingAction]
 }
 ```
 
@@ -329,6 +351,7 @@ class SettingsService {
     var mainCurrency: String       // Default: "USD"
     var dateFormat: DateFormatStyle // Default: .abbreviated
     var defaultPlatform: String    // Default: ""
+    var platformOrder: [String]    // Default: []
 
     static func createForTesting() -> SettingsService
 }
@@ -349,23 +372,28 @@ ______________________________________________________________________
 
 ### CurrencyService
 
-**Purpose**: Provides currency information (codes, names, flag emojis).
+**Purpose**: Provides currency information (codes and names).
 
 ```swift
+struct Currency: Identifiable, Hashable {
+    let code: String   // e.g., "USD"
+    let name: String   // e.g., "US Dollar"
+    var id: String     // equals code
+    var displayName: String  // e.g., "USD - US Dollar"
+}
+
+@Observable
+@MainActor
 class CurrencyService {
     static let shared = CurrencyService()
 
-    var currencies: [Currency]
-
-    struct Currency: Identifiable {
-        let code: String   // e.g., "USD"
-        let name: String   // e.g., "US Dollar"
-        var flag: String   // e.g., flag emoji
-        var displayName: String  // e.g., "USD - US Dollar"
-    }
+    private(set) var currencies: [Currency]
 
     /// Fetch full currency list from exchange rate API
-    @MainActor func loadFromAPI() async
+    func loadFromAPI() async
+
+    /// Find currency by code (case-insensitive)
+    func currency(for code: String) -> Currency?
 }
 ```
 
@@ -485,13 +513,18 @@ enum ChartDataService {
     /// Uses the latest data point's date as reference, not Date.now
     static func filter<T: ChartFilterable>(_ items: [T], range: ChartTimeRange) -> [T]
 
+    /// Rebases cumulative TWR data points so the first point in the array starts at 0%
+    /// Use after filtering by time range to show period-specific returns
+    /// Formula: (1 + C_i) / (1 + C_k) - 1, where C_k is the first point's cumulative value
+    static func rebasedTWR(_ points: [DashboardDataPoint]) -> [DashboardDataPoint]
+
     /// Returns abbreviated string for large numeric values
     /// Examples: 3,000,000,000 → "3B", 2,000,000 → "2M", 5,000 → "5K"
-    static func abbreviatedLabel(for value: Decimal) -> String
+    static func abbreviatedLabel(for value: Double) -> String
 }
 ```
 
-**Usage**: Chart views use `ChartDataService.filter()` to apply time range selection before rendering. `ChartFilterable` protocol is conformed to by all chart data point types (`DashboardDataPoint`, `CategoryValueHistoryEntry`, `CategoryAllocationHistoryEntry`).
+**Usage**: Chart views use `ChartDataService.filter()` to apply time range selection before rendering. `ChartFilterable` protocol is conformed to by all chart data point types (`DashboardDataPoint`, `CategoryValueHistoryEntry`, `CategoryAllocationHistoryEntry`, `PlatformValueHistoryEntry`, `AssetValueHistoryEntry`).
 
 **Axis Labels**: Y-axis labels use `abbreviatedLabel(for:)` to format large values (K/M/B) for readability in compact chart layouts.
 

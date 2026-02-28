@@ -2,7 +2,7 @@
 
 ## Overview
 
-AssetFlow is a macOS desktop application (macOS 15.0+) for snapshot-based portfolio management and asset allocation tracking. It is built with SwiftUI, SwiftData, and Swift Charts, following a local-first architecture with no network dependencies.
+AssetFlow is a macOS desktop application (macOS 15.0+) for snapshot-based portfolio management and asset allocation tracking. It is built with SwiftUI, SwiftData, and Swift Charts, following a local-first architecture with optional network access limited to exchange rate fetching.
 
 ## Architecture Pattern
 
@@ -68,7 +68,7 @@ struct DashboardView: View {
   - Handles data transformation and validation
   - Form validation with real-time feedback
 
-**ViewModels** (all 11 implemented and tested):
+**ViewModels** (all 12 implemented and tested):
 
 1. **DashboardViewModel**: Portfolio overview metrics, summary cards, chart data
 1. **SnapshotListViewModel**: Snapshot listing, creation, deletion
@@ -78,11 +78,12 @@ struct DashboardView: View {
 1. **CategoryListViewModel**: Category listing, creation, deletion
 1. **CategoryDetailViewModel**: Category detail, value and allocation history
 1. **PlatformListViewModel**: Platform listing, rename operations
+1. **PlatformDetailViewModel**: Platform detail and rename, assets on platform with latest values, platform value history across snapshots
 1. **RebalancingViewModel**: Rebalancing calculations, current vs. target allocation
 1. **ImportViewModel**: CSV parsing, validation, preview, import execution
 1. **SettingsViewModel**: Display currency, date format, default platform
 
-**Views** (all 12 implemented — navigation shell, all sections, all detail views):
+**Views** (all 14 implemented — navigation shell, all sections, all detail views):
 
 1. **ContentView**: Full sidebar navigation with `SidebarSection` enum, list-detail splits, discard confirmation, post-import navigation
 1. **DashboardView**: Summary cards, period performance (1M/3M/1Y), chart placeholders, recent snapshots
@@ -93,9 +94,11 @@ struct DashboardView: View {
 1. **CategoryListView**: Add sheet, target allocation warning, delete validation
 1. **CategoryDetailView**: Value/allocation history charts, delete validation
 1. **PlatformListView**: Rename sheet, empty state
+1. **PlatformDetailView**: Editable platform name field, asset table with latest values, value history chart across snapshots
 1. **RebalancingView**: Suggestions table, no-target section, summary
 1. **ImportView**: CSV import (accepts shared ViewModel from ContentView)
 1. **SettingsView**: Currency, date format, default platform
+1. **LockScreenView**: Full-window opaque overlay displayed when the app is locked; triggers `AuthenticationService` authentication via system `LAContext` dialog
 
 **Example Structure**:
 
@@ -163,7 +166,7 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 - **Characteristics**:
   - Business logic separated from models and ViewModels
   - NOT marked as `@MainActor` (pure functions where possible)
-  - No external API integrations (local-only)
+  - Minimal external network access (exchange rate fetching only)
   - Stateless calculations
   - Error handling and validation
 
@@ -181,7 +184,7 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 
 1. **AuthenticationService** (`@Observable @MainActor class`): Manages optional app lock using macOS LocalAuthentication framework. Persists lock settings (enabled, re-lock timeout) via UserDefaults. Handles authentication via `LAContext.evaluatePolicy(.deviceOwnerAuthentication)` supporting Touch ID, Apple Watch, and system password fallback. Injectable `LAContext` factory for test isolation.
 
-1. **CurrencyService** (`class` with `static let shared` singleton): Provides currency information (codes, names, flag emojis). Loads from a hardcoded fallback list (~30 common currencies) on init, then can fetch the full list (~480 currencies) from the exchange rate API via `loadFromAPI()`.
+1. **CurrencyService** (`@Observable @MainActor class` with `static let shared` singleton): Provides currency information (codes, names, flag emojis). Loads from a hardcoded fallback list (~30 common currencies) on init, then can fetch the full list (~480 currencies) from the exchange rate API via `loadFromAPI()`.
 
 1. **ExchangeRateService** (`final class`): Fetches exchange rates from the `@fawazahmed0/currency-api` CDN. Provides `fetchRates(for:baseCurrency:)` and `fetchCurrencyList()`. Accepts a `URLSession` for testability. Throws `ExchangeRateError` on failure.
 
@@ -200,7 +203,7 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 - Models remain simple data containers
 - ViewModels coordinate between services and UI
 - Testability: mock data can be passed to services without side effects
-- All service data types (structs used as inputs/outputs, such as `AssetCSVResult`, `RebalancingSuggestion`) should conform to `Sendable` for Swift 6 strict concurrency compatibility
+- All service data types (structs used as inputs/outputs, such as `CSVParseResult`, `RebalancingAction`) should conform to `Sendable` for Swift 6 strict concurrency compatibility
 - Using `enum` for stateless services naturally avoids actor isolation issues
 
 ## Localization
@@ -233,7 +236,7 @@ User Action -> View -> ViewModel -> Service/Model -> SwiftData
 - **Single ModelContainer**: Shared container injected at app root in `AssetFlowApp.swift`
 - **Automatic Persistence**: No manual `save()` calls required
 - **SwiftUI Integration**: `@Query` property wrapper for reactive data binding
-- **Schema Registration**: All models registered in `sharedModelContainer`
+- **Schema Registration**: All models registered in `SchemaV1` (`Models/SchemaVersioning.swift`)
 
 ```swift
 @main

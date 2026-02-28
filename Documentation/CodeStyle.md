@@ -155,7 +155,7 @@ ______________________________________________________________________
 
 For Swift 6 strict concurrency compatibility, all data types passed across isolation boundaries must conform to `Sendable`. In particular:
 
-- Service data types (structs used as inputs/outputs, such as `AssetCSVResult`, `RebalancingSuggestion`) should conform to `Sendable`
+- Service data types (structs used as inputs/outputs, such as `CSVParseResult`, `RebalancingAction`) should conform to `Sendable`
 - Using `enum` for stateless services naturally avoids actor isolation issues
 
 ### Properties
@@ -349,9 +349,10 @@ final class Asset {
     var id: UUID
     var name: String
     var platform: String
+    var currency: String
 
     // 2. Relationships
-    @Relationship(deleteRule: .nullify, inverse: \Category.assets)
+    @Relationship(deleteRule: .nullify)
     var category: Category?
 
     @Relationship(deleteRule: .deny, inverse: \SnapshotAssetValue.asset)
@@ -362,6 +363,7 @@ final class Asset {
         self.id = UUID()
         self.name = name
         self.platform = platform
+        self.currency = ""
     }
 }
 ```

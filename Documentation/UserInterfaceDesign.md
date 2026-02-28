@@ -147,8 +147,8 @@ ______________________________________________________________________
 
 **Snapshot detail view** (on selection):
 
-- Full asset breakdown table sorted by platform (alphabetical), then by asset name (alphabetical)
-- Columns: Asset Name, Platform, Category, Market Value
+- Full asset breakdown sorted by platform (alphabetical), then by asset name (alphabetical), rendered as `ForEach` rows with `HStack` layout (not a `Table`)
+- Each row shows: Asset Name (with Platform and Category as secondary caption), and Market Value aligned trailing; multi-currency assets also show the currency badge and an approximate converted value below the market value
 - Category allocation summary for this snapshot
 - Exchange rates section (only for multi-currency snapshots): shows used currency rates in "1 foreign = X base" format; auto-fetches when missing or when display currency changes
 - Cash flow operations table: Description, Amount
@@ -182,7 +182,7 @@ ______________________________________________________________________
 
 **Asset detail view**:
 
-- Value history across snapshots (table and sparkline -- a compact inline line chart for quick trend recognition, non-interactive)
+- Value history across snapshots (table and interactive 250pt line chart with hover tooltips and a `ChartTimeRangeSelector` for filtering by time range)
 - Value history shows all recorded values across snapshots
 - Asset name (editable)
 - Platform (editable via picker with existing platforms + "New Platform..." option)
@@ -195,7 +195,7 @@ ______________________________________________________________________
 ### Implementation Notes
 
 - **AssetListView** (`AssetFlow/Views/AssetListView.swift`): Uses `AssetListViewModel` with `@State`. Segmented control binds to `viewModel.groupingMode`. List sections iterate over `viewModel.groups`. Context menu on rows provides delete action for eligible assets.
-- **AssetDetailView** (`AssetFlow/Views/AssetDetailView.swift`): Uses `AssetDetailViewModel` with `@State`. Form with `.grouped` style. Platform picker uses `Binding<String>` with sentinel `"__new__"` for inline new-platform creation. Sparkline uses Swift Charts `LineMark` with hidden axes, 40pt height. Delete confirmation dialog before deletion. Value history table supports inline editing: double-click a market value or right-click and choose "Edit Value" to open a popover for editing the value in place.
+- **AssetDetailView** (`AssetFlow/Views/AssetDetailView.swift`): Uses `AssetDetailViewModel` with `@State`. Form with `.grouped` style. Platform picker is provided by `PlatformPickerField`. Value history section shows a `ChartTimeRangeSelector` and an interactive 250pt line chart (`ChartConstants.standardChartHeight`) with hover tooltips via `.onContinuousHoverWhenUnlocked`. When the asset currency differs from the display currency, a `showConvertedChart` toggle button appears next to the range selector; activating it switches the chart to show values converted to the display currency (in green) and adds a "Converted Value" column to the value history table. Delete confirmation dialog before deletion. Value history table supports inline editing: double-click a market value or right-click and choose "Edit Value" to open a popover for editing the value in place.
 - **AssetListViewModel** (`AssetFlow/ViewModels/AssetListViewModel.swift`): Groups assets by platform or category. Computes latest values from the most recent snapshot. "(No Platform)" and "(Uncategorized)" groups always sorted last.
 - **AssetDetailViewModel** (`AssetFlow/ViewModels/AssetDetailViewModel.swift`): Editable fields (`editedName`, `editedPlatform`, `editedCategory`) initialized from asset. `save()` validates normalized identity uniqueness. `loadValueHistory()` returns direct SAVs sorted chronologically. `editAssetValue(_:newValue:)` mutates the `SnapshotAssetValue` market value and refreshes the history.
 
@@ -387,8 +387,6 @@ ______________________________________________________________________
 | Cmd+,    | Global                        | Open Settings window (standard macOS `Settings` scene)           |
 
 **Implementation**: Delete key uses `.onDeleteCommand` on each List view, delegating to the same ViewModel delete methods as the context menu. The Settings shortcut is provided automatically by the SwiftUI `Settings` scene in `AssetFlowApp.swift`.
-
-Additional shortcuts (Cmd+I, Cmd+N, etc.) deferred to future version.
 
 ______________________________________________________________________
 
@@ -807,6 +805,12 @@ VStack(alignment: .leading, spacing: 8) {
 
 **AssetTableView** (`Views/Components/AssetTableView.swift`): Generic `AssetTableView<SecondColumn>` for displaying asset rows with Name, a configurable second column (e.g., "Category" or "Platform"), Original Value, and an optional Converted Value column. The Converted Value column is automatically hidden when no rows have converted values. Uses `DetailAssetRowData` as the shared row data type. Used by `PlatformDetailView` and `CategoryDetailView`.
 
+**PlatformPickerField** (`Views/Components/PlatformPickerField.swift`): Reusable `Picker` for selecting an existing platform or creating a new one inline. Uses a `Binding<String>` for the selected platform. Selecting the sentinel value `"__new__"` (tagged as "New Platform...") toggles to an inline `TextField` for entering a new platform name. Commit logic performs case-insensitive deduplication against the cached platform list.
+
+**CategoryPickerField** (`Views/Components/CategoryPickerField.swift`): Reusable picker for selecting an existing `Category` or entering a new category name inline. Similar inline-creation pattern to `PlatformPickerField`; uses a `resolveCategory` closure to look up or create the `Category` model object.
+
+**EditValuePopover** (`Views/Components/EditValuePopover.swift`): Small popover for editing a `Decimal` market value in place. Triggered by double-click or context menu on market value cells in `AssetDetailView` and `SnapshotDetailView`.
+
 ### Animation and Transitions
 
 All animations use shared constants from `AnimationConstants` (`Utilities/AnimationConstants.swift`), which automatically respect the Reduce Motion accessibility setting by falling back to near-instant durations.
@@ -873,18 +877,18 @@ ______________________________________________________________________
 
 ## Implementation Status
 
-| View                           | Status      | Notes                                                                                                                                                     |
-| ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation                                         |
-| DashboardView                  | Implemented | Summary cards with `.helpWhenUnlocked()` tooltips, period performance (1M/3M/1Y), interactive charts, ContentUnavailableView, recent snapshots            |
-| SnapshotListView               | Implemented | @Query live list, relative time bucket grouping (collapsible sections), New Snapshot sheet (NavigationStack), ContentUnavailableView, Delete key shortcut |
-| SnapshotDetailView             | Implemented | Asset breakdown, category allocation, cash flow CRUD, edit popovers, delete confirmation                                                                  |
-| AssetListView                  | Implemented | Platform/category grouping, selection binding, ContentUnavailableView, Delete key shortcut                                                                |
-| AssetDetailView                | Implemented | Edit fields, sparkline chart, value history with inline editing, delete validation                                                                        |
-| CategoryListView               | Implemented | Add sheet (NavigationStack), target allocation warning, delete validation, ContentUnavailableView, Delete key shortcut                                    |
-| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                                                  |
-| PlatformListView               | Implemented | List-detail split with selection binding, rename popover, ContentUnavailableView, onChange reload after rename                                            |
-| PlatformDetailView             | Implemented | Editable name, assets table (Name/Category/Value), value history chart with time range controls and hover tooltip                                         |
-| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, ContentUnavailableView                                                              |
-| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                                           |
-| SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                                            |
+| View                           | Status      | Notes                                                                                                                                                           |
+| ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation                                               |
+| DashboardView                  | Implemented | Summary cards with `.helpWhenUnlocked()` tooltips, period performance (1M/3M/1Y), interactive charts, ContentUnavailableView, recent snapshots                  |
+| SnapshotListView               | Implemented | @Query live list, relative time bucket grouping (collapsible sections), New Snapshot sheet (NavigationStack), ContentUnavailableView, Delete key shortcut       |
+| SnapshotDetailView             | Implemented | Asset breakdown, category allocation, cash flow CRUD, edit popovers, delete confirmation                                                                        |
+| AssetListView                  | Implemented | Platform/category grouping, selection binding, ContentUnavailableView, Delete key shortcut                                                                      |
+| AssetDetailView                | Implemented | Edit fields, interactive 250pt value history chart with time range selector and hover tooltips, converted value chart toggle, inline editing, delete validation |
+| CategoryListView               | Implemented | Add sheet (NavigationStack), target allocation warning, delete validation, ContentUnavailableView, Delete key shortcut                                          |
+| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                                                        |
+| PlatformListView               | Implemented | List-detail split with selection binding, rename popover, ContentUnavailableView, onChange reload after rename                                                  |
+| PlatformDetailView             | Implemented | Editable name, assets table (Name/Category/Original Value), value history chart with time range controls and hover tooltip                                      |
+| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, ContentUnavailableView                                                                    |
+| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                                                 |
+| SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                                                  |

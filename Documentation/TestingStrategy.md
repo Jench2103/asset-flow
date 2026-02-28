@@ -76,10 +76,22 @@ class TestDataManager {
             Snapshot.self,
             SnapshotAssetValue.self,
             CashFlowOperation.self,
+            ExchangeRate.self,
         ])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: schema, configurations: [configuration])
-        return container
+        // Use a unique name per container to ensure true isolation.
+        // Without a unique name, ModelConfiguration(isStoredInMemoryOnly: true) may
+        // share the same backing store across calls, causing test interference.
+        let configuration = ModelConfiguration(
+            UUID().uuidString,
+            schema: schema,
+            isStoredInMemoryOnly: true
+        )
+        do {
+            let container = try ModelContainer(for: schema, configurations: [configuration])
+            return container
+        } catch {
+            fatalError("Failed to create in-memory model container: \(error)")
+        }
     }
 }
 ```
@@ -278,15 +290,13 @@ struct CSVParsingServiceTests {
         Name,Value
         AAPL,15000
         """
-        let url = createTempFile(content: csv)
+        let result = CSVParsingService.parseAssetCSV(
+            data: Data(csv.utf8),
+            importPlatform: nil
+        )
 
-        #expect(throws: CSVParsingError.missingRequiredColumns) {
-            try CSVParsingService.parseAssetCSV(
-                url: url,
-                importPlatform: nil,
-                importCategory: nil
-            )
-        }
+        #expect(result.hasErrors)
+        #expect(result.errors.first?.message.contains("Platform") == true)
     }
 }
 ```
@@ -390,13 +400,14 @@ ______________________________________________________________________
 
 **Test Files**:
 
-| Category    | Files                                                                                                                                                                                                                                                                                                                              | Coverage                                              |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Models      | AssetModelTests, CategoryModelTests, SnapshotModelTests, SnapshotAssetValueModelTests, CashFlowOperationModelTests, ExchangeRateModelTests, SwiftDataRelationshipTests, AssetCategoryRelationshipTests, AssetUniquenessTests, CashFlowOperationUniquenessTests, CategoryUniquenessTests                                            | All 6 models + relationships + uniqueness constraints |
-| ViewModels  | DashboardViewModelTests, SnapshotListViewModelTests, SnapshotDetailViewModelTests, AssetListViewModelTests, AssetDetailViewModelTests, CategoryListViewModelTests, CategoryDetailViewModelTests, PlatformListViewModelTests, PlatformDetailViewModelTests, RebalancingViewModelTests, ImportViewModelTests, SettingsViewModelTests | All ViewModels                                        |
-| Services    | CalculationServiceTests, CSVParsingServiceTests, BackupServiceTests, RebalancingCalculatorTests, SettingsServiceTests, ChartDataServiceTests, AuthenticationServiceTests, CurrencyConversionServiceTests, DateFormattingTests, ExchangeRateServiceTests                                                                            | All services                                          |
-| Currency    | BackupServiceCurrencyTests, CategoryDetailViewModelCurrencyTests, CategoryListViewModelCurrencyTests, CSVParsingCurrencyTests, PlatformDetailViewModelCurrencyTests, PlatformListViewModelCurrencyTests, SnapshotListViewModelCurrencyTests                                                                                        | Multi-currency conversion scenarios                   |
-| Integration | NavigationIntegrationTests, EmptyStateTests, SpecVerificationTests, SnapshotTimeBucketTests                                                                                                                                                                                                                                        | End-to-end scenarios, SPEC verification, edge cases   |
+| Category    | Files                                                                                                                                                                                                                                                                                                                              | Coverage                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Models      | AssetModelTests, CategoryModelTests, SnapshotModelTests, SnapshotAssetValueModelTests, CashFlowOperationModelTests, ExchangeRateModelTests, AssetCategoryRelationshipTests, AssetUniquenessTests, CashFlowOperationUniquenessTests, CategoryUniquenessTests                                                                        | All 6 models + relationships + uniqueness constraints                                   |
+| ViewModels  | DashboardViewModelTests, SnapshotListViewModelTests, SnapshotDetailViewModelTests, AssetListViewModelTests, AssetDetailViewModelTests, CategoryListViewModelTests, CategoryDetailViewModelTests, PlatformListViewModelTests, PlatformDetailViewModelTests, RebalancingViewModelTests, ImportViewModelTests, SettingsViewModelTests | All ViewModels                                                                          |
+| Services    | CalculationServiceTests, CSVParsingServiceTests, BackupServiceTests, RebalancingCalculatorTests, SettingsServiceTests, ChartDataServiceTests, AuthenticationServiceTests, CurrencyConversionServiceTests, DateFormattingTests, ExchangeRateServiceTests                                                                            | All services                                                                            |
+| Currency    | BackupServiceCurrencyTests, CategoryDetailViewModelCurrencyTests, CategoryListViewModelCurrencyTests, CSVParsingCurrencyTests, PlatformDetailViewModelCurrencyTests, PlatformListViewModelCurrencyTests, SnapshotListViewModelCurrencyTests                                                                                        | Multi-currency conversion scenarios                                                     |
+| Integration | NavigationIntegrationTests, SwiftDataRelationshipTests, SpecVerificationTests                                                                                                                                                                                                                                                      | End-to-end scenarios, SPEC verification, edge cases                                     |
+| Root        | SnapshotTimeBucketTests                                                                                                                                                                                                                                                                                                            | Snapshot time-bucket edge cases (file at `AssetFlowTests/` root, not in a subdirectory) |
 
 **TestContext Pattern**: All ViewModel tests use the `TestContext` struct pattern to retain `ModelContainer` for the test scope, preventing premature deallocation and "model instance destroyed" crashes.
 

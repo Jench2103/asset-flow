@@ -15,17 +15,7 @@
 
 ### ViewModel
 
-`@Observable @MainActor` class with `didSet` validation on form fields, `hasUserInteracted` flag to defer errors, `isSaveDisabled` computed property, and `save()` using injected `ModelContext`. Use `@State var viewModel` in views (not `@StateObject`).
-
-```swift
-var name: String = "" {
-  didSet {
-    guard name != oldValue else { return }
-    hasUserInteracted = true
-    validateName()
-  }
-}
-```
+`@Observable @MainActor` class handling data loading, saving, and computed aggregates via injected `ModelContext`. Form state (text fields, pickers) lives in View-local `@State` properties; ViewModels expose `save()`/`delete()` and validation methods. Use `@State var viewModel` in views (not `@StateObject`).
 
 ### ViewModel Data Reload
 
@@ -59,7 +49,7 @@ private func performLoadData() { /* original load body */ }
 Stateless enums or classes with no direct SwiftData dependency:
 
 - **CalculationService** -- `enum`, growth rate, Modified Dietz, cumulative TWR, CAGR, category allocation
-- **CSVParsingService** -- `enum`, parses asset/cash flow CSV with duplicate detection
+- **CSVParsingService** -- `enum`, parses asset/cash flow CSV with intra-CSV duplicate detection (cross-snapshot dedup is handled by `ImportViewModel`)
 - **RebalancingCalculator** -- `enum`, rebalancing adjustment amounts (buy/sell)
 - **BackupService** -- `@MainActor enum`, ZIP backup via `/usr/bin/ditto`
 - **SettingsService** -- `@Observable @MainActor class`, app-wide settings (currency, date format, default platform)
@@ -67,7 +57,7 @@ Stateless enums or classes with no direct SwiftData dependency:
 - **CurrencyService** -- `@Observable @MainActor class` singleton (`static let shared`), currency data with UserDefaults caching
 - **ExchangeRateService** -- `final class` (`@unchecked Sendable`), fetches rates from cdn.jsdelivr.net, graceful degradation when offline
 - **CurrencyConversionService** -- `enum`, stateless currency conversion using ExchangeRate data, returns unconverted values when rates unavailable
-- **ChartDataService** -- `enum`, time range filtering and Y-axis abbreviation
+- **ChartDataService** -- `enum`, time range filtering, TWR rebasing (`rebasedTWR`), and Y-axis abbreviation
 - **DateFormatStyle** -- `enum`, user-selectable date formats → `Date.FormatStyle.DateStyle`
 
 ### Localization

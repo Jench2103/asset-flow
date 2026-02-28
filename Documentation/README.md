@@ -45,7 +45,7 @@ ______________________________________________________________________
 
 Covers:
 
-- Core entities: Category, Asset, Snapshot, SnapshotAssetValue, CashFlowOperation
+- Core entities: Category, Asset, Snapshot, SnapshotAssetValue, CashFlowOperation, ExchangeRate
 - Property definitions and types
 - Relationships and delete rules
 - Uniqueness constraints
@@ -289,6 +289,8 @@ git commit -m "docs: Update DataModel.md with new SnapshotAssetValue fields"
 ______________________________________________________________________
 
 ## Document Status
+
+Last audited: 2026-03-01
 
 | Document               | Status  |
 | ---------------------- | ------- |

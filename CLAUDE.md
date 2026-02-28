@@ -16,7 +16,7 @@ swiftlint --fix
 
 ## Architecture
 
-MVVM with SwiftData. Models: `@Model` classes (see `Models/README.md`). Views: SwiftUI. ViewModels: `@Observable @MainActor` classes. Services: stateless utilities (see `AssetFlow/CLAUDE.md`).
+MVVM with SwiftData. Models: `@Model` classes (see `Models/README.md`). Views: SwiftUI. ViewModels: `@Observable @MainActor` classes. Services: stateless utilities and singleton services (see `AssetFlow/CLAUDE.md`).
 
 ```
 Category (1:Many) → Asset

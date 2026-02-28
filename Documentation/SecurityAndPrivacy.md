@@ -133,6 +133,7 @@ ______________________________________________________________________
 - Biometric evaluation happens entirely in the Secure Enclave — no biometric data leaves the device
 - Lock screen uses an opaque material overlay (both main window and Settings window have independent `LockScreenView` overlays)
 - Centralized lock state machine in `AuthenticationService`: three-step protocol (`recordBackground` → `evaluateOnBecomeActive` → `authenticateIfActive`) with `isAppActive` gate ensures auth dialogs only appear when the app is frontmost
+- Cancellation retry suppression: `authenticateIfActive()` guards on `!authWasCancelled`; when the user dismisses or fails the authentication dialog, `authWasCancelled` is set to `true` and prevents the dialog from reappearing automatically. The flag is cleared by the next `recordBackground()` call (i.e., when the app goes to background again), so auth is offered fresh on the next return to foreground
 - Per-condition re-lock timeouts: separate settings for app switching and screen lock/sleep events, each configurable to immediately, 1 minute, 5 minutes, 15 minutes, or never. Setting both to "never" auto-disables app lock
 - Eager lock, deferred auth: lock overlay appears immediately when timeout is "Immediately"; authentication dialog waits until the user returns to the app
 - Enabling app lock requires successful authentication first (prevents accidental lockout)

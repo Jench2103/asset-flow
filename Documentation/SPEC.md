@@ -145,10 +145,12 @@ ______________________________________________________________________
 
 **Asset detail view:**
 
-- Value history across snapshots (table and sparkline)
+- Value history across snapshots (table and sparkline chart)
 - Asset name (editable)
 - Platform (editable)
 - Category assignment (editable)
+- Currency (editable) — ISO 4217 picker; sets the asset's native currency. Used for FX conversion display.
+- **Converted value column and chart toggle:** When the asset's currency differs from the display currency (Settings), the value history table gains a "Converted Value" column showing each snapshot's market value converted to the display currency via the snapshot's stored ExchangeRate. A currency-code toggle button appears in the section header; clicking it switches the sparkline chart between the native-currency view (blue) and the converted-value view (green). The toggle is hidden when the asset currency matches the display currency or when no currency is set.
 - Delete action: **only enabled when the asset has no SnapshotAssetValue records in any snapshot**. When disabled, shows explanatory text: "This asset cannot be deleted because it has values in snapshot(s). Remove the asset from all snapshots first." (See Section 6.3)
 
 ______________________________________________________________________
@@ -226,7 +228,7 @@ Accessible via menu bar (AssetFlow > Settings) or keyboard shortcut (Cmd+,).
 
 **Settings options:**
 
-1. **Display currency** — Currency code for displaying values (e.g., USD, TWD, EUR). This is display-only; no FX conversion is performed.
+1. **Display currency** — Currency code for displaying all converted portfolio values (e.g., USD, TWD, EUR). Asset values recorded in a different currency are converted to this currency using the exchange rates stored in the snapshot's ExchangeRate record (see Section 7.6).
 
 1. **Date format** — A picker listing all date format styles natively supported by Swift's `Date.FormatStyle` (e.g., `.numeric` → "1/5/2025", `.abbreviated` → "Jan 5, 2025", `.long` → "January 5, 2025", `.complete` → "Sunday, January 5, 2025"). Default: system locale format if it maps to a supported style, otherwise `.abbreviated`.
 
@@ -235,11 +237,21 @@ Accessible via menu bar (AssetFlow > Settings) or keyboard shortcut (Cmd+,).
 1. **Data Management**
 
    - **Export Backup** — Exports all application data to a **ZIP archive** containing:
-     - One CSV file per entity: `assets.csv`, `categories.csv`, `snapshots.csv`, `snapshot_asset_values.csv`, `cash_flow_operations.csv`, `settings.csv`
+     - One CSV file per entity: `assets.csv`, `categories.csv`, `snapshots.csv`, `snapshot_asset_values.csv`, `cash_flow_operations.csv`, `exchange_rates.csv` (optional — omitted when no exchange rate data exists), `settings.csv`
      - A `manifest.json` file containing: format version identifier (e.g., `"formatVersion": 1`), export timestamp, and app version
      - Backup CSV files use the data model field names (Section 7) as column headers. Each row represents one record. UUID fields are serialized as standard UUID strings. Decimal fields are serialized at full precision. Date fields use ISO 8601 format (YYYY-MM-DD). Optional/nullable fields use an empty string for null values. The CSV files are internal to the backup format and are not intended for direct user editing.
      - User selects save location via standard macOS save dialog. Default filename: `AssetFlow-Backup-YYYY-MM-DD.zip`.
    - **Restore from Backup** — Imports a previously exported backup archive. Confirmation required: "Restoring from backup will replace ALL existing data. This cannot be undone. Continue?" Validates file integrity: checks that all expected CSV files are present and parseable with correct column headers, **and that all foreign key references are valid across files** (e.g., every assetID in `snapshot_asset_values.csv` exists in `assets.csv`, every snapshotID exists in `snapshots.csv`, every categoryID references an existing Category or is null). If validation fails, the restore is rejected with a detailed error listing all violations. No data is modified. On success, reloads all views.
+
+1. **App Lock** — Protects portfolio data behind device authentication.
+
+   - **Enable App Lock** toggle — when enabled, the app displays a lock screen (opaque overlay) that requires authentication before any content is visible.
+   - **Authentication method:** Uses `LAPolicy.deviceOwnerAuthentication`, which provides Touch ID → Apple Watch → system password as a fallback chain. No custom biometric UI is shown; the system presents its standard authentication dialog.
+   - **Lock on App Switch timeout** — configurable delay before the app re-locks after switching to another app. Options: Immediately, After 1 Minute, After 5 Minutes, After 15 Minutes, Never.
+   - **Lock on Screen Lock/Sleep timeout** — configurable delay before the app re-locks after the screen locks or the Mac goes to sleep. Same options as above.
+   - **Auto-disable:** When both timeouts are set to "Never", app lock is effectively disabled (the app never re-locks after the initial unlock on launch).
+   - The lock screen shows the app icon and an "Unlock" button. Authentication is also triggered automatically when the app returns to the foreground, without requiring the user to press the button.
+   - Tooltips (`.help()`) and hover interactions are suppressed on the lock screen to prevent financial data from leaking through the overlay.
 
 ______________________________________________________________________
 
@@ -248,8 +260,8 @@ ______________________________________________________________________
 | Shortcut | Action                                          |
 | -------- | ----------------------------------------------- |
 | Delete   | Remove selected item (with confirmation dialog) |
-
-Additional keyboard shortcuts (e.g., Cmd+I for import, Cmd+N for new snapshot) are deferred to a future version.
+| Cmd+N    | New Snapshot                                    |
+| Cmd+I    | Open Import screen                              |
 
 ______________________________________________________________________
 
@@ -520,15 +532,17 @@ ______________________________________________________________________
 | id                         | UUID     | Primary key                         |
 | name                       | String   | Required, unique (case-insensitive) |
 | targetAllocationPercentage | Decimal? | Optional, 0-100                     |
+| displayOrder               | Int      | Sort order for display              |
 
 ### 7.2 Asset
 
-| Field      | Type   | Notes                   |
-| ---------- | ------ | ----------------------- |
-| id         | UUID   | Primary key             |
-| name       | String | Required                |
-| platform   | String | Optional (may be empty) |
-| categoryID | UUID?  | FK to Category          |
+| Field      | Type   | Notes                                |
+| ---------- | ------ | ------------------------------------ |
+| id         | UUID   | Primary key                          |
+| name       | String | Required                             |
+| platform   | String | Optional (may be empty)              |
+| currency   | String | ISO 4217 currency code; may be empty |
+| categoryID | UUID?  | FK to Category                       |
 
 **Uniqueness constraint:** (name, platform) must be unique (case-insensitive).
 
@@ -558,16 +572,32 @@ Assets persist across snapshots and are created during import if they don't alre
 
 ### 7.5 CashFlowOperation
 
-| Field       | Type    | Notes                                            |
-| ----------- | ------- | ------------------------------------------------ |
-| id          | UUID    | Primary key                                      |
-| snapshotID  | UUID    | FK to Snapshot                                   |
-| description | String  | Required                                         |
-| amount      | Decimal | Required. Positive = inflow, negative = outflow. |
+| Field               | Type    | Notes                                            |
+| ------------------- | ------- | ------------------------------------------------ |
+| id                  | UUID    | Primary key                                      |
+| snapshotID          | UUID    | FK to Snapshot                                   |
+| cashFlowDescription | String  | Required                                         |
+| amount              | Decimal | Required. Positive = inflow, negative = outflow. |
+| currency            | String  | ISO 4217 currency code; may be empty             |
 
-**Uniqueness constraint:** (snapshotID, description) must be unique (case-insensitive comparison on description).
+**Uniqueness constraint:** (snapshotID, cashFlowDescription) must be unique (case-insensitive comparison on cashFlowDescription).
 
 The net cash flow for a snapshot is always derived: `netCashFlow = sum(CashFlowOperation.amount)` for all operations associated with that snapshot.
+
+### 7.6 ExchangeRate
+
+| Field        | Type   | Notes                                                                          |
+| ------------ | ------ | ------------------------------------------------------------------------------ |
+| baseCurrency | String | Base currency code for the stored rates (e.g., "usd")                          |
+| ratesJSON    | Data   | JSON-encoded `[String: Double]` dictionary of currency codes to exchange rates |
+| fetchDate    | Date   | When the rates were fetched from the remote source                             |
+| isFallback   | Bool   | `true` if these rates are stale/cached due to a network failure                |
+
+**Relationship:** 1:1 with Snapshot (each snapshot has at most one ExchangeRate record).
+
+**Computed property:** `rates: [String: Double]` — decoded rates dictionary from `ratesJSON`, cached in memory after first access.
+
+Exchange rates are fetched from cdn.jsdelivr.net and stored per snapshot so that historical value conversions remain stable and reproducible. The `convert(value:from:to:)` method applies the formula `value / rates[from] * rates[to]`, where the base currency's rate is implicitly 1.0.
 
 ______________________________________________________________________
 
@@ -913,7 +943,7 @@ ______________________________________________________________________
 
 - macOS 15.0+
 - SwiftUI
-- Local storage only (no network, no cloud)
+- Local-first storage. Network access is limited to fetching exchange rates from `cdn.jsdelivr.net` when a snapshot is created or imported. All other data is stored locally with no cloud sync.
 
 ### Data Storage
 
@@ -938,7 +968,6 @@ Do NOT implement:
 - Per-security IRR
 - Tax lot tracking
 - Dividend modeling
-- Multi-currency FX conversion (display currency is cosmetic only)
 - Cloud sync
 - Data export for reporting (CSV, PDF) — note: data backup/restore IS supported (see Section 3.10)
 - Column mapping for CSV import

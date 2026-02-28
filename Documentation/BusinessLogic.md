@@ -117,8 +117,8 @@ Where:
 - `CFi` = net cash flow at each intermediate snapshot
 - `wi` = time-weighting factor for each cash flow
 - `wi = (CD - Di) / CD`
-- `CD` = total calendar days in the period
-- `Di` = number of days from period start to cash flow i
+- `CD` = total calendar days in the period (code: `totalDays`)
+- `Di` = number of days from period start to cash flow i (code: `daysSinceStart`)
 
 **Cash Flow Time-Weighting**:
 
@@ -170,6 +170,7 @@ Available for portfolio-level only in v1.
 | Only one snapshot                     | Growth/return/TWR/CAGR = N/A. Display "Insufficient data"                                    |
 | Beginning value = 0                   | Return = N/A. Display "Cannot calculate"                                                     |
 | Beginning value < 0                   | Return = N/A. Display "Cannot calculate"                                                     |
+| Ending value \<= 0 (CAGR)             | CAGR = N/A. Display "Cannot calculate"                                                       |
 | Denominator (BMV + weighted CF) \<= 0 | Return = N/A. Display "Cannot calculate"                                                     |
 | Category has no assets                | Allocation = 0%, return = N/A                                                                |
 | All assets uncategorized              | Uncategorized group shows 100% allocation                                                    |
@@ -579,6 +580,7 @@ Optional app-level authentication to protect against casual physical access. Use
 - `backgroundDate` — runtime only, the timestamp when the app entered the background. Set by `recordBackground()`, cleared by `evaluateOnBecomeActive()`
 - `backgroundTrigger` — runtime only, which trigger (`.appSwitch` or `.screenSleep`) caused the background event
 - `isAuthenticating` — runtime only, `true` while the system authentication dialog is being presented. Used to suppress `recordBackground()` calls
+- `authWasCancelled` — runtime only, set to `true` when the user cancels or fails authentication; suppresses auto-auth retries in `authenticateIfActive()` until the next background event resets it
 - `lastUnlockDate` — runtime only, set after each successful authentication
 
 ______________________________________________________________________

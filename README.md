@@ -61,7 +61,7 @@ AssetFlow/
 
 #### Prerequisites
 
-- Xcode 16.0 or later
+- Xcode 26.3 or later
 - macOS 15.0 or later (for development)
 - [swift-format](https://github.com/swiftlang/swift-format/tree/main)
 - [SwiftLint](https://github.com/realm/SwiftLint/tree/main)
@@ -130,6 +130,7 @@ The application follows the MVVM (Model-View-ViewModel) architecture pattern:
 - Snapshot-based portfolio tracking with point-in-time recording
 - CSV import for assets and cash flows with validation and duplicate detection
 - Category management with target allocation percentages
+- Platform-based asset organization and tracking
 - Multi-currency support with automatic exchange rate fetching
 - Portfolio-level return analysis (growth rate, Modified Dietz, cumulative TWR, CAGR)
 - Rebalancing calculator with suggested buy/sell actions
