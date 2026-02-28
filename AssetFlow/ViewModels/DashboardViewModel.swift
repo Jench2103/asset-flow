@@ -106,6 +106,9 @@ class DashboardViewModel {
   /// Resolved periods for growth/return rate lookups (built once per load cycle).
   private var resolvedPeriodCache: [DashboardPeriod: ResolvedPeriod] = [:]
 
+  /// Intermediate snapshots per period (built once per load cycle).
+  private var intermediateSnapshotsCache: [DashboardPeriod: [Snapshot]] = [:]
+
   /// Display currency used when caches were built.
   private var cachedDisplayCurrency: String = ""
 
@@ -152,6 +155,7 @@ class DashboardViewModel {
       categoryValuesCache = [:]
       cachedPeriodReturns = []
       resolvedPeriodCache = [:]
+      intermediateSnapshotsCache = [:]
       cachedDisplayCurrency = ""
       snapshotDates = []
       return
@@ -190,6 +194,15 @@ class DashboardViewModel {
       }
     }
     resolvedPeriodCache = periodCache
+
+    // Build intermediate snapshots cache once (avoids repeated filter in returnRate)
+    var intermediateCache: [DashboardPeriod: [Snapshot]] = [:]
+    for (period, resolved) in periodCache {
+      intermediateCache[period] = sortedSnapshots.filter {
+        $0.date > resolved.beginDate && $0.date <= resolved.endDate
+      }
+    }
+    intermediateSnapshotsCache = intermediateCache
 
     computeSummaryCards(sortedSnapshots: sortedSnapshots)
     computeCategoryAllocations(sortedSnapshots: sortedSnapshots)
@@ -284,9 +297,7 @@ class DashboardViewModel {
     let displayCurrency =
       cachedDisplayCurrency.isEmpty
       ? SettingsService.shared.mainCurrency : cachedDisplayCurrency
-    let intermediateSnapshots = sortedSnapshotsCache.filter {
-      $0.date > resolved.beginDate && $0.date <= resolved.endDate
-    }
+    let intermediateSnapshots = intermediateSnapshotsCache[period] ?? []
 
     var cashFlows: [(amount: Decimal, daysSinceStart: Int)] = []
     for snapshot in intermediateSnapshots {
