@@ -65,6 +65,20 @@ let (context, snapshot) = (tc.context, tc.snapshot)
 - When one test crashes (SIGTRAP), the entire process dies and all tests report "failed" at 0.000s — only one pattern is at fault
 - Use `xcrun xcresulttool get test-results summary --path <.xcresult>` for structured JSON output
 
+## Directory Structure
+
+```
+AssetFlowTests/
+├── Models/          Model and relationship tests
+├── ViewModels/      ViewModel tests (including currency-specific)
+├── Services/        Service and calculator tests
+├── Integration/     Cross-cutting and spec verification tests
+├── TestDataManager.swift   Shared in-memory container helper
+└── CLAUDE.md
+```
+
+Place new test files in the subdirectory matching the source layer.
+
 ## File Naming
 
 `[Component]Tests.swift` — e.g., `AssetFormViewModelTests.swift`

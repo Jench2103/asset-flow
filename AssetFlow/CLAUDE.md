@@ -52,7 +52,7 @@ private func performLoadData() { /* original load body */ }
 
 ### Model
 
-`@Model final class` with `Decimal` for money, `#Unique` for constraints, explicit `@Relationship` with delete rules (`.cascade`, `.deny`, `.nullify`). Register new models in `SchemaV1.models` (`Models/SchemaVersioning.swift`).
+`@Model final class` with `Decimal` for money, `#Unique` for constraints, explicit `@Relationship` with delete rules (`.cascade`, `.deny`, `.nullify`). Register new models in `SchemaV1.models` (`Models/SchemaVersioning.swift`). Domain error enums (`AssetError`, `CategoryError`, `PlatformError`) also live in `Models/`.
 
 ### Services
 
@@ -67,7 +67,7 @@ Stateless enums or classes with no direct SwiftData dependency:
 - **CurrencyService** -- `@Observable @MainActor class` singleton (`static let shared`), currency data with UserDefaults caching
 - **ExchangeRateService** -- `final class` (`@unchecked Sendable`), fetches rates from cdn.jsdelivr.net, graceful degradation when offline
 - **CurrencyConversionService** -- `enum`, stateless currency conversion using ExchangeRate data, returns unconverted values when rates unavailable
-- **ChartDataService** -- `enum` (in `ViewModels/`), time range filtering and Y-axis abbreviation
+- **ChartDataService** -- `enum`, time range filtering and Y-axis abbreviation
 - **DateFormatStyle** -- `enum`, user-selectable date formats → `Date.FormatStyle.DateStyle`
 
 ### Localization

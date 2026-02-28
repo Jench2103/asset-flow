@@ -192,7 +192,7 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 - **CSV-internal duplicates**: Detected by `CSVParsingService` during parsing (same name+platform within file, or same description within cash flow CSV)
 - **CSV-vs-snapshot duplicates**: Detected by `ImportViewModel` when loading preview (checks CSV rows against existing snapshot data)
 
-**Supporting Types**: `DateFormatStyle`, `BackupTypes`, `CSVParsingTypes` (error enums and result types), `ChartDataService` (chart data filtering and axis formatting)
+**Supporting Types**: `DateFormatStyle`, `BackupTypes`, `CSVParsingTypes` (result types), `ChartDataService` (chart data filtering and axis formatting). Domain error enums (`AssetError`, `CategoryError`, `PlatformError`) are in `Models/`.
 
 **Design Principles**:
 

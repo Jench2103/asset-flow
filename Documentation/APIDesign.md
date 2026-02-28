@@ -456,7 +456,7 @@ ______________________________________________________________________
 
 **Purpose**: Stateless service for chart data filtering by time range and Y-axis label abbreviation.
 
-**File**: `AssetFlow/ViewModels/ChartDataService.swift`
+**File**: `AssetFlow/Services/ChartDataService.swift`
 
 ```swift
 enum ChartTimeRange: String, CaseIterable, Identifiable {

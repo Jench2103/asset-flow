@@ -169,7 +169,10 @@ Models/
 ├── Snapshot.swift
 ├── SnapshotAssetValue.swift
 ├── CashFlowOperation.swift
-└── ExchangeRate.swift
+├── ExchangeRate.swift
+├── AssetError.swift
+├── CategoryError.swift
+└── PlatformError.swift
 ```
 
 ______________________________________________________________________

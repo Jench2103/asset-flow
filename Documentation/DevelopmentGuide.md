@@ -65,7 +65,7 @@ AssetFlow/
 |   +-- Views/                  # SwiftUI views
 |   |   +-- Charts/             # Chart components (7 interactive charts)
 |   |   +-- Components/         # Reusable view components (EmptyStateView)
-|   +-- ViewModels/             # ViewModels and ChartDataService
+|   +-- ViewModels/             # ViewModels
 |   +-- Services/               # Stateless services and utilities
 |   +-- Utilities/              # Helper functions and extensions
 |   +-- Resources/              # Assets, localization
