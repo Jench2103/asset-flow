@@ -407,11 +407,7 @@ private struct AddAssetSheet: View {
   // Create New mode
   @State private var newAssetName = ""
   @State private var newPlatform = ""
-  @State private var showNewPlatformField = false
-  @State private var newPlatformName = ""
   @State private var newCategory: Category?
-  @State private var showNewCategoryField = false
-  @State private var newCategoryName = ""
   @State private var newMarketValueText = ""
   @State private var newCurrency = SettingsService.shared.mainCurrency
 
@@ -538,121 +534,18 @@ private struct AddAssetSheet: View {
   }
 
   private var platformPicker: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      if showNewPlatformField {
-        HStack {
-          TextField("New platform name", text: $newPlatformName)
-            .textFieldStyle(.roundedBorder)
-            .onSubmit { commitNewPlatform() }
-          Button("OK") { commitNewPlatform() }
-          Button("Cancel") {
-            showNewPlatformField = false
-            newPlatformName = ""
-          }
-        }
-        .transition(.opacity)
-      } else {
-        Picker("Platform", selection: platformBinding) {
-          Text("None").tag("")
-          ForEach(cachedPlatforms, id: \.self) { platform in
-            Text(platform).tag(platform)
-          }
-          Divider()
-          Text("New Platform...").tag("__new__")
-        }
-        .transition(.opacity)
-      }
-    }
-    .animation(AnimationConstants.standard, value: showNewPlatformField)
-  }
-
-  private var platformBinding: Binding<String> {
-    Binding(
-      get: { newPlatform },
-      set: { value in
-        if value == "__new__" {
-          showNewPlatformField = true
-          newPlatformName = ""
-        } else {
-          newPlatform = value
-        }
-      }
+    PlatformPickerField(
+      selectedPlatform: $newPlatform,
+      cachedPlatforms: $cachedPlatforms
     )
-  }
-
-  private func commitNewPlatform() {
-    let trimmed = newPlatformName.trimmingCharacters(in: .whitespaces)
-    guard !trimmed.isEmpty else { return }
-    let platforms = existingPlatforms()
-    if let match = platforms.first(where: { $0.lowercased() == trimmed.lowercased() }) {
-      newPlatform = match
-    } else {
-      newPlatform = trimmed
-    }
-    showNewPlatformField = false
-    newPlatformName = ""
-    // Refresh cache so picker shows new platform
-    var updated = existingPlatforms()
-    if !updated.contains(newPlatform) {
-      updated.append(newPlatform)
-      updated.sort()
-    }
-    cachedPlatforms = updated
   }
 
   private var categoryPicker: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      if showNewCategoryField {
-        HStack {
-          TextField("New category name", text: $newCategoryName)
-            .textFieldStyle(.roundedBorder)
-            .onSubmit { commitNewCategory() }
-          Button("OK") { commitNewCategory() }
-          Button("Cancel") {
-            showNewCategoryField = false
-            newCategoryName = ""
-          }
-        }
-        .transition(.opacity)
-      } else {
-        Picker("Category", selection: categoryBinding) {
-          Text("None").tag("")
-          ForEach(cachedCategories) { category in
-            Text(category.name).tag(category.id.uuidString)
-          }
-          Divider()
-          Text("New Category...").tag("__new__")
-        }
-        .transition(.opacity)
-      }
-    }
-    .animation(AnimationConstants.standard, value: showNewCategoryField)
-  }
-
-  private var categoryBinding: Binding<String> {
-    Binding(
-      get: { newCategory?.id.uuidString ?? "" },
-      set: { value in
-        if value == "__new__" {
-          showNewCategoryField = true
-          newCategoryName = ""
-        } else if value.isEmpty {
-          newCategory = nil
-        } else {
-          newCategory = cachedCategories.first { $0.id.uuidString == value }
-        }
-      }
+    CategoryPickerField(
+      selectedCategory: $newCategory,
+      cachedCategories: $cachedCategories,
+      resolveCategory: { viewModel.resolveCategory(name: $0) }
     )
-  }
-
-  private func commitNewCategory() {
-    let trimmed = newCategoryName.trimmingCharacters(in: .whitespaces)
-    guard !trimmed.isEmpty else { return }
-    newCategory = viewModel.resolveCategory(name: trimmed)
-    showNewCategoryField = false
-    newCategoryName = ""
-    // Refresh cache so picker shows new category
-    cachedCategories = existingCategories()
   }
 
   private var isAddDisabled: Bool {
