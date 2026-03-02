@@ -42,3 +42,7 @@ repos:
         language: system
         types: [swift]
         require_serial: true
+  - repo: https://github.com/mrtazz/checkmake.git
+    rev: v0.3.2
+    hooks:
+      - id: checkmake

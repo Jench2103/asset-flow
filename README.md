@@ -83,6 +83,15 @@ AssetFlow/
 
 1. Build and run the project (⌘+R)
 
+   Alternatively, use the Makefile from the command line:
+
+   ```bash
+   make          # Archive a Release build → build/AssetFlow.app
+   make test     # Run the test suite
+   make lint     # Run pre-commit hooks (swift-format + SwiftLint)
+   make clean    # Remove the build/ directory
+   ```
+
 ### Tooling Setup
 
 Install the required code quality tools using Homebrew:
