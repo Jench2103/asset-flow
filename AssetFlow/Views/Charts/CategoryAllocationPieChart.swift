@@ -24,6 +24,12 @@ struct CategoryAllocationPieChart: View {
   @State private var contentWidth: CGFloat = 400
   @State private var legendItemWidth: CGFloat = 120
 
+  /// Chart data with zero-fill entries for disappearing categories, ensuring
+  /// SectorMark identity is stable so Swift Charts interpolates angles.
+  /// Entries are never removed — zero-angle marks are invisible and the total
+  /// count is bounded by the unique categories across visited snapshots.
+  @State private var chartData: [CategoryAllocationData] = []
+
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack {
@@ -34,14 +40,41 @@ struct CategoryAllocationPieChart: View {
       }
 
       chartContent
-        .id(selectedDate)
-        .transition(.opacity)
     }
-    .animation(AnimationConstants.chart, value: selectedDate)
     .padding()
     .frame(maxHeight: .infinity, alignment: .topLeading)
     .glassCard()
     .accessibilityLabel("Category allocation pie chart")
+    .onAppear {
+      chartData = allocations
+    }
+    .onChange(of: allocations) { _, newAllocations in
+      transitionChartData(to: newAllocations)
+    }
+  }
+
+  /// Transitions chart data with zero-fill so SectorMark count never changes
+  /// during animation. The legend and layout update instantly from `allocations`;
+  /// only the chart angle interpolation is animated.
+  private func transitionChartData(to newAllocations: [CategoryAllocationData]) {
+    let oldNames = Set(chartData.map(\.categoryName))
+    let newNames = Set(newAllocations.map(\.categoryName))
+
+    // Pre-insert appearing categories at zero angle (no animation).
+    for name in newNames.subtracting(oldNames) {
+      chartData.append(CategoryAllocationData(categoryName: name, value: 0, percentage: 0))
+    }
+
+    // Build target: real values for current categories, zero for absent ones.
+    var target = newAllocations
+    for name in oldNames.subtracting(newNames) {
+      target.append(CategoryAllocationData(categoryName: name, value: 0, percentage: 0))
+    }
+
+    // Only chart angle changes are animated; legend/layout update instantly.
+    withAnimation {
+      chartData = target
+    }
   }
 
   private var snapshotDatePicker: some View {
@@ -98,8 +131,14 @@ struct CategoryAllocationPieChart: View {
     }
   }
 
+  /// The effective data for the Chart — uses chartData (with zero-fill) when available,
+  /// falling back to allocations on first render before onAppear fires.
+  private var effectiveChartData: [CategoryAllocationData] {
+    chartData.isEmpty ? allocations : chartData
+  }
+
   private var chartView: some View {
-    Chart(allocations, id: \.categoryName) { allocation in
+    Chart(effectiveChartData, id: \.categoryName) { allocation in
       SectorMark(
         angle: .value("Value", allocation.value.doubleValue),
         innerRadius: .ratio(0.4),
@@ -260,10 +299,16 @@ struct CategoryAllocationPieChart: View {
     allocations.reduce(0.0) { $0 + $1.value.doubleValue }
   }
 
-  /// Category name → color dictionary, built in a single O(N) pass.
+  /// Category name → color dictionary based on all known categories (from
+  /// `effectiveChartData`). Since `chartData` never drops entries, each category
+  /// keeps a stable color across date transitions — no color snap during animation.
   private var categoryColorMap: [String: Color] {
     var map: [String: Color] = ["Uncategorized": .gray]
-    let sorted = allocations.filter { $0.categoryName != "Uncategorized" }.map(\.categoryName)
+    let sorted =
+      effectiveChartData
+      .map(\.categoryName)
+      .filter { $0 != "Uncategorized" }
+      .sorted()
     for (index, name) in sorted.enumerated() {
       map[name] = ChartConstants.color(forIndex: index)
     }

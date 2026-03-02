@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 
 /// Data for category allocation display.
-struct CategoryAllocationData: Sendable {
+struct CategoryAllocationData: Sendable, Equatable {
   let categoryName: String
   let value: Decimal
   let percentage: Decimal

@@ -16,10 +16,16 @@ enum ChartConstants {
   /// Compact chart height for dashboard cards.
   static let dashboardChartHeight: CGFloat = 200
 
-  /// Color palette for multi-category charts (up to 10 distinct colors).
+  /// Color palette for multi-category charts using distinct SwiftUI standard
+  /// colors (excluding .gray for Uncategorized, .black/.white for visibility,
+  /// and .pink which is too similar to .red in dark mode).
+  /// Ordered so each successive color fills the largest perceptual gap while
+  /// maintaining visual comfort — high-intensity colors (red) are deferred so
+  /// small category counts produce harmonious charts.
   static let categoryColors: [Color] = [
     .blue, .green, .orange, .purple, .red,
-    .cyan, .pink, .brown, .mint, .indigo,
+    .cyan, .yellow, .indigo, .brown,
+    .teal, .mint,
   ]
 
   /// Standard card corner radius for dashboard cards.
@@ -37,9 +43,16 @@ enum ChartConstants {
   /// Standard badge vertical padding (for asset count badges).
   static let badgePaddingV: CGFloat = 2
 
-  /// Returns a color for a category at the given index, cycling through the palette.
+  /// Returns a color for a category at the given index. Uses the curated palette
+  /// for the first 11 indices, then generates distinct colors via golden angle
+  /// hue distribution for any index beyond that.
   static func color(forIndex index: Int) -> Color {
-    categoryColors[index % categoryColors.count]
+    if index < categoryColors.count {
+      return categoryColors[index]
+    }
+    // Golden angle (~137.5°) produces well-separated hues for any count.
+    let hue = Double(index) * 0.381966011250105  // (√5 - 1) / 2
+    return Color(hue: hue.truncatingRemainder(dividingBy: 1.0), saturation: 0.65, brightness: 0.8)
   }
 }
 
