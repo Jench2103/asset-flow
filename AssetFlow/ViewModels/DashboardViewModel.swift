@@ -33,7 +33,8 @@ private struct ResolvedPeriod {
 }
 
 /// Data point for portfolio value or TWR history charts.
-struct DashboardDataPoint {
+struct DashboardDataPoint: Identifiable {
+  var id: Date { date }
   let date: Date
   let value: Decimal
 }

@@ -25,7 +25,6 @@ struct CategoryDetailView: View {
   @State private var saveErrorMessage = ""
   @State private var valueChartRange: ChartTimeRange = .all
   @State private var allocationChartRange: ChartTimeRange = .all
-  @State private var hoveredValueDate: Date?
 
   let onDelete: () -> Void
 
@@ -123,44 +122,14 @@ struct CategoryDetailView: View {
       } else if points.isEmpty {
         Text("No data for selected period")
           .foregroundStyle(.secondary)
-      } else if points.count == 1 {
-        singlePointValueChart(points)
       } else {
-        valueLineChart(points)
-      }
-    } header: {
-      Text("Value History")
-    }
-  }
-
-  private func valueLineChart(_ points: [CategoryValueHistoryEntry]) -> some View {
-    let firstDate = points.first!.date
-    let lastDate = points.last!.date
-    let yValues = points.map { $0.totalValue.doubleValue }
-    let yMin = yValues.min()!
-    let yMax = yValues.max()!
-    return Chart(points) { entry in
-      LineMark(
-        x: .value("Date", entry.date),
-        y: .value("Value", entry.totalValue.doubleValue)
-      )
-      .foregroundStyle(.blue)
-      PointMark(
-        x: .value("Date", entry.date),
-        y: .value("Value", entry.totalValue.doubleValue)
-      )
-      .foregroundStyle(.blue)
-
-      if let hoveredValueDate, entry.date == hoveredValueDate {
-        RuleMark(x: .value("Date", hoveredValueDate))
-          .foregroundStyle(.secondary.opacity(0.5))
-          .lineStyle(StrokeStyle(dash: [4, 4]))
-          .annotation(
-            position: .top,
-            alignment: entry.date == firstDate
-              ? .leading
-              : entry.date == lastDate ? .trailing : .center
-          ) {
+        SingleSeriesLineChart(
+          data: points,
+          dateKeyPath: \.date,
+          valueOf: { $0.totalValue.doubleValue },
+          color: .blue,
+          height: ChartConstants.standardChartHeight,
+          tooltipContent: { entry in
             ChartTooltipView {
               Text(entry.date.settingsFormatted())
                 .font(.caption2)
@@ -168,49 +137,11 @@ struct CategoryDetailView: View {
                 .font(.caption.bold())
             }
           }
+        )
       }
+    } header: {
+      Text("Value History")
     }
-    .chartXScale(domain: firstDate...lastDate)
-    .chartYScale(domain: yMin...yMax)
-    .chartYAxis {
-      AxisMarks { value in
-        AxisGridLine()
-        AxisValueLabel {
-          if let val = value.as(Double.self) {
-            Text(ChartDataService.abbreviatedLabel(for: val))
-          }
-        }
-      }
-    }
-    .chartOverlay { proxy in
-      GeometryReader { _ in
-        Rectangle()
-          .fill(.clear)
-          .contentShape(Rectangle())
-          .onContinuousHoverWhenUnlocked { phase in
-            switch phase {
-            case .active(let location):
-              hoveredValueDate = ChartHelpers.findNearestDate(
-                at: location, in: proxy, points: points, dateKeyPath: \.date)
-
-            case .ended:
-              hoveredValueDate = nil
-            }
-          }
-      }
-    }
-    .frame(height: ChartConstants.standardChartHeight)
-  }
-
-  private func singlePointValueChart(_ points: [CategoryValueHistoryEntry]) -> some View {
-    Chart(points) { entry in
-      PointMark(
-        x: .value("Date", entry.date),
-        y: .value("Value", entry.totalValue.doubleValue)
-      )
-      .foregroundStyle(.blue)
-    }
-    .frame(height: ChartConstants.standardChartHeight)
   }
 
   // MARK: - Allocation History Section

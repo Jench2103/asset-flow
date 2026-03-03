@@ -1,0 +1,259 @@
+//
+//  SingleSeriesLineChart.swift
+//  AssetFlow
+//
+//  Created by Claude on 2026/03/03.
+//
+
+import Charts
+import SwiftUI
+
+/// A reusable single-series line chart with hover tooltip, RuleMark annotation,
+/// and optional extra chart content (e.g., target allocation lines).
+///
+/// Handles single-point vs multi-point rendering, Y-axis domain computation,
+/// three-way tooltip alignment (leading/center/trailing), and optional tap-to-navigate.
+struct SingleSeriesLineChart<
+  DataPoint: Identifiable, TooltipContent: View, ExtraContent: ChartContent
+>: View {
+  let data: [DataPoint]
+  let dateKeyPath: KeyPath<DataPoint, Date>
+  let valueOf: (DataPoint) -> Double
+  let color: Color
+  let height: CGFloat
+  let yAxisLabel: (Double) -> String
+  let tooltipContent: (DataPoint) -> TooltipContent
+  let yDomain: ((Double, Double) -> (Double, Double))?
+  let extraContent: ExtraContent
+  let onTapDate: ((Date) -> Void)?
+  let symbolSize: CGFloat
+
+  @State private var hoveredDate: Date?
+
+  init(
+    data: [DataPoint],
+    dateKeyPath: KeyPath<DataPoint, Date>,
+    valueOf: @escaping (DataPoint) -> Double,
+    color: Color,
+    height: CGFloat,
+    yAxisLabel: @escaping (Double) -> String = { ChartDataService.abbreviatedLabel(for: $0) },
+    tooltipContent: @escaping (DataPoint) -> TooltipContent,
+    yDomain: ((Double, Double) -> (Double, Double))? = nil,
+    onTapDate: ((Date) -> Void)? = nil,
+    symbolSize: CGFloat = 20,
+    @ChartContentBuilder extraContent: () -> ExtraContent
+  ) {
+    self.data = data
+    self.dateKeyPath = dateKeyPath
+    self.valueOf = valueOf
+    self.color = color
+    self.height = height
+    self.yAxisLabel = yAxisLabel
+    self.tooltipContent = tooltipContent
+    self.yDomain = yDomain
+    self.onTapDate = onTapDate
+    self.symbolSize = symbolSize
+    self.extraContent = extraContent()
+  }
+
+  var body: some View {
+    if data.count == 1 {
+      singlePointChart
+    } else {
+      lineChart
+    }
+  }
+
+  private var singlePointChart: some View {
+    let point = data[0]
+    let date = point[keyPath: dateKeyPath]
+    let value = valueOf(point)
+    let domain = yDomain?(value, value) ?? (value, value)
+    let yPadding = domain.0 == domain.1 ? max(abs(domain.0) * 0.1, 1) : 0.0
+    let dayInterval: TimeInterval = 86_400
+    return Chart {
+      extraContent
+
+      PointMark(
+        x: .value("Date", date),
+        y: .value("Value", value)
+      )
+      .foregroundStyle(color)
+      .symbolSize(symbolSize)
+
+      if hoveredDate == date {
+        RuleMark(x: .value("Date", date))
+          .foregroundStyle(.secondary.opacity(0.5))
+          .lineStyle(StrokeStyle(dash: [4, 4]))
+          .annotation(position: .top, alignment: .center) {
+            tooltipContent(point)
+          }
+      }
+    }
+    .chartXScale(
+      domain: date.addingTimeInterval(-dayInterval)...date.addingTimeInterval(dayInterval)
+    )
+    .chartXAxis {
+      AxisMarks(values: [date]) { _ in
+        AxisGridLine()
+        AxisValueLabel {
+          Text(date.settingsFormatted())
+        }
+      }
+    }
+    .chartYScale(domain: (domain.0 - yPadding)...(domain.1 + yPadding))
+    .chartYAxis {
+      AxisMarks { value in
+        AxisGridLine()
+        AxisValueLabel {
+          if let val = value.as(Double.self) {
+            Text(yAxisLabel(val))
+          }
+        }
+      }
+    }
+    .chartOverlay { proxy in
+      GeometryReader { _ in
+        Rectangle()
+          .fill(.clear)
+          .contentShape(Rectangle())
+          .onContinuousHoverWhenUnlocked { phase in
+            switch phase {
+            case .active(let location):
+              hoveredDate = ChartHelpers.findNearestDate(
+                at: location, in: proxy, points: data, dateKeyPath: dateKeyPath)
+
+            case .ended:
+              hoveredDate = nil
+            }
+          }
+          .onTapGesture { location in
+            if let onTapDate,
+              let tappedDate = ChartHelpers.findNearestDate(
+                at: location, in: proxy, points: data, dateKeyPath: dateKeyPath)
+            {
+              onTapDate(tappedDate)
+            }
+          }
+      }
+    }
+    .frame(height: height)
+  }
+
+  private var lineChart: some View {
+    let firstDate = data.first![keyPath: dateKeyPath]
+    let lastDate = data.last![keyPath: dateKeyPath]
+    let yValues = data.map { valueOf($0) }
+    let yMin = yValues.min()!
+    let yMax = yValues.max()!
+    let domain = yDomain?(yMin, yMax) ?? (yMin, yMax)
+    return Chart {
+      extraContent
+
+      ForEach(data) { point in
+        LineMark(
+          x: .value("Date", point[keyPath: dateKeyPath]),
+          y: .value("Value", valueOf(point))
+        )
+        .foregroundStyle(color)
+
+        PointMark(
+          x: .value("Date", point[keyPath: dateKeyPath]),
+          y: .value("Value", valueOf(point))
+        )
+        .foregroundStyle(color)
+        .symbolSize(symbolSize)
+
+        if let hoveredDate, point[keyPath: dateKeyPath] == hoveredDate {
+          RuleMark(x: .value("Date", hoveredDate))
+            .foregroundStyle(.secondary.opacity(0.5))
+            .lineStyle(StrokeStyle(dash: [4, 4]))
+            .annotation(
+              position: .top,
+              alignment: point[keyPath: dateKeyPath] == firstDate
+                ? .leading
+                : point[keyPath: dateKeyPath] == lastDate ? .trailing : .center
+            ) {
+              tooltipContent(point)
+            }
+        }
+      }
+    }
+    .chartXScale(domain: firstDate...lastDate)
+    .chartYScale(domain: domain.0...domain.1)
+    .chartYAxis {
+      AxisMarks { value in
+        AxisGridLine()
+        AxisValueLabel {
+          if let val = value.as(Double.self) {
+            Text(yAxisLabel(val))
+          }
+        }
+      }
+    }
+    .chartOverlay { proxy in
+      GeometryReader { _ in
+        Rectangle()
+          .fill(.clear)
+          .contentShape(Rectangle())
+          .onContinuousHoverWhenUnlocked { phase in
+            switch phase {
+            case .active(let location):
+              hoveredDate = ChartHelpers.findNearestDate(
+                at: location, in: proxy, points: data, dateKeyPath: dateKeyPath)
+
+            case .ended:
+              hoveredDate = nil
+            }
+          }
+          .onTapGesture { location in
+            if let onTapDate,
+              let date = ChartHelpers.findNearestDate(
+                at: location, in: proxy, points: data, dateKeyPath: dateKeyPath)
+            {
+              onTapDate(date)
+            }
+          }
+      }
+    }
+    .frame(height: height)
+  }
+}
+
+// MARK: - Empty Extra Content
+
+/// No-op chart content for ``SingleSeriesLineChart`` callers without extra marks.
+struct EmptyChartContent: ChartContent {
+  var body: some ChartContent {
+    ForEach(0..<0, id: \.self) { _ in
+      RuleMark(x: .value("", 0)).opacity(0)
+    }
+  }
+}
+
+extension SingleSeriesLineChart where ExtraContent == EmptyChartContent {
+  init(
+    data: [DataPoint],
+    dateKeyPath: KeyPath<DataPoint, Date>,
+    valueOf: @escaping (DataPoint) -> Double,
+    color: Color,
+    height: CGFloat,
+    yAxisLabel: @escaping (Double) -> String = { ChartDataService.abbreviatedLabel(for: $0) },
+    tooltipContent: @escaping (DataPoint) -> TooltipContent,
+    yDomain: ((Double, Double) -> (Double, Double))? = nil,
+    onTapDate: ((Date) -> Void)? = nil,
+    symbolSize: CGFloat = 20
+  ) {
+    self.data = data
+    self.dateKeyPath = dateKeyPath
+    self.valueOf = valueOf
+    self.color = color
+    self.height = height
+    self.yAxisLabel = yAxisLabel
+    self.tooltipContent = tooltipContent
+    self.yDomain = yDomain
+    self.onTapDate = onTapDate
+    self.symbolSize = symbolSize
+    self.extraContent = EmptyChartContent()
+  }
+}

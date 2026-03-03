@@ -18,8 +18,6 @@ struct CumulativeTWRLineChart: View {
   let totalSnapshotCount: Int
   @Binding var timeRange: ChartTimeRange
 
-  @State private var hoveredDate: Date?
-
   private var filteredPoints: [DashboardDataPoint] {
     let filtered = ChartDataService.filter(dataPoints, range: timeRange)
     guard timeRange != .all else { return filtered }
@@ -48,110 +46,27 @@ struct CumulativeTWRLineChart: View {
       emptyMessage("Insufficient data (need at least 2 snapshots)")
     } else if points.isEmpty {
       emptyMessage("Cannot calculate returns for selected period")
-    } else if points.count == 1 {
-      singlePointChart(points)
     } else {
-      lineChart(points)
-    }
-  }
-
-  private func lineChart(_ points: [DashboardDataPoint]) -> some View {
-    let firstDate = points.first!.date
-    let lastDate = points.last!.date
-    let yValues = points.map { $0.value.doubleValue * 100 }
-    let yMin = yValues.min()!
-    let yMax = yValues.max()!
-    return Chart(points, id: \.date) { point in
-      LineMark(
-        x: .value("Date", point.date),
-        y: .value("TWR", point.value.doubleValue * 100)
-      )
-      .foregroundStyle(.orange)
-
-      PointMark(
-        x: .value("Date", point.date),
-        y: .value("TWR", point.value.doubleValue * 100)
-      )
-      .foregroundStyle(.orange)
-      .symbolSize(20)
-
-      if let hoveredDate, point.date == hoveredDate {
-        RuleMark(x: .value("Date", hoveredDate))
-          .foregroundStyle(.secondary.opacity(0.5))
-          .lineStyle(StrokeStyle(dash: [4, 4]))
-          .annotation(
-            position: .top,
-            alignment: point.date == firstDate
-              ? .leading
-              : point.date == lastDate ? .trailing : .center
-          ) {
-            tooltipView(for: point)
-          }
-      }
-    }
-    .chartXScale(domain: firstDate...lastDate)
-    .chartYScale(domain: yMin...yMax)
-    .chartYAxis {
-      AxisMarks { value in
-        AxisGridLine()
-        AxisValueLabel {
-          if let val = value.as(Double.self) {
-            Text(Decimal(val).formattedPercentage())
+      SingleSeriesLineChart(
+        data: points,
+        dateKeyPath: \.date,
+        valueOf: { $0.value.doubleValue * 100 },
+        color: .orange,
+        height: ChartConstants.dashboardChartHeight,
+        yAxisLabel: { Decimal($0).formattedPercentage() },
+        tooltipContent: { point in
+          ChartTooltipView {
+            Text(point.date.settingsFormatted())
+              .font(.caption2)
+            Text((point.value * 100).formattedPercentage())
+              .font(.caption.bold())
           }
         }
-      }
-    }
-    .chartOverlay { proxy in
-      GeometryReader { _ in
-        Rectangle()
-          .fill(.clear)
-          .contentShape(Rectangle())
-          .onContinuousHoverWhenUnlocked { phase in
-            switch phase {
-            case .active(let location):
-              hoveredDate = ChartHelpers.findNearestDate(
-                at: location, in: proxy, points: points, dateKeyPath: \.date)
-
-            case .ended:
-              hoveredDate = nil
-            }
-          }
-      }
-    }
-    .frame(height: ChartConstants.dashboardChartHeight)
-  }
-
-  private func singlePointChart(_ points: [DashboardDataPoint]) -> some View {
-    Chart(points, id: \.date) { point in
-      PointMark(
-        x: .value("Date", point.date),
-        y: .value("TWR", point.value.doubleValue * 100)
       )
-      .foregroundStyle(.orange)
     }
-    .chartYAxis {
-      AxisMarks { value in
-        AxisGridLine()
-        AxisValueLabel {
-          if let val = value.as(Double.self) {
-            Text(Decimal(val).formattedPercentage())
-          }
-        }
-      }
-    }
-    .frame(height: ChartConstants.dashboardChartHeight)
   }
 
   private func emptyMessage(_ text: LocalizedStringKey) -> some View {
     ChartEmptyMessage(text: text, height: ChartConstants.dashboardChartHeight)
-  }
-
-  private func tooltipView(for point: DashboardDataPoint) -> some View {
-    ChartTooltipView {
-      Text(point.date.settingsFormatted())
-        .font(.caption2)
-      Text((point.value * 100).formattedPercentage())
-        .font(.caption.bold())
-    }
   }
 }
