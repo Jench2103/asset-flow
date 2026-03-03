@@ -10,11 +10,13 @@ import SwiftUI
 
 /// Single-category allocation percentage line chart for CategoryDetailView.
 ///
-/// Shows allocation % over time with a green line and Y-axis from 0-100%.
+/// Shows allocation % over time with a green line and a smart dynamic Y-axis.
+/// When a target allocation is set, displays a dashed orange reference line.
 /// Includes time range selector and hover tooltip.
 struct CategoryAllocationLineChart: View {
   let entries: [CategoryAllocationHistoryEntry]
   @Binding var timeRange: ChartTimeRange
+  let targetAllocationPercentage: Decimal?
 
   @State private var hoveredDate: Date?
 
@@ -23,11 +25,9 @@ struct CategoryAllocationLineChart: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      ChartTimeRangeSelector(selection: $timeRange)
+    ChartTimeRangeSelector(selection: $timeRange)
 
-      chartContent
-    }
+    chartContent
   }
 
   @ViewBuilder
@@ -47,35 +47,40 @@ struct CategoryAllocationLineChart: View {
   private func lineChart(_ points: [CategoryAllocationHistoryEntry]) -> some View {
     let firstDate = points.first!.date
     let lastDate = points.last!.date
-    return Chart(points) { entry in
-      LineMark(
-        x: .value("Date", entry.date),
-        y: .value("Allocation", entry.allocationPercentage.doubleValue)
-      )
-      .foregroundStyle(.green)
+    let (yMin, yMax) = yAxisDomain(for: points)
+    return Chart {
+      targetRuleMark()
 
-      PointMark(
-        x: .value("Date", entry.date),
-        y: .value("Allocation", entry.allocationPercentage.doubleValue)
-      )
-      .foregroundStyle(.green)
+      ForEach(points) { entry in
+        LineMark(
+          x: .value("Date", entry.date),
+          y: .value("Allocation", entry.allocationPercentage.doubleValue)
+        )
+        .foregroundStyle(.green)
 
-      if let hoveredDate, entry.date == hoveredDate {
-        RuleMark(x: .value("Date", hoveredDate))
-          .foregroundStyle(.secondary.opacity(0.5))
-          .lineStyle(StrokeStyle(dash: [4, 4]))
-          .annotation(
-            position: .top,
-            alignment: entry.date == firstDate
-              ? .leading
-              : entry.date == lastDate ? .trailing : .center
-          ) {
-            tooltipView(for: entry)
-          }
+        PointMark(
+          x: .value("Date", entry.date),
+          y: .value("Allocation", entry.allocationPercentage.doubleValue)
+        )
+        .foregroundStyle(.green)
+
+        if let hoveredDate, entry.date == hoveredDate {
+          RuleMark(x: .value("Date", hoveredDate))
+            .foregroundStyle(.secondary.opacity(0.5))
+            .lineStyle(StrokeStyle(dash: [4, 4]))
+            .annotation(
+              position: .top,
+              alignment: entry.date == firstDate
+                ? .leading
+                : entry.date == lastDate ? .trailing : .center
+            ) {
+              tooltipView(for: entry)
+            }
+        }
       }
     }
     .chartXScale(domain: firstDate...lastDate)
-    .chartYScale(domain: 0...100)
+    .chartYScale(domain: yMin...yMax)
     .chartYAxis {
       AxisMarks { value in
         AxisGridLine()
@@ -107,14 +112,19 @@ struct CategoryAllocationLineChart: View {
   }
 
   private func singlePointChart(_ points: [CategoryAllocationHistoryEntry]) -> some View {
-    Chart(points) { entry in
-      PointMark(
-        x: .value("Date", entry.date),
-        y: .value("Allocation", entry.allocationPercentage.doubleValue)
-      )
-      .foregroundStyle(.green)
+    let (yMin, yMax) = yAxisDomain(for: points)
+    return Chart {
+      targetRuleMark()
+
+      ForEach(points) { entry in
+        PointMark(
+          x: .value("Date", entry.date),
+          y: .value("Allocation", entry.allocationPercentage.doubleValue)
+        )
+        .foregroundStyle(.green)
+      }
     }
-    .chartYScale(domain: 0...100)
+    .chartYScale(domain: yMin...yMax)
     .chartYAxis {
       AxisMarks { value in
         AxisGridLine()
@@ -126,6 +136,35 @@ struct CategoryAllocationLineChart: View {
       }
     }
     .frame(height: ChartConstants.standardChartHeight)
+  }
+
+  @ChartContentBuilder
+  private func targetRuleMark() -> some ChartContent {
+    if let target = targetAllocationPercentage {
+      RuleMark(y: .value("Target", target.doubleValue))
+        .foregroundStyle(.orange.opacity(0.6))
+        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+        .annotation(position: .top, alignment: .leading) {
+          Text("Target: \(target.formattedPercentage())")
+            .font(.caption2)
+            .foregroundStyle(.orange)
+        }
+    }
+  }
+
+  private func yAxisDomain(for points: [CategoryAllocationHistoryEntry]) -> (Double, Double) {
+    let yValues = points.map { $0.allocationPercentage.doubleValue }
+    var dataMin = yValues.min()!
+    var dataMax = yValues.max()!
+    if let target = targetAllocationPercentage?.doubleValue {
+      dataMin = min(dataMin, target)
+      dataMax = max(dataMax, target)
+    }
+    if dataMin == dataMax {
+      dataMin = max(0, dataMin - 5)
+      dataMax = min(100, dataMax + 5)
+    }
+    return (dataMin, dataMax)
   }
 
   private func emptyMessage(_ text: LocalizedStringKey) -> some View {

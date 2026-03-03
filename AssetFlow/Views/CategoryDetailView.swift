@@ -219,7 +219,8 @@ struct CategoryDetailView: View {
     Section {
       CategoryAllocationLineChart(
         entries: viewModel.allocationHistory,
-        timeRange: $allocationChartRange
+        timeRange: $allocationChartRange,
+        targetAllocationPercentage: viewModel.category.targetAllocationPercentage
       )
     } header: {
       VStack(alignment: .leading, spacing: 2) {
