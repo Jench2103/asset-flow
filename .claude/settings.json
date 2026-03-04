@@ -3,5 +3,8 @@
     "swift-lsp@claude-plugins-official": true,
     "swift-engineering@claude-swift-engineering": true,
     "swiftui-expert@swiftui-expert-skill": true
+  },
+  "env": {
+    "ENABLE_LSP_TOOL": "1"
   }
 }
