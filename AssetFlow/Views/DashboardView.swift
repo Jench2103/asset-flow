@@ -26,6 +26,8 @@ struct DashboardView: View {
   @State private var categoryChartRange: ChartTimeRange = .all
   @State private var pieChartSelectedDate: Date?
 
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
   let onNavigateToSnapshots: (() -> Void)?
   let onNavigateToImport: (() -> Void)?
   let onSelectSnapshot: ((Date) -> Void)?
@@ -85,6 +87,20 @@ struct DashboardView: View {
         recentSnapshotsSection
       }
       .padding()
+    }
+    .background(alignment: .top) {
+      if !reduceTransparency {
+        RadialGradient(
+          colors: [
+            Color(red: 0.31, green: 0.47, blue: 1.0).opacity(0.12),
+            .clear,
+          ],
+          center: UnitPoint(x: 0.5, y: 0.2),
+          startRadius: 0,
+          endRadius: 400
+        )
+        .ignoresSafeArea()
+      }
     }
   }
 
@@ -363,23 +379,32 @@ private struct HeroMetricCard: View {
   let title: LocalizedStringKey
   let value: String
 
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+  @ScaledMetric(relativeTo: .largeTitle) private var heroFontSize: CGFloat = 29
+
   var body: some View {
     HStack {
       VStack(alignment: .leading) {
         Text(title)
           .font(.caption)
-          .foregroundStyle(.secondary)
+          .foregroundStyle(.primary.opacity(0.6))
         Spacer()
       }
 
       Spacer()
 
       Text(value)
-        .font(.largeTitle.bold())
+        .font(.system(size: heroFontSize, weight: .bold))
         .monospacedDigit()
         .lineLimit(1)
         .minimumScaleFactor(0.7)
         .contentTransition(.numericText())
+        .shadow(
+          color: reduceTransparency
+            ? .clear
+            : Color(red: 0.47, green: 0.71, blue: 1.0).opacity(0.15),
+          radius: 12
+        )
 
       Spacer()
     }
@@ -387,16 +412,21 @@ private struct HeroMetricCard: View {
     .frame(maxWidth: .infinity)
     .background {
       ZStack {
-        Rectangle().fill(.ultraThinMaterial)
+        Rectangle().fill(reduceTransparency ? .regularMaterial : .ultraThinMaterial)
         Rectangle().fill(.tint.opacity(0.06))
       }
     }
     .clipShape(RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius))
-    .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-    .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+    .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
+    .shadow(color: .black.opacity(0.2), radius: 5, y: 4)
     .overlay(
       RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
         .strokeBorder(.tint.opacity(0.15), lineWidth: 1)
+    )
+    .overlay(
+      RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
+        .stroke(.white.opacity(0.05), lineWidth: 1)
+        .blendMode(.plusLighter)
     )
     .accessibilityElement(children: .combine)
   }

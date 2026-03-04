@@ -141,7 +141,7 @@ struct CategoryAllocationPieChart: View {
     Chart(effectiveChartData, id: \.categoryName) { allocation in
       SectorMark(
         angle: .value("Value", allocation.value.doubleValue),
-        innerRadius: .ratio(0.4),
+        innerRadius: .ratio(0.35),
         angularInset: 1.0
       )
       .foregroundStyle(colorForCategory(allocation.categoryName))
@@ -188,6 +188,31 @@ struct CategoryAllocationPieChart: View {
               hoveredCategory = nil
             }
           }
+      }
+    }
+    .overlay {
+      GeometryReader { geometry in
+        let size = min(geometry.size.width, geometry.size.height)
+        let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
+        let outerRadius = size / 2
+        let innerRadius = outerRadius * 0.35
+
+        Path { path in
+          path.addEllipse(
+            in: CGRect(
+              x: center.x - outerRadius, y: center.y - outerRadius,
+              width: outerRadius * 2, height: outerRadius * 2))
+          path.addEllipse(
+            in: CGRect(
+              x: center.x - innerRadius, y: center.y - innerRadius,
+              width: innerRadius * 2, height: innerRadius * 2))
+        }
+        .fill(
+          .black.opacity(0.001)
+            .shadow(.inner(color: .black.opacity(0.3), radius: 6)),
+          style: FillStyle(eoFill: true)
+        )
+        .allowsHitTesting(false)
       }
     }
     .onChange(of: selectedAngle) { _, newValue in
@@ -259,7 +284,7 @@ struct CategoryAllocationPieChart: View {
         .fixedSize()
       VStack(alignment: .leading, spacing: 0) {
         Text(allocation.categoryName)
-          .font(.caption2)
+          .font(.caption2.weight(.medium))
           .lineLimit(1)
         Text(allocation.percentage.formattedPercentage())
           .font(.caption2)

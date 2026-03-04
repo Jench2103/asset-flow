@@ -170,24 +170,38 @@ struct ContentView: View {
   private var sidebar: some View {
     List(selection: sidebarBinding) {
       Section("Overview") {
-        Label(SidebarSection.dashboard.label, systemImage: SidebarSection.dashboard.systemImage)
-          .tag(SidebarSection.dashboard)
+        sidebarLabel(for: .dashboard)
       }
       Section("Portfolio") {
         ForEach(
           [SidebarSection.snapshots, .assets, .categories, .platforms], id: \.self
         ) { section in
-          Label(section.label, systemImage: section.systemImage)
-            .tag(section)
+          sidebarLabel(for: section)
         }
       }
       Section("Tools") {
         ForEach([SidebarSection.rebalancing, .importCSV], id: \.self) { section in
-          Label(section.label, systemImage: section.systemImage)
-            .tag(section)
+          sidebarLabel(for: section)
         }
       }
     }
+    .scrollContentBackground(.hidden)
+    .background {
+      Color(nsColor: .windowBackgroundColor)
+        .brightness(0.03)
+        .ignoresSafeArea()
+    }
+    .tint(Color.accentColor.opacity(0.9))
+  }
+
+  private func sidebarLabel(for section: SidebarSection) -> some View {
+    Label {
+      Text(section.label)
+    } icon: {
+      Image(systemName: section.systemImage)
+        .opacity(0.9)
+    }
+    .tag(section)
   }
 
   /// Custom binding that intercepts sidebar selection changes to check for unsaved import data.

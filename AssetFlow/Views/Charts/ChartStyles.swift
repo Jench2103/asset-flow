@@ -67,11 +67,16 @@ struct GlassCardModifier: ViewModifier {
     content
       .background(reduceTransparency ? .regularMaterial : .ultraThinMaterial)
       .clipShape(RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius))
-      .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-      .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+      .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
+      .shadow(color: .black.opacity(0.2), radius: 5, y: 4)
       .overlay(
         RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
           .stroke(.primary.opacity(0.1), lineWidth: 0.5)
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
+          .stroke(.white.opacity(0.05), lineWidth: 1)
+          .blendMode(.plusLighter)
       )
   }
 }
