@@ -18,7 +18,6 @@ struct CategoryValueLineChart: View {
 
   @State private var disabledCategories: Set<String> = []
   @State private var hoveredDate: Date?
-  @State private var hoveredX: CGFloat?
 
   /// Category names sorted alphabetically, with Uncategorized last.
   private var sortedCategoryNames: [String] {
@@ -77,26 +76,50 @@ struct CategoryValueLineChart: View {
       if data.isEmpty {
         emptyMessage("No data for selected period")
       } else {
-        Chart(data, id: \.id) { point in
-          LineMark(
-            x: .value("Date", point.date),
-            y: .value("Value", point.value.doubleValue)
-          )
-          .foregroundStyle(by: .value("Category", point.categoryName))
+        let dates = Set(data.map(\.date)).sorted()
+        let firstDate = dates.first!
+        let lastDate = dates.last!
+        let xPadding: TimeInterval = firstDate == lastDate ? 86_400 : 0
+        let yValues = data.map { $0.value.doubleValue }
+        let yMin = yValues.min()!
+        let yMax = yValues.max()!
+        let yPadding = yMin == yMax ? max(abs(yMin) * 0.1, 1.0) : 0.0
+        Chart {
+          ForEach(data, id: \.id) { point in
+            LineMark(
+              x: .value("Date", point.date),
+              y: .value("Value", point.value.doubleValue)
+            )
+            .foregroundStyle(by: .value("Category", point.categoryName))
 
-          PointMark(
-            x: .value("Date", point.date),
-            y: .value("Value", point.value.doubleValue)
-          )
-          .foregroundStyle(by: .value("Category", point.categoryName))
-          .symbolSize(15)
+            PointMark(
+              x: .value("Date", point.date),
+              y: .value("Value", point.value.doubleValue)
+            )
+            .foregroundStyle(by: .value("Category", point.categoryName))
+            .symbolSize(15)
+          }
 
-          if let hoveredDate, point.date == hoveredDate {
+          if let hoveredDate {
             RuleMark(x: .value("Date", hoveredDate))
               .foregroundStyle(.secondary.opacity(0.5))
               .lineStyle(StrokeStyle(dash: [4, 4]))
+              .annotation(
+                position: .top,
+                alignment: hoveredDate == firstDate
+                  ? .leading
+                  : hoveredDate == lastDate ? .trailing : .center,
+                spacing: 4,
+                overflowResolution: .init(x: .fit, y: .fit)
+              ) {
+                categoryTooltipView(for: hoveredDate, data: data)
+              }
           }
         }
+        .chartXScale(
+          domain: firstDate.addingTimeInterval(-xPadding)...lastDate.addingTimeInterval(xPadding)
+        )
+        .chartYScale(domain: (yMin - yPadding)...(yMax + yPadding))
         .chartForegroundStyleScale(
           domain: enabledCategoryNames,
           range: enabledCategoryNames.map { colorForCategory($0) }
@@ -113,34 +136,18 @@ struct CategoryValueLineChart: View {
         }
         .chartLegend(.hidden)
         .chartOverlay { proxy in
-          GeometryReader { geometry in
-            Color.clear
-              .contentShape(Rectangle())
-              .onContinuousHoverWhenUnlocked { phase in
-                switch phase {
-                case .active(let location):
-                  hoveredDate = ChartHelpers.findNearestDate(
-                    at: location, in: proxy, points: data, dateKeyPath: \.date)
-                  hoveredX = location.x
+          Color.clear
+            .contentShape(Rectangle())
+            .onContinuousHoverWhenUnlocked { phase in
+              switch phase {
+              case .active(let location):
+                hoveredDate = ChartHelpers.findNearestDate(
+                  at: location, in: proxy, points: data, dateKeyPath: \.date)
 
-                case .ended:
-                  hoveredDate = nil
-                  hoveredX = nil
-                }
+              case .ended:
+                hoveredDate = nil
               }
-
-            if let hoveredDate, let xPos = hoveredX {
-              let tooltipMaxWidth: CGFloat = 180
-              let halfWidth = tooltipMaxWidth / 2
-              let clampedX = min(
-                max(xPos, halfWidth), geometry.size.width - halfWidth)
-              categoryTooltipView(for: hoveredDate, data: data)
-                .frame(maxWidth: tooltipMaxWidth)
-                .fixedSize(horizontal: false, vertical: true)
-                .allowsHitTesting(false)
-                .position(x: clampedX, y: 40)
             }
-          }
         }
         .frame(height: ChartConstants.dashboardChartHeight)
       }

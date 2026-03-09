@@ -89,7 +89,7 @@ Stateless enums or classes with no direct SwiftData dependency:
 
 **Use `.onHoverWhenUnlocked()` and `.onContinuousHoverWhenUnlocked()` instead of `.onHover()` and `.onContinuousHover()`:** Hover interactions (chart tooltips, highlight effects) can leak financial data through the lock overlay. The lock-aware variants gate callbacks behind the `isAppLocked` environment key, resetting hover state (`false` / `.ended`) when locked. Defined in `Utilities/WhenUnlockedModifiers.swift`.
 
-**Chart requirements:** Every chart in `Views/Charts/` needs: hover tooltip (`.chartOverlay` + `onContinuousHoverWhenUnlocked` + `RuleMark`), empty state messages (no data, no data for time range, single data point), click-to-navigate where specified, `ChartTimeRangeSelector` binding.
+**Chart requirements:** Every chart in `Views/Charts/` needs: hover tooltip (`.annotation()` on `RuleMark` with `overflowResolution` for positioning, `.chartOverlay` + `onContinuousHoverWhenUnlocked` for hover detection), pinned axis domains (`.chartXScale(domain:)` and `.chartYScale(domain:)` to prevent shifts from conditional marks), empty state messages (no data, no data for time range, single data point), click-to-navigate where specified, `ChartTimeRangeSelector` binding.
 
 ## Naming
 
