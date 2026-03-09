@@ -158,3 +158,6 @@ buildServer.json
 
 # Documentation
 docs/build/
+
+# Generated demo data
+scripts/output/
