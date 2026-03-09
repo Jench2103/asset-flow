@@ -101,7 +101,14 @@ brew install swift-format
 brew install swiftlint
 ```
 
-These tools are managed by pre-commit hooks, which will automatically format and lint your code before you commit.
+Set up the pre-commit hooks via a project-local [uv](https://docs.astral.sh/uv/) virtual environment:
+
+```bash
+uv sync
+uv run pre-commit install
+```
+
+These hooks will automatically format and lint your code before you commit.
 
 ## Development
 

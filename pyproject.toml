@@ -1,0 +1,6 @@
+[project]
+name = "assetflow-dev"
+version = "0.0.0"
+description = "Development tools for AssetFlow"
+requires-python = ">=3.11"
+dependencies = ["pre-commit"]

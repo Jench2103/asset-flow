@@ -142,6 +142,9 @@ iOSInjectionProject/
 # xcode-build-server (machine-specific, regenerate with: xcode-build-server config -scheme AssetFlow -project AssetFlow.xcodeproj)
 buildServer.json
 
+# Python virtual environment (uv)
+.venv/
+
 # Custom additions for AssetFlow
 *.swp
 *.swo
@@ -158,6 +161,7 @@ buildServer.json
 
 # Documentation
 docs/build/
+Issues/
 
 # Generated demo data
 scripts/output/

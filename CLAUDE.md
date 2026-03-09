@@ -52,7 +52,8 @@ Before completing any task, review and update affected docs. Key mappings:
 ## Code Quality
 
 - `swift-format` (config: `.swift-format`) and `SwiftLint` (config: `.swiftlint.yml`)
-- Pre-commit hooks run both automatically. Manual: `pre-commit run --all-files`
+- Pre-commit runs from a project-local uv venv (`.venv/`). Setup: `uv sync && uv run pre-commit install`
+- Pre-commit hooks run both automatically. Manual: `uv run pre-commit run --all-files`
 - Fix all compilation warnings before committing — treat warnings as errors
 
 ## Critical Conventions

@@ -10,12 +10,14 @@ Before you begin development, ensure you have the following installed:
 - **macOS 15.0+** (for development and running the app)
 - **Git** (for version control)
 - **Homebrew** (recommended for tool installation)
+- **[uv](https://docs.astral.sh/uv/)** (Python package manager for pre-commit venv)
 
 ### Required Tools
 
 - **swift-format** - Code formatting
 - **SwiftLint** - Code style enforcement
-- **pre-commit** - Git hooks for automation
+- **uv** - Python virtual environment and package manager
+- **pre-commit** - Git hooks for automation (installed via uv venv)
 
 ### Initial Setup
 
@@ -39,9 +41,9 @@ Before you begin development, ensure you have the following installed:
    brew install swift-format
    brew install swiftlint
 
-   # Install pre-commit to automate checks
-   brew install pre-commit
-   pre-commit install
+   # Set up pre-commit in a project-local uv virtual environment
+   uv sync
+   uv run pre-commit install
    ```
 
 1. **Build the Project**
@@ -111,7 +113,7 @@ git checkout -b feature/your-feature-name
 1. Make code changes
 1. Run pre-commit checks:
    ```bash
-   pre-commit run --all-files
+   uv run pre-commit run --all-files
    ```
 1. Build:
    ```bash
@@ -136,7 +138,7 @@ swift-format lint --strict --recursive --parallel .
 swiftlint --fix
 
 # Format markdown only
-pre-commit run mdformat --all-files
+uv run pre-commit run mdformat --all-files
 ```
 
 ### 3. Pre-Commit Checks
@@ -158,14 +160,14 @@ Pre-commit hooks are configured in `.pre-commit-config.yaml` and run automatical
 **Setup Pre-commit Hooks**:
 
 ```bash
-# Install pre-commit (if not already installed)
-brew install pre-commit
+# Set up the uv virtual environment (if not already created)
+uv sync
 
 # Install hooks for this repository
-pre-commit install
+uv run pre-commit install
 
 # Run hooks manually on all files
-pre-commit run --all-files
+uv run pre-commit run --all-files
 ```
 
 ### 4. Committing Changes
