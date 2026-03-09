@@ -5,6 +5,7 @@
 //  Created by Claude on 2025/10/28.
 //
 
+import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -291,6 +292,17 @@ struct SettingsView: View {
         localized: "Backup restored successfully.", table: "Settings")
       isError = false
       showResultAlert = true
+
+      // Fetch missing exchange rates for restored snapshots
+      Task {
+        let service = ExchangeRateService()
+        let snapshots = (try? modelContext.fetch(FetchDescriptor<Snapshot>())) ?? []
+        await service.fetchMissingRates(
+          snapshots: snapshots,
+          displayCurrency: settingsService.mainCurrency,
+          modelContext: modelContext
+        )
+      }
     } catch {
       resultMessage = error.localizedDescription
       isError = true

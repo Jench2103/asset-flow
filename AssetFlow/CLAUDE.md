@@ -55,7 +55,7 @@ Stateless enums or classes with no direct SwiftData dependency:
 - **SettingsService** -- `@Observable @MainActor class`, app-wide settings (currency, date format, default platform)
 - **AuthenticationService** -- `@Observable @MainActor class` singleton, app lock via LocalAuthentication (Touch ID, Apple Watch, system password)
 - **CurrencyService** -- `@Observable @MainActor class` singleton (`static let shared`), currency data with UserDefaults caching
-- **ExchangeRateService** -- `final class` (`@unchecked Sendable`), fetches rates from cdn.jsdelivr.net, graceful degradation when offline
+- **ExchangeRateService** -- `final class` (`@unchecked Sendable`), fetches rates from cdn.jsdelivr.net, batch-fetches missing rates on launch and after restore, graceful degradation when offline
 - **CurrencyConversionService** -- `enum`, stateless currency conversion using ExchangeRate data, returns unconverted values when rates unavailable
 - **ChartDataService** -- `enum`, time range filtering, TWR rebasing (`rebasedTWR`), and Y-axis abbreviation
 - **DateFormatStyle** -- `enum`, user-selectable date formats → `Date.FormatStyle.DateStyle`

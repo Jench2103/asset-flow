@@ -71,6 +71,8 @@ Where `rates[baseCurrency]` is implicitly 1.0. Cross-rate conversion is used whe
 
 **Graceful Degradation**: If exchange rate is nil or a currency is missing from rates, the original unconverted value is returned. This ensures the app works offline without crashing. An error banner is shown when rates cannot be fetched.
 
+**Auto-Fetch Missing Rates**: On app launch and after backup restore, `ExchangeRateService.fetchMissingRates()` scans all snapshots and fetches exchange rates for any that need currency conversion but lack an `ExchangeRate`. This covers snapshots created offline, with failed fetches, or restored from backups (especially v2 backups which lack `exchange_rates.csv`). Fetches run sequentially and silently skip failures.
+
 ### Category Allocation
 
 For each snapshot, asset values are converted to the display currency before computing allocation:

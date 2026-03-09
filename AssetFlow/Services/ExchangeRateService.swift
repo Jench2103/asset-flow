@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftData
 
 /// Errors that can occur when fetching exchange rates.
 enum ExchangeRateError: Error, LocalizedError {
@@ -93,6 +94,61 @@ final class ExchangeRateService: @unchecked Sendable {
     }
 
     return rates
+  }
+
+  /// Batch-fetches missing exchange rates for snapshots that need currency conversion.
+  ///
+  /// Skips snapshots that already have an `ExchangeRate` or don't need conversion
+  /// (all assets and cash flows use the display currency). Fetches sequentially to
+  /// avoid API hammering. Silently continues on per-snapshot errors.
+  ///
+  /// - Parameters:
+  ///   - snapshots: The snapshots to check and fetch rates for
+  ///   - displayCurrency: The user's main display currency code
+  ///   - modelContext: The model context to insert new `ExchangeRate` objects into
+  @MainActor
+  func fetchMissingRates(
+    snapshots: [Snapshot],
+    displayCurrency: String,
+    modelContext: ModelContext
+  ) async {
+    let display = displayCurrency.lowercased()
+
+    for snapshot in snapshots {
+      // Skip if already has an exchange rate
+      if snapshot.exchangeRate != nil {
+        continue
+      }
+
+      // Check if any assets or cash flows use a different currency
+      let assetValues = snapshot.assetValues ?? []
+      let cashFlows = snapshot.cashFlowOperations ?? []
+
+      let needsConversion =
+        assetValues.contains {
+          let c = $0.asset?.currency ?? ""
+          return !c.isEmpty && c.lowercased() != display
+        }
+        || cashFlows.contains {
+          !$0.currency.isEmpty && $0.currency.lowercased() != display
+        }
+
+      guard needsConversion else { continue }
+
+      do {
+        let rates = try await fetchRates(for: snapshot.date, baseCurrency: display)
+        let ratesJSON = try JSONEncoder().encode(rates)
+        let er = ExchangeRate(
+          baseCurrency: display,
+          ratesJSON: ratesJSON,
+          fetchDate: snapshot.date
+        )
+        er.snapshot = snapshot
+        modelContext.insert(er)
+      } catch {
+        continue
+      }
+    }
   }
 
   /// Fetches the full list of supported currencies.

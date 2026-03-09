@@ -417,6 +417,14 @@ final class ExchangeRateService {
 
     /// Fetch the full currency list (code → name)
     func fetchCurrencyList() async throws -> [String: String]
+
+    /// Batch-fetch missing exchange rates for snapshots that need conversion
+    @MainActor
+    func fetchMissingRates(
+        snapshots: [Snapshot],
+        displayCurrency: String,
+        modelContext: ModelContext
+    ) async
 }
 ```
 
@@ -427,6 +435,14 @@ final class ExchangeRateService {
 - Free, no API key required
 - Stateless — callers cache results in SwiftData via `ExchangeRate` model
 - Accepts `URLSession` parameter for dependency injection in tests
+
+**Batch Fetch (`fetchMissingRates`)**:
+
+- Skips snapshots that already have an `ExchangeRate` or don't need conversion (all assets/cash flows use display currency)
+- Fetches sequentially to avoid API hammering
+- Silently continues on per-snapshot errors (one failure doesn't block others)
+- Called on app launch (`ContentView.task`) and after backup restore (`SettingsView.performRestore()`)
+- `@MainActor` because it accepts `ModelContext` for inserting `ExchangeRate` objects
 
 **Error Cases**:
 

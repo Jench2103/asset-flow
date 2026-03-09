@@ -162,6 +162,13 @@ struct ContentView: View {
     }
     .task {
       await CurrencyService.shared.loadFromAPI()
+      let service = ExchangeRateService()
+      let snapshots = (try? modelContext.fetch(FetchDescriptor<Snapshot>())) ?? []
+      await service.fetchMissingRates(
+        snapshots: snapshots,
+        displayCurrency: SettingsService.shared.mainCurrency,
+        modelContext: modelContext
+      )
     }
   }
 
