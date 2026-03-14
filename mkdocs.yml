@@ -38,6 +38,9 @@ theme:
 
 plugins:
   - search
+  - mike:
+      alias_type: symlink
+      canonical_version: latest
   - i18n:
       docs_structure: folder
       languages:
@@ -76,6 +79,12 @@ nav:
           - Keyboard Shortcuts: user-guide/reference/keyboard-shortcuts.md
       - FAQ: user-guide/faq.md
       - Troubleshooting: user-guide/troubleshooting.md
+
+extra:
+  version:
+    provider: mike
+    default: latest
+    alias: true
 
 markdown_extensions:
   - admonition

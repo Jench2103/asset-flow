@@ -52,6 +52,7 @@ Before completing any task, review and update affected docs. Key mappings:
 ## Code Quality
 
 - `swift-format` (config: `.swift-format`) and `SwiftLint` (config: `.swiftlint.yml`)
+- **Python dependencies**: Use `uv add --group <group> <package>` to add dependencies (never edit `pyproject.toml` directly). Groups: `dev` (pre-commit), `docs` (mkdocs/mike)
 - Pre-commit runs from a project-local uv venv (`.venv/`). Setup: `uv sync && uv run pre-commit install`
 - Pre-commit hooks run both automatically. Manual: `uv run pre-commit run --all-files`
 - Fix all compilation warnings before committing — treat warnings as errors

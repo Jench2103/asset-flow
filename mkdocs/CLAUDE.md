@@ -7,9 +7,11 @@ Documentation site for AssetFlow, built with [Material for MkDocs](https://squid
 ## Commands
 
 ```bash
-uv run mkdocs serve          # Local dev server at http://127.0.0.1:8000
-uv run mkdocs build          # Build static site to site/
-uv run mkdocs gh-deploy      # Deploy to GitHub Pages
+uv sync                        # Install all dependencies (includes docs group)
+uv run mkdocs serve           # Local dev server at http://127.0.0.1:8000
+uv run mkdocs build           # Build static site to site/
+uv run mike deploy VERSION    # Deploy a versioned snapshot via mike
+uv run mike serve              # Preview all deployed versions locally
 ```
 
 ## Site Structure
@@ -21,6 +23,10 @@ Two navbar tabs: **Home** (project landing page) and **User Guide** (all user-fa
 Uses `mkdocs-static-i18n` with folder-based layout. English: `mkdocs/en/`. Chinese (Taiwanese): `mkdocs/zh-TW/` (mirrors `en/` structure). Screenshots in `mkdocs/assets/images/` are shared across languages.
 
 To add a language: create the folder, add the locale to `mkdocs.yml > plugins > i18n > languages`.
+
+## Versioning
+
+Uses [mike](https://github.com/jimporter/mike) for multi-version docs. Config: `extra.version` in `mkdocs.yml`. CI deploys `dev` on pushes to `main` and a tagged version on each GitHub release (see `.github/workflows/docs.yml`). The `latest` alias always points to the most recent release. Do not use `mkdocs gh-deploy` directly; always deploy through mike.
 
 ## Images
 

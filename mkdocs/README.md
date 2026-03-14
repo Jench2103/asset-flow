@@ -68,10 +68,22 @@ The site uses [mkdocs-static-i18n](https://github.com/ultrabug/mkdocs-static-i18
 1. Add the locale to `mkdocs.yml` under `plugins > i18n > languages`.
 1. Translate the content. Screenshots in `assets/images/` are shared across all languages.
 
-## Deployment
+## Versioning
 
-The site is deployed to GitHub Pages. To deploy manually:
+The site uses [mike](https://github.com/jimporter/mike) for version switching. Each release tag gets its own version, and a `latest` alias always points to the most recent release.
+
+- **Automatic deployment**: The `docs.yml` GitHub Actions workflow deploys `dev` on pushes to `main` (when docs change) and a versioned snapshot on each release.
+- **Version selector**: A dropdown in the header lets readers switch between versions.
+
+### Manual deployment
 
 ```bash
-uv run mkdocs gh-deploy
+# Deploy a specific version with the "latest" alias
+uv run mike deploy --push --update-aliases v1.0.0 latest
+
+# Set the default redirect (root URL → latest)
+uv run mike set-default --push latest
+
+# Preview all deployed versions locally
+uv run mike serve
 ```

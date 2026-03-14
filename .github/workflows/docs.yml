@@ -1,0 +1,65 @@
+name: Documentation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - mkdocs/**
+      - mkdocs.yml
+    tags-ignore:
+      - "**"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-dev:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --only-group docs
+
+      - name: Configure Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy dev docs
+        run: uv run mike deploy --push --update-aliases dev
+
+  deploy-release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --only-group docs
+
+      - name: Configure Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy versioned docs
+        run: |
+          uv run mike deploy --push --update-aliases ${{ github.event.release.tag_name }} latest
+          uv run mike set-default --push latest
