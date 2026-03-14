@@ -9,7 +9,10 @@ repos:
       - id: check-json
       - id: check-merge-conflict
       - id: check-yaml
+        exclude: ^mkdocs\.yml$
+      - id: check-yaml
         args: ["--unsafe"]
+        files: ^mkdocs\.yml$
       - id: mixed-line-ending
         args: ["--fix=lf"]
       - id: pretty-format-json

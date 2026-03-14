@@ -49,7 +49,8 @@ mkdocs/
 │       ├── settings/
 │       ├── reference/
 │       ├── faq.md
-│       └── troubleshooting.md
+│       ├── troubleshooting.md
+│       └── changelog.md
 ├── zh-TW/                  # Chinese (Taiwanese), mirrors en/ structure
 ├── assets/
 │   └── images/             # Screenshots shared across languages (Git LFS)
