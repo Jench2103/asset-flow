@@ -1,0 +1,91 @@
+# Snapshots
+
+Snapshots are the core concept in AssetFlow. Each snapshot captures your entire portfolio's state at a specific point in time — like a photograph of your finances. By comparing snapshots over time, AssetFlow can calculate your performance, track allocation changes, and show you how your portfolio evolves.
+
+## Snapshot List
+
+The left side of the Snapshots view shows all your snapshots, grouped by time period: **This Month**, **Previous 3 Months**, **Previous 6 Months**, **Previous Year**, and **Older**.
+
+Each row displays:
+
+- Snapshot date
+- Platform badges (up to 3 visible, with a **+N** overflow indicator if you have more)
+- Total portfolio value
+- Asset count
+
+Right-click any snapshot for a context menu with the option to **Delete** it.
+
+![Snapshot list](../../assets/images/snapshot-list.png)
+
+## Creating a New Snapshot
+
+Click the **+** button in the toolbar or press ++cmd+n++ to create a new snapshot.
+
+You'll be asked to:
+
+1. **Choose a date** — the snapshot date cannot be in the future, and you can't have two snapshots on the same date.
+1. **Toggle Copy from Latest** — when enabled, all asset values from your most recent snapshot are carried forward into the new one. This is incredibly useful for monthly updates where most values stay the same.
+
+![Create snapshot](../../assets/images/snapshot-create.png)
+
+!!! tip
+
+    Use **Copy from Latest** when doing monthly updates — then just edit the values that changed. This saves a lot of time compared to entering every asset from scratch.
+
+## Snapshot Detail
+
+The right side shows the detail view for the selected snapshot.
+
+### Summary
+
+At the top, you'll see:
+
+- **Total Value** — the sum of all assets in this snapshot
+- **Net Cash Flow** — total deposits minus withdrawals, with the number of operations shown
+- **Exchange Rate Status** — whether rates have been fetched for this snapshot's date
+
+### Asset Breakdown
+
+A table listing every asset in the snapshot with its market value. For multi-currency assets, both the original currency value and the converted value are shown.
+
+- **Right-click** an asset to edit its value or remove it from the snapshot.
+- **Add Asset** — click to add an existing asset to this snapshot, or create a new asset on the spot.
+
+### Category Allocation
+
+Shows all categories represented in this snapshot, with their values and percentage of the total portfolio.
+
+### Exchange Rates
+
+Displays the exchange rates used for currency conversions. Rates are auto-fetched when you create a snapshot. If fetching failed, you'll see a **Retry** button to try again.
+
+### Cash Flow Operations
+
+Lists all deposits and withdrawals recorded for this snapshot. Right-click any entry to edit or remove it. Use the **Add Cash Flow** button to record a new deposit or withdrawal.
+
+![Snapshot detail](../../assets/images/snapshot-detail.png)
+
+## Editing Asset Values
+
+There are two ways to edit an asset's value within a snapshot:
+
+1. **Right-click** the asset in the breakdown and select **Edit Value**.
+1. **Double-click** the value directly.
+
+A popover will appear where you can enter the new market value.
+
+![Edit value](../../assets/images/snapshot-edit-value.png)
+
+## Deleting a Snapshot
+
+To delete a snapshot, scroll to the **Danger Zone** at the bottom of the snapshot detail view and click **Delete Snapshot**. A confirmation dialog will appear showing the snapshot date, asset count, and cash flow count so you know exactly what will be removed.
+
+!!! warning
+
+    Deleting a snapshot permanently removes all recorded values and cash flows for that date. The assets themselves are **not** deleted — they will still exist and appear in other snapshots.
+
+## See also
+
+- [Cash Flows](cash-flows.md): Record deposits and withdrawals for each snapshot
+- [Assets](assets.md): Manage your individual investments
+- [Import CSV](import-csv.md): Bulk-import snapshot data from a spreadsheet

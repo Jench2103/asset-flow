@@ -156,6 +156,10 @@ The application follows the MVVM (Model-View-ViewModel) architecture pattern:
 - Optional app lock with Touch ID and system password authentication
 - Localization support (English and Traditional Chinese)
 
+## Documentation
+
+The user guide and documentation site is built with [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/). Source files live in the [`mkdocs/`](mkdocs/) directory. See [`mkdocs/README.md`](mkdocs/README.md) for setup and development instructions.
+
 ## Contributing
 
 This is a personal project. Contributions, issues, and feature requests are welcome.

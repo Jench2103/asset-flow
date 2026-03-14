@@ -1,0 +1,91 @@
+site_name: AssetFlow
+site_description: A macOS app for snapshot-based portfolio management and asset allocation tracking.
+docs_dir: mkdocs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  favicon: assets/images/favicon.png
+  logo: assets/images/favicon.png
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: folder
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: zh-TW
+          name: 中文（台灣）
+          build: true
+
+nav:
+  - Home: index.md
+  - User Guide:
+      - user-guide/index.md
+      - Getting Started:
+          - user-guide/getting-started/index.md
+          - Quick Start: user-guide/getting-started/quick-start.md
+      - Guide:
+          - Dashboard: user-guide/guide/dashboard.md
+          - Performance Metrics: user-guide/guide/performance-metrics.md
+          - Snapshots: user-guide/guide/snapshots.md
+          - Assets: user-guide/guide/assets.md
+          - Categories: user-guide/guide/categories.md
+          - Platforms: user-guide/guide/platforms.md
+          - Cash Flows: user-guide/guide/cash-flows.md
+          - Rebalancing: user-guide/guide/rebalancing.md
+          - Import CSV: user-guide/guide/import-csv.md
+      - Settings:
+          - Preferences: user-guide/settings/preferences.md
+          - Security: user-guide/settings/security.md
+          - Backup & Restore: user-guide/settings/backup-restore.md
+      - Reference:
+          - CSV Format: user-guide/reference/csv-format.md
+          - Currencies & Exchange Rates: user-guide/reference/currencies.md
+          - Keyboard Shortcuts: user-guide/reference/keyboard-shortcuts.md
+      - FAQ: user-guide/faq.md
+      - Troubleshooting: user-guide/troubleshooting.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.keys
+  - toc:
+      permalink: true

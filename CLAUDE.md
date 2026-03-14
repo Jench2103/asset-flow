@@ -65,3 +65,7 @@ Before completing any task, review and update affected docs. Key mappings:
 - **Tooltip help text**: Always use `.helpWhenUnlocked("…")` instead of `.help("…")`. The app uses `AuthenticationService` for app lock; `.help()` exposes tooltip content on the lock screen, while `.helpWhenUnlocked()` only shows tooltips after the user has authenticated.
 - **Hover interactions**: Always use `.onHoverWhenUnlocked()` and `.onContinuousHoverWhenUnlocked()` instead of `.onHover()` and `.onContinuousHover()`. Hover effects (chart tooltips, highlights) can leak data through the lock overlay. See `AssetFlow/Utilities/WhenUnlockedModifiers.swift`.
 - **macOS only (v1)**: No iOS/iPadOS. No `#if os(...)` needed.
+
+## Notes
+
+- Codex will review your changes after you complete every tasks.
