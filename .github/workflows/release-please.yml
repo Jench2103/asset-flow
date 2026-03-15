@@ -88,6 +88,35 @@ jobs:
             git push
           fi
 
+  deploy-docs:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --only-group docs
+
+      - name: Configure Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy versioned docs
+        run: |
+          uv run mike deploy --push --update-aliases ${{ needs.release-please.outputs.tag_name }} latest
+          uv run mike set-default --push latest
+
   build-and-upload:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created }}
