@@ -4,6 +4,9 @@ site_url: https://Jench2103.github.io/asset-flow/
 repo_url: https://github.com/Jench2103/asset-flow
 repo_name: Jench2103/AssetFlow
 docs_dir: mkdocs/
+exclude_docs: |
+  CLAUDE.md
+  README.md
 
 theme:
   name: material
