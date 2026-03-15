@@ -9,8 +9,9 @@ Before you begin development, ensure you have the following installed:
 - **Xcode 26.3+** (with Command Line Tools)
 - **macOS 15.0+** (for development and running the app)
 - **Git** (for version control)
+- **[Git LFS](https://git-lfs.com/)** (for documentation screenshot images)
 - **Homebrew** (recommended for tool installation)
-- **[uv](https://docs.astral.sh/uv/)** (Python package manager for pre-commit venv)
+- **[uv](https://docs.astral.sh/uv/)** (Python package manager for pre-commit and docs dependencies)
 
 ### Required Tools
 
@@ -18,6 +19,7 @@ Before you begin development, ensure you have the following installed:
 - **SwiftLint** - Code style enforcement
 - **uv** - Python virtual environment and package manager
 - **pre-commit** - Git hooks for automation (installed via uv venv)
+- **[Material for MkDocs](https://squidfunk.github.io/mkdocs-material/)** - Documentation site (installed via uv `docs` group)
 
 ### Initial Setup
 
@@ -40,6 +42,11 @@ Before you begin development, ensure you have the following installed:
    # Install formatting and linting tools
    brew install swift-format
    brew install swiftlint
+
+   # Install Git LFS (for documentation screenshots)
+   brew install git-lfs
+   git lfs install
+   git lfs pull
 
    # Set up pre-commit in a project-local uv virtual environment
    uv sync
@@ -75,6 +82,7 @@ AssetFlow/
 +-- AssetFlowTests/             # Test target (642+ tests across 44 files)
 +-- AssetFlow.xcodeproj/        # Xcode project
 +-- Documentation/              # Design documents (this folder)
++-- mkdocs/                     # Documentation site source (Material for MkDocs)
 +-- .gitignore                  # Git ignore rules
 +-- .swiftlint.yml              # SwiftLint configuration
 +-- .swift-format               # swift-format configuration
@@ -150,6 +158,9 @@ Pre-commit hooks are configured in `.pre-commit-config.yaml` and run automatical
 - **Swift formatting**: Formats Swift code with swift-format
 - **Swift linting**: Checks code style with SwiftLint
 - **Markdown formatting**: Formats Markdown files with mdformat
+- **MkDocs markdown formatting**: Formats MkDocs content with mdformat-mkdocs
+- **Spelling check**: Checks spelling in documentation files with codespell
+- **uv lock**: Validates `uv.lock` is up to date with `pyproject.toml`
 - **Trailing whitespace**: Removes trailing whitespace
 - **Case conflicts**: Checks for case-sensitive filename conflicts
 - **Merge conflicts**: Prevents committing merge conflict markers
@@ -443,6 +454,38 @@ xcodebuild -importLocalizations -project AssetFlow.xcodeproj -localizationPath .
 
 ______________________________________________________________________
 
+## Documentation Site
+
+The user guide is built with [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/). Source files live in `mkdocs/` and the configuration is in `mkdocs.yml`.
+
+### Local Development
+
+```bash
+# Start the live-reloading dev server (http://127.0.0.1:8000)
+uv run mkdocs serve
+
+# Build the static site (output: site/)
+uv run mkdocs build
+```
+
+### Versioning
+
+The site uses [mike](https://github.com/jimporter/mike) for multi-version docs. CI deploys automatically via `.github/workflows/docs.yml`:
+
+- Pushes to `main` (when docs change) deploy the `dev` version
+- GitHub releases deploy a tagged version with the `latest` alias
+
+```bash
+# Manual deployment (if needed)
+uv run mike deploy --push --update-aliases v1.0.0 latest
+uv run mike set-default --push latest
+uv run mike serve   # Preview all deployed versions
+```
+
+See `mkdocs/README.md` for the full directory structure and contribution guide.
+
+______________________________________________________________________
+
 ## Debugging
 
 ### Xcode Debugging
@@ -584,6 +627,7 @@ ______________________________________________________________________
 - [DataModel.md](DataModel.md) - Data models
 - [CodeStyle.md](CodeStyle.md) - Style guide
 - [TestingStrategy.md](TestingStrategy.md) - Testing approach
+- [mkdocs/README.md](../mkdocs/README.md) - Documentation site setup
 
 ### External Resources
 

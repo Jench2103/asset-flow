@@ -161,6 +161,7 @@ buildServer.json
 
 # Documentation
 docs/build/
+site/
 Issues/
 
 # Generated demo data

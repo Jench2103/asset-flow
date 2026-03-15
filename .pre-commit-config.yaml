@@ -9,6 +9,10 @@ repos:
       - id: check-json
       - id: check-merge-conflict
       - id: check-yaml
+        exclude: ^mkdocs\.yml$
+      - id: check-yaml
+        args: ["--unsafe"]
+        files: ^mkdocs\.yml$
       - id: mixed-line-ending
         args: ["--fix=lf"]
       - id: pretty-format-json
@@ -19,9 +23,17 @@ repos:
     rev: 0.7.22
     hooks:
       - id: mdformat
+        name: mdformat (project)
         additional_dependencies:
           - mdformat-gfm
-          - mdformat-tables
+        exclude: ^(mkdocs/)
+      - id: mdformat
+        name: mdformat (mkdocs)
+        additional_dependencies:
+          - mdformat-mkdocs
+          - mdformat-front-matters
+          - mdformat-simple-breaks
+        files: ^(mkdocs/)
   - repo: local
     hooks:
       - id: swift-format
@@ -47,7 +59,7 @@ repos:
     hooks:
       - id: checkmake
   - repo: https://github.com/psf/black
-    rev: 25.1.0  # Use the latest version or pin to match your project
+    rev: 25.1.0 # Use the latest version or pin to match your project
     hooks:
       - id: black
   - repo: https://github.com/pycqa/isort
@@ -58,4 +70,15 @@ repos:
   - repo: https://github.com/RobertCraigie/pyright-python
     rev: v1.1.400
     hooks:
-    - id: pyright
+      - id: pyright
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.10.10
+    hooks:
+      - id: uv-lock
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.2
+    hooks:
+      - id: codespell
+        args: ["-w", "--ignore-words-list", "zar"]
+        files: ^(mkdocs/)
+        exclude: \.(png)$
