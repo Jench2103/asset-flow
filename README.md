@@ -4,6 +4,8 @@ A macOS desktop application for snapshot-based portfolio management and asset al
 
 ## Overview
 
+![AssetFlow Dashboard](mkdocs/assets/images/app-overview.png)
+
 AssetFlow helps you:
 
 - Track portfolio value over time with snapshot-based recording
