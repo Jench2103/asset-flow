@@ -8,20 +8,6 @@
         <xhtml:link rel="alternate" hreflang="zh-TW" href="https://Jench2103.github.io/asset-flow/latestzh-TW/"/>
     </url>
     <url>
-        <loc>https://Jench2103.github.io/asset-flow/latest/CLAUDE/</loc>
-        <lastmod>2026-03-15</lastmod>
-        <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://Jench2103.github.io/asset-flow/latest/CLAUDE/"/>
-        <xhtml:link rel="alternate" hreflang="zh-TW" href="https://Jench2103.github.io/asset-flow/latestzh-TW/CLAUDE/"/>
-    </url>
-    <url>
-        <loc>https://Jench2103.github.io/asset-flow/latest/</loc>
-        <lastmod>2026-03-15</lastmod>
-        <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://Jench2103.github.io/asset-flow/latest/"/>
-        <xhtml:link rel="alternate" hreflang="zh-TW" href="https://Jench2103.github.io/asset-flow/latestzh-TW/"/>
-    </url>
-    <url>
         <loc>https://Jench2103.github.io/asset-flow/latest/user-guide/</loc>
         <lastmod>2026-03-15</lastmod>
         <changefreq>daily</changefreq>
@@ -167,20 +153,6 @@
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://Jench2103.github.io/asset-flow/latest/user-guide/settings/security/"/>
         <xhtml:link rel="alternate" hreflang="zh-TW" href="https://Jench2103.github.io/asset-flow/latestzh-TW/user-guide/settings/security/"/>
-    </url>
-    <url>
-        <loc>https://Jench2103.github.io/asset-flow/latest/zh-TW/</loc>
-        <lastmod>2026-03-15</lastmod>
-        <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="zh-TW" href="https://Jench2103.github.io/asset-flow/latest/zh-TW/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://Jench2103.github.io/asset-flow/latest"/>
-    </url>
-    <url>
-        <loc>https://Jench2103.github.io/asset-flow/latest/zh-TW/CLAUDE/</loc>
-        <lastmod>2026-03-15</lastmod>
-        <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="zh-TW" href="https://Jench2103.github.io/asset-flow/latest/zh-TW/CLAUDE/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://Jench2103.github.io/asset-flow/latestCLAUDE/"/>
     </url>
     <url>
         <loc>https://Jench2103.github.io/asset-flow/latest/zh-TW/</loc>
