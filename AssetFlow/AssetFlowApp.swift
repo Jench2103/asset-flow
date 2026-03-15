@@ -52,8 +52,7 @@ struct AssetFlowApp: App {
 
     let response = alert.runModal()
     if response == .alertFirstButtonReturn {
-      let issuesURL = Constants.AppInfo.repositoryURL.appending(path: "issues")
-      NSWorkspace.shared.open(issuesURL)
+      NSWorkspace.shared.open(Constants.AppInfo.issuesURL)
     }
 
     NSApp.terminate(nil)
@@ -172,6 +171,15 @@ struct AssetFlowApp: App {
             .applicationIcon: NSApp.applicationIconImage as Any,
             .credits: credits,
           ])
+        }
+      }
+      CommandGroup(replacing: .help) {
+        Button("AssetFlow User Guide") {
+          NSWorkspace.shared.open(Constants.AppInfo.documentationURL)
+        }
+        Divider()
+        Button("Report an Issue") {
+          NSWorkspace.shared.open(Constants.AppInfo.issuesURL)
         }
       }
     }

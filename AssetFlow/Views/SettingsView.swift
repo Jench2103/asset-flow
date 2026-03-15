@@ -236,6 +236,7 @@ struct SettingsView: View {
           "All data is stored locally. Exchange rates are fetched from cdn.jsdelivr.net. No personal data is collected or transmitted."
         )
       }
+      Link("User Guide", destination: Constants.AppInfo.documentationURL)
       Link("View Source Code on GitHub", destination: Constants.AppInfo.repositoryURL)
     } header: {
       Text("About")

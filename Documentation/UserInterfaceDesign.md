@@ -31,7 +31,7 @@ All core screens and features are **implemented**:
 - ✅ Empty states use `ContentUnavailableView` for consistent macOS-native appearance
 - ✅ Metric card explanations via `.helpWhenUnlocked()` tooltips (SPEC 3.2)
 - ✅ Keyboard shortcuts (Delete key for deletion confirmations)
-- ✅ Menu bar commands: File > New Snapshot (Cmd+N), File > Import CSV (Cmd+I)
+- ✅ Menu bar commands: File > New Snapshot (Cmd+N), File > Import CSV (Cmd+I), Help > User Guide, Help > Report an Issue
 - ✅ Sheet standardization: all sheets use `NavigationStack` + toolbar placements
 - ✅ `@FocusState` auto-focus in all sheets and popovers
 - ✅ `.helpWhenUnlocked()` tooltips on toolbar buttons and interactive controls
@@ -366,6 +366,7 @@ Accessible via menu bar (AssetFlow > Settings) or Cmd+,.
    - **License**: Static field showing the license (Apache License 2.0).
    - **Privacy**: "All data is stored locally. No data is collected or transmitted."
    - **GitHub link**: Tappable `Link` that opens the source repository in the browser.
+   - **User Guide link**: Tappable `Link` that opens the documentation site, version- and locale-aware (see Help menu below).
 
 **Lock screen overlay**: When app lock is enabled and the app is locked (on launch or after returning from background beyond the timeout), a full-window opaque overlay (`LockScreenView`) is displayed in a `ZStack` above `ContentView`. It shows the app icon (128×128), "AssetFlow is Locked" title, and an "Unlock" button. The system authentication dialog is triggered automatically on appear. The overlay uses `.regularMaterial` background to fully obscure content. No custom biometric UI — the system `LAContext.evaluatePolicy` dialog handles Touch ID, Apple Watch, and password fallback. Background-date recording is suppressed while authentication is in progress (`isAuthenticating`) to prevent the system auth dialog from triggering a re-lock loop.
 
@@ -374,6 +375,13 @@ Accessible via menu bar (AssetFlow > Settings) or Cmd+,.
 **Native About panel** (App menu → About AssetFlow): Replaced via `CommandGroup(replacing: .appInfo)` in `AssetFlowApp.swift`. Shows version + build number as the version string, with a rich-text credits block containing the commit hash, license, copyright, a clickable "Source Code" hyperlink, and the privacy statement.
 
 **File menu commands**: Replaced via `CommandGroup(replacing: .newItem)`. Includes "New Snapshot..." (Cmd+N) and "Import CSV..." (Cmd+I). Uses `@FocusedValue` to bridge actions from the menu bar to `ContentView`. Both commands are disabled when `authService.isLocked` is `true`.
+
+**Help menu** (Help → AssetFlow User Guide / Report an Issue): Replaced via `CommandGroup(replacing: .help)` in `AssetFlowApp.swift`. Two items:
+
+- **AssetFlow User Guide** -- opens the documentation site at the correct version and locale. Dev builds (version contains `-dev`) link to `/dev/`; release builds link to `/v{version}/`. Locale is auto-detected: Chinese → `/zh-TW/`, otherwise root (English is the default, no locale prefix).
+- **Report an Issue** -- opens the GitHub Issues page.
+
+The macOS Help menu's built-in search field (which searches menu items) is preserved -- `CommandGroup(replacing:)` only replaces the menu items, not the search field.
 
 ______________________________________________________________________
 
@@ -702,6 +710,11 @@ The File menu includes custom commands via `CommandGroup(replacing: .newItem)`:
 - **Import CSV...** (Cmd+I) -- navigates to the Import CSV section
 
 These use `@FocusedValue` to bridge between menu commands and `ContentView` state. `FocusedValueKey` types (`NewSnapshotActionKey`, `ImportCSVActionKey`) are defined in `ContentView.swift`.
+
+The Help menu includes custom commands via `CommandGroup(replacing: .help)`:
+
+- **AssetFlow User Guide** -- opens the version- and locale-aware documentation URL (`Constants.AppInfo.documentationURL`)
+- **Report an Issue** -- opens the GitHub Issues page (`Constants.AppInfo.issuesURL`)
 
 ### Chart Implementation
 
