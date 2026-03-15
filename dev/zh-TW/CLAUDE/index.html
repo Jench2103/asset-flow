@@ -152,7 +152,17 @@
       <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
     
-      <div class="md-header__option">
+      
+
+  
+    
+      
+    
+      
+    
+  
+
+<div class="md-header__option">
   <div class="md-select">
     
     <button class="md-header__button md-icon" aria-label="選擇語言">
@@ -162,12 +172,18 @@
       <ul class="md-select__list">
         
           <li class="md-select__item">
+            
+              
+            
             <a href="../../CLAUDE/" hreflang="en" class="md-select__link">
               English
             </a>
           </li>
         
           <li class="md-select__item">
+            
+              
+            
             <a href="./" hreflang="zh-TW" class="md-select__link">
               中文（台灣）
             </a>
@@ -1354,6 +1370,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#theme-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme Overrides
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#versioning" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1462,6 +1489,12 @@ uv<span class="w"> </span>run<span class="w"> </span>mike<span class="w"> </span
 <h2 id="i18n">i18n<a class="headerlink" href="#i18n" title="Permanent link">&para;</a></h2>
 <p>Uses <code>mkdocs-static-i18n</code> with folder-based layout. English: <code>mkdocs/en/</code>. Chinese (Taiwanese): <code>mkdocs/zh-TW/</code> (mirrors <code>en/</code> structure). Screenshots in <code>mkdocs/assets/images/</code> are shared across languages.</p>
 <p>To add a language: create the folder, add the locale to <code>mkdocs.yml &gt; plugins &gt; i18n &gt; languages</code>.</p>
+<h2 id="theme-overrides">Theme Overrides<a class="headerlink" href="#theme-overrides" title="Permanent link">&para;</a></h2>
+<p>Material for MkDocs theme overrides live in <code>overrides/</code> (at the repo root, outside <code>docs_dir</code>). Config: <code>theme.custom_dir</code> in <code>mkdocs.yml</code>.</p>
+<p>Current overrides:</p>
+<ul>
+<li><code>partials/alternate.html</code> — fixes the language switcher on home pages for mike versioning. The <code>mkdocs-static-i18n</code> plugin generates absolute links for home pages, which bypass mike's version subdirectory. The override rewrites them as relative links. This template assumes the default language is listed first in the <code>i18n &gt; languages</code> config.</li>
+</ul>
 <h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
 <p>Uses <a href="https://github.com/jimporter/mike">mike</a> for multi-version docs. Config: <code>extra.version</code> in <code>mkdocs.yml</code>. CI deploys <code>dev</code> on pushes to <code>main</code> and a tagged version on each GitHub release (see <code>.github/workflows/docs.yml</code>). The <code>latest</code> alias always points to the most recent release. Do not use <code>mkdocs gh-deploy</code> directly; always deploy through mike.</p>
 <h2 id="images">Images<a class="headerlink" href="#images" title="Permanent link">&para;</a></h2>
@@ -1511,7 +1544,7 @@ uv<span class="w"> </span>run<span class="w"> </span>mike<span class="w"> </span
     <span class="md-icon" title="最後更新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 15, 2026 01:29:48 UTC">March 15, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 15, 2026 03:20:39 UTC">March 15, 2026</span>
   </span>
 
     
