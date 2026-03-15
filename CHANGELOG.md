@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.1](https://github.com/Jench2103/asset-flow/compare/v0.4.0...v0.4.1) (2026-03-15)
+
+### Continuous Integration
+
+- **docs:** move release docs deployment into release-please workflow ([faa08e0](https://github.com/Jench2103/asset-flow/commit/faa08e018255d78b4dea0479719a640e3b9601d8))
+
 ## [0.4.0](https://github.com/Jench2103/asset-flow/compare/v0.3.0...v0.4.0) (2026-03-15)
 
 ### Features
