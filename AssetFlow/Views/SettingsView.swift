@@ -54,6 +54,11 @@ struct SettingsView: View {
     }
     .formStyle(.grouped)
     .navigationTitle("Settings")
+    .frame(
+      minWidth: 450, idealWidth: 550, maxWidth: .infinity,
+      minHeight: 400, idealHeight: 650, maxHeight: .infinity
+    )
+    .windowResizable()
     .alert(
       isError ? "Error" : "Success",
       isPresented: $showResultAlert
