@@ -232,9 +232,15 @@ struct SettingsView: View {
       LabeledContent("Developer", value: Constants.AppInfo.developerName)
       LabeledContent("License", value: Constants.AppInfo.license)
       LabeledContent("Privacy") {
-        Text(
+        let privacyText: LocalizedStringKey =
           "All data is stored locally. Exchange rates are fetched from cdn.jsdelivr.net. No personal data is collected or transmitted."
-        )
+        ViewThatFits(in: .horizontal) {
+          Text(privacyText)
+            .fixedSize(horizontal: true, vertical: false)
+          Text(privacyText)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
       }
       Link("User Guide", destination: Constants.AppInfo.documentationURL)
       Link("View Source Code on GitHub", destination: Constants.AppInfo.repositoryURL)
