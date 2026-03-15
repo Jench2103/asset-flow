@@ -24,6 +24,14 @@ Uses `mkdocs-static-i18n` with folder-based layout. English: `mkdocs/en/`. Chine
 
 To add a language: create the folder, add the locale to `mkdocs.yml > plugins > i18n > languages`.
 
+## Theme Overrides
+
+Material for MkDocs theme overrides live in `overrides/` (at the repo root, outside `docs_dir`). Config: `theme.custom_dir` in `mkdocs.yml`.
+
+Current overrides:
+
+- `partials/alternate.html` — fixes the language switcher on home pages for mike versioning. The `mkdocs-static-i18n` plugin generates absolute links for home pages, which bypass mike's version subdirectory. The override rewrites them as relative links. This template assumes the default language is listed first in the `i18n > languages` config.
+
 ## Versioning
 
 Uses [mike](https://github.com/jimporter/mike) for multi-version docs. Config: `extra.version` in `mkdocs.yml`. CI deploys `dev` on pushes to `main` and a tagged version on each GitHub release (see `.github/workflows/docs.yml`). The `latest` alias always points to the most recent release. Do not use `mkdocs gh-deploy` directly; always deploy through mike.

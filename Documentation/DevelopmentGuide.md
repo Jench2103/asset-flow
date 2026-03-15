@@ -83,6 +83,7 @@ AssetFlow/
 +-- AssetFlow.xcodeproj/        # Xcode project
 +-- Documentation/              # Design documents (this folder)
 +-- mkdocs/                     # Documentation site source (Material for MkDocs)
++-- overrides/                  # Material for MkDocs theme overrides
 +-- .gitignore                  # Git ignore rules
 +-- .swiftlint.yml              # SwiftLint configuration
 +-- .swift-format               # swift-format configuration

@@ -1,0 +1,63 @@
+{#-
+  Override: fix home page language switcher for mike versioning.
+
+  mkdocs-static-i18n generates absolute links for the home page (e.g.,
+  /asset-flow/, /asset-flow/zh-TW/). When mike serves versioned docs under
+  a subdirectory, these absolute links bypass the version prefix and redirect
+  to the default version. This override rewrites home page links to be
+  relative so the version prefix is preserved.
+
+  For non-home pages, the plugin already generates correct relative links,
+  so we pass them through the standard | url filter unchanged.
+-#}
+{% set ns = namespace(is_i18n_homepage=false, is_default_locale=false) %}
+{% if page %}
+  {% if page.is_homepage %}
+    {% set ns.is_i18n_homepage = true %}
+    {% set ns.is_default_locale = true %}
+  {% else %}
+    {% for alt in config.extra.alternate %}
+      {% if page.url == alt.lang ~ "/" %}
+        {% set ns.is_i18n_homepage = true %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+{% endif %}
+<div class="md-header__option">
+  <div class="md-select">
+    {% set icon = config.theme.icon.alternate or "material/translate" %}
+    <button class="md-header__button md-icon" aria-label="{{ lang.t('select.language') }}">
+      {% include ".icons/" ~ icon ~ ".svg" %}
+    </button>
+    <div class="md-select__inner">
+      <ul class="md-select__list">
+        {% for alt in config.extra.alternate %}
+          <li class="md-select__item">
+            {% if ns.is_i18n_homepage %}
+              {% if ns.is_default_locale %}
+                {# On default locale home: ./ stays here, ./<lang>/ goes to locale #}
+                {% if loop.first %}
+                  {% set link = "./" %}
+                {% else %}
+                  {% set link = "./" ~ alt.lang ~ "/" %}
+                {% endif %}
+              {% else %}
+                {# On non-default locale home: ../ goes to default, ../<lang>/ goes to locale #}
+                {% if loop.first %}
+                  {% set link = "../" %}
+                {% else %}
+                  {% set link = "../" ~ alt.lang ~ "/" %}
+                {% endif %}
+              {% endif %}
+            {% else %}
+              {% set link = alt.link | url %}
+            {% endif %}
+            <a href="{{ link }}" hreflang="{{ alt.lang }}" class="md-select__link">
+              {{ alt.name }}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>

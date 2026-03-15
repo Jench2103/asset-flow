@@ -39,10 +39,10 @@ The dev server runs at `http://127.0.0.1:8000` and automatically reloads when yo
 ## Directory Structure
 
 ```
-mkdocs/
-├── en/                     # English content (default language)
-│   ├── index.md            # Home page
-│   └── user-guide/         # User Guide tab
+mkdocs/                         # docs_dir (content source)
+├── en/                         # English content (default language)
+│   ├── index.md                # Home page
+│   └── user-guide/             # User Guide tab
 │       ├── index.md
 │       ├── getting-started/
 │       ├── guide/
@@ -51,10 +51,14 @@ mkdocs/
 │       ├── faq.md
 │       ├── troubleshooting.md
 │       └── changelog.md
-├── zh-TW/                  # Chinese (Taiwanese), mirrors en/ structure
+├── zh-TW/                      # Chinese (Taiwanese), mirrors en/ structure
 ├── assets/
-│   └── images/             # Screenshots shared across languages (Git LFS)
-└── README.md               # This file
+│   └── images/                 # Screenshots shared across languages (Git LFS)
+└── README.md                   # This file
+
+overrides/                      # Material theme overrides (custom_dir, at repo root)
+└── partials/
+    └── alternate.html          # Language switcher fix for mike versioning
 ```
 
 ## Adding or Updating Screenshots
