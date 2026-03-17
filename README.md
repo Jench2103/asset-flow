@@ -168,4 +168,4 @@ This is a personal project. Contributions, issues, and feature requests are welc
 
 ## License
 
-[Apache License 2.0](LICENSE) — Copyright © 2026 Jen-Chien Chang
+[GNU General Public License v3.0](LICENSE) — Copyright © 2026 Jen-Chien Chang

@@ -363,7 +363,7 @@ Accessible via menu bar (AssetFlow > Settings) or Cmd+,.
 1. **About**: App identity and legal information at the bottom of Settings.
    - **App identity row**: App icon (48×48), app name (headline), version + build number (subheadline), commit hash (caption). The commit hash includes a `-dev` suffix when built from a dirty working tree.
    - **Developer**: Static field showing the developer name.
-   - **License**: Static field showing the license (Apache License 2.0).
+   - **License**: Static field showing the license (GNU General Public License v3.0).
    - **Privacy**: "All data is stored locally. No data is collected or transmitted."
    - **GitHub link**: Tappable `Link` that opens the source repository in the browser.
    - **User Guide link**: Tappable `Link` that opens the documentation site, version- and locale-aware (see Help menu below).

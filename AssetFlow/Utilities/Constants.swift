@@ -1,8 +1,18 @@
+//  AssetFlow — snapshot-based portfolio management for macOS.
+//  Copyright (C) 2026 Jen-Chien Chang
 //
-//  Constants.swift
-//  AssetFlow
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
 //
-//  Created by Jen-Chien Chang on 2025/10/6.
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
 import Foundation
@@ -17,7 +27,7 @@ enum Constants {
     static let commit = Bundle.main.infoDictionary?["AppCommit"] as? String ?? "unknown"
     static let developerName = "Jen-Chien Chang"
     static let copyright = "Copyright © 2026 Jen-Chien Chang"
-    static let license = "Apache License 2.0"
+    static let license = "GNU General Public License v3.0"
     static let repositoryURL = URL(string: "https://github.com/Jench2103/asset-flow")!
     static let issuesURL = repositoryURL.appending(path: "issues")
 
