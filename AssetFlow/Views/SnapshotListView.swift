@@ -185,6 +185,15 @@ struct SnapshotListView: View {
             .background(.quaternary)
             .clipShape(Capsule())
             .accessibilityLabel("\(rowData.assetCount) assets")
+
+          if rowData.hasZeroValueAssets {
+            Image(systemName: "exclamationmark.triangle.fill")
+              .foregroundStyle(.yellow)
+              .helpWhenUnlocked(
+                String(
+                  localized: "This snapshot contains assets with a value of 0.",
+                  table: "Snapshot"))
+          }
         }
       }
     }

@@ -34,6 +34,10 @@ extension View {
   func helpWhenUnlocked(_ textKey: LocalizedStringKey?) -> some View {
     modifier(HelpWhenUnlockedModifier(textKey: textKey))
   }
+
+  func helpWhenUnlocked(_ text: String) -> some View {
+    modifier(HelpWhenUnlockedStringModifier(text: text))
+  }
 }
 
 private struct HelpWhenUnlockedModifier: ViewModifier {
@@ -44,6 +48,20 @@ private struct HelpWhenUnlockedModifier: ViewModifier {
   func body(content: Content) -> some View {
     if let textKey, !isLocked {
       content.help(textKey)
+    } else {
+      content
+    }
+  }
+}
+
+private struct HelpWhenUnlockedStringModifier: ViewModifier {
+  let text: String
+  @Environment(\.isAppLocked) private var isLocked
+
+  @ViewBuilder
+  func body(content: Content) -> some View {
+    if !isLocked {
+      content.help(text)
     } else {
       content
     }

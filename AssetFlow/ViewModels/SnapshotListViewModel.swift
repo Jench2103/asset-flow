@@ -108,6 +108,7 @@ struct SnapshotRowData {
   let totalValue: Decimal
   let platforms: [String]
   let assetCount: Int
+  let hasZeroValueAssets: Bool
 }
 
 /// Data for snapshot deletion confirmation dialog.
@@ -247,11 +248,14 @@ class SnapshotListViewModel {
       Set(directValues.compactMap { $0.asset?.platform })
     ).sorted()
 
+    let hasZeroValueAssets = directValues.contains { $0.marketValue == 0 }
+
     return SnapshotRowData(
       date: snapshot.date,
       totalValue: totalValue,
       platforms: platforms,
-      assetCount: directValues.count
+      assetCount: directValues.count,
+      hasZeroValueAssets: hasZeroValueAssets
     )
   }
 
