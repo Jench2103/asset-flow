@@ -1,6 +1,5 @@
 {
   "swift.sourcekit-lsp.backgroundIndexing": "on",
   "python.analysis.typeCheckingMode": "standard",
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "editor.formatOnSave": true
 }
