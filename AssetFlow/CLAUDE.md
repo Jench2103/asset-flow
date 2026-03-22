@@ -38,7 +38,7 @@ private func performLoadData() { /* original load body */ }
 - Double `[weak self]` prevents ViewModel retention after container deallocation (critical for tests with in-memory containers)
 - Complements `@Query` + `.onChange(of:)` in views for collection membership detection (add/delete objects), which `modelContext.fetch()` inside `withObservationTracking` cannot track
 - Explicit `viewModel.loadData()` calls in mutation handlers are intentional — they provide immediate synchronous UI response; `withObservationTracking` handles external changes (e.g., currency switch from Settings)
-- Applied to: all ViewModels except `ImportViewModel` and `SettingsViewModel` (no converted aggregate values)
+- Applied to: all ViewModels except `ImportViewModel`, `BulkEntryViewModel`, and `SettingsViewModel` (no converted aggregate values)
 
 ### Model
 

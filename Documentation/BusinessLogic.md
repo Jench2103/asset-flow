@@ -464,6 +464,28 @@ If a snapshot has no cash flow operations, net cash flow = 0, which assumes all 
 
 ______________________________________________________________________
 
+## Bulk Entry
+
+### Overview
+
+Bulk entry provides a full-screen workflow for entering asset values across all platforms in a single session. It presents all known assets grouped by platform, allowing users to enter new market values directly or import them from per-platform CSV files.
+
+### Save Semantics
+
+- **Included rows with values**: A SnapshotAssetValue is created with the entered market value
+- **Included rows without values (pending)**: A SnapshotAssetValue is created with market value 0
+- **Excluded rows**: No SnapshotAssetValue is created; the asset is omitted from the snapshot
+
+### Zero-Value Warning Rules
+
+Assets with a market value of 0 trigger warnings in multiple contexts:
+
+- **Bulk entry save**: A confirmation alert lists all assets that will be saved with value 0, giving the user a chance to review before proceeding
+- **Snapshot detail view**: A yellow warning icon appears next to assets with value 0, with a tooltip explaining that the value may need updating or the asset should be removed
+- **Asset list view**: Assets whose latest snapshot value is 0 display a warning indicator
+
+______________________________________________________________________
+
 ## Data Validation Rules
 
 ### Category Validation

@@ -143,6 +143,7 @@ ______________________________________________________________________
 1. Starting point selector:
    - **Start empty**: Creates snapshot with no asset entries
    - **Copy from latest**: Pre-populates with all direct SnapshotAssetValues from the most recent prior snapshot. Disabled (grayed out with explanatory text) when no snapshots exist before the selected date.
+   - **Bulk Entry**: Opens `BulkEntryView` for full-screen bulk value entry. Disabled when no assets exist.
 1. On creation, user is taken to the snapshot detail view for editing
 
 **Snapshot detail view** (on selection):
@@ -290,6 +291,41 @@ ______________________________________________________________________
 
 - **RebalancingView** (`AssetFlow/Views/RebalancingView.swift`): ScrollView with Grid-based tables. Three sections: "Categories with Targets" (main suggestions), "No Target Set", and "Uncategorized". Summary section shows suggested moves. Action text color-coded: green (Buy), red (Sell), gray (No action needed). Empty state with `chart.bar.doc.horizontal` icon.
 - **RebalancingViewModel** (`AssetFlow/ViewModels/RebalancingViewModel.swift`): Loads values from latest snapshot. Groups by category, calls `RebalancingCalculator.calculateAdjustments()`, maps actions to display rows with localized action text. Adjustments under $1 display "No action needed" (SPEC 11.4).
+
+______________________________________________________________________
+
+## Bulk Entry View
+
+Full-screen view for entering asset values across all platforms in a single session. Presented when the user selects "Bulk Entry" in the New Snapshot sheet.
+
+**Layout**:
+
+- Toolbar with Cancel and Save buttons; title shows the snapshot date
+- Assets grouped by platform in collapsible sections (alphabetical order, uncategorized last)
+- Each section header includes a CSV import button for per-platform import
+
+**Columns**:
+
+- **Include checkbox**: Controls whether the row is saved to the snapshot
+- **Asset Name**: Read-only, with platform/category as secondary caption
+- **Currency**: Asset's native currency code
+- **Previous Value**: Value from the most recent prior snapshot (or "--" if none)
+- **New Value**: Editable text field for the new market value
+
+**Row states**:
+
+- **Updated** (green accent): Value has been entered or imported
+- **Pending** (normal): Included but no value entered yet (saves as 0)
+- **Excluded** (dimmed): Checkbox unchecked, row is omitted from the snapshot
+
+**Keyboard navigation**: Tab and Enter advance focus to the next value field in order.
+
+**Per-platform CSV import**: Each platform section has an import button that opens a file picker filtered to `.csv`. Parsed values are matched to assets by name and populate the New Value fields.
+
+**Confirmation alerts**:
+
+- **Cancel with changes**: "Discard changes? All entered values will be lost."
+- **Save with zero-value rows**: Warning listing assets that will be saved with a value of 0, with options to proceed or go back and review.
 
 ______________________________________________________________________
 
@@ -904,4 +940,5 @@ ______________________________________________________________________
 | PlatformDetailView             | Implemented | Editable name, assets table (Name/Category/Original Value), value history chart with time range controls and hover tooltip                                      |
 | RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, ContentUnavailableView                                                                    |
 | ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                                                 |
+| BulkEntryView                  | Implemented | Full-screen bulk value entry with platform-grouped table, per-platform CSV import, keyboard navigation, zero-value warnings                                     |
 | SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                                                  |

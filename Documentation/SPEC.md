@@ -124,9 +124,21 @@ ______________________________________________________________________
 - Each row shows: date, total value, platforms included, number of assets
 - "New Snapshot" button
 
+**New Snapshot creation modes:**
+
+- **Start empty**: Creates snapshot with no asset entries
+- **Copy from latest**: Pre-populates with values from the most recent prior snapshot
+- **Bulk Entry**: Opens a full-screen editable table with all known assets grouped by platform. Users enter new market values directly. Features include:
+  - Per-platform CSV import to populate values from exported brokerage data
+  - Include/exclude checkbox per row to control which assets are saved
+  - Previous value column for reference
+  - Zero-value warning for assets saved with a market value of 0
+  - Tab/Enter keyboard navigation between value fields
+
 **Snapshot detail view** (on selection):
 
 - Full asset breakdown table sorted by platform (alphabetical), then by asset name (alphabetical) within each platform: Asset Name, Platform, Category, Market Value
+- Zero-value warning indicator on assets with a market value of 0
 - Category allocation summary for this snapshot
 - Cash flow operations table: lists all CashFlowOperations for this snapshot (Description, Amount)
 - Net cash flow summary line showing the total (sum of all operations)
