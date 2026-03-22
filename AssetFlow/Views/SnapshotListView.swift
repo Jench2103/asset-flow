@@ -36,17 +36,20 @@ struct SnapshotListView: View {
   @State private var expandedSections: Set<SnapshotTimeBucket> = Set(SnapshotTimeBucket.allCases)
 
   var onNavigateToImport: (() -> Void)?
+  var onBulkEntry: ((Date) -> Void)?
 
   init(
     modelContext: ModelContext,
     selectedSnapshot: Binding<Snapshot?>,
     showNewSnapshotSheet: Binding<Bool> = .constant(false),
-    onNavigateToImport: (() -> Void)? = nil
+    onNavigateToImport: (() -> Void)? = nil,
+    onBulkEntry: ((Date) -> Void)? = nil
   ) {
     _viewModel = State(wrappedValue: SnapshotListViewModel(modelContext: modelContext))
     _selectedSnapshot = selectedSnapshot
     _showNewSnapshotSheet = showNewSnapshotSheet
     self.onNavigateToImport = onNavigateToImport
+    self.onBulkEntry = onBulkEntry
   }
 
   var body: some View {
@@ -86,8 +89,8 @@ struct SnapshotListView: View {
           viewModel.loadRowData()
           selectedSnapshot = snapshot
         },
-        onBulkEntry: { _ in
-          // Will be wired up in Task 8 (ContentView integration)
+        onBulkEntry: { date in
+          onBulkEntry?(date)
         }
       )
     }

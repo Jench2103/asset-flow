@@ -50,6 +50,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
   case categories
   case platforms
   case rebalancing
+  case bulkEntry
   case importCSV
 
   var id: String { rawValue }
@@ -62,6 +63,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     case .categories: return String(localized: "Categories")
     case .platforms: return String(localized: "Platforms")
     case .rebalancing: return String(localized: "Rebalancing")
+    case .bulkEntry: return String(localized: "New Snapshot")
     case .importCSV: return String(localized: "Import CSV")
     }
   }
@@ -74,6 +76,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     case .categories: return "folder"
     case .platforms: return "building.columns"
     case .rebalancing: return "chart.bar.doc.horizontal"
+    case .bulkEntry: return "square.and.pencil"
     case .importCSV: return "square.and.arrow.down"
     }
   }
@@ -99,6 +102,7 @@ struct ContentView: View {
 
   @State private var showNewSnapshotSheet = false
   @State private var importViewModel: ImportViewModel?
+  @State private var bulkEntryViewModel: BulkEntryViewModel?
   @State private var pendingSection: SidebarSection?
   @State private var showDiscardConfirmation = false
 
@@ -197,7 +201,7 @@ struct ContentView: View {
         }
       }
       Section("Tools") {
-        ForEach([SidebarSection.rebalancing, .importCSV], id: \.self) { section in
+        ForEach([SidebarSection.rebalancing, .bulkEntry, .importCSV], id: \.self) { section in
           sidebarLabel(for: section)
         }
       }
@@ -266,7 +270,11 @@ struct ContentView: View {
             modelContext: modelContext,
             selectedSnapshot: $selectedSnapshot,
             showNewSnapshotSheet: $showNewSnapshotSheet,
-            onNavigateToImport: { navigateToImport() }
+            onNavigateToImport: { navigateToImport() },
+            onBulkEntry: { date in
+              bulkEntryViewModel = BulkEntryViewModel(modelContext: modelContext, date: date)
+              pushHistory(.bulkEntry)
+            }
           )
           .frame(width: max(250, geometry.size.width * 0.4))
 
@@ -370,6 +378,23 @@ struct ContentView: View {
         ImportView(viewModel: viewModel)
       } else {
         ProgressView()
+      }
+
+    case .bulkEntry:
+      if let viewModel = bulkEntryViewModel {
+        BulkEntryView(viewModel: viewModel) { savedSnapshot in
+          pushHistory(.snapshots)
+          selectedSnapshot = savedSnapshot
+          bulkEntryViewModel = nil
+        }
+      } else {
+        ProgressView()
+          .onAppear {
+            if bulkEntryViewModel == nil {
+              bulkEntryViewModel = BulkEntryViewModel(
+                modelContext: modelContext, date: Date())
+            }
+          }
       }
 
     case nil:
