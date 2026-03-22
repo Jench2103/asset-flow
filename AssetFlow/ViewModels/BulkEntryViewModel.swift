@@ -91,6 +91,51 @@ final class BulkEntryViewModel {
     return snapshot
   }
 
+  @discardableResult
+  func importCSV(data: Data, forPlatform platform: String) -> [String] {
+    let result = CSVParsingService.parseAssetCSV(data: data, importPlatform: platform)
+
+    // Clear previous CSV values for this platform
+    for index in rows.indices where rows[index].platform == platform && rows[index].source == .csv {
+      if rows[index].asset != nil {
+        rows[index].newValueText = ""
+        rows[index].source = .manual
+      }
+    }
+    rows.removeAll { $0.platform == platform && $0.source == .csv && $0.asset == nil }
+
+    var errors: [String] = []
+    errors.append(contentsOf: result.errors.map(\.message))
+
+    let mainCurrency = SettingsService.shared.mainCurrency
+
+    for csvRow in result.rows {
+      let normalizedCSVName = csvRow.assetName.normalizedForIdentity
+      if let index = rows.firstIndex(where: {
+        $0.platform == platform && $0.assetName.normalizedForIdentity == normalizedCSVName
+      }) {
+        rows[index].newValueText = "\(csvRow.marketValue)"
+        rows[index].source = .csv
+      } else {
+        let newRow = BulkEntryRow(
+          id: UUID(),
+          asset: nil,
+          assetName: csvRow.assetName,
+          platform: platform,
+          currency: csvRow.currency.isEmpty ? mainCurrency : csvRow.currency,
+          previousValue: nil,
+          newValueText: "\(csvRow.marketValue)",
+          isIncluded: true,
+          source: .csv,
+          csvCategory: nil
+        )
+        rows.append(newRow)
+      }
+    }
+
+    return errors
+  }
+
   // MARK: - Private
 
   private func loadRowsFromLatestSnapshot() {

@@ -348,6 +348,85 @@ struct BulkEntryViewModelTests {
     #expect(values[0].asset?.currency == "EUR")
   }
 
+  @Test("importCSV fills matching rows with CSV values")
+  func importCSVFillsMatchingRows() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "Stock A", platform: "Vanguard", currency: "USD", value: Decimal(1000)),
+        TestAssetData(name: "Bond B", platform: "Vanguard", currency: "USD", value: Decimal(2000)),
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let csvData = "Asset Name,Market Value\nStock A,1500\n".data(using: .utf8)!
+    let errors = viewModel.importCSV(data: csvData, forPlatform: "Vanguard")
+
+    #expect(errors.isEmpty)
+    let stockRow = viewModel.rows.first(where: { $0.assetName == "Stock A" })
+    #expect(stockRow?.newValueText == "1500")
+    #expect(stockRow?.source == .csv)
+    let bondRow = viewModel.rows.first(where: { $0.assetName == "Bond B" })
+    #expect(bondRow?.newValueText == "")
+    #expect(bondRow?.source == .manual)
+  }
+
+  @Test("importCSV appends new rows for unmatched CSV assets")
+  func importCSVAppendsNewRows() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "Stock A", platform: "Vanguard", currency: "USD", value: Decimal(1000))
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let csvData = "Asset Name,Market Value,Currency\nNew Fund,3000,EUR\n".data(using: .utf8)!
+    let errors = viewModel.importCSV(data: csvData, forPlatform: "Vanguard")
+
+    #expect(errors.isEmpty)
+    #expect(viewModel.rows.count == 2)
+    let newRow = viewModel.rows.first(where: { $0.assetName == "New Fund" })
+    #expect(newRow != nil)
+    #expect(newRow?.newValueText == "3000")
+    #expect(newRow?.source == .csv)
+    #expect(newRow?.asset == nil)
+    #expect(newRow?.currency == "EUR")
+    #expect(newRow?.previousValue == nil)
+    #expect(newRow?.platform == "Vanguard")
+  }
+
+  @Test("re-importing CSV for same platform replaces previous CSV values")
+  func reImportCSVReplacesValues() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "Stock A", platform: "Vanguard", currency: "USD", value: Decimal(1000))
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let csv1 = "Asset Name,Market Value\nStock A,1500\n".data(using: .utf8)!
+    viewModel.importCSV(data: csv1, forPlatform: "Vanguard")
+    #expect(viewModel.rows.first?.newValueText == "1500")
+
+    let csv2 = "Asset Name,Market Value\nStock A,1800\n".data(using: .utf8)!
+    viewModel.importCSV(data: csv2, forPlatform: "Vanguard")
+    #expect(viewModel.rows.first?.newValueText == "1800")
+  }
+
   // MARK: - Helpers
 
   private struct TestAssetData {
