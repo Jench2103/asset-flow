@@ -80,10 +80,16 @@ struct SnapshotListView: View {
       viewModel.loadRowData()
     }
     .sheet(isPresented: $showNewSnapshotSheet) {
-      NewSnapshotSheet(viewModel: viewModel) { snapshot in
-        viewModel.loadRowData()
-        selectedSnapshot = snapshot
-      }
+      NewSnapshotSheet(
+        viewModel: viewModel,
+        onCreate: { snapshot in
+          viewModel.loadRowData()
+          selectedSnapshot = snapshot
+        },
+        onBulkEntry: { _ in
+          // Will be wired up in Task 8 (ContentView integration)
+        }
+      )
     }
     .confirmationDialog(
       "Delete Snapshot",
@@ -252,9 +258,15 @@ struct SnapshotListView: View {
 
 // MARK: - New Snapshot Sheet
 
+private enum SnapshotCreationMode: String, CaseIterable {
+  case emptySnapshot
+  case bulkEntry
+}
+
 private struct NewSnapshotSheet: View {
   let viewModel: SnapshotListViewModel
   let onCreate: (Snapshot) -> Void
+  let onBulkEntry: (Date) -> Void
 
   @Environment(\.dismiss) private var dismiss
 
@@ -264,7 +276,7 @@ private struct NewSnapshotSheet: View {
   enum Field { case date }
 
   @State private var snapshotDate = Date()
-  @State private var copyFromLatest = false
+  @State private var creationMode: SnapshotCreationMode = .bulkEntry
   @State private var showError = false
   @State private var errorMessage = ""
 
@@ -295,14 +307,11 @@ private struct NewSnapshotSheet: View {
           .foregroundStyle(.orange)
         }
 
-        Toggle("Copy from latest snapshot", isOn: $copyFromLatest)
-          .disabled(!viewModel.canCopyFromLatest(for: snapshotDate))
-
-        if !viewModel.canCopyFromLatest(for: snapshotDate) {
-          Text("No prior snapshots available to copy from.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
+        Picker("Creation Mode", selection: $creationMode) {
+          Text("Empty Snapshot").tag(SnapshotCreationMode.emptySnapshot)
+          Text("Bulk Entry").tag(SnapshotCreationMode.bulkEntry)
         }
+        .pickerStyle(.radioGroup)
       }
       .formStyle(.grouped)
       .navigationTitle("New Snapshot")
@@ -330,9 +339,14 @@ private struct NewSnapshotSheet: View {
   }
 
   private func createSnapshot() {
+    if creationMode == .bulkEntry {
+      onBulkEntry(snapshotDate)
+      dismiss()
+      return
+    }
     do {
       let snapshot = try viewModel.createSnapshot(
-        date: snapshotDate, copyFromLatest: copyFromLatest)
+        date: snapshotDate, copyFromLatest: false)
       onCreate(snapshot)
       dismiss()
     } catch {
