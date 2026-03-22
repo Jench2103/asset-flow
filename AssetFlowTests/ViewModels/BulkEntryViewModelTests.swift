@@ -226,6 +226,128 @@ struct BulkEntryViewModelTests {
     #expect(viewModel.canSave == false)
   }
 
+  @Test("saveSnapshot creates snapshot with asset values for updated rows")
+  func saveSnapshotCreatesValues() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "Stock A", platform: "Vanguard", currency: "USD", value: Decimal(1000)),
+        TestAssetData(name: "Bond B", platform: "Vanguard", currency: "USD", value: Decimal(2000)),
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "2100"
+    viewModel.rows[1].newValueText = "1100"
+
+    let snapshot = try viewModel.saveSnapshot()
+
+    #expect(snapshot.date == Calendar.current.startOfDay(for: makeDate(2026, 3, 15)))
+    let values = snapshot.assetValues ?? []
+    #expect(values.count == 2)
+    let sortedValues = values.sorted { ($0.asset?.name ?? "") < ($1.asset?.name ?? "") }
+    #expect(sortedValues[0].marketValue == Decimal(2100))
+    #expect(sortedValues[1].marketValue == Decimal(1100))
+  }
+
+  @Test("saveSnapshot saves pending rows with value 0")
+  func saveSnapshotPendingRowsGetZero() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "Stock A", platform: "Vanguard", currency: "USD", value: Decimal(1000))
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    // Leave newValueText empty — pending
+
+    let snapshot = try viewModel.saveSnapshot()
+    let values = snapshot.assetValues ?? []
+    #expect(values.count == 1)
+    #expect(values[0].marketValue == Decimal(0))
+  }
+
+  @Test("saveSnapshot excludes unchecked rows")
+  func saveSnapshotExcludesUnchecked() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "Stock A", platform: "Vanguard", currency: "USD", value: Decimal(1000)),
+        TestAssetData(name: "Bond B", platform: "Vanguard", currency: "USD", value: Decimal(2000)),
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "2100"
+    viewModel.toggleInclude(rowID: viewModel.rows[1].id)
+
+    let snapshot = try viewModel.saveSnapshot()
+    let values = snapshot.assetValues ?? []
+    #expect(values.count == 1)
+    #expect(values[0].asset?.name == "Bond B")
+  }
+
+  @Test("saveSnapshot throws when all rows excluded")
+  func saveSnapshotThrowsWhenAllExcluded() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "Stock A", platform: "Vanguard", currency: "USD", value: Decimal(1000))
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.toggleInclude(rowID: viewModel.rows[0].id)
+
+    #expect(throws: SnapshotError.self) {
+      try viewModel.saveSnapshot()
+    }
+  }
+
+  @Test("saveSnapshot creates new assets from CSV-only rows")
+  func saveSnapshotCreatesNewAssetsFromCSV() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    // No previous snapshot — add a CSV row manually
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows.append(
+      BulkEntryRow(
+        id: UUID(),
+        asset: nil,
+        assetName: "New Fund",
+        platform: "Fidelity",
+        currency: "EUR",
+        previousValue: nil,
+        newValueText: "5000",
+        isIncluded: true,
+        source: .csv,
+        csvCategory: nil
+      ))
+
+    let snapshot = try viewModel.saveSnapshot()
+    let values = snapshot.assetValues ?? []
+    #expect(values.count == 1)
+    #expect(values[0].marketValue == Decimal(5000))
+    #expect(values[0].asset?.name == "New Fund")
+    #expect(values[0].asset?.platform == "Fidelity")
+    #expect(values[0].asset?.currency == "EUR")
+  }
+
   // MARK: - Helpers
 
   private struct TestAssetData {

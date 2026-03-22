@@ -56,6 +56,41 @@ final class BulkEntryViewModel {
     }
   }
 
+  func saveSnapshot() throws -> Snapshot {
+    let includedRows = rows.filter(\.isIncluded)
+    guard !includedRows.isEmpty else {
+      throw SnapshotError.noAssetsIncluded
+    }
+
+    let snapshot = Snapshot(date: snapshotDate)
+    modelContext.insert(snapshot)
+
+    for row in includedRows {
+      let asset: Asset
+      if let existingAsset = row.asset {
+        asset = existingAsset
+      } else {
+        asset = modelContext.findOrCreateAsset(
+          name: row.assetName, platform: row.platform)
+        asset.currency = row.currency
+        if let categoryName = row.csvCategory?.trimmingCharacters(in: .whitespaces),
+          !categoryName.isEmpty
+        {
+          asset.category = modelContext.resolveCategory(name: categoryName)
+        }
+      }
+
+      let marketValue = row.newValue ?? Decimal(0)
+      let sav = SnapshotAssetValue(marketValue: marketValue)
+      sav.snapshot = snapshot
+      sav.asset = asset
+      modelContext.insert(sav)
+    }
+
+    savedSnapshot = snapshot
+    return snapshot
+  }
+
   // MARK: - Private
 
   private func loadRowsFromLatestSnapshot() {
