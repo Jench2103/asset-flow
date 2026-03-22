@@ -205,7 +205,14 @@ struct SnapshotDetailView: View {
           .helpWhenUnlocked(
             String(
               localized:
-                "This asset has a value of 0. If the value hasn't been updated yet, please enter the current value. If the asset is no longer held, remove it from the snapshot to dismiss this warning.",
+                """
+                This asset has a value of 0. \
+                If the value hasn't been updated yet, \
+                please enter the current value. \
+                If the asset is no longer held, \
+                remove it from the snapshot to \
+                dismiss this warning.
+                """,
               table: "Snapshot"))
       }
       Spacer()
