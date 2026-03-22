@@ -110,6 +110,46 @@
           }
         }
       }
+    },
+    "This asset has a value of 0. If the value hasn't been updated yet, please enter the current value. If the asset is no longer held, remove it from the snapshot to dismiss this warning." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此資產的價值為 0。若尚未更新價值，請輸入目前的價值。若已不再持有此資產，請從快照中移除以關閉此警告。"
+          }
+        }
+      }
+    },
+    "This snapshot contains assets with a value of 0." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此快照包含價值為 0 的資產。"
+          }
+        }
+      }
+    },
+    "At least one asset must be included in the snapshot." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快照中必須包含至少一項資產。"
+          }
+        }
+      }
+    },
+    "%lld assets will be saved with a value of 0. Continue?" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 項資產的價值為 0，將一併儲存。是否繼續？"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
