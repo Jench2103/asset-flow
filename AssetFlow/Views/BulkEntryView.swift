@@ -115,10 +115,12 @@ struct BulkEntryView: View {
       .buttonStyle(.borderedProminent)
       .disabled(!viewModel.canSave)
       .helpWhenUnlocked("Save the snapshot with entered values")
+      .accessibilityIdentifier("Save Snapshot Button")
 
       Button("Cancel") {
         handleCancel()
       }
+      .accessibilityIdentifier("Cancel Button")
     }
     .padding(.horizontal)
     .padding(.vertical, 12)
@@ -238,6 +240,7 @@ struct BulkEntryView: View {
     HStack(spacing: 0) {
       Toggle("", isOn: includeBinding(for: row))
         .labelsHidden()
+        .accessibilityLabel("Include \(row.assetName)")
         .frame(width: 60, alignment: .center)
         .helpWhenUnlocked("Include or exclude this asset from the snapshot")
 
@@ -288,6 +291,9 @@ struct BulkEntryView: View {
         : Color.clear
     )
     .opacity(isExcluded ? 0.5 : 1.0)
+    .accessibilityLabel(
+      "\(row.assetName), \(row.platform), \(row.isUpdated ? "updated" : row.isPending ? "pending" : "excluded")"
+    )
   }
 
   // MARK: - Bindings
