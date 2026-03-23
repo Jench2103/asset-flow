@@ -388,13 +388,30 @@ struct ContentView: View {
           bulkEntryViewModel = nil
         }
       } else {
-        ProgressView()
-          .onAppear {
+        ContentUnavailableView(
+          "New Snapshot",
+          systemImage: "square.and.pencil",
+          description: Text("Select a date to begin.")
+        )
+        .onAppear {
+          showNewSnapshotSheet = true
+        }
+        .sheet(
+          isPresented: $showNewSnapshotSheet,
+          onDismiss: {
             if bulkEntryViewModel == nil {
-              bulkEntryViewModel = BulkEntryViewModel(
-                modelContext: modelContext, date: Date())
+              goBack()
             }
+          },
+          content: {
+            NewSnapshotSheet(
+              onBulkEntry: { date in
+                bulkEntryViewModel = BulkEntryViewModel(
+                  modelContext: modelContext, date: date)
+              }
+            )
           }
+        )
       }
 
     case nil:

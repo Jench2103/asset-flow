@@ -17,6 +17,17 @@
 
 import Foundation
 
+/// Result of a CSV import operation in bulk entry.
+struct CSVImportResult {
+  let matchedCount: Int
+  let newCount: Int
+  let errors: [String]
+  let warnings: [String]
+
+  var totalImported: Int { matchedCount + newCount }
+  var hasIssues: Bool { !errors.isEmpty || !warnings.isEmpty }
+}
+
 /// Source of a bulk entry row's value.
 enum ValueSource {
   case manual
@@ -37,7 +48,8 @@ struct BulkEntryRow: Identifiable {
   var csvCategory: String?
 
   var newValue: Decimal? { Decimal(string: newValueText) }
-  var isUpdated: Bool { isIncluded && newValue != nil }
+  var isUpdated: Bool { isIncluded && newValue != nil && !hasZeroValueError }
   var isPending: Bool { isIncluded && (newValueText.isEmpty || newValue == nil) }
   var hasValidationError: Bool { !newValueText.isEmpty && newValue == nil }
+  var hasZeroValueError: Bool { isIncluded && newValue == Decimal(0) }
 }

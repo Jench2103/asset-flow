@@ -200,20 +200,18 @@ struct SnapshotDetailView: View {
         .foregroundStyle(.secondary)
       }
       if sav.marketValue == 0 {
-        Image(systemName: "exclamationmark.triangle.fill")
-          .foregroundStyle(.yellow)
-          .helpWhenUnlocked(
-            String(
-              localized:
-                """
-                This asset has a value of 0. \
-                If the value hasn't been updated yet, \
-                please enter the current value. \
-                If the asset is no longer held, \
-                remove it from the snapshot to \
-                dismiss this warning.
-                """,
-              table: "Snapshot"))
+        HoverWarningIcon(
+          message: String(
+            localized:
+              """
+              This asset has a value of 0. \
+              If the value hasn't been updated yet, \
+              please enter the current value. \
+              If the asset is no longer held, \
+              remove it from the snapshot to \
+              dismiss this warning.
+              """,
+            table: "Snapshot"))
       }
       Spacer()
       VStack(alignment: .trailing, spacing: 1) {

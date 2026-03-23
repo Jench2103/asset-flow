@@ -77,6 +77,32 @@ struct BulkEntryRowTests {
     #expect(row.newValue == nil)
   }
 
+  @Test("hasZeroValueError is true when included and value is 0")
+  func hasZeroValueErrorWhenZero() {
+    var row = makeBulkEntryRow()
+    row.newValueText = "0"
+    row.isIncluded = true
+    #expect(row.hasZeroValueError == true)
+    #expect(row.isUpdated == false)
+  }
+
+  @Test("hasZeroValueError is false for non-zero values")
+  func hasZeroValueErrorFalseForNonZero() {
+    var row = makeBulkEntryRow()
+    row.newValueText = "100"
+    row.isIncluded = true
+    #expect(row.hasZeroValueError == false)
+    #expect(row.isUpdated == true)
+  }
+
+  @Test("hasZeroValueError is false for excluded rows with zero value")
+  func hasZeroValueErrorFalseWhenExcluded() {
+    var row = makeBulkEntryRow()
+    row.newValueText = "0"
+    row.isIncluded = false
+    #expect(row.hasZeroValueError == false)
+  }
+
   // MARK: - Helpers
 
   private func makeBulkEntryRow(
@@ -364,9 +390,10 @@ struct BulkEntryViewModelTests {
       modelContext: context, date: makeDate(2026, 3, 15))
 
     let csvData = "Asset Name,Market Value\nStock A,1500\n".data(using: .utf8)!
-    let errors = viewModel.importCSV(data: csvData, forPlatform: "Vanguard")
+    let result = viewModel.importCSV(data: csvData, forPlatform: "Vanguard")
 
-    #expect(errors.isEmpty)
+    #expect(result.errors.isEmpty)
+    #expect(result.matchedCount == 1)
     let stockRow = viewModel.rows.first(where: { $0.assetName == "Stock A" })
     #expect(stockRow?.newValueText == "1500")
     #expect(stockRow?.source == .csv)
@@ -390,9 +417,10 @@ struct BulkEntryViewModelTests {
       modelContext: context, date: makeDate(2026, 3, 15))
 
     let csvData = "Asset Name,Market Value,Currency\nNew Fund,3000,EUR\n".data(using: .utf8)!
-    let errors = viewModel.importCSV(data: csvData, forPlatform: "Vanguard")
+    let result = viewModel.importCSV(data: csvData, forPlatform: "Vanguard")
 
-    #expect(errors.isEmpty)
+    #expect(result.errors.isEmpty)
+    #expect(result.newCount == 1)
     #expect(viewModel.rows.count == 2)
     let newRow = viewModel.rows.first(where: { $0.assetName == "New Fund" })
     #expect(newRow != nil)

@@ -33,6 +33,8 @@ struct BulkEntryView: View {
   @State private var csvImportPlatform: String?
   @State private var showError = false
   @State private var errorMessage = ""
+  @State private var showImportResult = false
+  @State private var importResultMessage = ""
 
   @Environment(\.dismiss) private var dismiss
 
@@ -69,11 +71,9 @@ struct BulkEntryView: View {
       if url.startAccessingSecurityScopedResource() {
         defer { url.stopAccessingSecurityScopedResource() }
         if let data = try? Data(contentsOf: url) {
-          let errors = viewModel.importCSV(data: data, forPlatform: platform)
-          if !errors.isEmpty {
-            errorMessage = errors.joined(separator: "\n")
-            showError = true
-          }
+          let importResult = viewModel.importCSV(data: data, forPlatform: platform)
+          importResultMessage = formatImportResult(importResult, platform: platform)
+          showImportResult = true
         }
       }
     }
@@ -90,11 +90,22 @@ struct BulkEntryView: View {
     ) {
       Button("Continue") { performSave() }
       Button("Cancel", role: .cancel) {}
+    } message: {
+      Text(
+        String(
+          localized:
+            "You can update these values later in the snapshot detail view.",
+          table: "Snapshot"))
     }
     .alert("Error", isPresented: $showError) {
       Button("OK") {}
     } message: {
       Text(errorMessage)
+    }
+    .alert("CSV Import", isPresented: $showImportResult) {
+      Button("OK") {}
+    } message: {
+      Text(importResultMessage)
     }
   }
 
@@ -279,7 +290,15 @@ struct BulkEntryView: View {
         .disabled(isExcluded)
         .overlay(
           RoundedRectangle(cornerRadius: 6)
-            .stroke(row.hasValidationError ? .red : .clear, lineWidth: 1.5)
+            .stroke(
+              (row.hasValidationError || row.hasZeroValueError) ? .red : .clear,
+              lineWidth: 1.5)
+        )
+        .helpWhenUnlocked(
+          row.hasZeroValueError
+            ? LocalizedStringKey(
+              "Value cannot be 0. Exclude the asset instead if it is no longer held.")
+            : nil
         )
         .padding(.trailing, 4)
     }
@@ -347,6 +366,44 @@ struct BulkEntryView: View {
       errorMessage = error.localizedDescription
       showError = true
     }
+  }
+
+  private func formatImportResult(_ result: CSVImportResult, platform: String) -> String {
+    var lines: [String] = []
+
+    if result.totalImported > 0 {
+      if result.matchedCount > 0 && result.newCount > 0 {
+        lines.append(
+          String(
+            localized:
+              "Updated \(result.matchedCount) existing assets and added \(result.newCount) new assets.",
+            table: "Snapshot"))
+      } else if result.matchedCount > 0 {
+        lines.append(
+          String(
+            localized: "Updated \(result.matchedCount) existing assets.",
+            table: "Snapshot"))
+      } else {
+        lines.append(
+          String(
+            localized: "Added \(result.newCount) new assets.",
+            table: "Snapshot"))
+      }
+    } else {
+      lines.append(
+        String(
+          localized: "No assets were imported.",
+          table: "Snapshot"))
+    }
+
+    for error in result.errors {
+      lines.append("⚠ \(error)")
+    }
+    for warning in result.warnings {
+      lines.append("⚠ \(warning)")
+    }
+
+    return lines.joined(separator: "\n")
   }
 
   private func handleCancel() {

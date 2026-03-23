@@ -39,7 +39,8 @@ final class BulkEntryViewModel {
   var pendingCount: Int { rows.filter(\.isPending).count }
   var excludedCount: Int { rows.filter { !$0.isIncluded }.count }
   var includedCount: Int { rows.filter(\.isIncluded).count }
-  var canSave: Bool { includedCount > 0 }
+  var zeroValueCount: Int { rows.filter(\.hasZeroValueError).count }
+  var canSave: Bool { includedCount > 0 && zeroValueCount == 0 }
 
   init(modelContext: ModelContext, date: Date) {
     self.modelContext = modelContext
@@ -92,7 +93,7 @@ final class BulkEntryViewModel {
   }
 
   @discardableResult
-  func importCSV(data: Data, forPlatform platform: String) -> [String] {
+  func importCSV(data: Data, forPlatform platform: String) -> CSVImportResult {
     let result = CSVParsingService.parseAssetCSV(data: data, importPlatform: platform)
 
     // Clear previous CSV values for this platform
@@ -104,10 +105,12 @@ final class BulkEntryViewModel {
     }
     rows.removeAll { $0.platform == platform && $0.source == .csv && $0.asset == nil }
 
-    var errors: [String] = []
-    errors.append(contentsOf: result.errors.map(\.message))
-
+    let errors = result.errors.map(\.message)
+    let warnings = result.warnings.map(\.message)
     let mainCurrency = SettingsService.shared.mainCurrency
+
+    var matchedCount = 0
+    var newCount = 0
 
     for csvRow in result.rows {
       let normalizedCSVName = csvRow.assetName.normalizedForIdentity
@@ -116,6 +119,7 @@ final class BulkEntryViewModel {
       }) {
         rows[index].newValueText = "\(csvRow.marketValue)"
         rows[index].source = .csv
+        matchedCount += 1
       } else {
         let newRow = BulkEntryRow(
           id: UUID(),
@@ -130,10 +134,16 @@ final class BulkEntryViewModel {
           csvCategory: nil
         )
         rows.append(newRow)
+        newCount += 1
       }
     }
 
-    return errors
+    return CSVImportResult(
+      matchedCount: matchedCount,
+      newCount: newCount,
+      errors: errors,
+      warnings: warnings
+    )
   }
 
   // MARK: - Private

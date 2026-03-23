@@ -196,12 +196,10 @@ struct SnapshotListView: View {
             .accessibilityLabel("\(rowData.assetCount) assets")
 
           if rowData.hasZeroValueAssets {
-            Image(systemName: "exclamationmark.triangle.fill")
-              .foregroundStyle(.yellow)
-              .helpWhenUnlocked(
-                String(
-                  localized: "This snapshot contains assets with a value of 0.",
-                  table: "Snapshot"))
+            HoverWarningIcon(
+              message: String(
+                localized: "This snapshot contains assets with a value of 0.",
+                table: "Snapshot"))
           }
         }
       }
@@ -261,14 +259,14 @@ struct SnapshotListView: View {
 
 // MARK: - New Snapshot Sheet
 
-private enum SnapshotCreationMode: String, CaseIterable {
+enum SnapshotCreationMode: String, CaseIterable {
   case emptySnapshot
   case bulkEntry
 }
 
-private struct NewSnapshotSheet: View {
-  let viewModel: SnapshotListViewModel
-  let onCreate: (Snapshot) -> Void
+struct NewSnapshotSheet: View {
+  var viewModel: SnapshotListViewModel?
+  var onCreate: ((Snapshot) -> Void)?
   let onBulkEntry: (Date) -> Void
 
   @Environment(\.dismiss) private var dismiss
@@ -347,10 +345,17 @@ private struct NewSnapshotSheet: View {
       dismiss()
       return
     }
+    guard let viewModel else {
+      errorMessage = String(
+        localized: "Cannot create an empty snapshot from this context.",
+        table: "Snapshot")
+      showError = true
+      return
+    }
     do {
       let snapshot = try viewModel.createSnapshot(
         date: snapshotDate, copyFromLatest: false)
-      onCreate(snapshot)
+      onCreate?(snapshot)
       dismiss()
     } catch {
       errorMessage = error.localizedDescription
