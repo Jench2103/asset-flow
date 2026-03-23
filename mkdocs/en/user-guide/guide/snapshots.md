@@ -23,14 +23,16 @@ Click the **+** button in the toolbar or press ++cmd+n++ to create a new snapsho
 
 You'll be asked to:
 
-1. **Choose a date** — the snapshot date cannot be in the future, and you can't have two snapshots on the same date.
-1. **Toggle Copy from Latest** — when enabled, all asset values from your most recent snapshot are carried forward into the new one. This is incredibly useful for monthly updates where most values stay the same.
+1. **Choose a date** — the snapshot date cannot be in the future, and you can't have two snapshots on the same date. If the selected date already has a snapshot, a warning appears and the Create button is disabled.
+1. **Choose a creation mode**:
+    - **Bulk Entry** (default) — opens a full-screen view where you can enter values for all your assets at once, grouped by platform. Previous values are carried forward for reference. This is the recommended workflow for monthly updates.
+    - **Empty Snapshot** — creates a blank snapshot and takes you to the snapshot detail view, where you can add assets one by one.
 
 ![Create snapshot](../../assets/images/snapshot-create.png)
 
 !!! tip
 
-    Use **Copy from Latest** when doing monthly updates — then just edit the values that changed. This saves a lot of time compared to entering every asset from scratch.
+    Use **Bulk Entry** for monthly updates — all your assets are pre-loaded from the latest snapshot, so you just update the values that changed. See [Bulk Entry](bulk-entry.md) for a full walkthrough.
 
 ## Snapshot Detail
 
@@ -40,7 +42,7 @@ The right side shows the detail view for the selected snapshot.
 
 At the top, you'll see:
 
-- **Total Value** — the sum of all assets in this snapshot
+- **Total Value** — the sum of all assets in this snapshot. A yellow warning icon appears if the snapshot contains assets with a value of 0
 - **Net Cash Flow** — total deposits minus withdrawals, with the number of operations shown
 - **Exchange Rate Status** — whether rates have been fetched for this snapshot's date
 
@@ -86,6 +88,7 @@ To delete a snapshot, scroll to the **Danger Zone** at the bottom of the snapsho
 
 ## See also
 
+- [Bulk Entry](bulk-entry.md): Enter values for all assets in a single session
 - [Cash Flows](cash-flows.md): Record deposits and withdrawals for each snapshot
 - [Assets](assets.md): Manage your individual investments
 - [Import CSV](import-csv.md): Bulk-import snapshot data from a spreadsheet

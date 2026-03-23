@@ -36,15 +36,21 @@ If you already have your holdings in a spreadsheet, CSV import is the fastest wa
 
 ## Option B: Create a Snapshot Manually
 
-Prefer to enter things by hand? You can build your portfolio one asset at a time.
+Prefer to enter things by hand? You can build your portfolio directly in the app.
 
 1. Navigate to **Portfolio > Snapshots** in the sidebar.
 1. Click the **+** button in the toolbar, or press ++cmd+n++.
-1. Choose a **date** for the snapshot. Optionally, toggle **Copy from Latest** to pre-fill the snapshot with data from your most recent one.
+1. Choose a **date** for the snapshot.
+1. Choose a **creation mode**:
+    - **Bulk Entry** (default) — a full-screen view where you enter values for all assets at once, grouped by platform. You can create new assets and platforms inline, and import CSV files per platform.
+    - **Empty Snapshot** — a blank snapshot where you add assets one by one in the detail view.
 1. Click **Create**.
-1. In the snapshot detail view, click **Add Asset** to add assets one by one. Enter the asset name, market value, currency, and optionally assign a platform and category.
 
 ![Create snapshot](../../../assets/images/snapshot-create.png)
+
+!!! tip
+
+    **Bulk Entry** is the fastest way to build a snapshot from scratch — you can add platforms and assets inline without switching between screens. See [Bulk Entry](../guide/bulk-entry.md) for a full walkthrough.
 
 !!! note
 

@@ -19,6 +19,7 @@
 | [儀表板](guide/dashboard.md)             | 綜覽你的投資組合：摘要卡片、圖表與績效表現 |
 | [績效指標](guide/performance-metrics.md) | 成長率、修正 Dietz、TWR 與 CAGR 的意義     |
 | [快照](guide/snapshots.md)               | 建立、編輯與管理投資組合快照               |
+| [批次輸入](guide/bulk-entry.md)          | 在單一畫面中輸入所有資產的值               |
 | [資產](guide/assets.md)                  | 追蹤個別投資標的與價值歷史                 |
 | [類別](guide/categories.md)              | 將資產分組並設定目標配置                   |
 | [平台](guide/platforms.md)               | 管理券商與保管機構                         |

@@ -74,6 +74,7 @@ nav:
           - Dashboard: user-guide/guide/dashboard.md
           - Performance Metrics: user-guide/guide/performance-metrics.md
           - Snapshots: user-guide/guide/snapshots.md
+          - Bulk Entry: user-guide/guide/bulk-entry.md
           - Assets: user-guide/guide/assets.md
           - Categories: user-guide/guide/categories.md
           - Platforms: user-guide/guide/platforms.md
