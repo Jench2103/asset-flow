@@ -72,20 +72,25 @@ extension ImportViewModel {
       for (index, row) in assetPreviewRows.enumerated() where row.isIncluded {
         let normalizedName = row.csvRow.assetName.normalizedForIdentity
         let normalizedPlatform = row.csvRow.platform.normalizedForIdentity
-        let isDuplicate = existingValues.contains { sav in
+        let matchingSAV = existingValues.first { sav in
           guard let asset = sav.asset else { return false }
           return asset.normalizedName == normalizedName
             && asset.normalizedPlatform == normalizedPlatform
         }
-        if isDuplicate {
-          let platformLabel =
-            row.csvRow.platform.isEmpty
-            ? String(localized: "None", table: "Import")
-            : row.csvRow.platform
-          assetPreviewRows[index].snapshotDuplicateError = String(
-            localized:
-              "Asset '\(row.csvRow.assetName)' (platform: '\(platformLabel)') already exists in the snapshot for this date.",
-            table: "Import")
+        if let matchingSAV {
+          if matchingSAV.marketValue == 0 {
+            // Zero-value asset: allow overwrite (deferred from bulk entry)
+            assetPreviewRows[index].snapshotDuplicateError = nil
+          } else {
+            let platformLabel =
+              row.csvRow.platform.isEmpty
+              ? String(localized: "None", table: "Import")
+              : row.csvRow.platform
+            assetPreviewRows[index].snapshotDuplicateError = String(
+              localized:
+                "Asset '\(row.csvRow.assetName)' (platform: '\(platformLabel)') already exists in the snapshot for this date.",
+              table: "Import")
+          }
         }
       }
     }
@@ -193,11 +198,21 @@ extension ImportViewModel {
         }
       }
 
-      // Create SnapshotAssetValue
-      let sav = SnapshotAssetValue(marketValue: row.marketValue)
-      sav.snapshot = snapshot
-      sav.asset = asset
-      modelContext.insert(sav)
+      // Update existing zero-value SAV, or create new one
+      let existingSAV = (snapshot.assetValues ?? []).first { sav in
+        guard let savAsset = sav.asset else { return false }
+        return savAsset.normalizedName == asset.normalizedName
+          && savAsset.normalizedPlatform == asset.normalizedPlatform
+          && sav.marketValue == 0
+      }
+      if let existingSAV {
+        existingSAV.marketValue = row.marketValue
+      } else {
+        let sav = SnapshotAssetValue(marketValue: row.marketValue)
+        sav.snapshot = snapshot
+        sav.asset = asset
+        modelContext.insert(sav)
+      }
     }
 
     // Copy-forward: copy assets from selected platforms in prior snapshot
