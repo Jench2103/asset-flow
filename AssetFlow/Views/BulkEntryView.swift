@@ -25,7 +25,7 @@ import UniformTypeIdentifiers
 /// allowing the user to enter new values for each asset. Supports per-platform
 /// CSV import, inline asset creation, and keyboard navigation between rows.
 struct BulkEntryView: View {
-  @State var viewModel: BulkEntryViewModel
+  @State private var viewModel: BulkEntryViewModel
   let onSave: (Snapshot) -> Void
 
   @Environment(\.modelContext) private var modelContext
@@ -43,14 +43,21 @@ struct BulkEntryView: View {
   @State private var addPlatformError = ""
   @State private var cachedCategoryNames: [String] = []
 
+  init(viewModel: BulkEntryViewModel, onSave: @escaping (Snapshot) -> Void) {
+    _viewModel = State(initialValue: viewModel)
+    self.onSave = onSave
+  }
+
   var body: some View {
+    let duplicateIDs = viewModel.duplicateNameRowIDs
+
     VStack(spacing: 0) {
       toolbar
       Divider()
       ScrollView {
         LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
           ForEach(viewModel.platformGroups, id: \.platform) { group in
-            platformSection(group)
+            platformSection(group, duplicateIDs: duplicateIDs)
           }
           if viewModel.rows.isEmpty {
             ContentUnavailableView {
@@ -87,7 +94,7 @@ struct BulkEntryView: View {
         defer { url.stopAccessingSecurityScopedResource() }
         if let data = try? Data(contentsOf: url) {
           let importResult = viewModel.importCSV(data: data, forPlatform: platform)
-          let formatted = formatImportResult(importResult)
+          let formatted = importResult.formattedResult()
           importResultTitle = formatted.title
           importResultMessage = formatted.message
           showImportResult = true
@@ -131,41 +138,17 @@ struct BulkEntryView: View {
 
       Spacer()
 
-      progressStats
+      BulkEntryProgressStats(
+        updatedCount: viewModel.updatedCount,
+        pendingCount: viewModel.pendingCount,
+        excludedCount: viewModel.excludedCount
+      )
 
-      if viewModel.zeroValueCount > 0 {
-        Label(
-          String(
-            localized:
-              "\(viewModel.zeroValueCount) assets have a value of 0. Exclude them or enter a non-zero value.",
-            table: "Snapshot"),
-          systemImage: "exclamationmark.triangle.fill"
-        )
-        .font(.callout)
-        .foregroundStyle(.red)
-      }
-
-      if viewModel.hasInvalidNewRows {
-        Label(
-          String(
-            localized: "Some new assets are missing a name.",
-            table: "Snapshot"),
-          systemImage: "exclamationmark.triangle.fill"
-        )
-        .font(.callout)
-        .foregroundStyle(.red)
-      }
-
-      if viewModel.hasDuplicateNames {
-        Label(
-          String(
-            localized: "Duplicate asset names found within a platform.",
-            table: "Snapshot"),
-          systemImage: "exclamationmark.triangle.fill"
-        )
-        .font(.callout)
-        .foregroundStyle(.red)
-      }
+      BulkEntryValidationWarnings(
+        zeroValueCount: viewModel.zeroValueCount,
+        hasInvalidNewRows: viewModel.hasInvalidNewRows,
+        hasDuplicateNames: viewModel.hasDuplicateNames
+      )
 
       Button {
         newPlatformName = ""
@@ -189,37 +172,7 @@ struct BulkEntryView: View {
     }
     .padding(.horizontal)
     .padding(.vertical, 12)
-  }
-
-  private var progressStats: some View {
-    HStack(spacing: 12) {
-      HStack(spacing: 4) {
-        Circle()
-          .fill(.green)
-          .frame(width: 8, height: 8)
-        Text("\(viewModel.updatedCount) updated")
-          .font(.callout)
-          .foregroundStyle(.secondary)
-      }
-
-      HStack(spacing: 4) {
-        Circle()
-          .fill(.orange)
-          .frame(width: 8, height: 8)
-        Text("\(viewModel.pendingCount) pending")
-          .font(.callout)
-          .foregroundStyle(.secondary)
-      }
-
-      HStack(spacing: 4) {
-        Circle()
-          .fill(.gray)
-          .frame(width: 8, height: 8)
-        Text("\(viewModel.excludedCount) excluded")
-          .font(.callout)
-          .foregroundStyle(.secondary)
-      }
-    }
+    .background(.ultraThinMaterial)
   }
 
   // MARK: - Add Platform Popover
@@ -269,14 +222,22 @@ struct BulkEntryView: View {
 
   @ViewBuilder
   private func platformSection(
-    _ group: (platform: String, rows: [BulkEntryRow])
+    _ group: (platform: String, rows: [BulkEntryRow]),
+    duplicateIDs: Set<UUID>
   ) -> some View {
-    let duplicateIDs = viewModel.duplicateNameRowIDs
     VStack(alignment: .leading, spacing: 0) {
       platformHeader(group)
-      columnHeaders
+      BulkEntryColumnHeaders()
       ForEach(group.rows) { row in
-        assetEntryRow(row, duplicateIDs: duplicateIDs)
+        BulkEntryRowView(
+          viewModel: viewModel,
+          row: row,
+          isDuplicate: duplicateIDs.contains(row.id),
+          cachedCategoryNames: $cachedCategoryNames,
+          focusedRowID: $focusedRowID,
+          onAdvanceFocus: { advanceFocus() },
+          onDelete: { viewModel.removeManualRow(rowID: row.id) }
+        )
         Divider()
       }
     }
@@ -329,238 +290,6 @@ struct BulkEntryView: View {
     .padding(.horizontal, 4)
   }
 
-  private var columnHeaders: some View {
-    HStack(spacing: 8) {
-      Text("Include")
-        .frame(width: 60, alignment: .center)
-      Text("Asset Name")
-        .frame(minWidth: 120, alignment: .leading)
-      Spacer()
-      Text("Category")
-        .frame(width: 120, alignment: .center)
-      Text("Currency")
-        .frame(width: 80, alignment: .center)
-      Text("Previous Value")
-        .frame(width: 140, alignment: .trailing)
-      Text("New Value")
-        .frame(width: 160, alignment: .trailing)
-      Spacer()
-        .frame(width: 28)
-    }
-    .font(.caption)
-    .foregroundStyle(.secondary)
-    .padding(.vertical, 4)
-    .padding(.horizontal, 4)
-    .background(.fill.quaternary)
-  }
-
-  // MARK: - Asset Entry Row
-
-  @ViewBuilder
-  private func assetEntryRow(_ row: BulkEntryRow, duplicateIDs: Set<UUID>) -> some View {
-    let isExcluded = !row.isIncluded
-    let isUpdated = row.isUpdated
-    let isDuplicate = duplicateIDs.contains(row.id)
-
-    HStack(spacing: 8) {
-      Toggle("", isOn: includeBinding(for: row))
-        .labelsHidden()
-        .accessibilityLabel("Include \(row.assetName)")
-        .frame(width: 60, alignment: .center)
-        .helpWhenUnlocked("Include or exclude this asset from the snapshot")
-
-      // Asset name column
-      HStack(spacing: 6) {
-        if row.isNewRow {
-          TextField("Asset name", text: assetNameBinding(for: row))
-            .textFieldStyle(.roundedBorder)
-            .frame(minWidth: 100)
-            .disabled(isExcluded)
-            .overlay(
-              RoundedRectangle(cornerRadius: 6)
-                .stroke(
-                  (row.hasEmptyName || isDuplicate) ? .red : .clear,
-                  lineWidth: 1.5)
-            )
-        } else {
-          Text(row.assetName)
-            .strikethrough(isExcluded)
-        }
-        sourceBadge(for: row)
-      }
-      .frame(minWidth: 120, alignment: .leading)
-
-      Spacer()
-
-      // Category column
-      if row.isNewAsset {
-        categoryPicker(for: row)
-          .frame(width: 120)
-      } else {
-        Text(row.asset?.category?.name ?? "\u{2014}")
-          .font(.callout)
-          .foregroundStyle(row.asset?.category != nil ? .primary : .secondary)
-          .frame(width: 120, alignment: .center)
-      }
-
-      // Currency column
-      if row.isNewRow {
-        Picker("", selection: currencyBinding(for: row)) {
-          ForEach(CurrencyService.shared.currencies) { currency in
-            Text(currency.code).tag(currency.code)
-          }
-        }
-        .labelsHidden()
-        .frame(width: 80)
-      } else {
-        Text(row.currency.uppercased())
-          .font(.callout)
-          .frame(width: 80, alignment: .center)
-      }
-
-      Text(row.previousValue?.formatted(currency: row.currency) ?? "\u{2014}")
-        .monospacedDigit()
-        .foregroundStyle(.secondary)
-        .frame(width: 140, alignment: .trailing)
-
-      TextField("Enter value\u{2026}", text: bindingForRow(row))
-        .textFieldStyle(.roundedBorder)
-        .monospacedDigit()
-        .frame(width: 160)
-        .multilineTextAlignment(.trailing)
-        .focused($focusedRowID, equals: row.id)
-        .onSubmit { advanceFocus() }
-        .disabled(isExcluded)
-        .overlay(
-          RoundedRectangle(cornerRadius: 6)
-            .stroke(
-              (row.hasValidationError || row.hasZeroValueError) ? .red : .clear,
-              lineWidth: 1.5)
-        )
-        .helpWhenUnlocked(
-          row.hasZeroValueError
-            ? LocalizedStringKey(
-              "Value cannot be 0. Exclude the asset instead if it is no longer held.")
-            : nil
-        )
-
-      // Delete button for manualNew rows, padding for others
-      if row.isNewRow {
-        Button {
-          viewModel.removeManualRow(rowID: row.id)
-        } label: {
-          Image(systemName: "trash")
-            .foregroundStyle(.red)
-        }
-        .buttonStyle(.plain)
-        .helpWhenUnlocked("Remove this manually added asset")
-        .frame(width: 28)
-      } else {
-        Spacer()
-          .frame(width: 28)
-      }
-    }
-    .padding(.vertical, 6)
-    .padding(.horizontal, 4)
-    .background(
-      isUpdated
-        ? Color.green.opacity(0.06)
-        : Color.clear
-    )
-    .opacity(isExcluded ? 0.5 : 1.0)
-    .accessibilityLabel(
-      "\(row.assetName), \(row.platform), \(row.isUpdated ? "updated" : row.isPending ? "pending" : "excluded")"
-    )
-  }
-
-  @ViewBuilder
-  private func sourceBadge(for row: BulkEntryRow) -> some View {
-    if row.source == .csv {
-      Text("CSV")
-        .font(.caption2)
-        .padding(.horizontal, 4)
-        .padding(.vertical, 1)
-        .background(.blue.opacity(0.15), in: Capsule())
-        .foregroundStyle(.blue)
-    } else if row.source == .manualNew {
-      Text("NEW")
-        .font(.caption2)
-        .padding(.horizontal, 4)
-        .padding(.vertical, 1)
-        .background(.green.opacity(0.15), in: Capsule())
-        .foregroundStyle(.green)
-    }
-  }
-
-  // MARK: - Category Picker
-
-  private func categoryPicker(for row: BulkEntryRow) -> some View {
-    CategoryNamePicker(
-      categoryName: categoryNameBinding(for: row),
-      cachedNames: $cachedCategoryNames
-    )
-  }
-
-  private func loadCachedCategoryNames() {
-    let descriptor = FetchDescriptor<Category>(
-      sortBy: [SortDescriptor(\.displayOrder), SortDescriptor(\.name)])
-    let categories = (try? modelContext.fetch(descriptor)) ?? []
-    cachedCategoryNames = categories.map(\.name)
-  }
-
-  // MARK: - Bindings
-
-  private func includeBinding(for row: BulkEntryRow) -> Binding<Bool> {
-    Binding(
-      get: { viewModel.rows.first(where: { $0.id == row.id })?.isIncluded ?? false },
-      set: { _ in viewModel.toggleInclude(rowID: row.id) }
-    )
-  }
-
-  private func bindingForRow(_ row: BulkEntryRow) -> Binding<String> {
-    Binding(
-      get: { viewModel.rows.first(where: { $0.id == row.id })?.newValueText ?? "" },
-      set: { newValue in
-        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.rows[index].newValueText = newValue
-        }
-      }
-    )
-  }
-
-  private func assetNameBinding(for row: BulkEntryRow) -> Binding<String> {
-    Binding(
-      get: { viewModel.rows.first(where: { $0.id == row.id })?.assetName ?? "" },
-      set: { newValue in
-        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.rows[index].assetName = newValue
-        }
-      }
-    )
-  }
-
-  private func currencyBinding(for row: BulkEntryRow) -> Binding<String> {
-    Binding(
-      get: { viewModel.rows.first(where: { $0.id == row.id })?.currency ?? "" },
-      set: { newValue in
-        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.rows[index].currency = newValue
-        }
-      }
-    )
-  }
-
-  private func categoryNameBinding(for row: BulkEntryRow) -> Binding<String> {
-    Binding(
-      get: { viewModel.rows.first(where: { $0.id == row.id })?.categoryName ?? "" },
-      set: { newValue in
-        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.rows[index].categoryName = newValue.isEmpty ? nil : newValue
-        }
-      }
-    )
-  }
-
   // MARK: - Keyboard Navigation
 
   private func advanceFocus() {
@@ -574,7 +303,7 @@ struct BulkEntryView: View {
     }
   }
 
-  // MARK: - Save / Cancel
+  // MARK: - Save
 
   private func handleSave() {
     if viewModel.pendingCount > 0 {
@@ -594,147 +323,11 @@ struct BulkEntryView: View {
     }
   }
 
-  private func formatImportResult(
-    _ result: CSVImportResult
-  ) -> (title: String, message: String) {
-    let title: String
-    if result.hasErrors {
-      title = String(localized: "Import Error", table: "Snapshot")
-    } else if result.hasWarnings {
-      title = String(localized: "Import Warning", table: "Snapshot")
-    } else {
-      title = String(localized: "CSV Import", table: "Snapshot")
-    }
-
-    var lines: [String] = []
-
-    if result.matchedCount > 0 {
-      lines.append(
-        String(
-          localized: "\(result.matchedCount) existing assets updated.",
-          table: "Snapshot"))
-    }
-    if result.newCount > 0 {
-      lines.append(
-        String(
-          localized: "\(result.newCount) new assets added.",
-          table: "Snapshot"))
-    }
-    if result.totalImported == 0 && !result.hasErrors {
-      lines.append(
-        String(
-          localized: "No assets were imported.",
-          table: "Snapshot"))
-    }
-
-    for error in result.errors {
-      lines.append(error)
-    }
-    for warning in result.parserWarnings {
-      lines.append(warning)
-    }
-
-    if !result.platformMismatches.isEmpty {
-      let names = result.platformMismatches.joined(separator: ", ")
-      lines.append(
-        String(
-          localized:
-            "\(result.platformMismatches.count) assets skipped (platform mismatch): \(names)",
-          table: "Snapshot"))
-    }
-    if !result.currencyMismatches.isEmpty {
-      let names = result.currencyMismatches.joined(separator: ", ")
-      lines.append(
-        String(
-          localized:
-            "\(result.currencyMismatches.count) assets skipped (currency mismatch): \(names)",
-          table: "Snapshot"))
-    }
-
-    return (title: title, message: lines.joined(separator: "\n\n"))
+  private func loadCachedCategoryNames() {
+    let descriptor = FetchDescriptor<Category>(
+      sortBy: [SortDescriptor(\.displayOrder), SortDescriptor(\.name)])
+    let categories = (try? modelContext.fetch(descriptor)) ?? []
+    cachedCategoryNames = categories.map(\.name)
   }
 
-}
-
-// MARK: - Category Name Picker
-
-/// A lightweight picker for selecting or creating a category by name.
-///
-/// Unlike `CategoryPickerField`, this does not create `Category` objects
-/// in the database. It stores category names as strings, deferring
-/// database creation to snapshot save time.
-private struct CategoryNamePicker: View {
-  @Binding var categoryName: String
-  @Binding var cachedNames: [String]
-
-  @State private var showNewField = false
-  @State private var newName = ""
-
-  var body: some View {
-    if showNewField {
-      HStack(spacing: 2) {
-        TextField("Category", text: $newName)
-          .textFieldStyle(.roundedBorder)
-          .font(.callout)
-          .onSubmit { commitNew() }
-        Button {
-          commitNew()
-        } label: {
-          Image(systemName: "checkmark.circle.fill")
-            .foregroundStyle(.green)
-        }
-        .buttonStyle(.plain)
-        Button {
-          showNewField = false
-          newName = ""
-        } label: {
-          Image(systemName: "xmark.circle.fill")
-            .foregroundStyle(.secondary)
-        }
-        .buttonStyle(.plain)
-      }
-    } else {
-      Picker("", selection: pickerBinding) {
-        Text("None").tag("")
-        ForEach(cachedNames, id: \.self) { name in
-          Text(name).tag(name)
-        }
-        Divider()
-        Text("New Category\u{2026}").tag("__new__")
-      }
-      .labelsHidden()
-      .font(.callout)
-    }
-  }
-
-  private var pickerBinding: Binding<String> {
-    Binding(
-      get: { categoryName },
-      set: { newValue in
-        if newValue == "__new__" {
-          showNewField = true
-          newName = ""
-        } else {
-          categoryName = newValue
-        }
-      }
-    )
-  }
-
-  private func commitNew() {
-    let trimmed = newName.trimmingCharacters(in: .whitespaces)
-    guard !trimmed.isEmpty else { return }
-
-    // Case-insensitive match against existing names
-    if let match = cachedNames.first(where: { $0.lowercased() == trimmed.lowercased() }) {
-      categoryName = match
-    } else {
-      categoryName = trimmed
-      cachedNames.append(trimmed)
-      cachedNames.sort()
-    }
-
-    showNewField = false
-    newName = ""
-  }
 }

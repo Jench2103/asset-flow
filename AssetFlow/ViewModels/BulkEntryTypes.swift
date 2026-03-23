@@ -31,6 +31,65 @@ struct CSVImportResult {
   var hasWarnings: Bool {
     !parserWarnings.isEmpty || !platformMismatches.isEmpty || !currencyMismatches.isEmpty
   }
+
+  /// Formats the import result into a user-facing title and message.
+  func formattedResult() -> (title: String, message: String) {
+    let title: String
+    if hasErrors {
+      title = String(localized: "Import Error", table: "Snapshot")
+    } else if hasWarnings {
+      title = String(localized: "Import Warning", table: "Snapshot")
+    } else {
+      title = String(localized: "CSV Import", table: "Snapshot")
+    }
+
+    var lines: [String] = []
+
+    if matchedCount > 0 {
+      lines.append(
+        String(
+          localized: "\(matchedCount) existing assets updated.",
+          table: "Snapshot"))
+    }
+    if newCount > 0 {
+      lines.append(
+        String(
+          localized: "\(newCount) new assets added.",
+          table: "Snapshot"))
+    }
+    if totalImported == 0 && !hasErrors {
+      lines.append(
+        String(
+          localized: "No assets were imported.",
+          table: "Snapshot"))
+    }
+
+    for error in errors {
+      lines.append(error)
+    }
+    for warning in parserWarnings {
+      lines.append(warning)
+    }
+
+    if !platformMismatches.isEmpty {
+      let names = platformMismatches.joined(separator: ", ")
+      lines.append(
+        String(
+          localized:
+            "\(platformMismatches.count) assets skipped (platform mismatch): \(names)",
+          table: "Snapshot"))
+    }
+    if !currencyMismatches.isEmpty {
+      let names = currencyMismatches.joined(separator: ", ")
+      lines.append(
+        String(
+          localized:
+            "\(currencyMismatches.count) assets skipped (currency mismatch): \(names)",
+          table: "Snapshot"))
+    }
+
+    return (title: title, message: lines.joined(separator: "\n\n"))
+  }
 }
 
 /// Source of a bulk entry row's value.
