@@ -44,13 +44,11 @@ private struct HelpWhenUnlockedModifier: ViewModifier {
   let textKey: LocalizedStringKey?
   @Environment(\.isAppLocked) private var isLocked
 
-  @ViewBuilder
   func body(content: Content) -> some View {
-    if let textKey, !isLocked {
-      content.help(textKey)
-    } else {
-      content
-    }
+    // Always apply .help() to keep the view tree structure stable.
+    // Switching between content.help() and bare content causes SwiftUI
+    // to reset @FocusState on the modified view.
+    content.help(isLocked || textKey == nil ? "" : textKey!)
   }
 }
 
