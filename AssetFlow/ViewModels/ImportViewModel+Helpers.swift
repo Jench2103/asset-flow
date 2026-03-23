@@ -65,9 +65,11 @@ extension ImportViewModel {
     // Note: uses String.normalizedForIdentity (equivalent to CSVParsingService.normalizedAssetIdentity)
     // because we compare against stored Asset.normalizedName/normalizedPlatform model properties.
     let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
-    let snapshotDescriptor = FetchDescriptor<Snapshot>()
-    let allSnapshots = (try? modelContext.fetch(snapshotDescriptor)) ?? []
-    if let existingSnapshot = allSnapshots.first(where: { $0.date == normalizedDate }) {
+    var snapshotDescriptor = FetchDescriptor<Snapshot>(
+      predicate: #Predicate { $0.date == normalizedDate }
+    )
+    snapshotDescriptor.fetchLimit = 1
+    if let existingSnapshot = ((try? modelContext.fetch(snapshotDescriptor)) ?? []).first {
       let existingValues = existingSnapshot.assetValues ?? []
       for (index, row) in assetPreviewRows.enumerated() where row.isIncluded {
         let normalizedName = row.csvRow.assetName.normalizedForIdentity
@@ -132,9 +134,11 @@ extension ImportViewModel {
 
     // Detect CSV-vs-snapshot duplicates on included rows, assign per-row
     let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
-    let snapshotDescriptor = FetchDescriptor<Snapshot>()
-    let allSnapshots = (try? modelContext.fetch(snapshotDescriptor)) ?? []
-    if let existingSnapshot = allSnapshots.first(where: { $0.date == normalizedDate }) {
+    var snapshotDescriptor = FetchDescriptor<Snapshot>(
+      predicate: #Predicate { $0.date == normalizedDate }
+    )
+    snapshotDescriptor.fetchLimit = 1
+    if let existingSnapshot = ((try? modelContext.fetch(snapshotDescriptor)) ?? []).first {
       let existingOps = existingSnapshot.cashFlowOperations ?? []
       for (index, row) in cashFlowPreviewRows.enumerated() where row.isIncluded {
         let normalizedDesc = row.csvRow.description.trimmingCharacters(in: .whitespaces)
@@ -163,10 +167,12 @@ extension ImportViewModel {
   // MARK: - Import Execution
 
   func findOrCreateSnapshot(date: Date) -> Snapshot {
-    let descriptor = FetchDescriptor<Snapshot>()
-    let allSnapshots = (try? modelContext.fetch(descriptor)) ?? []
+    var descriptor = FetchDescriptor<Snapshot>(
+      predicate: #Predicate { $0.date == date }
+    )
+    descriptor.fetchLimit = 1
 
-    if let existing = allSnapshots.first(where: { $0.date == date }) {
+    if let existing = ((try? modelContext.fetch(descriptor)) ?? []).first {
       return existing
     }
 

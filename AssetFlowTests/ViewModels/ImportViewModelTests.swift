@@ -2310,4 +2310,50 @@ struct ImportViewModelTests {
     // Import should now be possible (the excluded row's error doesn't block)
     #expect(!viewModel.isImportDisabled)
   }
+
+  // MARK: - findOrCreateSnapshot
+
+  @Test("findOrCreateSnapshot returns existing snapshot when date matches")
+  func findOrCreateSnapshotReturnsExisting() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let date = makeDate(year: 2025, month: 6, day: 15)
+    let existing = Snapshot(date: date)
+    tc.context.insert(existing)
+
+    let result = viewModel.findOrCreateSnapshot(date: date)
+    #expect(result.id == existing.id)
+  }
+
+  @Test("findOrCreateSnapshot creates new snapshot when no match exists")
+  func findOrCreateSnapshotCreatesNew() throws {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let date = makeDate(year: 2025, month: 6, day: 15)
+    let result = viewModel.findOrCreateSnapshot(date: date)
+
+    #expect(result.date == date)
+
+    let descriptor = FetchDescriptor<Snapshot>()
+    let all = try tc.context.fetch(descriptor)
+    #expect(all.count == 1)
+  }
+
+  @Test("findOrCreateSnapshot does not create duplicate when snapshot exists")
+  func findOrCreateSnapshotNoDuplicate() throws {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+
+    let date = makeDate(year: 2025, month: 6, day: 15)
+    let existing = Snapshot(date: date)
+    tc.context.insert(existing)
+
+    _ = viewModel.findOrCreateSnapshot(date: date)
+
+    let descriptor = FetchDescriptor<Snapshot>()
+    let all = try tc.context.fetch(descriptor)
+    #expect(all.count == 1)
+  }
 }

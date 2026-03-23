@@ -487,10 +487,11 @@ struct ContentView: View {
   /// Navigates to a snapshot by looking up its date.
   private func navigateToSnapshotByDate(_ date: Date) {
     let targetDate = Calendar.current.startOfDay(for: date)
-    let descriptor = FetchDescriptor<Snapshot>()
-    if let allSnapshots = try? modelContext.fetch(descriptor),
-      let match = allSnapshots.first(where: { $0.date == targetDate })
-    {
+    var descriptor = FetchDescriptor<Snapshot>(
+      predicate: #Predicate { $0.date == targetDate }
+    )
+    descriptor.fetchLimit = 1
+    if let match = (try? modelContext.fetch(descriptor))?.first {
       pushHistory(.snapshots)
       selectedSnapshot = match
     }

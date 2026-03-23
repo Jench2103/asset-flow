@@ -176,9 +176,11 @@ class SnapshotListViewModel {
     }
 
     // Check for existing snapshot on this date
-    let existingDescriptor = FetchDescriptor<Snapshot>()
-    let allSnapshots = try modelContext.fetch(existingDescriptor)
-    if allSnapshots.contains(where: { $0.date == normalizedDate }) {
+    var dateCheckDescriptor = FetchDescriptor<Snapshot>(
+      predicate: #Predicate { $0.date == normalizedDate }
+    )
+    dateCheckDescriptor.fetchLimit = 1
+    if try modelContext.fetch(dateCheckDescriptor).first != nil {
       throw SnapshotError.dateAlreadyExists(normalizedDate)
     }
 
@@ -186,7 +188,7 @@ class SnapshotListViewModel {
     modelContext.insert(snapshot)
 
     if copyFromLatest {
-      copyValuesFromLatest(to: snapshot, allSnapshots: allSnapshots)
+      copyValuesFromLatest(to: snapshot)
     }
 
     return snapshot
@@ -197,9 +199,11 @@ class SnapshotListViewModel {
   /// Returns true if at least one snapshot exists with a date before the selected date.
   func canCopyFromLatest(for date: Date) -> Bool {
     let normalizedDate = Calendar.current.startOfDay(for: date)
-    let descriptor = FetchDescriptor<Snapshot>()
-    let allSnapshots = (try? modelContext.fetch(descriptor)) ?? []
-    return allSnapshots.contains(where: { $0.date < normalizedDate })
+    var descriptor = FetchDescriptor<Snapshot>(
+      predicate: #Predicate { $0.date < normalizedDate }
+    )
+    descriptor.fetchLimit = 1
+    return ((try? modelContext.fetch(descriptor)) ?? []).first != nil
   }
 
   // MARK: - Deletion
@@ -267,14 +271,16 @@ class SnapshotListViewModel {
   }
 
   /// Copies all direct asset values from the most recent prior snapshot to the new snapshot.
-  private func copyValuesFromLatest(to snapshot: Snapshot, allSnapshots: [Snapshot]) {
+  private func copyValuesFromLatest(to snapshot: Snapshot) {
     // Find the most recent snapshot before the new snapshot's date
-    let priorSnapshots =
-      allSnapshots
-      .filter { $0.date < snapshot.date }
-      .sorted { $0.date > $1.date }
+    let snapshotDate = snapshot.date
+    var priorDescriptor = FetchDescriptor<Snapshot>(
+      predicate: #Predicate { $0.date < snapshotDate },
+      sortBy: [SortDescriptor(\.date, order: .reverse)]
+    )
+    priorDescriptor.fetchLimit = 1
 
-    guard let latestPrior = priorSnapshots.first else { return }
+    guard let latestPrior = (try? modelContext.fetch(priorDescriptor))?.first else { return }
 
     let latestValues = latestPrior.assetValues ?? []
 
