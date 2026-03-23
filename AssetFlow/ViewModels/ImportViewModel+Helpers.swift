@@ -79,7 +79,10 @@ extension ImportViewModel {
         }
         if let matchingSAV {
           if matchingSAV.marketValue == 0 {
-            // Zero-value asset: allow overwrite (deferred from bulk entry)
+            // Zero-value SAVs are placeholders (e.g., from bulk entry pending rows).
+            // The app's design assumes value=0 means the asset is not yet recorded;
+            // if a snapshot should not hold an asset, the SAV should be removed.
+            // Allow CSV import to overwrite these placeholders.
             assetPreviewRows[index].snapshotDuplicateError = nil
           } else {
             let platformLabel =
@@ -198,7 +201,10 @@ extension ImportViewModel {
         }
       }
 
-      // Update existing zero-value SAV, or create new one
+      // Update existing zero-value SAV (placeholder), or create new one.
+      // Zero-value SAVs are treated as placeholders — the app assumes value=0 means
+      // the asset is not yet recorded, so CSV import overwrites them in-place rather
+      // than creating a duplicate entry.
       let existingSAV = (snapshot.assetValues ?? []).first { sav in
         guard let savAsset = sav.asset else { return false }
         return savAsset.normalizedName == asset.normalizedName

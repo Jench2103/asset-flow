@@ -270,6 +270,7 @@ struct NewSnapshotSheet: View {
   let onBulkEntry: (Date) -> Void
 
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.modelContext) private var modelContext
 
   @Query(sort: \Snapshot.date) private var allSnapshots: [Snapshot]
 
@@ -345,16 +346,17 @@ struct NewSnapshotSheet: View {
       dismiss()
       return
     }
-    guard let viewModel else {
-      errorMessage = String(
-        localized: "Cannot create an empty snapshot from this context.",
-        table: "Snapshot")
-      showError = true
-      return
-    }
     do {
-      let snapshot = try viewModel.createSnapshot(
-        date: snapshotDate, copyFromLatest: false)
+      let snapshot: Snapshot
+      if let viewModel {
+        snapshot = try viewModel.createSnapshot(
+          date: snapshotDate, copyFromLatest: false)
+      } else {
+        // Sidebar context: create empty snapshot directly via modelContext
+        let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
+        snapshot = Snapshot(date: normalizedDate)
+        modelContext.insert(snapshot)
+      }
       onCreate?(snapshot)
       dismiss()
     } catch {

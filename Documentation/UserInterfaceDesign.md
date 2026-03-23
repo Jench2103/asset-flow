@@ -141,9 +141,8 @@ ______________________________________________________________________
 1. Date picker appears (future dates disabled)
 1. If the selected date already has a snapshot, show validation error: "A snapshot already exists for [date]. Go to the Snapshots screen to view and edit it."
 1. Starting point selector:
-   - **Start empty**: Creates snapshot with no asset entries
-   - **Copy from latest**: Pre-populates with all direct SnapshotAssetValues from the most recent prior snapshot. Disabled (grayed out with explanatory text) when no snapshots exist before the selected date.
-   - **Bulk Entry**: Opens `BulkEntryView` for full-screen bulk value entry. Disabled when no assets exist.
+   - **Empty Snapshot**: Creates snapshot with no asset entries
+   - **Bulk Entry**: Opens `BulkEntryView` for full-screen bulk value entry. Shows an empty state with "Add Platform" action when no prior snapshots exist.
 1. On creation, user is taken to the snapshot detail view for editing
 
 **Snapshot detail view** (on selection):

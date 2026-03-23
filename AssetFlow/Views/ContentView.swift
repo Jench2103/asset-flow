@@ -86,10 +86,10 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 
 /// Root navigation shell with sidebar and detail pane.
 ///
-/// Provides a 7-section sidebar (Dashboard, Snapshots, Assets, Categories,
-/// Platforms, Rebalancing, Import CSV) with list-detail splits for Snapshots,
-/// Assets, and Categories. Manages import discard confirmation and post-import
-/// navigation to the created snapshot.
+/// Provides an 8-section sidebar (Dashboard, Snapshots, Assets, Categories,
+/// Platforms, Rebalancing, New Snapshot, Import CSV) with list-detail splits for
+/// Snapshots, Assets, and Categories. Manages import discard confirmation and
+/// post-import navigation to the created snapshot.
 struct ContentView: View {
   @Environment(\.modelContext) private var modelContext
   @Environment(\.isAppLocked) private var isAppLocked
@@ -177,6 +177,10 @@ struct ContentView: View {
     }
     .sheet(isPresented: $showBulkEntrySheet) {
       NewSnapshotSheet(
+        onCreate: { snapshot in
+          pushHistory(.snapshots)
+          selectedSnapshot = snapshot
+        },
         onBulkEntry: { date in
           bulkEntryViewModel = BulkEntryViewModel(
             modelContext: modelContext, date: date)
@@ -255,12 +259,6 @@ struct ContentView: View {
       set: { newSection in
         guard let newSection, newSection != selectedSection else { return }
 
-        // Bulk entry: show date picker sheet instead of navigating
-        if newSection == .bulkEntry {
-          showBulkEntrySheet = true
-          return
-        }
-
         // Check if navigating away from section with unsaved changes
         if selectedSection == .importCSV,
           importViewModel?.hasUnsavedChanges == true
@@ -272,6 +270,9 @@ struct ContentView: View {
         {
           pendingSection = newSection
           showDiscardConfirmation = true
+        } else if newSection == .bulkEntry {
+          // Bulk entry: show date picker sheet instead of navigating
+          showBulkEntrySheet = true
         } else {
           if selectedSection == .bulkEntry {
             bulkEntryViewModel = nil
@@ -528,6 +529,9 @@ struct ContentView: View {
     guard canGoBack else { return }
     if selectedSection == .bulkEntry {
       bulkEntryViewModel = nil
+      // Truncate forward history so goForward() can't navigate back
+      // to .bulkEntry with a nil ViewModel.
+      sectionHistory = Array(sectionHistory.prefix(historyIndex + 1))
     }
     isNavigatingHistory = true
     historyIndex -= 1

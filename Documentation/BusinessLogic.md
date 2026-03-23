@@ -483,6 +483,13 @@ Bulk entry provides a full-screen workflow for entering asset values across all 
 - **Included rows without values (pending)**: A SnapshotAssetValue is created with market value 0
 - **Excluded rows**: No SnapshotAssetValue is created; the asset is omitted from the snapshot
 
+### Zero-Value Design Invariant
+
+A `SnapshotAssetValue` with `marketValue == 0` is treated as a placeholder — an asset that has not yet been recorded for the snapshot. If a snapshot should not track an asset, the `SnapshotAssetValue` should be removed rather than kept with value 0. This invariant enables:
+
+- **CSV import overwrite**: When importing into an existing snapshot, zero-value SAVs are overwritten in-place rather than flagged as duplicates. This allows users to create a snapshot via bulk entry (which saves pending rows as 0) and later fill in values via CSV import.
+- **Bulk entry validation**: Explicitly entering 0 is blocked (`hasZeroValueError`); users must exclude the asset instead.
+
 ### Zero-Value Warning Rules
 
 Assets with a market value of 0 trigger warnings in multiple contexts:

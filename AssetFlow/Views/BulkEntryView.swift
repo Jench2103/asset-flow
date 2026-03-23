@@ -39,6 +39,7 @@ struct BulkEntryView: View {
   @State private var importResultTitle = ""
   @State private var importResultMessage = ""
   @State private var showAddPlatformPopover = false
+  @State private var showEmptyStatePopover = false
   @State private var newPlatformName = ""
   @State private var addPlatformError = ""
   @State private var cachedCategoryNames: [String] = []
@@ -65,9 +66,12 @@ struct BulkEntryView: View {
           Button("Add Platform") {
             newPlatformName = ""
             addPlatformError = ""
-            showAddPlatformPopover = true
+            showEmptyStatePopover = true
           }
           .buttonStyle(.borderedProminent)
+          .popover(isPresented: $showEmptyStatePopover, arrowEdge: .bottom) {
+            addPlatformPopover
+          }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
       } else {

@@ -135,16 +135,6 @@
         }
       }
     },
-    "Cannot create an empty snapshot from this context.": {
-      "localizations": {
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法從此處建立空白快照。"
-          }
-        }
-      }
-    },
     "Create New": {
       "localizations": {
         "zh-Hant": {
@@ -163,6 +153,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "未匯入任何資產。"
+          }
+        }
+      }
+    },
+    "Import Error": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯入錯誤"
           }
         }
       }

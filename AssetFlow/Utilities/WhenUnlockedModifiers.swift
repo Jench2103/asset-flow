@@ -56,13 +56,11 @@ private struct HelpWhenUnlockedStringModifier: ViewModifier {
   let text: String
   @Environment(\.isAppLocked) private var isLocked
 
-  @ViewBuilder
   func body(content: Content) -> some View {
-    if !isLocked {
-      content.help(text)
-    } else {
-      content
-    }
+    // Always apply .help() to keep the view tree structure stable.
+    // Switching between content.help() and bare content causes SwiftUI
+    // to reset @FocusState on the modified view.
+    content.help(isLocked ? "" : text)
   }
 }
 

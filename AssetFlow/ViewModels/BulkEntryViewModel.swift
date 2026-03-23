@@ -63,6 +63,7 @@ final class BulkEntryViewModel {
   var hasDuplicateNames: Bool { !duplicateNameRowIDs.isEmpty }
   var canSave: Bool {
     includedCount > 0 && zeroValueCount == 0 && !hasInvalidNewRows && !hasDuplicateNames
+      && !rows.contains(where: { $0.isIncluded && $0.hasValidationError })
   }
   var hasUnsavedChanges: Bool {
     rows.contains { !$0.newValueText.isEmpty }
@@ -107,8 +108,8 @@ final class BulkEntryViewModel {
   func addPlatform(name: String) -> UUID? {
     let trimmed = name.trimmingCharacters(in: .whitespaces)
     guard !trimmed.isEmpty else { return nil }
-    let existing = Set(rows.map { $0.platform.lowercased() })
-    guard !existing.contains(trimmed.lowercased()) else { return nil }
+    let existing = Set(rows.map { $0.platform.normalizedForIdentity })
+    guard !existing.contains(trimmed.normalizedForIdentity) else { return nil }
     return addManualRow(forPlatform: trimmed)
   }
 
