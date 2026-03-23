@@ -66,6 +66,17 @@ final class BulkEntryViewModel {
       throw SnapshotError.noAssetsIncluded
     }
 
+    // Guard against duplicate date (race condition: another snapshot may have
+    // been created for this date while the user was editing values)
+    let targetDate = snapshotDate
+    var dateCheckDescriptor = FetchDescriptor<Snapshot>(
+      predicate: #Predicate { $0.date == targetDate }
+    )
+    dateCheckDescriptor.fetchLimit = 1
+    if ((try? modelContext.fetch(dateCheckDescriptor)) ?? []).first != nil {
+      throw SnapshotError.dateAlreadyExists(snapshotDate)
+    }
+
     let snapshot = Snapshot(date: snapshotDate)
     modelContext.insert(snapshot)
 
@@ -152,6 +163,9 @@ final class BulkEntryViewModel {
           newValueText: "\(csvRow.marketValue)",
           isIncluded: true,
           source: .csv,
+          // csvCategory is intentionally nil: AssetCSVRow has no category field,
+          // so CSVParsingService cannot provide one. Users assign categories in
+          // SnapshotDetailView after saving.
           csvCategory: nil
         )
         rows.append(newRow)
@@ -185,6 +199,10 @@ final class BulkEntryViewModel {
     rows =
       assetValues.compactMap { sav in
         guard let asset = sav.asset else { return nil }
+        // Intentionally uses asset.id (not UUID()) for stable identity across
+        // SwiftUI re-renders. Collision with CSV-imported rows (which use UUID())
+        // cannot occur because importCSV() matches by normalizedName within the
+        // platform group before deciding match vs. new row.
         return BulkEntryRow(
           id: asset.id,
           asset: asset,

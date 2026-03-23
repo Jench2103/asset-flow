@@ -115,6 +115,18 @@ struct BulkEntryView: View {
 
       progressStats
 
+      if viewModel.zeroValueCount > 0 {
+        Label(
+          String(
+            localized:
+              "\(viewModel.zeroValueCount) assets have a value of 0. Exclude them or enter a non-zero value.",
+            table: "Snapshot"),
+          systemImage: "exclamationmark.triangle.fill"
+        )
+        .font(.callout)
+        .foregroundStyle(.red)
+      }
+
       Button("Save Snapshot") {
         handleSave()
       }
