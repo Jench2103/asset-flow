@@ -41,6 +41,9 @@ final class BulkEntryViewModel {
   var includedCount: Int { rows.filter(\.isIncluded).count }
   var zeroValueCount: Int { rows.filter(\.hasZeroValueError).count }
   var canSave: Bool { includedCount > 0 && zeroValueCount == 0 }
+  var hasUnsavedChanges: Bool {
+    rows.contains { !$0.newValueText.isEmpty } || rows.contains { !$0.isIncluded }
+  }
 
   init(modelContext: ModelContext, date: Date) {
     self.modelContext = modelContext
@@ -94,7 +97,8 @@ final class BulkEntryViewModel {
 
   @discardableResult
   func importCSV(data: Data, forPlatform platform: String) -> CSVImportResult {
-    let result = CSVParsingService.parseAssetCSV(data: data, importPlatform: platform)
+    // Parse without importPlatform override to get raw CSV platform/currency values
+    let result = CSVParsingService.parseAssetCSV(data: data, importPlatform: nil)
 
     // Clear previous CSV values for this platform
     for index in rows.indices where rows[index].platform == platform && rows[index].source == .csv {
@@ -106,17 +110,34 @@ final class BulkEntryViewModel {
     rows.removeAll { $0.platform == platform && $0.source == .csv && $0.asset == nil }
 
     let errors = result.errors.map(\.message)
-    let warnings = result.warnings.map(\.message)
+    let parserWarnings = result.warnings.map(\.message)
     let mainCurrency = SettingsService.shared.mainCurrency
 
     var matchedCount = 0
     var newCount = 0
+    var platformMismatches: [String] = []
+    var currencyMismatches: [String] = []
 
     for csvRow in result.rows {
+      // Platform mismatch: CSV has a platform column value that differs from the target group
+      if !csvRow.platform.isEmpty,
+        csvRow.platform.normalizedForIdentity != platform.normalizedForIdentity
+      {
+        platformMismatches.append(csvRow.assetName)
+        continue
+      }
+
       let normalizedCSVName = csvRow.assetName.normalizedForIdentity
       if let index = rows.firstIndex(where: {
         $0.platform == platform && $0.assetName.normalizedForIdentity == normalizedCSVName
       }) {
+        // Currency mismatch: CSV has a currency value that differs from the existing asset
+        if !csvRow.currency.isEmpty,
+          csvRow.currency.uppercased() != rows[index].currency.uppercased()
+        {
+          currencyMismatches.append(csvRow.assetName)
+          continue
+        }
         rows[index].newValueText = "\(csvRow.marketValue)"
         rows[index].source = .csv
         matchedCount += 1
@@ -142,7 +163,9 @@ final class BulkEntryViewModel {
       matchedCount: matchedCount,
       newCount: newCount,
       errors: errors,
-      warnings: warnings
+      parserWarnings: parserWarnings,
+      platformMismatches: platformMismatches,
+      currencyMismatches: currencyMismatches
     )
   }
 

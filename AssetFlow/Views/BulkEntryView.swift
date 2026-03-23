@@ -28,15 +28,14 @@ struct BulkEntryView: View {
   let onSave: (Snapshot) -> Void
 
   @FocusState private var focusedRowID: UUID?
-  @State private var showCancelConfirmation = false
   @State private var showZeroPendingConfirmation = false
-  @State private var csvImportPlatform: String?
+  @State private var csvImportPlatform: String = ""
+  @State private var showCSVImporter = false
   @State private var showError = false
   @State private var errorMessage = ""
   @State private var showImportResult = false
+  @State private var importResultTitle = ""
   @State private var importResultMessage = ""
-
-  @Environment(\.dismiss) private var dismiss
 
   var body: some View {
     VStack(spacing: 0) {
@@ -59,27 +58,23 @@ struct BulkEntryView: View {
       }
     }
     .fileImporter(
-      isPresented: Binding(
-        get: { csvImportPlatform != nil },
-        set: { if !$0 { csvImportPlatform = nil } }
-      ),
+      isPresented: $showCSVImporter,
       allowedContentTypes: [.commaSeparatedText, .plainText]
     ) { result in
-      guard let platform = csvImportPlatform,
+      let platform = csvImportPlatform
+      guard !platform.isEmpty,
         let url = try? result.get()
       else { return }
       if url.startAccessingSecurityScopedResource() {
         defer { url.stopAccessingSecurityScopedResource() }
         if let data = try? Data(contentsOf: url) {
           let importResult = viewModel.importCSV(data: data, forPlatform: platform)
-          importResultMessage = formatImportResult(importResult, platform: platform)
+          let formatted = formatImportResult(importResult)
+          importResultTitle = formatted.title
+          importResultMessage = formatted.message
           showImportResult = true
         }
       }
-    }
-    .alert("Discard unsaved changes?", isPresented: $showCancelConfirmation) {
-      Button("Discard", role: .destructive) { dismiss() }
-      Button("Cancel", role: .cancel) {}
     }
     .alert(
       String(
@@ -102,7 +97,7 @@ struct BulkEntryView: View {
     } message: {
       Text(errorMessage)
     }
-    .alert("CSV Import", isPresented: $showImportResult) {
+    .alert(importResultTitle, isPresented: $showImportResult) {
       Button("OK") {}
     } message: {
       Text(importResultMessage)
@@ -127,11 +122,6 @@ struct BulkEntryView: View {
       .disabled(!viewModel.canSave)
       .helpWhenUnlocked("Save the snapshot with entered values")
       .accessibilityIdentifier("Save Snapshot Button")
-
-      Button("Cancel") {
-        handleCancel()
-      }
-      .accessibilityIdentifier("Cancel Button")
     }
     .padding(.horizontal)
     .padding(.vertical, 12)
@@ -209,6 +199,7 @@ struct BulkEntryView: View {
 
       Button {
         csvImportPlatform = group.platform
+        showCSVImporter = true
       } label: {
         Label("Import CSV", systemImage: "doc.text")
           .font(.callout)
@@ -368,28 +359,33 @@ struct BulkEntryView: View {
     }
   }
 
-  private func formatImportResult(_ result: CSVImportResult, platform: String) -> String {
+  private func formatImportResult(
+    _ result: CSVImportResult
+  ) -> (title: String, message: String) {
+    let title: String
+    if result.hasErrors {
+      title = String(localized: "Import Error", table: "Snapshot")
+    } else if result.hasWarnings {
+      title = String(localized: "Import Warning", table: "Snapshot")
+    } else {
+      title = String(localized: "CSV Import", table: "Snapshot")
+    }
+
     var lines: [String] = []
 
-    if result.totalImported > 0 {
-      if result.matchedCount > 0 && result.newCount > 0 {
-        lines.append(
-          String(
-            localized:
-              "Updated \(result.matchedCount) existing assets and added \(result.newCount) new assets.",
-            table: "Snapshot"))
-      } else if result.matchedCount > 0 {
-        lines.append(
-          String(
-            localized: "Updated \(result.matchedCount) existing assets.",
-            table: "Snapshot"))
-      } else {
-        lines.append(
-          String(
-            localized: "Added \(result.newCount) new assets.",
-            table: "Snapshot"))
-      }
-    } else {
+    if result.matchedCount > 0 {
+      lines.append(
+        String(
+          localized: "\(result.matchedCount) existing assets updated.",
+          table: "Snapshot"))
+    }
+    if result.newCount > 0 {
+      lines.append(
+        String(
+          localized: "\(result.newCount) new assets added.",
+          table: "Snapshot"))
+    }
+    if result.totalImported == 0 && !result.hasErrors {
       lines.append(
         String(
           localized: "No assets were imported.",
@@ -397,21 +393,30 @@ struct BulkEntryView: View {
     }
 
     for error in result.errors {
-      lines.append("⚠ \(error)")
+      lines.append(error)
     }
-    for warning in result.warnings {
-      lines.append("⚠ \(warning)")
+    for warning in result.parserWarnings {
+      lines.append(warning)
     }
 
-    return lines.joined(separator: "\n")
+    if !result.platformMismatches.isEmpty {
+      let names = result.platformMismatches.joined(separator: ", ")
+      lines.append(
+        String(
+          localized:
+            "\(result.platformMismatches.count) assets skipped (platform mismatch): \(names)",
+          table: "Snapshot"))
+    }
+    if !result.currencyMismatches.isEmpty {
+      let names = result.currencyMismatches.joined(separator: ", ")
+      lines.append(
+        String(
+          localized:
+            "\(result.currencyMismatches.count) assets skipped (currency mismatch): \(names)",
+          table: "Snapshot"))
+    }
+
+    return (title: title, message: lines.joined(separator: "\n\n"))
   }
 
-  private func handleCancel() {
-    let hasEnteredValues = viewModel.rows.contains { !$0.newValueText.isEmpty }
-    if hasEnteredValues {
-      showCancelConfirmation = true
-    } else {
-      dismiss()
-    }
-  }
 }

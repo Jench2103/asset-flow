@@ -22,10 +22,15 @@ struct CSVImportResult {
   let matchedCount: Int
   let newCount: Int
   let errors: [String]
-  let warnings: [String]
+  let parserWarnings: [String]
+  let platformMismatches: [String]
+  let currencyMismatches: [String]
 
   var totalImported: Int { matchedCount + newCount }
-  var hasIssues: Bool { !errors.isEmpty || !warnings.isEmpty }
+  var hasErrors: Bool { !errors.isEmpty }
+  var hasWarnings: Bool {
+    !parserWarnings.isEmpty || !platformMismatches.isEmpty || !currencyMismatches.isEmpty
+  }
 }
 
 /// Source of a bulk entry row's value.
