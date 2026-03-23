@@ -63,40 +63,59 @@ struct BulkEntryValidationWarnings: View {
   let hasInvalidNewRows: Bool
   let hasDuplicateNames: Bool
 
-  var body: some View {
+  @State private var isHovering = false
+  @Environment(\.isAppLocked) private var isLocked
+
+  private var warnings: [String] {
+    var result: [String] = []
     if zeroValueCount > 0 {
-      Label(
+      result.append(
         String(
           localized:
             "\(zeroValueCount) assets have a value of 0. Exclude them or enter a non-zero value.",
-          table: "Snapshot"),
-        systemImage: "exclamationmark.triangle.fill"
-      )
-      .font(.callout)
-      .foregroundStyle(.red)
+          table: "Snapshot"))
     }
-
     if hasInvalidNewRows {
-      Label(
+      result.append(
         String(
           localized: "Some new assets are missing a name.",
-          table: "Snapshot"),
-        systemImage: "exclamationmark.triangle.fill"
-      )
-      .font(.callout)
-      .foregroundStyle(.red)
+          table: "Snapshot"))
     }
-
     if hasDuplicateNames {
-      Label(
+      result.append(
         String(
           localized: "Duplicate asset names found within a platform.",
-          table: "Snapshot"),
-        systemImage: "exclamationmark.triangle.fill"
-      )
-      .font(.callout)
-      .foregroundStyle(.red)
+          table: "Snapshot"))
     }
+    return result
+  }
+
+  var body: some View {
+    Image(systemName: "exclamationmark.triangle.fill")
+      .foregroundStyle(.red)
+      .imageScale(.large)
+      .opacity(warnings.isEmpty ? 0 : 1)
+      .onHoverWhenUnlocked { hovering in
+        isHovering = hovering
+      }
+      .popover(
+        isPresented: Binding(
+          get: { !isLocked && isHovering && !warnings.isEmpty },
+          set: { if !$0 { isHovering = false } }
+        ),
+        arrowEdge: .bottom
+      ) {
+        VStack(alignment: .leading, spacing: 8) {
+          ForEach(warnings, id: \.self) { warning in
+            Label(warning, systemImage: "exclamationmark.triangle.fill")
+              .font(.callout)
+              .foregroundStyle(.red)
+          }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(idealWidth: 300, alignment: .leading)
+        .padding()
+      }
   }
 }
 
