@@ -179,6 +179,13 @@ struct SnapshotListView: View {
 
       HStack(spacing: 12) {
         if let rowData = rowData {
+          if rowData.hasZeroValueAssets {
+            HoverWarningIcon(
+              message: String(
+                localized: "This snapshot contains assets with a value of 0.",
+                table: "Snapshot"))
+          }
+
           Text(
             rowData.totalValue.formatted(
               currency: SettingsService.shared.mainCurrency)
@@ -194,13 +201,6 @@ struct SnapshotListView: View {
             .background(.quaternary)
             .clipShape(Capsule())
             .accessibilityLabel("\(rowData.assetCount) assets")
-
-          if rowData.hasZeroValueAssets {
-            HoverWarningIcon(
-              message: String(
-                localized: "This snapshot contains assets with a value of 0.",
-                table: "Snapshot"))
-          }
         }
       }
     }
