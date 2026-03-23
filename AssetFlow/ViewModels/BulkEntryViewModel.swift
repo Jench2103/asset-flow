@@ -40,9 +40,34 @@ final class BulkEntryViewModel {
   var excludedCount: Int { rows.filter { !$0.isIncluded }.count }
   var includedCount: Int { rows.filter(\.isIncluded).count }
   var zeroValueCount: Int { rows.filter(\.hasZeroValueError).count }
-  var canSave: Bool { includedCount > 0 && zeroValueCount == 0 }
+  var hasInvalidNewRows: Bool {
+    rows.contains { $0.isIncluded && $0.hasEmptyName }
+  }
+  var duplicateNameRowIDs: Set<UUID> {
+    var duplicateIDs = Set<UUID>()
+    for (_, groupRows) in Dictionary(grouping: rows.filter(\.isIncluded), by: \.platform) {
+      var seen = [String: UUID]()
+      for row in groupRows {
+        let key = row.assetName.normalizedForIdentity
+        guard !key.isEmpty else { continue }
+        if let existingID = seen[key] {
+          duplicateIDs.insert(existingID)
+          duplicateIDs.insert(row.id)
+        } else {
+          seen[key] = row.id
+        }
+      }
+    }
+    return duplicateIDs
+  }
+  var hasDuplicateNames: Bool { !duplicateNameRowIDs.isEmpty }
+  var canSave: Bool {
+    includedCount > 0 && zeroValueCount == 0 && !hasInvalidNewRows && !hasDuplicateNames
+  }
   var hasUnsavedChanges: Bool {
-    rows.contains { !$0.newValueText.isEmpty } || rows.contains { !$0.isIncluded }
+    rows.contains { !$0.newValueText.isEmpty }
+      || rows.contains { !$0.isIncluded }
+      || rows.contains { $0.source == .manualNew }
   }
 
   init(modelContext: ModelContext, date: Date) {
@@ -58,6 +83,37 @@ final class BulkEntryViewModel {
     if !rows[index].isIncluded {
       rows[index].newValueText = ""
     }
+  }
+
+  @discardableResult
+  func addManualRow(forPlatform platform: String) -> UUID {
+    let row = BulkEntryRow(
+      id: UUID(),
+      asset: nil,
+      assetName: "",
+      platform: platform,
+      currency: SettingsService.shared.mainCurrency,
+      previousValue: nil,
+      newValueText: "",
+      isIncluded: true,
+      source: .manualNew,
+      categoryName: nil
+    )
+    rows.append(row)
+    return row.id
+  }
+
+  @discardableResult
+  func addPlatform(name: String) -> UUID? {
+    let trimmed = name.trimmingCharacters(in: .whitespaces)
+    guard !trimmed.isEmpty else { return nil }
+    let existing = Set(rows.map { $0.platform.lowercased() })
+    guard !existing.contains(trimmed.lowercased()) else { return nil }
+    return addManualRow(forPlatform: trimmed)
+  }
+
+  func removeManualRow(rowID: UUID) {
+    rows.removeAll { $0.id == rowID && $0.source == .manualNew }
   }
 
   func saveSnapshot() throws -> Snapshot {
@@ -88,7 +144,7 @@ final class BulkEntryViewModel {
         asset = modelContext.findOrCreateAsset(
           name: row.assetName, platform: row.platform)
         asset.currency = row.currency
-        if let categoryName = row.csvCategory?.trimmingCharacters(in: .whitespaces),
+        if let categoryName = row.categoryName?.trimmingCharacters(in: .whitespaces),
           !categoryName.isEmpty
         {
           asset.category = modelContext.resolveCategory(name: categoryName)
@@ -163,10 +219,10 @@ final class BulkEntryViewModel {
           newValueText: "\(csvRow.marketValue)",
           isIncluded: true,
           source: .csv,
-          // csvCategory is intentionally nil: AssetCSVRow has no category field,
+          // categoryName is intentionally nil: AssetCSVRow has no category field,
           // so CSVParsingService cannot provide one. Users assign categories in
           // SnapshotDetailView after saving.
-          csvCategory: nil
+          categoryName: nil
         )
         rows.append(newRow)
         newCount += 1
@@ -213,7 +269,7 @@ final class BulkEntryViewModel {
           newValueText: "",
           isIncluded: true,
           source: .manual,
-          csvCategory: nil
+          categoryName: nil
         )
       }.sorted { ($0.platform, $0.assetName) < ($1.platform, $1.assetName) }
   }

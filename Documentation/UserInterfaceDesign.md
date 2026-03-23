@@ -300,16 +300,18 @@ Full-screen view for entering asset values across all platforms in a single sess
 
 **Layout**:
 
-- Toolbar with Cancel and Save buttons; title shows the snapshot date
-- Assets grouped by platform in collapsible sections (alphabetical order, uncategorized last)
-- Each section header includes a CSV import button for per-platform import
+- Toolbar with snapshot date title, progress stats, validation warnings, "Add Platform" button, and "Save Snapshot" button
+- Assets grouped by platform in sections (alphabetical order)
+- Each section header includes an "Add Asset" button and a "CSV Import" button
+- Empty state (no prior snapshots): `ContentUnavailableView` with "Add Platform" action
 
 **Columns**:
 
 - **Include checkbox**: Controls whether the row is saved to the snapshot
-- **Asset Name**: Read-only, with platform/category as secondary caption
-- **Currency**: Asset's native currency code
-- **Previous Value**: Value from the most recent prior snapshot (or "--" if none)
+- **Asset Name**: Read-only for existing assets; editable `TextField` for new rows (`.manualNew`), with "NEW" green badge or "CSV" blue badge
+- **Category**: Static text for existing assets; `CategoryNamePicker` dropdown for new assets (deferred DB creation)
+- **Currency**: Static text for existing assets; `Picker` for new rows
+- **Previous Value**: Value from the most recent prior snapshot (or "\\u{2014}" if none)
 - **New Value**: Editable text field for the new market value
 
 **Row states**:
@@ -318,14 +320,23 @@ Full-screen view for entering asset values across all platforms in a single sess
 - **Pending** (normal): Included but no value entered yet (saves as 0)
 - **Excluded** (dimmed): Checkbox unchecked, row is omitted from the snapshot
 
+**Inline asset creation**: Each platform header has an "Add Asset" button that appends an editable row with empty name, default currency, and a category picker. New rows have a delete (trash) button. New rows require a non-empty name to save.
+
+**Add Platform**: Toolbar button opens a popover with a text field for the platform name. Validates against empty names and case-insensitive duplicates. Creates a new platform group with one empty asset row.
+
 **Keyboard navigation**: Tab and Enter advance focus to the next value field in order.
 
-**Per-platform CSV import**: Each platform section has an import button that opens a file picker filtered to `.csv`. Parsed values are matched to assets by name and populate the New Value fields.
+**Per-platform CSV import**: Each platform section has an import button that opens a file picker filtered to `.csv`. Parsed values are matched to assets by name (including manually-added rows) and populate the New Value fields.
+
+**Validation warnings** (toolbar):
+
+- Zero-value assets: "N assets have a value of 0. Exclude them or enter a non-zero value."
+- Empty names: "Some new assets are missing a name."
+- Duplicate names: "Duplicate asset names found within a platform."
 
 **Confirmation alerts**:
 
-- **Cancel with changes**: "Discard changes? All entered values will be lost."
-- **Save with zero-value rows**: Warning listing assets that will be saved with a value of 0, with options to proceed or go back and review.
+- **Save with pending rows**: Warning that N assets will be saved with a value of 0, with options to proceed or cancel.
 
 ______________________________________________________________________
 
@@ -926,19 +937,19 @@ ______________________________________________________________________
 
 ## Implementation Status
 
-| View                           | Status      | Notes                                                                                                                                                           |
-| ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation                                               |
-| DashboardView                  | Implemented | Summary cards with `.helpWhenUnlocked()` tooltips, period performance (1M/3M/1Y), interactive charts, ContentUnavailableView, recent snapshots                  |
-| SnapshotListView               | Implemented | @Query live list, relative time bucket grouping (collapsible sections), New Snapshot sheet (NavigationStack), ContentUnavailableView, Delete key shortcut       |
-| SnapshotDetailView             | Implemented | Asset breakdown, category allocation, cash flow CRUD, edit popovers, delete confirmation                                                                        |
-| AssetListView                  | Implemented | Platform/category grouping, selection binding, ContentUnavailableView, Delete key shortcut                                                                      |
-| AssetDetailView                | Implemented | Edit fields, interactive 250pt value history chart with time range selector and hover tooltips, converted value chart toggle, inline editing, delete validation |
-| CategoryListView               | Implemented | Add sheet (NavigationStack), target allocation warning, delete validation, ContentUnavailableView, Delete key shortcut                                          |
-| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                                                        |
-| PlatformListView               | Implemented | List-detail split with selection binding, rename popover, ContentUnavailableView, onChange reload after rename                                                  |
-| PlatformDetailView             | Implemented | Editable name, assets table (Name/Category/Original Value), value history chart with time range controls and hover tooltip                                      |
-| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, ContentUnavailableView                                                                    |
-| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                                                 |
-| BulkEntryView                  | Implemented | Full-screen bulk value entry with platform-grouped table, per-platform CSV import, keyboard navigation, zero-value warnings                                     |
-| SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                                                  |
+| View                           | Status      | Notes                                                                                                                                                                                                      |
+| ------------------------------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ContentView (Navigation Shell) | Implemented | Full 7-section sidebar with SidebarSection enum, list-detail splits, discard confirmation, post-import navigation                                                                                          |
+| DashboardView                  | Implemented | Summary cards with `.helpWhenUnlocked()` tooltips, period performance (1M/3M/1Y), interactive charts, ContentUnavailableView, recent snapshots                                                             |
+| SnapshotListView               | Implemented | @Query live list, relative time bucket grouping (collapsible sections), New Snapshot sheet (NavigationStack), ContentUnavailableView, Delete key shortcut                                                  |
+| SnapshotDetailView             | Implemented | Asset breakdown, category allocation, cash flow CRUD, edit popovers, delete confirmation                                                                                                                   |
+| AssetListView                  | Implemented | Platform/category grouping, selection binding, ContentUnavailableView, Delete key shortcut                                                                                                                 |
+| AssetDetailView                | Implemented | Edit fields, interactive 250pt value history chart with time range selector and hover tooltips, converted value chart toggle, inline editing, delete validation                                            |
+| CategoryListView               | Implemented | Add sheet (NavigationStack), target allocation warning, delete validation, ContentUnavailableView, Delete key shortcut                                                                                     |
+| CategoryDetailView             | Implemented | Edit fields, value/allocation history charts with time range controls, delete validation                                                                                                                   |
+| PlatformListView               | Implemented | List-detail split with selection binding, rename popover, ContentUnavailableView, onChange reload after rename                                                                                             |
+| PlatformDetailView             | Implemented | Editable name, assets table (Name/Category/Original Value), value history chart with time range controls and hover tooltip                                                                                 |
+| RebalancingView                | Implemented | Suggestions table, no-target section, uncategorized section, summary, ContentUnavailableView                                                                                                               |
+| ImportView                     | Implemented | Accepts ViewModel from ContentView for shared state observation                                                                                                                                            |
+| BulkEntryView                  | Implemented | Full-screen bulk value entry with platform-grouped table, per-platform CSV import, inline asset/platform creation, category picker for new assets, keyboard navigation, zero-value/duplicate-name warnings |
+| SettingsView                   | Implemented | Currency, date format, default platform; accessible via Cmd+, (Settings scene)                                                                                                                             |

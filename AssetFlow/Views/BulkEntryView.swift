@@ -15,6 +15,7 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
+import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -22,11 +23,12 @@ import UniformTypeIdentifiers
 ///
 /// Displays all assets from the most recent snapshot, grouped by platform,
 /// allowing the user to enter new values for each asset. Supports per-platform
-/// CSV import and keyboard navigation between rows.
+/// CSV import, inline asset creation, and keyboard navigation between rows.
 struct BulkEntryView: View {
   @State var viewModel: BulkEntryViewModel
   let onSave: (Snapshot) -> Void
 
+  @Environment(\.modelContext) private var modelContext
   @FocusState private var focusedRowID: UUID?
   @State private var showZeroPendingConfirmation = false
   @State private var csvImportPlatform: String = ""
@@ -36,6 +38,10 @@ struct BulkEntryView: View {
   @State private var showImportResult = false
   @State private var importResultTitle = ""
   @State private var importResultMessage = ""
+  @State private var showAddPlatformPopover = false
+  @State private var newPlatformName = ""
+  @State private var addPlatformError = ""
+  @State private var cachedCategoryNames: [String] = []
 
   var body: some View {
     VStack(spacing: 0) {
@@ -47,15 +53,27 @@ struct BulkEntryView: View {
             platformSection(group)
           }
           if viewModel.rows.isEmpty {
-            ContentUnavailableView(
-              "No assets found",
-              systemImage: "tray",
-              description: Text("Import a CSV file to add assets.")
-            )
+            ContentUnavailableView {
+              Label("No Assets", systemImage: "tray")
+            } description: {
+              Text(
+                "Add a platform to start building your snapshot, or import assets from a CSV file."
+              )
+            } actions: {
+              Button("Add Platform") {
+                newPlatformName = ""
+                addPlatformError = ""
+                showAddPlatformPopover = true
+              }
+              .buttonStyle(.borderedProminent)
+            }
           }
         }
         .padding()
       }
+    }
+    .onAppear {
+      loadCachedCategoryNames()
     }
     .fileImporter(
       isPresented: $showCSVImporter,
@@ -127,6 +145,40 @@ struct BulkEntryView: View {
         .foregroundStyle(.red)
       }
 
+      if viewModel.hasInvalidNewRows {
+        Label(
+          String(
+            localized: "Some new assets are missing a name.",
+            table: "Snapshot"),
+          systemImage: "exclamationmark.triangle.fill"
+        )
+        .font(.callout)
+        .foregroundStyle(.red)
+      }
+
+      if viewModel.hasDuplicateNames {
+        Label(
+          String(
+            localized: "Duplicate asset names found within a platform.",
+            table: "Snapshot"),
+          systemImage: "exclamationmark.triangle.fill"
+        )
+        .font(.callout)
+        .foregroundStyle(.red)
+      }
+
+      Button {
+        newPlatformName = ""
+        addPlatformError = ""
+        showAddPlatformPopover = true
+      } label: {
+        Label("Add Platform", systemImage: "plus.rectangle.on.folder")
+      }
+      .helpWhenUnlocked("Add a new platform with an empty asset")
+      .popover(isPresented: $showAddPlatformPopover) {
+        addPlatformPopover
+      }
+
       Button("Save Snapshot") {
         handleSave()
       }
@@ -170,17 +222,61 @@ struct BulkEntryView: View {
     }
   }
 
+  // MARK: - Add Platform Popover
+
+  private var addPlatformPopover: some View {
+    VStack(spacing: 12) {
+      Text("New Platform")
+        .font(.headline)
+      TextField("Platform name", text: $newPlatformName)
+        .textFieldStyle(.roundedBorder)
+        .onSubmit { commitNewPlatform() }
+      if !addPlatformError.isEmpty {
+        Text(addPlatformError)
+          .font(.caption)
+          .foregroundStyle(.red)
+      }
+      HStack {
+        Button("Cancel") { showAddPlatformPopover = false }
+        Button("Add") { commitNewPlatform() }
+          .buttonStyle(.borderedProminent)
+          .disabled(newPlatformName.trimmingCharacters(in: .whitespaces).isEmpty)
+      }
+    }
+    .padding()
+    .frame(width: 260)
+  }
+
+  private func commitNewPlatform() {
+    let trimmed = newPlatformName.trimmingCharacters(in: .whitespaces)
+    guard !trimmed.isEmpty else {
+      addPlatformError = String(
+        localized: "Platform name cannot be empty.", table: "Snapshot")
+      return
+    }
+    if let rowID = viewModel.addPlatform(name: trimmed) {
+      showAddPlatformPopover = false
+      Task { @MainActor in
+        focusedRowID = rowID
+      }
+    } else {
+      addPlatformError = String(
+        localized: "A platform with this name already exists.", table: "Snapshot")
+    }
+  }
+
   // MARK: - Platform Section
 
   @ViewBuilder
   private func platformSection(
     _ group: (platform: String, rows: [BulkEntryRow])
   ) -> some View {
+    let duplicateIDs = viewModel.duplicateNameRowIDs
     VStack(alignment: .leading, spacing: 0) {
       platformHeader(group)
       columnHeaders
       ForEach(group.rows) { row in
-        assetEntryRow(row)
+        assetEntryRow(row, duplicateIDs: duplicateIDs)
         Divider()
       }
     }
@@ -210,6 +306,17 @@ struct BulkEntryView: View {
       Spacer()
 
       Button {
+        let rowID = viewModel.addManualRow(forPlatform: group.platform)
+        Task { @MainActor in
+          focusedRowID = rowID
+        }
+      } label: {
+        Label("Add Asset", systemImage: "plus")
+          .font(.callout)
+      }
+      .helpWhenUnlocked("Add a new asset to this platform")
+
+      Button {
         csvImportPlatform = group.platform
         showCSVImporter = true
       } label: {
@@ -223,19 +330,22 @@ struct BulkEntryView: View {
   }
 
   private var columnHeaders: some View {
-    HStack(spacing: 0) {
+    HStack(spacing: 8) {
       Text("Include")
         .frame(width: 60, alignment: .center)
       Text("Asset Name")
-        .frame(minWidth: 150, alignment: .leading)
+        .frame(minWidth: 120, alignment: .leading)
       Spacer()
+      Text("Category")
+        .frame(width: 120, alignment: .center)
       Text("Currency")
         .frame(width: 80, alignment: .center)
       Text("Previous Value")
         .frame(width: 140, alignment: .trailing)
       Text("New Value")
         .frame(width: 160, alignment: .trailing)
-        .padding(.trailing, 4)
+      Spacer()
+        .frame(width: 28)
     }
     .font(.caption)
     .foregroundStyle(.secondary)
@@ -247,36 +357,66 @@ struct BulkEntryView: View {
   // MARK: - Asset Entry Row
 
   @ViewBuilder
-  private func assetEntryRow(_ row: BulkEntryRow) -> some View {
+  private func assetEntryRow(_ row: BulkEntryRow, duplicateIDs: Set<UUID>) -> some View {
     let isExcluded = !row.isIncluded
     let isUpdated = row.isUpdated
+    let isDuplicate = duplicateIDs.contains(row.id)
 
-    HStack(spacing: 0) {
+    HStack(spacing: 8) {
       Toggle("", isOn: includeBinding(for: row))
         .labelsHidden()
         .accessibilityLabel("Include \(row.assetName)")
         .frame(width: 60, alignment: .center)
         .helpWhenUnlocked("Include or exclude this asset from the snapshot")
 
+      // Asset name column
       HStack(spacing: 6) {
-        Text(row.assetName)
-          .strikethrough(isExcluded)
-        if row.source == .csv {
-          Text("CSV")
-            .font(.caption2)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 1)
-            .background(.blue.opacity(0.15), in: Capsule())
-            .foregroundStyle(.blue)
+        if row.isNewRow {
+          TextField("Asset name", text: assetNameBinding(for: row))
+            .textFieldStyle(.roundedBorder)
+            .frame(minWidth: 100)
+            .disabled(isExcluded)
+            .overlay(
+              RoundedRectangle(cornerRadius: 6)
+                .stroke(
+                  (row.hasEmptyName || isDuplicate) ? .red : .clear,
+                  lineWidth: 1.5)
+            )
+        } else {
+          Text(row.assetName)
+            .strikethrough(isExcluded)
         }
+        sourceBadge(for: row)
       }
-      .frame(minWidth: 150, alignment: .leading)
+      .frame(minWidth: 120, alignment: .leading)
 
       Spacer()
 
-      Text(row.currency.uppercased())
-        .font(.callout)
-        .frame(width: 80, alignment: .center)
+      // Category column
+      if row.isNewAsset {
+        categoryPicker(for: row)
+          .frame(width: 120)
+      } else {
+        Text(row.asset?.category?.name ?? "\u{2014}")
+          .font(.callout)
+          .foregroundStyle(row.asset?.category != nil ? .primary : .secondary)
+          .frame(width: 120, alignment: .center)
+      }
+
+      // Currency column
+      if row.isNewRow {
+        Picker("", selection: currencyBinding(for: row)) {
+          ForEach(CurrencyService.shared.currencies) { currency in
+            Text(currency.code).tag(currency.code)
+          }
+        }
+        .labelsHidden()
+        .frame(width: 80)
+      } else {
+        Text(row.currency.uppercased())
+          .font(.callout)
+          .frame(width: 80, alignment: .center)
+      }
 
       Text(row.previousValue?.formatted(currency: row.currency) ?? "\u{2014}")
         .monospacedDigit()
@@ -303,7 +443,22 @@ struct BulkEntryView: View {
               "Value cannot be 0. Exclude the asset instead if it is no longer held.")
             : nil
         )
-        .padding(.trailing, 4)
+
+      // Delete button for manualNew rows, padding for others
+      if row.isNewRow {
+        Button {
+          viewModel.removeManualRow(rowID: row.id)
+        } label: {
+          Image(systemName: "trash")
+            .foregroundStyle(.red)
+        }
+        .buttonStyle(.plain)
+        .helpWhenUnlocked("Remove this manually added asset")
+        .frame(width: 28)
+      } else {
+        Spacer()
+          .frame(width: 28)
+      }
     }
     .padding(.vertical, 6)
     .padding(.horizontal, 4)
@@ -316,6 +471,41 @@ struct BulkEntryView: View {
     .accessibilityLabel(
       "\(row.assetName), \(row.platform), \(row.isUpdated ? "updated" : row.isPending ? "pending" : "excluded")"
     )
+  }
+
+  @ViewBuilder
+  private func sourceBadge(for row: BulkEntryRow) -> some View {
+    if row.source == .csv {
+      Text("CSV")
+        .font(.caption2)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 1)
+        .background(.blue.opacity(0.15), in: Capsule())
+        .foregroundStyle(.blue)
+    } else if row.source == .manualNew {
+      Text("NEW")
+        .font(.caption2)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 1)
+        .background(.green.opacity(0.15), in: Capsule())
+        .foregroundStyle(.green)
+    }
+  }
+
+  // MARK: - Category Picker
+
+  private func categoryPicker(for row: BulkEntryRow) -> some View {
+    CategoryNamePicker(
+      categoryName: categoryNameBinding(for: row),
+      cachedNames: $cachedCategoryNames
+    )
+  }
+
+  private func loadCachedCategoryNames() {
+    let descriptor = FetchDescriptor<Category>(
+      sortBy: [SortDescriptor(\.displayOrder), SortDescriptor(\.name)])
+    let categories = (try? modelContext.fetch(descriptor)) ?? []
+    cachedCategoryNames = categories.map(\.name)
   }
 
   // MARK: - Bindings
@@ -333,6 +523,39 @@ struct BulkEntryView: View {
       set: { newValue in
         if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
           viewModel.rows[index].newValueText = newValue
+        }
+      }
+    )
+  }
+
+  private func assetNameBinding(for row: BulkEntryRow) -> Binding<String> {
+    Binding(
+      get: { viewModel.rows.first(where: { $0.id == row.id })?.assetName ?? "" },
+      set: { newValue in
+        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
+          viewModel.rows[index].assetName = newValue
+        }
+      }
+    )
+  }
+
+  private func currencyBinding(for row: BulkEntryRow) -> Binding<String> {
+    Binding(
+      get: { viewModel.rows.first(where: { $0.id == row.id })?.currency ?? "" },
+      set: { newValue in
+        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
+          viewModel.rows[index].currency = newValue
+        }
+      }
+    )
+  }
+
+  private func categoryNameBinding(for row: BulkEntryRow) -> Binding<String> {
+    Binding(
+      get: { viewModel.rows.first(where: { $0.id == row.id })?.categoryName ?? "" },
+      set: { newValue in
+        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
+          viewModel.rows[index].categoryName = newValue.isEmpty ? nil : newValue
         }
       }
     )
@@ -431,4 +654,87 @@ struct BulkEntryView: View {
     return (title: title, message: lines.joined(separator: "\n\n"))
   }
 
+}
+
+// MARK: - Category Name Picker
+
+/// A lightweight picker for selecting or creating a category by name.
+///
+/// Unlike `CategoryPickerField`, this does not create `Category` objects
+/// in the database. It stores category names as strings, deferring
+/// database creation to snapshot save time.
+private struct CategoryNamePicker: View {
+  @Binding var categoryName: String
+  @Binding var cachedNames: [String]
+
+  @State private var showNewField = false
+  @State private var newName = ""
+
+  var body: some View {
+    if showNewField {
+      HStack(spacing: 2) {
+        TextField("Category", text: $newName)
+          .textFieldStyle(.roundedBorder)
+          .font(.callout)
+          .onSubmit { commitNew() }
+        Button {
+          commitNew()
+        } label: {
+          Image(systemName: "checkmark.circle.fill")
+            .foregroundStyle(.green)
+        }
+        .buttonStyle(.plain)
+        Button {
+          showNewField = false
+          newName = ""
+        } label: {
+          Image(systemName: "xmark.circle.fill")
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+      }
+    } else {
+      Picker("", selection: pickerBinding) {
+        Text("None").tag("")
+        ForEach(cachedNames, id: \.self) { name in
+          Text(name).tag(name)
+        }
+        Divider()
+        Text("New Category\u{2026}").tag("__new__")
+      }
+      .labelsHidden()
+      .font(.callout)
+    }
+  }
+
+  private var pickerBinding: Binding<String> {
+    Binding(
+      get: { categoryName },
+      set: { newValue in
+        if newValue == "__new__" {
+          showNewField = true
+          newName = ""
+        } else {
+          categoryName = newValue
+        }
+      }
+    )
+  }
+
+  private func commitNew() {
+    let trimmed = newName.trimmingCharacters(in: .whitespaces)
+    guard !trimmed.isEmpty else { return }
+
+    // Case-insensitive match against existing names
+    if let match = cachedNames.first(where: { $0.lowercased() == trimmed.lowercased() }) {
+      categoryName = match
+    } else {
+      categoryName = trimmed
+      cachedNames.append(trimmed)
+      cachedNames.sort()
+    }
+
+    showNewField = false
+    newName = ""
+  }
 }

@@ -103,6 +103,36 @@ struct BulkEntryRowTests {
     #expect(row.hasZeroValueError == false)
   }
 
+  @Test("isNewRow is true only for manualNew source")
+  func isNewRowOnlyForManualNew() {
+    let manualRow = makeBulkEntryRow(source: .manual)
+    let csvRow = makeBulkEntryRow(source: .csv)
+    let manualNewRow = makeBulkEntryRow(source: .manualNew)
+
+    #expect(manualRow.isNewRow == false)
+    #expect(csvRow.isNewRow == false)
+    #expect(manualNewRow.isNewRow == true)
+  }
+
+  @Test("hasEmptyName is true only for manualNew with whitespace-only name")
+  func hasEmptyNameOnlyForManualNewWithEmptyName() {
+    let manualNewEmpty = makeBulkEntryRow(assetName: "", source: .manualNew)
+    let manualNewWhitespace = makeBulkEntryRow(assetName: "  ", source: .manualNew)
+    let manualNewNamed = makeBulkEntryRow(assetName: "Stock A", source: .manualNew)
+    let manualEmpty = makeBulkEntryRow(assetName: "", source: .manual)
+
+    #expect(manualNewEmpty.hasEmptyName == true)
+    #expect(manualNewWhitespace.hasEmptyName == true)
+    #expect(manualNewNamed.hasEmptyName == false)
+    #expect(manualEmpty.hasEmptyName == false)
+  }
+
+  @Test("isNewAsset is true when asset is nil")
+  func isNewAssetWhenAssetNil() {
+    let withoutAsset = makeBulkEntryRow(asset: nil)
+    #expect(withoutAsset.isNewAsset == true)
+  }
+
   // MARK: - Helpers
 
   private func makeBulkEntryRow(
@@ -110,7 +140,8 @@ struct BulkEntryRowTests {
     assetName: String = "Test Asset",
     platform: String = "Test Platform",
     currency: String = "USD",
-    previousValue: Decimal? = Decimal(100)
+    previousValue: Decimal? = Decimal(100),
+    source: ValueSource = .manual
   ) -> BulkEntryRow {
     BulkEntryRow(
       id: UUID(),
@@ -121,8 +152,8 @@ struct BulkEntryRowTests {
       previousValue: previousValue,
       newValueText: "",
       isIncluded: true,
-      source: .manual,
-      csvCategory: nil
+      source: source,
+      categoryName: nil
     )
   }
 }
@@ -362,7 +393,7 @@ struct BulkEntryViewModelTests {
         newValueText: "5000",
         isIncluded: true,
         source: .csv,
-        csvCategory: nil
+        categoryName: nil
       ))
 
     let snapshot = try viewModel.saveSnapshot()
@@ -453,6 +484,227 @@ struct BulkEntryViewModelTests {
     let csv2 = "Asset Name,Market Value\nStock A,1800\n".data(using: .utf8)!
     viewModel.importCSV(data: csv2, forPlatform: "Vanguard")
     #expect(viewModel.rows.first?.newValueText == "1800")
+  }
+
+  // MARK: - Add Manual Row / Platform Tests
+
+  @Test("addManualRow appends row with correct platform and defaults")
+  func addManualRowAppendsCorrectRow() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let rowID = viewModel.addManualRow(forPlatform: "Vanguard")
+
+    #expect(viewModel.rows.count == 1)
+    let row = viewModel.rows[0]
+    #expect(row.id == rowID)
+    #expect(row.platform == "Vanguard")
+    #expect(row.assetName == "")
+    #expect(row.source == .manualNew)
+    #expect(row.asset == nil)
+    #expect(row.previousValue == nil)
+    #expect(row.isIncluded == true)
+    #expect(row.currency == SettingsService.shared.mainCurrency)
+  }
+
+  @Test("addPlatform creates new group with one empty row")
+  func addPlatformCreatesGroup() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let rowID = viewModel.addPlatform(name: "Fidelity")
+
+    #expect(rowID != nil)
+    #expect(viewModel.platformGroups.count == 1)
+    #expect(viewModel.platformGroups[0].platform == "Fidelity")
+    #expect(viewModel.platformGroups[0].rows.count == 1)
+    #expect(viewModel.platformGroups[0].rows[0].source == .manualNew)
+  }
+
+  @Test("addPlatform rejects duplicate platform name (case-insensitive)")
+  func addPlatformRejectsDuplicate() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "A", platform: "Vanguard", currency: "USD", value: Decimal(100))
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let result = viewModel.addPlatform(name: "vanguard")
+    #expect(result == nil)
+    #expect(viewModel.platformGroups.count == 1)
+  }
+
+  @Test("addPlatform rejects empty or whitespace name")
+  func addPlatformRejectsEmpty() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    #expect(viewModel.addPlatform(name: "") == nil)
+    #expect(viewModel.addPlatform(name: "  ") == nil)
+    #expect(viewModel.rows.isEmpty)
+  }
+
+  @Test("removeManualRow removes manualNew row but not manual or csv rows")
+  func removeManualRowOnlyRemovesManualNew() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    let existingRowID = viewModel.rows[0].id
+    let newRowID = viewModel.addManualRow(forPlatform: "P1")
+
+    #expect(viewModel.rows.count == 2)
+
+    // Cannot remove existing row
+    viewModel.removeManualRow(rowID: existingRowID)
+    #expect(viewModel.rows.count == 2)
+
+    // Can remove manualNew row
+    viewModel.removeManualRow(rowID: newRowID)
+    #expect(viewModel.rows.count == 1)
+    #expect(viewModel.rows[0].id == existingRowID)
+  }
+
+  @Test("canSave is false when included manualNew row has empty name")
+  func canSaveFalseWithEmptyNameNewRow() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.addPlatform(name: "Fidelity")
+
+    #expect(viewModel.canSave == false)
+  }
+
+  @Test("hasUnsavedChanges is true when manualNew rows exist")
+  func hasUnsavedChangesWithManualNewRows() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    #expect(viewModel.hasUnsavedChanges == false)
+
+    viewModel.addPlatform(name: "Fidelity")
+    #expect(viewModel.hasUnsavedChanges == true)
+  }
+
+  @Test("duplicateNameRowIDs detects two rows with same normalized name in same platform")
+  func duplicateNameDetectsWithinPlatform() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    let id1 = viewModel.addManualRow(forPlatform: "P1")
+    let id2 = viewModel.addManualRow(forPlatform: "P1")
+    viewModel.rows[0].assetName = "Stock A"
+    viewModel.rows[1].assetName = "stock a"
+
+    let dupes = viewModel.duplicateNameRowIDs
+    #expect(dupes.contains(id1))
+    #expect(dupes.contains(id2))
+    #expect(viewModel.canSave == false)
+  }
+
+  @Test("duplicateNameRowIDs does not flag rows with same name in different platforms")
+  func duplicateNameNotFlaggedAcrossPlatforms() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.addManualRow(forPlatform: "P1")
+    viewModel.addManualRow(forPlatform: "P2")
+    viewModel.rows[0].assetName = "Stock A"
+    viewModel.rows[0].newValueText = "100"
+    viewModel.rows[1].assetName = "Stock A"
+    viewModel.rows[1].newValueText = "200"
+
+    #expect(viewModel.duplicateNameRowIDs.isEmpty)
+    #expect(viewModel.canSave == true)
+  }
+
+  @Test("saveSnapshot creates asset for manualNew row")
+  func saveSnapshotCreatesAssetForManualNewRow() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.addPlatform(name: "Fidelity")
+    viewModel.rows[0].assetName = "New Fund"
+    viewModel.rows[0].currency = "EUR"
+    viewModel.rows[0].newValueText = "5000"
+
+    let snapshot = try viewModel.saveSnapshot()
+    let values = snapshot.assetValues ?? []
+    #expect(values.count == 1)
+    #expect(values[0].marketValue == Decimal(5000))
+    #expect(values[0].asset?.name == "New Fund")
+    #expect(values[0].asset?.platform == "Fidelity")
+    #expect(values[0].asset?.currency == "EUR")
+  }
+
+  @Test("saveSnapshot resolves categoryName to category for new-asset rows")
+  func saveSnapshotResolvesCategoryName() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.addPlatform(name: "Fidelity")
+    viewModel.rows[0].assetName = "Stock X"
+    viewModel.rows[0].newValueText = "1000"
+    viewModel.rows[0].categoryName = "Equities"
+
+    let snapshot = try viewModel.saveSnapshot()
+    let values = snapshot.assetValues ?? []
+    #expect(values.count == 1)
+    #expect(values[0].asset?.category?.name == "Equities")
+  }
+
+  @Test("importCSV matches against manualNew rows by normalized name")
+  func importCSVMatchesManualNewRows() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.addPlatform(name: "Vanguard")
+    viewModel.rows[0].assetName = "Stock A"
+
+    let csvData = "Asset Name,Market Value\nStock A,1500\n".data(using: .utf8)!
+    let result = viewModel.importCSV(data: csvData, forPlatform: "Vanguard")
+
+    #expect(result.matchedCount == 1)
+    #expect(result.newCount == 0)
+    #expect(viewModel.rows.count == 1)
+    #expect(viewModel.rows[0].newValueText == "1500")
+    #expect(viewModel.rows[0].source == .csv)
   }
 
   // MARK: - Helpers

@@ -128,11 +128,16 @@ ______________________________________________________________________
 
 - **Start empty**: Creates snapshot with no asset entries
 - **Bulk Entry** (default): Opens a full-screen editable table with all assets from the latest snapshot grouped by platform. Users enter new market values directly. Features include:
+  - Per-platform "Add Asset" button for inline asset creation (name, currency, category)
+  - "Add Platform" toolbar button for creating new platform groups
+  - Category picker for new assets (deferred DB creation until save)
   - Per-platform CSV import to populate values from exported brokerage data
   - Include/exclude checkbox per row to control which assets are saved
   - Previous value column for reference
   - Zero-value warning for assets saved with a market value of 0
+  - Duplicate asset name validation within a platform (case-insensitive)
   - Tab/Enter keyboard navigation between value fields
+  - Self-sufficient empty state when no prior snapshots exist
 
 **Snapshot detail view** (on selection):
 
@@ -622,7 +627,7 @@ Users can create a snapshot manually from the Snapshots screen:
 1. Select a snapshot date (required, must be today or earlier). **The selected date must not have an existing snapshot.** If the user selects a date that already has a snapshot, show a validation error: "A snapshot already exists for [date]. Go to the Snapshots screen to view and edit it." The creation flow cannot proceed until a valid date is selected.
 1. Choose a creation mode:
    - **Empty snapshot** — creates a snapshot with no asset entries; user is navigated to SnapshotDetailView to add assets manually
-   - **Bulk Entry** (default) — navigates to BulkEntryView with all assets from the latest snapshot (the most recent snapshot with a date before the selected date) grouped by platform. Users enter new market values directly. This option is disabled (grayed out with explanatory text) when no snapshots exist before the selected date.
+   - **Bulk Entry** (default) — navigates to BulkEntryView with all assets from the latest snapshot (the most recent snapshot with a date before the selected date) grouped by platform. Users enter new market values directly. When no prior snapshots exist, the view displays an empty state with an "Add Platform" button, allowing users to create platforms and add assets inline. Per-platform "Add Asset" buttons and CSV import are available in each platform group header. New assets support inline category assignment via a name-based picker (categories are created in the database only on save).
 
 ### 8.2 CSV Import Creation
 

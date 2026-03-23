@@ -37,24 +37,28 @@ struct CSVImportResult {
 enum ValueSource {
   case manual
   case csv
+  case manualNew
 }
 
 /// A single row in the bulk entry table, representing one asset to update.
 struct BulkEntryRow: Identifiable {
   let id: UUID
   let asset: Asset?
-  let assetName: String
+  var assetName: String
   let platform: String
-  let currency: String
+  var currency: String
   let previousValue: Decimal?
   var newValueText: String
   var isIncluded: Bool
   var source: ValueSource
-  var csvCategory: String?
+  var categoryName: String?
 
   var newValue: Decimal? { Decimal(string: newValueText) }
   var isUpdated: Bool { isIncluded && newValue != nil && !hasZeroValueError }
   var isPending: Bool { isIncluded && (newValueText.isEmpty || newValue == nil) }
   var hasValidationError: Bool { !newValueText.isEmpty && newValue == nil }
   var hasZeroValueError: Bool { isIncluded && newValue == Decimal(0) }
+  var isNewRow: Bool { source == .manualNew }
+  var hasEmptyName: Bool { isNewRow && assetName.trimmingCharacters(in: .whitespaces).isEmpty }
+  var isNewAsset: Bool { asset == nil }
 }

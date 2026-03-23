@@ -39,7 +39,7 @@ AssetFlow tracks portfolio state through **snapshots** -- discrete records of po
 **Key Rules**:
 
 1. Snapshots are append-only -- a new import never silently overwrites an existing snapshot
-1. A snapshot contains only directly-recorded SnapshotAssetValues. There is no automatic carry-forward. Users can explicitly copy values from prior snapshots via "Copy from latest" (manual creation) or the copy-forward option during CSV import.
+1. A snapshot contains only directly-recorded SnapshotAssetValues. There is no automatic carry-forward. Users can reference prior snapshot values in Bulk Entry mode (manual creation) or use the copy-forward option during CSV import.
 1. The CSV file does NOT contain a date -- the user explicitly selects a date when importing
 1. Users may delete or edit snapshots after creation
 
@@ -405,10 +405,17 @@ ______________________________________________________________________
 1. Selects a date (must be today or earlier, future dates disabled)
 1. If the selected date already has a snapshot, show validation error: "A snapshot already exists for [date]. Go to the Snapshots screen to view and edit it."
 1. Chooses starting point:
-   - **Start empty**: Creates snapshot with no asset entries
-   - **Copy from latest**: Pre-populates with all direct SnapshotAssetValues from the most recent prior snapshot. Disabled (grayed out with explanatory text) when no snapshots exist before the selected date.
-     - Algorithm: (1) filter snapshots to those with date < selected date, (2) take the most recent one, (3) copy its direct SnapshotAssetValues as new records for the new snapshot
+   - **Empty snapshot**: Creates snapshot with no asset entries
+   - **Bulk Entry** (default): Opens BulkEntryView with all assets from the latest prior snapshot grouped by platform. When no prior snapshots exist, the view shows an empty state with an "Add Platform" action. Users can add platforms and assets inline without needing prior data.
 1. User is taken to snapshot detail for editing
+
+#### Bulk Entry Validation Rules
+
+- New asset rows (`.manualNew`) must have a non-empty name before saving
+- Duplicate asset names within the same platform (case-insensitive) are blocked with a red border and toolbar warning
+- Same asset name in different platforms is allowed
+- Categories for new assets are stored as name strings and resolved on save via `resolveCategory(name:)` (case-insensitive find-or-create)
+- New categories typed by the user are immediately available in the picker for other new asset rows but are not created in the database until save
 
 ### CSV Import Creation
 
