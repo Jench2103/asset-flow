@@ -54,29 +54,31 @@ struct BulkEntryView: View {
     VStack(spacing: 0) {
       toolbar
       Divider()
-      ScrollView {
-        LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
-          ForEach(viewModel.platformGroups, id: \.platform) { group in
-            platformSection(group, duplicateIDs: duplicateIDs)
+      if viewModel.rows.isEmpty {
+        ContentUnavailableView {
+          Label("No Assets", systemImage: "tray")
+        } description: {
+          Text(
+            "Add a platform to start building your snapshot, or import assets from a CSV file."
+          )
+        } actions: {
+          Button("Add Platform") {
+            newPlatformName = ""
+            addPlatformError = ""
+            showAddPlatformPopover = true
           }
-          if viewModel.rows.isEmpty {
-            ContentUnavailableView {
-              Label("No Assets", systemImage: "tray")
-            } description: {
-              Text(
-                "Add a platform to start building your snapshot, or import assets from a CSV file."
-              )
-            } actions: {
-              Button("Add Platform") {
-                newPlatformName = ""
-                addPlatformError = ""
-                showAddPlatformPopover = true
-              }
-              .buttonStyle(.borderedProminent)
+          .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+      } else {
+        ScrollView {
+          LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
+            ForEach(viewModel.platformGroups, id: \.platform) { group in
+              platformSection(group, duplicateIDs: duplicateIDs)
             }
           }
+          .padding()
         }
-        .padding()
       }
     }
     .onAppear {
@@ -158,7 +160,7 @@ struct BulkEntryView: View {
         Label("Add Platform", systemImage: "plus.rectangle.on.folder")
       }
       .helpWhenUnlocked("Add a new platform with an empty asset")
-      .popover(isPresented: $showAddPlatformPopover) {
+      .popover(isPresented: $showAddPlatformPopover, arrowEdge: .bottom) {
         addPlatformPopover
       }
 
