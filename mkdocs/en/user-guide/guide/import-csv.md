@@ -55,7 +55,7 @@ When everything looks good, click **Import**.
 
 !!! warning
 
-    If a snapshot already exists for the selected date, the import will update it rather than creating a new one.
+    If a snapshot already exists for the selected date, the import will update it rather than creating a new one. Assets with a value of 0 in the existing snapshot will be overwritten by the imported values.
 
 ---
 
@@ -73,8 +73,13 @@ Cash flows are imported into a specific snapshot that you select during configur
 
 ---
 
+!!! tip
+
+    You can also import CSV files per platform directly from the **Bulk Entry** view — handy when you want to update values for a single platform without leaving the snapshot creation workflow. See [Bulk Entry](bulk-entry.md) for details.
+
 ## See also
 
 - [CSV Format Reference](../reference/csv-format.md): Detailed column specifications and example files
 - [Snapshots](snapshots.md): Understand how snapshots work
+- [Bulk Entry](bulk-entry.md): Enter values for all assets in a single session, with per-platform CSV import
 - [Cash Flows](cash-flows.md): Learn more about tracking deposits and withdrawals

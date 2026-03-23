@@ -36,17 +36,20 @@ struct SnapshotListView: View {
   @State private var expandedSections: Set<SnapshotTimeBucket> = Set(SnapshotTimeBucket.allCases)
 
   var onNavigateToImport: (() -> Void)?
+  var onBulkEntry: ((Date) -> Void)?
 
   init(
     modelContext: ModelContext,
     selectedSnapshot: Binding<Snapshot?>,
     showNewSnapshotSheet: Binding<Bool> = .constant(false),
-    onNavigateToImport: (() -> Void)? = nil
+    onNavigateToImport: (() -> Void)? = nil,
+    onBulkEntry: ((Date) -> Void)? = nil
   ) {
     _viewModel = State(wrappedValue: SnapshotListViewModel(modelContext: modelContext))
     _selectedSnapshot = selectedSnapshot
     _showNewSnapshotSheet = showNewSnapshotSheet
     self.onNavigateToImport = onNavigateToImport
+    self.onBulkEntry = onBulkEntry
   }
 
   var body: some View {
@@ -80,10 +83,16 @@ struct SnapshotListView: View {
       viewModel.loadRowData()
     }
     .sheet(isPresented: $showNewSnapshotSheet) {
-      NewSnapshotSheet(viewModel: viewModel) { snapshot in
-        viewModel.loadRowData()
-        selectedSnapshot = snapshot
-      }
+      NewSnapshotSheet(
+        viewModel: viewModel,
+        onCreate: { snapshot in
+          viewModel.loadRowData()
+          selectedSnapshot = snapshot
+        },
+        onBulkEntry: { date in
+          onBulkEntry?(date)
+        }
+      )
     }
     .confirmationDialog(
       "Delete Snapshot",
@@ -170,6 +179,13 @@ struct SnapshotListView: View {
 
       HStack(spacing: 12) {
         if let rowData = rowData {
+          if rowData.hasZeroValueAssets {
+            HoverWarningIcon(
+              message: String(
+                localized: "This snapshot contains assets with a value of 0.",
+                table: "Snapshot"))
+          }
+
           Text(
             rowData.totalValue.formatted(
               currency: SettingsService.shared.mainCurrency)
@@ -243,11 +259,18 @@ struct SnapshotListView: View {
 
 // MARK: - New Snapshot Sheet
 
-private struct NewSnapshotSheet: View {
-  let viewModel: SnapshotListViewModel
-  let onCreate: (Snapshot) -> Void
+enum SnapshotCreationMode: String, CaseIterable {
+  case emptySnapshot
+  case bulkEntry
+}
+
+struct NewSnapshotSheet: View {
+  var viewModel: SnapshotListViewModel?
+  var onCreate: ((Snapshot) -> Void)?
+  let onBulkEntry: (Date) -> Void
 
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.modelContext) private var modelContext
 
   @Query(sort: \Snapshot.date) private var allSnapshots: [Snapshot]
 
@@ -255,7 +278,7 @@ private struct NewSnapshotSheet: View {
   enum Field { case date }
 
   @State private var snapshotDate = Date()
-  @State private var copyFromLatest = false
+  @State private var creationMode: SnapshotCreationMode = .bulkEntry
   @State private var showError = false
   @State private var errorMessage = ""
 
@@ -286,14 +309,11 @@ private struct NewSnapshotSheet: View {
           .foregroundStyle(.orange)
         }
 
-        Toggle("Copy from latest snapshot", isOn: $copyFromLatest)
-          .disabled(!viewModel.canCopyFromLatest(for: snapshotDate))
-
-        if !viewModel.canCopyFromLatest(for: snapshotDate) {
-          Text("No prior snapshots available to copy from.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
+        Picker("Creation Mode", selection: $creationMode) {
+          Text("Empty Snapshot").tag(SnapshotCreationMode.emptySnapshot)
+          Text("Bulk Entry").tag(SnapshotCreationMode.bulkEntry)
         }
+        .pickerStyle(.radioGroup)
       }
       .formStyle(.grouped)
       .navigationTitle("New Snapshot")
@@ -321,10 +341,23 @@ private struct NewSnapshotSheet: View {
   }
 
   private func createSnapshot() {
+    if creationMode == .bulkEntry {
+      onBulkEntry(snapshotDate)
+      dismiss()
+      return
+    }
     do {
-      let snapshot = try viewModel.createSnapshot(
-        date: snapshotDate, copyFromLatest: copyFromLatest)
-      onCreate(snapshot)
+      let snapshot: Snapshot
+      if let viewModel {
+        snapshot = try viewModel.createSnapshot(
+          date: snapshotDate, copyFromLatest: false)
+      } else {
+        // Sidebar context: create empty snapshot directly via modelContext
+        let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
+        snapshot = Snapshot(date: normalizedDate)
+        modelContext.insert(snapshot)
+      }
+      onCreate?(snapshot)
       dismiss()
     } catch {
       errorMessage = error.localizedDescription

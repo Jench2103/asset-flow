@@ -39,7 +39,7 @@ AssetFlow tracks portfolio state through **snapshots** -- discrete records of po
 **Key Rules**:
 
 1. Snapshots are append-only -- a new import never silently overwrites an existing snapshot
-1. A snapshot contains only directly-recorded SnapshotAssetValues. There is no automatic carry-forward. Users can explicitly copy values from prior snapshots via "Copy from latest" (manual creation) or the copy-forward option during CSV import.
+1. A snapshot contains only directly-recorded SnapshotAssetValues. There is no automatic carry-forward. Users can reference prior snapshot values in Bulk Entry mode (manual creation) or use the copy-forward option during CSV import.
 1. The CSV file does NOT contain a date -- the user explicitly selects a date when importing
 1. Users may delete or edit snapshots after creation
 
@@ -405,10 +405,17 @@ ______________________________________________________________________
 1. Selects a date (must be today or earlier, future dates disabled)
 1. If the selected date already has a snapshot, show validation error: "A snapshot already exists for [date]. Go to the Snapshots screen to view and edit it."
 1. Chooses starting point:
-   - **Start empty**: Creates snapshot with no asset entries
-   - **Copy from latest**: Pre-populates with all direct SnapshotAssetValues from the most recent prior snapshot. Disabled (grayed out with explanatory text) when no snapshots exist before the selected date.
-     - Algorithm: (1) filter snapshots to those with date < selected date, (2) take the most recent one, (3) copy its direct SnapshotAssetValues as new records for the new snapshot
+   - **Empty snapshot**: Creates snapshot with no asset entries
+   - **Bulk Entry** (default): Opens BulkEntryView with all assets from the latest prior snapshot grouped by platform. When no prior snapshots exist, the view shows an empty state with an "Add Platform" action. Users can add platforms and assets inline without needing prior data.
 1. User is taken to snapshot detail for editing
+
+#### Bulk Entry Validation Rules
+
+- New asset rows (`.manualNew`) must have a non-empty name before saving
+- Duplicate asset names within the same platform (case-insensitive) are blocked with a red border and toolbar warning
+- Same asset name in different platforms is allowed
+- Categories for new assets are stored as name strings and resolved on save via `resolveCategory(name:)` (case-insensitive find-or-create)
+- New categories typed by the user are immediately available in the picker for other new asset rows but are not created in the database until save
 
 ### CSV Import Creation
 
@@ -461,6 +468,35 @@ Net cash flow = sum of all CashFlowOperation amounts for a snapshot.
 ### Default Behavior
 
 If a snapshot has no cash flow operations, net cash flow = 0, which assumes all value changes are due to investment returns.
+
+______________________________________________________________________
+
+## Bulk Entry
+
+### Overview
+
+Bulk entry provides a full-screen workflow for entering asset values across all platforms in a single session. It presents all known assets grouped by platform, allowing users to enter new market values directly or import them from per-platform CSV files.
+
+### Save Semantics
+
+- **Included rows with values**: A SnapshotAssetValue is created with the entered market value
+- **Included rows without values (pending)**: A SnapshotAssetValue is created with market value 0
+- **Excluded rows**: No SnapshotAssetValue is created; the asset is omitted from the snapshot
+
+### Zero-Value Design Invariant
+
+A `SnapshotAssetValue` with `marketValue == 0` is treated as a placeholder — an asset that has not yet been recorded for the snapshot. If a snapshot should not track an asset, the `SnapshotAssetValue` should be removed rather than kept with value 0. This invariant enables:
+
+- **CSV import overwrite**: When importing into an existing snapshot, zero-value SAVs are overwritten in-place rather than flagged as duplicates. This allows users to create a snapshot via bulk entry (which saves pending rows as 0) and later fill in values via CSV import.
+- **Bulk entry validation**: Explicitly entering 0 is blocked (`hasZeroValueError`); users must exclude the asset instead.
+
+### Zero-Value Warning Rules
+
+Assets with a market value of 0 trigger warnings in multiple contexts:
+
+- **Bulk entry save**: A confirmation alert lists all assets that will be saved with value 0, giving the user a chance to review before proceeding
+- **Snapshot detail view**: A yellow warning icon appears next to assets with value 0, with a tooltip explaining that the value may need updating or the asset should be removed
+- **Asset list view**: Assets whose latest snapshot value is 0 display a warning indicator
 
 ______________________________________________________________________
 

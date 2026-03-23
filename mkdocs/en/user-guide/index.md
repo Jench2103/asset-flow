@@ -19,6 +19,7 @@ Welcome to the AssetFlow User Guide. Whether you're just getting started or look
 | [Dashboard](guide/dashboard.md)                     | Your portfolio at a glance — summary cards, charts, and performance |
 | [Performance Metrics](guide/performance-metrics.md) | What Growth Rate, Modified Dietz, TWR, and CAGR mean                |
 | [Snapshots](guide/snapshots.md)                     | Creating, editing, and managing portfolio snapshots                 |
+| [Bulk Entry](guide/bulk-entry.md)                   | Entering values for all assets in a single session                  |
 | [Assets](guide/assets.md)                           | Tracking individual investments and value history                   |
 | [Categories](guide/categories.md)                   | Organizing assets and setting target allocations                    |
 | [Platforms](guide/platforms.md)                     | Managing brokerages and custodians                                  |

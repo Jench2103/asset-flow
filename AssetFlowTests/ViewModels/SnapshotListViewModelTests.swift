@@ -430,4 +430,46 @@ struct SnapshotListViewModelTests {
     #expect(rowDataMap[snap.id] != nil)
     #expect(rowDataMap[snap.id]?.totalValue == Decimal(5000))
   }
+
+  // MARK: - Zero-Value Assets
+
+  @Test("rowData.hasZeroValueAssets is true when snapshot has zero-value asset")
+  func hasZeroValueAssetsTrue() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = createViewModel(context: context)
+
+    let snapshot = Snapshot(date: makeDate(year: 2026, month: 3, day: 1))
+    context.insert(snapshot)
+    let asset = Asset(name: "Test", platform: "P1")
+    asset.currency = "USD"
+    context.insert(asset)
+    let sav = SnapshotAssetValue(marketValue: Decimal(0))
+    sav.snapshot = snapshot
+    sav.asset = asset
+    context.insert(sav)
+
+    let rowData = viewModel.snapshotRowData(for: snapshot)
+    #expect(rowData.hasZeroValueAssets == true)
+  }
+
+  @Test("rowData.hasZeroValueAssets is false when all assets have non-zero values")
+  func hasZeroValueAssetsFalse() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = createViewModel(context: context)
+
+    let snapshot = Snapshot(date: makeDate(year: 2026, month: 3, day: 1))
+    context.insert(snapshot)
+    let asset = Asset(name: "Test", platform: "P1")
+    asset.currency = "USD"
+    context.insert(asset)
+    let sav = SnapshotAssetValue(marketValue: Decimal(500))
+    sav.snapshot = snapshot
+    sav.asset = asset
+    context.insert(sav)
+
+    let rowData = viewModel.snapshotRowData(for: snapshot)
+    #expect(rowData.hasZeroValueAssets == false)
+  }
 }

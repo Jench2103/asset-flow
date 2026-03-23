@@ -166,3 +166,6 @@ Issues/
 
 # Generated demo data
 scripts/output/
+
+# Claude Code
+.superpowers/

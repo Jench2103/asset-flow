@@ -50,6 +50,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
   case categories
   case platforms
   case rebalancing
+  case bulkEntry
   case importCSV
 
   var id: String { rawValue }
@@ -62,6 +63,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     case .categories: return String(localized: "Categories")
     case .platforms: return String(localized: "Platforms")
     case .rebalancing: return String(localized: "Rebalancing")
+    case .bulkEntry: return String(localized: "New Snapshot")
     case .importCSV: return String(localized: "Import CSV")
     }
   }
@@ -74,6 +76,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     case .categories: return "folder"
     case .platforms: return "building.columns"
     case .rebalancing: return "chart.bar.doc.horizontal"
+    case .bulkEntry: return "square.and.pencil"
     case .importCSV: return "square.and.arrow.down"
     }
   }
@@ -83,10 +86,10 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 
 /// Root navigation shell with sidebar and detail pane.
 ///
-/// Provides a 7-section sidebar (Dashboard, Snapshots, Assets, Categories,
-/// Platforms, Rebalancing, Import CSV) with list-detail splits for Snapshots,
-/// Assets, and Categories. Manages import discard confirmation and post-import
-/// navigation to the created snapshot.
+/// Provides an 8-section sidebar (Dashboard, Snapshots, Assets, Categories,
+/// Platforms, Rebalancing, New Snapshot, Import CSV) with list-detail splits for
+/// Snapshots, Assets, and Categories. Manages import discard confirmation and
+/// post-import navigation to the created snapshot.
 struct ContentView: View {
   @Environment(\.modelContext) private var modelContext
   @Environment(\.isAppLocked) private var isAppLocked
@@ -99,7 +102,10 @@ struct ContentView: View {
 
   @State private var showNewSnapshotSheet = false
   @State private var importViewModel: ImportViewModel?
+  @State private var bulkEntryViewModel: BulkEntryViewModel?
+  @State private var showBulkEntrySheet = false
   @State private var pendingSection: SidebarSection?
+  @State private var pendingIsGoBack = false
   @State private var showDiscardConfirmation = false
 
   // Navigation history
@@ -141,21 +147,46 @@ struct ContentView: View {
       }
     }
     .confirmationDialog(
-      "Discard import?",
+      "Discard unsaved changes?",
       isPresented: $showDiscardConfirmation
     ) {
       Button("Discard", role: .destructive) {
-        importViewModel?.reset()
-        if let pending = pendingSection {
-          pushHistory(pending)
-          pendingSection = nil
+        if selectedSection == .importCSV {
+          importViewModel?.reset()
+        } else if selectedSection == .bulkEntry {
+          bulkEntryViewModel = nil
         }
+        if pendingIsGoBack {
+          performGoBack()
+        } else if let pending = pendingSection {
+          pushHistory(pending)
+        }
+        pendingSection = nil
+        pendingIsGoBack = false
       }
       Button("Cancel", role: .cancel) {
         pendingSection = nil
+        pendingIsGoBack = false
       }
     } message: {
-      Text("The selected file has not been imported yet.")
+      if selectedSection == .bulkEntry {
+        Text("The entered values have not been saved yet.")
+      } else {
+        Text("The selected file has not been imported yet.")
+      }
+    }
+    .sheet(isPresented: $showBulkEntrySheet) {
+      NewSnapshotSheet(
+        onCreate: { snapshot in
+          pushHistory(.snapshots)
+          selectedSnapshot = snapshot
+        },
+        onBulkEntry: { date in
+          bulkEntryViewModel = BulkEntryViewModel(
+            modelContext: modelContext, date: date)
+          pushHistory(.bulkEntry)
+        }
+      )
     }
     .onChange(of: importViewModel?.importedSnapshot?.id) { _, newValue in
       if newValue != nil, let snapshot = importViewModel?.importedSnapshot {
@@ -197,7 +228,7 @@ struct ContentView: View {
         }
       }
       Section("Tools") {
-        ForEach([SidebarSection.rebalancing, .importCSV], id: \.self) { section in
+        ForEach([SidebarSection.rebalancing, .bulkEntry, .importCSV], id: \.self) { section in
           sidebarLabel(for: section)
         }
       }
@@ -228,13 +259,24 @@ struct ContentView: View {
       set: { newSection in
         guard let newSection, newSection != selectedSection else { return }
 
-        // Check if navigating away from import with unsaved changes
+        // Check if navigating away from section with unsaved changes
         if selectedSection == .importCSV,
           importViewModel?.hasUnsavedChanges == true
         {
           pendingSection = newSection
           showDiscardConfirmation = true
+        } else if selectedSection == .bulkEntry,
+          bulkEntryViewModel?.hasUnsavedChanges == true
+        {
+          pendingSection = newSection
+          showDiscardConfirmation = true
+        } else if newSection == .bulkEntry {
+          // Bulk entry: show date picker sheet instead of navigating
+          showBulkEntrySheet = true
         } else {
+          if selectedSection == .bulkEntry {
+            bulkEntryViewModel = nil
+          }
           pushHistory(newSection)
         }
       }
@@ -266,7 +308,11 @@ struct ContentView: View {
             modelContext: modelContext,
             selectedSnapshot: $selectedSnapshot,
             showNewSnapshotSheet: $showNewSnapshotSheet,
-            onNavigateToImport: { navigateToImport() }
+            onNavigateToImport: { navigateToImport() },
+            onBulkEntry: { date in
+              bulkEntryViewModel = BulkEntryViewModel(modelContext: modelContext, date: date)
+              pushHistory(.bulkEntry)
+            }
           )
           .frame(width: max(250, geometry.size.width * 0.4))
 
@@ -372,6 +418,26 @@ struct ContentView: View {
         ProgressView()
       }
 
+    case .bulkEntry:
+      if let viewModel = bulkEntryViewModel {
+        BulkEntryView(viewModel: viewModel) { savedSnapshot in
+          pushHistory(.snapshots)
+          selectedSnapshot = savedSnapshot
+          bulkEntryViewModel = nil
+        }
+      } else {
+        // No ViewModel yet — user should not have landed here without one.
+        // Redirect to dashboard.
+        ContentUnavailableView(
+          "New Snapshot",
+          systemImage: "square.and.pencil",
+          description: Text("Use the sidebar to create a new snapshot.")
+        )
+        .onAppear {
+          goBack()
+        }
+      }
+
     case nil:
       placeholderView("Select a section", systemImage: "sidebar.left")
     }
@@ -437,6 +503,36 @@ struct ContentView: View {
 
   private func goBack() {
     guard canGoBack else { return }
+
+    // Check for unsaved changes before navigating back
+    if selectedSection == .bulkEntry,
+      bulkEntryViewModel?.hasUnsavedChanges == true
+    {
+      pendingSection = sectionHistory[historyIndex - 1]
+      pendingIsGoBack = true
+      showDiscardConfirmation = true
+      return
+    }
+    if selectedSection == .importCSV,
+      importViewModel?.hasUnsavedChanges == true
+    {
+      pendingSection = sectionHistory[historyIndex - 1]
+      pendingIsGoBack = true
+      showDiscardConfirmation = true
+      return
+    }
+
+    performGoBack()
+  }
+
+  private func performGoBack() {
+    guard canGoBack else { return }
+    if selectedSection == .bulkEntry {
+      bulkEntryViewModel = nil
+      // Truncate forward history so goForward() can't navigate back
+      // to .bulkEntry with a nil ViewModel.
+      sectionHistory = Array(sectionHistory.prefix(historyIndex + 1))
+    }
     isNavigatingHistory = true
     historyIndex -= 1
     selectedSection = sectionHistory[historyIndex]

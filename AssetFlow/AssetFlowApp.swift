@@ -167,7 +167,11 @@ struct AssetFlowApp: App {
                 "\n\n"
                 + String(
                   localized:
-                    "All data is stored locally on your Mac.\nExchange rates are fetched from cdn.jsdelivr.net.\nNo personal data is collected or transmitted."
+                    """
+                    All data is stored locally on your Mac.
+                    Exchange rates are fetched from cdn.jsdelivr.net.
+                    No personal data is collected or transmitted.
+                    """
                 ),
               attributes: [
                 .font: small,

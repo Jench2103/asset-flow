@@ -24,6 +24,7 @@ enum SnapshotError: LocalizedError, Equatable {
   case dateAlreadyExists(Date)
   case assetAlreadyInSnapshot(String)
   case duplicateCashFlowDescription(String)
+  case noAssetsIncluded
 
   var errorDescription: String? {
     switch self {
@@ -48,6 +49,11 @@ enum SnapshotError: LocalizedError, Equatable {
       return String(
         localized:
           "A cash flow operation with description '\(description)' already exists in this snapshot.",
+        table: "Snapshot")
+
+    case .noAssetsIncluded:
+      return String(
+        localized: "At least one asset must be included in the snapshot.",
         table: "Snapshot")
     }
   }
@@ -102,6 +108,7 @@ struct SnapshotRowData {
   let totalValue: Decimal
   let platforms: [String]
   let assetCount: Int
+  let hasZeroValueAssets: Bool
 }
 
 /// Data for snapshot deletion confirmation dialog.
@@ -241,11 +248,14 @@ class SnapshotListViewModel {
       Set(directValues.compactMap { $0.asset?.platform })
     ).sorted()
 
+    let hasZeroValueAssets = directValues.contains { $0.marketValue == 0 }
+
     return SnapshotRowData(
       date: snapshot.date,
       totalValue: totalValue,
       platforms: platforms,
-      assetCount: directValues.count
+      assetCount: directValues.count,
+      hasZeroValueAssets: hasZeroValueAssets
     )
   }
 

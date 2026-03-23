@@ -42,7 +42,7 @@ A snapshot represents the best-known portfolio state at a specific date.
 
 1. The CSV file does NOT contain a date. The user explicitly selects a date when importing.
 1. Snapshots are append-only — a new import never silently overwrites an existing snapshot.
-1. A snapshot contains only directly-recorded SnapshotAssetValues. There is no automatic carry-forward. Users can explicitly copy values from prior snapshots via "Copy from latest" (manual creation) or the copy-forward option during CSV import.
+1. A snapshot contains only directly-recorded SnapshotAssetValues. There is no automatic carry-forward. Users can pre-populate values from prior snapshots via "Bulk Entry" (manual creation) or the copy-forward option during CSV import.
 1. Users may delete or edit snapshots after creation (see Section 8).
 
 ______________________________________________________________________
@@ -124,9 +124,25 @@ ______________________________________________________________________
 - Each row shows: date, total value, platforms included, number of assets
 - "New Snapshot" button
 
+**New Snapshot creation modes:**
+
+- **Start empty**: Creates snapshot with no asset entries
+- **Bulk Entry** (default): Opens a full-screen editable table with all assets from the latest snapshot grouped by platform. Users enter new market values directly. Features include:
+  - Per-platform "Add Asset" button for inline asset creation (name, currency, category)
+  - "Add Platform" toolbar button for creating new platform groups
+  - Category picker for new assets (deferred DB creation until save)
+  - Per-platform CSV import to populate values from exported brokerage data
+  - Include/exclude checkbox per row to control which assets are saved
+  - Previous value column for reference
+  - Zero-value warning for assets saved with a market value of 0
+  - Duplicate asset name validation within a platform (case-insensitive)
+  - Tab/Enter keyboard navigation between value fields
+  - Self-sufficient empty state when no prior snapshots exist
+
 **Snapshot detail view** (on selection):
 
 - Full asset breakdown table sorted by platform (alphabetical), then by asset name (alphabetical) within each platform: Asset Name, Platform, Category, Market Value
+- Zero-value warning indicator on assets with a market value of 0
 - Category allocation summary for this snapshot
 - Cash flow operations table: lists all CashFlowOperations for this snapshot (Description, Amount)
 - Net cash flow summary line showing the total (sum of all operations)
@@ -609,10 +625,9 @@ Users can create a snapshot manually from the Snapshots screen:
 
 1. Click "New Snapshot"
 1. Select a snapshot date (required, must be today or earlier). **The selected date must not have an existing snapshot.** If the user selects a date that already has a snapshot, show a validation error: "A snapshot already exists for [date]. Go to the Snapshots screen to view and edit it." The creation flow cannot proceed until a valid date is selected.
-1. Choose a starting point:
-   - **Start empty** — creates a snapshot with no asset entries; user adds assets manually
-   - **Copy from latest** — pre-populates with all direct SnapshotAssetValues from the most recent prior snapshot (the latest snapshot with a date before the selected date), creating direct SnapshotAssetValues for each. User then edits values, adds new assets, or removes sold positions. This option is disabled (grayed out with explanatory text) when no snapshots exist before the selected date.
-1. User is taken to the snapshot detail view for editing.
+1. Choose a creation mode:
+   - **Empty snapshot** — creates a snapshot with no asset entries; user is navigated to SnapshotDetailView to add assets manually
+   - **Bulk Entry** (default) — navigates to BulkEntryView with all assets from the latest snapshot (the most recent snapshot with a date before the selected date) grouped by platform. Users enter new market values directly. When no prior snapshots exist, the view displays an empty state with an "Add Platform" button, allowing users to create platforms and add assets inline. Per-platform "Add Asset" buttons and CSV import are available in each platform group header. New assets support inline category assignment via a name-based picker (categories are created in the database only on save).
 
 ### 8.2 CSV Import Creation
 

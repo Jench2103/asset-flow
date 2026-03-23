@@ -34,19 +34,33 @@ extension View {
   func helpWhenUnlocked(_ textKey: LocalizedStringKey?) -> some View {
     modifier(HelpWhenUnlockedModifier(textKey: textKey))
   }
+
+  func helpWhenUnlocked(_ text: String) -> some View {
+    modifier(HelpWhenUnlockedStringModifier(text: text))
+  }
 }
 
 private struct HelpWhenUnlockedModifier: ViewModifier {
   let textKey: LocalizedStringKey?
   @Environment(\.isAppLocked) private var isLocked
 
-  @ViewBuilder
   func body(content: Content) -> some View {
-    if let textKey, !isLocked {
-      content.help(textKey)
-    } else {
-      content
-    }
+    // Always apply .help() to keep the view tree structure stable.
+    // Switching between content.help() and bare content causes SwiftUI
+    // to reset @FocusState on the modified view.
+    content.help(isLocked || textKey == nil ? "" : textKey!)
+  }
+}
+
+private struct HelpWhenUnlockedStringModifier: ViewModifier {
+  let text: String
+  @Environment(\.isAppLocked) private var isLocked
+
+  func body(content: Content) -> some View {
+    // Always apply .help() to keep the view tree structure stable.
+    // Switching between content.help() and bare content causes SwiftUI
+    // to reset @FocusState on the modified view.
+    content.help(isLocked ? "" : text)
   }
 }
 
