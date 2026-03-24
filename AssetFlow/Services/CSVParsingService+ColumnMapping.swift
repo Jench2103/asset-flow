@@ -22,6 +22,11 @@ import Foundation
 extension CSVParsingService {
 
   /// Extracts header names from the first line of CSV data.
+  ///
+  /// Note: This and `extractSampleRows` each independently decode and split
+  /// the CSV. A combined helper could avoid redundant work, but the data is
+  /// small (only the header + a few sample rows are read) and the clarity of
+  /// separate, single-purpose methods is preferred for now.
   static func extractHeaders(from data: Data) -> [String] {
     let lines = splitCSVLines(decodeCSVData(data))
     guard let headerLine = lines.first else { return [] }
@@ -77,14 +82,23 @@ extension CSVParsingService {
     mapping: CSVColumnMapping,
     importPlatform: String?
   ) -> CSVParseResult<AssetCSVRow> {
+    guard let nameIndex = mapping.columnMap[.assetName],
+      let valueIndex = mapping.columnMap[.marketValue]
+    else {
+      return CSVParseResult(
+        rows: [],
+        errors: [CSVError(row: 0, column: nil, message: "Mapping missing required columns.")],
+        warnings: [])
+    }
+
     let lines = splitCSVLines(decodeCSVData(data))
     guard lines.count > 1 else {
       return lines.isEmpty ? emptyFileResult() : noDataRowsResult(warnings: [])
     }
 
     let headers = AssetCSVHeaders(
-      nameIndex: mapping.columnMap[.assetName] ?? 0,
-      valueIndex: mapping.columnMap[.marketValue] ?? 1,
+      nameIndex: nameIndex,
+      valueIndex: valueIndex,
       platformIndex: mapping.columnMap[.platform],
       currencyIndex: mapping.columnMap[.currency],
       warnings: [])
@@ -99,14 +113,23 @@ extension CSVParsingService {
     data: Data,
     mapping: CSVColumnMapping
   ) -> CSVParseResult<CashFlowCSVRow> {
+    guard let descIndex = mapping.columnMap[.description],
+      let amountIndex = mapping.columnMap[.amount]
+    else {
+      return CSVParseResult(
+        rows: [],
+        errors: [CSVError(row: 0, column: nil, message: "Mapping missing required columns.")],
+        warnings: [])
+    }
+
     let lines = splitCSVLines(decodeCSVData(data))
     guard lines.count > 1 else {
       return lines.isEmpty ? emptyFileResult() : noDataRowsResult(warnings: [])
     }
 
     let headers = CashFlowCSVHeaders(
-      descIndex: mapping.columnMap[.description] ?? 0,
-      amountIndex: mapping.columnMap[.amount] ?? 1,
+      descIndex: descIndex,
+      amountIndex: amountIndex,
       currencyIndex: mapping.columnMap[.currency],
       warnings: [])
 

@@ -167,7 +167,7 @@ struct BulkEntryViewModelTests {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
 
-    let (snapshot, _) = createSnapshotWithAssets(
+    createSnapshotWithAssets(
       context: context, date: makeDate(2026, 3, 1),
       assets: [
         TestAssetData(name: "Stock A", platform: "Vanguard", currency: "USD", value: Decimal(1000)),

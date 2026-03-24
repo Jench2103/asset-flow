@@ -175,79 +175,8 @@ final class BulkEntryViewModel {
 
   @discardableResult
   func importCSV(data: Data, forPlatform platform: String) -> CSVImportResult {
-    // Parse without importPlatform override to get raw CSV platform/currency values
     let result = CSVParsingService.parseAssetCSV(data: data, importPlatform: nil)
-
-    // Clear previous CSV values for this platform
-    for index in rows.indices where rows[index].platform == platform && rows[index].source == .csv {
-      if rows[index].asset != nil {
-        rows[index].newValueText = ""
-        rows[index].source = .manual
-      }
-    }
-    rows.removeAll { $0.platform == platform && $0.source == .csv && $0.asset == nil }
-
-    let errors = result.errors.map(\.message)
-    let parserWarnings = result.warnings.map(\.message)
-    let mainCurrency = SettingsService.shared.mainCurrency
-
-    var matchedCount = 0
-    var newCount = 0
-    var platformMismatches: [String] = []
-    var currencyMismatches: [String] = []
-
-    for csvRow in result.rows {
-      // Platform mismatch: CSV has a platform column value that differs from the target group
-      if !csvRow.platform.isEmpty,
-        csvRow.platform.normalizedForIdentity != platform.normalizedForIdentity
-      {
-        platformMismatches.append(csvRow.assetName)
-        continue
-      }
-
-      let normalizedCSVName = csvRow.assetName.normalizedForIdentity
-      if let index = rows.firstIndex(where: {
-        $0.platform == platform && $0.assetName.normalizedForIdentity == normalizedCSVName
-      }) {
-        // Currency mismatch: CSV has a currency value that differs from the existing asset
-        if !csvRow.currency.isEmpty,
-          csvRow.currency.uppercased() != rows[index].currency.uppercased()
-        {
-          currencyMismatches.append(csvRow.assetName)
-          continue
-        }
-        rows[index].newValueText = "\(csvRow.marketValue)"
-        rows[index].source = .csv
-        matchedCount += 1
-      } else {
-        let newRow = BulkEntryRow(
-          id: UUID(),
-          asset: nil,
-          assetName: csvRow.assetName,
-          platform: platform,
-          currency: csvRow.currency.isEmpty ? mainCurrency : csvRow.currency,
-          previousValue: nil,
-          newValueText: "\(csvRow.marketValue)",
-          isIncluded: true,
-          source: .csv,
-          // categoryName is intentionally nil: AssetCSVRow has no category field,
-          // so CSVParsingService cannot provide one. Users assign categories in
-          // SnapshotDetailView after saving.
-          categoryName: nil
-        )
-        rows.append(newRow)
-        newCount += 1
-      }
-    }
-
-    return CSVImportResult(
-      matchedCount: matchedCount,
-      newCount: newCount,
-      errors: errors,
-      parserWarnings: parserWarnings,
-      platformMismatches: platformMismatches,
-      currencyMismatches: currencyMismatches
-    )
+    return importCSVFromParsedRows(result, forPlatform: platform)
   }
 
   // MARK: - Column Mapping
@@ -289,13 +218,9 @@ final class BulkEntryViewModel {
     guard let data = pendingCSVData else { return nil }
     let platform = pendingCSVPlatform
 
-    let remappedData = CSVParsingService.parseAssetCSV(
+    let parseResult = CSVParsingService.parseAssetCSV(
       data: data, mapping: mapping, importPlatform: nil)
-
-    // Build a new CSV string with canonical headers from the mapped result,
-    // then feed to the existing importCSV which handles matching/appending.
-    // Instead, we directly process the parsed rows here.
-    let result = importCSVFromParsedRows(remappedData, forPlatform: platform)
+    let result = importCSVFromParsedRows(parseResult, forPlatform: platform)
     lastImportResult = result
 
     pendingCSVData = nil

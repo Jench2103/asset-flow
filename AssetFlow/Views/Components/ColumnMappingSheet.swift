@@ -130,10 +130,11 @@ struct ColumnMappingSheet: View {
   private var csvTable: some View {
     ScrollView(.horizontal) {
       Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
-        // Row 0: Pickers
+        // Row 0: Pickers — compute duplicateColumns once per render, not per cell
+        let dupes = duplicateColumns
         GridRow {
           ForEach(Array(rawHeaders.enumerated()), id: \.offset) { index, _ in
-            pickerCell(at: index)
+            pickerCell(at: index, duplicates: dupes)
           }
         }
 
@@ -186,9 +187,9 @@ struct ColumnMappingSheet: View {
 
   // MARK: - Picker Cell
 
-  private func pickerCell(at index: Int) -> some View {
+  private func pickerCell(at index: Int, duplicates: Set<CanonicalColumn>) -> some View {
     let isDuplicate =
-      columnAssignments[index].map { duplicateColumns.contains($0) } ?? false
+      columnAssignments[index].map { duplicates.contains($0) } ?? false
 
     return Picker(
       "",

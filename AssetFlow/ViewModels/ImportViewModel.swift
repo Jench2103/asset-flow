@@ -212,6 +212,7 @@ class ImportViewModel {
   /// - Parameter data: Raw CSV file data (UTF-8).
   func loadCSVData(_ data: Data) {
     importError = nil
+    selectedFileData = data
 
     let schema: CSVColumnSchema = importType == .assets ? .asset : .cashFlow
     let headers = CSVParsingService.extractHeaders(from: data)
@@ -240,7 +241,6 @@ class ImportViewModel {
 
     case .needsUserMapping(let rawHeaders, let partialMap):
       // Headers don't match — show mapping sheet
-      selectedFileData = data
       pendingRawHeaders = rawHeaders
       pendingSampleRows = CSVParsingService.extractSampleRows(from: data)
       pendingPartialMapping = partialMap
