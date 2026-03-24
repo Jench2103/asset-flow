@@ -110,7 +110,7 @@ struct BulkEntryView: View {
     .sheet(isPresented: $viewModel.showColumnMappingSheet) {
       ColumnMappingSheet(
         rawHeaders: viewModel.pendingRawHeaders,
-        schema: .asset,
+        schema: .assetWithoutPlatform,
         sampleRows: viewModel.pendingSampleRows,
         initialMapping: viewModel.pendingPartialMapping,
         onConfirm: { mapping in

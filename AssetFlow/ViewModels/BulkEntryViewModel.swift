@@ -265,7 +265,8 @@ final class BulkEntryViewModel {
       return
     }
 
-    let detectResult = CSVParsingService.autoDetectMapping(headers: headers, schema: .asset)
+    let detectResult = CSVParsingService.autoDetectMapping(
+      headers: headers, schema: .assetWithoutPlatform)
 
     switch detectResult {
     case .matched:

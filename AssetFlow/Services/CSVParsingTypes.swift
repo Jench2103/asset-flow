@@ -117,11 +117,12 @@ enum CanonicalColumn: String, CaseIterable, Identifiable {
 /// Defines the required and optional columns for a CSV schema.
 enum CSVColumnSchema: CaseIterable {
   case asset
+  case assetWithoutPlatform
   case cashFlow
 
   var requiredColumns: [CanonicalColumn] {
     switch self {
-    case .asset: [.assetName, .marketValue]
+    case .asset, .assetWithoutPlatform: [.assetName, .marketValue]
     case .cashFlow: [.description, .amount]
     }
   }
@@ -129,6 +130,7 @@ enum CSVColumnSchema: CaseIterable {
   var optionalColumns: [CanonicalColumn] {
     switch self {
     case .asset: [.platform, .currency]
+    case .assetWithoutPlatform: [.currency]
     case .cashFlow: [.currency]
     }
   }
