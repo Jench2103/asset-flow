@@ -90,11 +90,21 @@ struct ColumnMappingSheet: View {
   var body: some View {
     NavigationStack {
       VStack(alignment: .leading, spacing: 12) {
+        Text(
+          String(
+            localized:
+              "Use the dropdowns above each column to assign it to the corresponding field.",
+            table: "Import")
+        )
+        .font(.callout)
+        .foregroundStyle(.secondary)
+
         csvTable
+
         statusBar
       }
       .padding()
-      .frame(minWidth: 560, idealWidth: 640, minHeight: 320)
+      .frame(minWidth: 560, idealWidth: 640)
       .navigationTitle(
         String(localized: "Map CSV Columns", table: "Import")
       )
@@ -118,7 +128,7 @@ struct ColumnMappingSheet: View {
   // MARK: - CSV Table
 
   private var csvTable: some View {
-    ScrollView([.horizontal, .vertical]) {
+    ScrollView(.horizontal) {
       Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
         // Row 0: Pickers
         GridRow {
@@ -170,6 +180,7 @@ struct ColumnMappingSheet: View {
           }
         }
       }
+      .padding(.bottom, 8)
     }
   }
 
