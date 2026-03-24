@@ -82,6 +82,8 @@ When you import:
 - **Matched assets** (same name, case-insensitive) have their New Value updated with the CSV value and receive a blue **CSV** badge.
 - **Unmatched assets** are added as new rows with a blue **CSV** badge.
 
+If your CSV uses different column names, a **column mapping sheet** appears where you can assign each column to the correct field. The **Platform** option is not shown here since the platform is already determined by which section you're importing into. If the CSV headers already match the expected names, the mapping sheet is skipped. For more details on column mapping, see [Import CSV — Column Mapping](import-csv.md#column-mapping).
+
 After the import, an alert summarizes the results — how many assets were updated, how many were added, and any rows that were skipped due to platform or currency mismatches.
 
 ![CSV import result](../../assets/images/bulk-entry-csv-import.png)
