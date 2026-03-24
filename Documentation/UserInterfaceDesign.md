@@ -347,8 +347,9 @@ See [BusinessLogic.md](BusinessLogic.md) for the detailed CSV import flow.
 
 - **Import type selector**: Segmented control (Assets | Cash Flows), defaults to Assets
 - **File selector**: Drag-and-drop zone or "Browse" button (filtered to `.csv`)
+- **Column mapping sheet** (shown automatically when CSV headers don't match expected columns): A full CSV table preview with per-column dropdowns allowing the user to assign each CSV column to a canonical field (e.g., `Asset Name`, `Market Value`) or skip it. Auto-detected matches are pre-selected. Skipped entirely when headers already match (case-insensitive). Shared between Import Screen and Bulk Entry per-platform CSV import. Uses `NavigationStack` with toolbar (Cancel/Confirm) for macOS Liquid Glass integration.
 - **Expected schema display**: Show the expected CSV column names for the selected import type and provide downloadable sample CSVs
-- **Configuration** (after file selected):
+- **Configuration** (after file selected or column mapping confirmed):
   - Asset import: Snapshot date picker (future dates disabled), Platform picker (with "All Rows" toggle when mixed platforms), Category picker (with "All Rows" toggle when mixed categories)
   - Cash flow import: Snapshot date picker (future dates disabled)
   - Platform and Category pickers use pill-style background (`.fill.quaternary` with rounded corners). The "All Rows" checkbox toggle appears when the CSV contains a mix of values that make the apply mode meaningful.

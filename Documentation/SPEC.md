@@ -342,7 +342,7 @@ The app supports two CSV formats, selected by the user via the import type selec
 | `Platform` | Platform/brokerage name (overridden by import-level platform if set)                 |
 | `Currency` | ISO 4217 currency code (e.g., "USD", "TWD"); must be a currency supported by the app |
 
-**Column mapping:** Deferred to a future version. For v1, the CSV must use the exact column names above. The app must display the expected schema and provide a downloadable sample CSV.
+**Column mapping:** When the CSV headers do not match the expected column names (case-insensitive), a mapping sheet appears after file selection. The sheet displays a full preview of the CSV data with a dropdown above each column, allowing the user to assign each CSV column to a canonical field (`Asset Name`, `Market Value`, `Platform`, `Currency`) or skip it. Auto-detection: if all required columns are found by case-insensitive header matching, the mapping sheet is skipped and parsing proceeds immediately. The mapping is immutable once confirmed; re-selecting the file re-triggers the sheet. The same mapping sheet is shared between the Import screen and the Bulk Entry per-platform CSV import.
 
 **Sample CSV:**
 
@@ -985,7 +985,6 @@ Do NOT implement:
 - Dividend modeling
 - Cloud sync
 - Data export for reporting (CSV, PDF) — note: data backup/restore IS supported (see Section 3.10)
-- Column mapping for CSV import
 - Category-level cash flow tracking
 - Category-level return tracking (TWR, CAGR)
 - Asset merging/splitting

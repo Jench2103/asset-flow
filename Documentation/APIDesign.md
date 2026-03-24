@@ -49,8 +49,27 @@ enum CSVParsingService {
         importPlatform: String?
     ) -> CSVParseResult<AssetCSVRow>
 
+    /// Parse asset CSV using a user-provided column mapping (skips header validation)
+    static func parseAssetCSV(
+        data: Data,
+        mapping: CSVColumnMapping,
+        importPlatform: String?
+    ) -> CSVParseResult<AssetCSVRow>
+
     /// Parse cash flow CSV data into structured rows
     static func parseCashFlowCSV(data: Data) -> CSVParseResult<CashFlowCSVRow>
+
+    /// Parse cash flow CSV using a user-provided column mapping
+    static func parseCashFlowCSV(data: Data, mapping: CSVColumnMapping) -> CSVParseResult<CashFlowCSVRow>
+
+    /// Extract header names from the first line of CSV data
+    static func extractHeaders(from data: Data) -> [String]
+
+    /// Extract first N data rows as raw string arrays (for sample preview)
+    static func extractSampleRows(from data: Data, count: Int = 3) -> [[String]]
+
+    /// Auto-detect column mapping by case-insensitive header matching
+    static func autoDetectMapping(headers: [String], schema: CSVColumnSchema) -> CSVAutoDetectResult
 }
 
 struct CSVParseResult<T> {
@@ -73,6 +92,35 @@ struct CashFlowCSVRow {
     let description: String  // Maps to CashFlowOperation.cashFlowDescription in the model
     let amount: Decimal
     let currency: String  // From optional Currency column (empty if absent)
+}
+
+/// Canonical column identifiers for CSV mapping
+enum CanonicalColumn: String, CaseIterable, Identifiable {
+    case assetName = "Asset Name"
+    case marketValue = "Market Value"
+    case platform = "Platform"
+    case currency = "Currency"
+    case description = "Description"
+    case amount = "Amount"
+}
+
+/// Defines required/optional columns for a CSV schema
+enum CSVColumnSchema: CaseIterable {
+    case asset     // required: assetName, marketValue; optional: platform, currency
+    case cashFlow  // required: description, amount; optional: currency
+}
+
+/// A confirmed mapping from canonical columns to CSV column indices
+struct CSVColumnMapping {
+    let schema: CSVColumnSchema
+    let columnMap: [CanonicalColumn: Int]
+    let rawHeaders: [String]
+}
+
+/// Result of auto-detection attempt
+enum CSVAutoDetectResult {
+    case matched(CSVColumnMapping)
+    case needsUserMapping(rawHeaders: [String], partialMap: [CanonicalColumn: Int])
 }
 ```
 
