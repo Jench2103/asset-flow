@@ -75,10 +75,8 @@ struct ColumnMappingSheet: View {
     let assigned = columnAssignments.compactMap { $0 }
     var seen = Set<CanonicalColumn>()
     var duplicates = Set<CanonicalColumn>()
-    for col in assigned {
-      if !seen.insert(col).inserted {
-        duplicates.insert(col)
-      }
+    for col in assigned where !seen.insert(col).inserted {
+      duplicates.insert(col)
     }
     return duplicates
   }
@@ -179,8 +177,7 @@ struct ColumnMappingSheet: View {
 
   private func pickerCell(at index: Int) -> some View {
     let isDuplicate =
-      columnAssignments[index] != nil
-      && duplicateColumns.contains(columnAssignments[index]!)
+      columnAssignments[index].map { duplicateColumns.contains($0) } ?? false
 
     return Picker(
       "",
