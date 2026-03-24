@@ -195,7 +195,7 @@ extension CSVParsingService {
 
 extension CSVParsingService {
 
-  private static func parseAssetDataRows(
+  static func parseAssetDataRows(
     lines: [String],
     headers: AssetCSVHeaders,
     importPlatform: String?
@@ -230,7 +230,7 @@ extension CSVParsingService {
       rows: rows, errors: errors, warnings: warnings)
   }
 
-  private static func parseCashFlowDataRows(
+  static func parseCashFlowDataRows(
     lines: [String],
     headers: CashFlowCSVHeaders
   ) -> CSVParseResult<CashFlowCSVRow> {
@@ -396,14 +396,14 @@ extension CSVParsingService {
     }
   }
 
-  private static func emptyFileResult<T>() -> CSVParseResult<T> {
+  static func emptyFileResult<T>() -> CSVParseResult<T> {
     let err = CSVError(
       row: 0, column: nil,
       message: "File is empty or contains no data.")
     return CSVParseResult(rows: [], errors: [err], warnings: [])
   }
 
-  private static func noDataRowsResult<T>(
+  static func noDataRowsResult<T>(
     warnings: [CSVWarning]
   ) -> CSVParseResult<T> {
     let err = CSVError(
