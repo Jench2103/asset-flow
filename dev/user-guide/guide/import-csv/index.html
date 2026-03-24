@@ -1048,6 +1048,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#column-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column Mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1579,6 +1590,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#column-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column Mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1716,6 +1738,10 @@
 </tr>
 </tbody>
 </table>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Your CSV doesn't need to use these exact column names. If the headers don't match, AssetFlow will show a column mapping sheet where you can assign each CSV column to the correct field. See <a href="#column-mapping">Column Mapping</a> below.</p>
+</div>
 <p><img alt="Select file" src="../../../assets/images/import-csv-file.png" /></p>
 <h3 id="step-2-configure">Step 2: Configure<a class="headerlink" href="#step-2-configure" title="Permanent link">&para;</a></h3>
 <p>Before importing, you can fine-tune how the data is brought in:</p>
@@ -1774,6 +1800,21 @@
 </table>
 <p>Cash flows are imported into a specific snapshot that you select during configuration.</p>
 <hr />
+<h2 id="column-mapping">Column Mapping<a class="headerlink" href="#column-mapping" title="Permanent link">&para;</a></h2>
+<p>If your CSV file uses different column names (e.g., "Symbol" instead of "Asset Name", or "Price" instead of "Market Value"), AssetFlow automatically detects the mismatch and shows a <strong>column mapping sheet</strong> after you select the file.</p>
+<p><img alt="Column mapping sheet" src="../../../assets/images/import-csv-column-mapping.png" /></p>
+<p>The sheet displays a preview of your CSV data with a dropdown above each column. Use the dropdowns to assign each CSV column to the corresponding AssetFlow field, or leave it as <strong>— Skip —</strong> to ignore that column.</p>
+<ul>
+<li><strong>Auto-detection</strong>: If the CSV headers already match the expected column names (case-insensitive), the mapping sheet is skipped entirely and parsing proceeds immediately.</li>
+<li><strong>Pre-selection</strong>: Columns that partially match (e.g., "Currency" is recognized even when "Asset Name" is not) are preselected automatically.</li>
+<li><strong>Validation</strong>: The <strong>Confirm</strong> button is disabled until all required columns are assigned. If two columns are mapped to the same field, a warning is shown and the conflicting dropdowns are highlighted in red.</li>
+<li><strong>Re-mapping</strong>: To change the mapping after confirming, simply re-select the file. The mapping sheet will appear again.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Column mapping is also available for per-platform CSV imports in the <a href="../bulk-entry/#per-platform-csv-import">Bulk Entry</a> view. In that case, the <strong>Platform</strong> option is not shown since the platform is already determined by which section you're importing into.</p>
+</div>
+<hr />
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>You can also import CSV files per platform directly from the <strong>Bulk Entry</strong> view — handy when you want to update values for a single platform without leaving the snapshot creation workflow. See <a href="../bulk-entry/">Bulk Entry</a> for details.</p>
@@ -1807,7 +1848,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 23, 2026 17:03:46 UTC">March 23, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 24, 2026 06:11:11 UTC">March 24, 2026</span>
   </span>
 
     
