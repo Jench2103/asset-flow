@@ -227,7 +227,9 @@ ______________________________________________________________________
 
 1. User selects import type (Assets or Cash Flows) via segmented control
 1. User selects a CSV file (drag-and-drop or browse)
-1. System validates columns based on selected import type
+1. System auto-detects column mapping by case-insensitive header matching:
+   - If all required columns match: parsing proceeds immediately (no sheet)
+   - If required columns are missing: a column mapping sheet appears with a full CSV table preview, per-column dropdowns, and sample data rows; the user maps each CSV column to a canonical field or skips it; matched optional columns are pre-selected
 1. User configures import parameters:
    - **Asset import**: Snapshot date (required, defaults to today), Platform (optional), Category (optional)
    - **Cash flow import**: Snapshot date (required, defaults to today)

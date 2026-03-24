@@ -25,6 +25,10 @@ Your file should include at least these columns:
 | **Platform**     | No       | Which platform holds this asset            |
 | **Currency**     | No       | The asset's currency code (e.g., USD, TWD) |
 
+!!! tip
+
+    Your CSV doesn't need to use these exact column names. If the headers don't match, AssetFlow will show a column mapping sheet where you can assign each CSV column to the correct field. See [Column Mapping](#column-mapping) below.
+
 ![Select file](../../assets/images/import-csv-file.png)
 
 ### Step 2: Configure
@@ -70,6 +74,25 @@ The cash flow import follows a similar workflow. Your CSV should include:
 | **Currency**    | No       | The currency code                                   |
 
 Cash flows are imported into a specific snapshot that you select during configuration.
+
+---
+
+## Column Mapping
+
+If your CSV file uses different column names (e.g., "Symbol" instead of "Asset Name", or "Price" instead of "Market Value"), AssetFlow automatically detects the mismatch and shows a **column mapping sheet** after you select the file.
+
+![Column mapping sheet](../../assets/images/import-csv-column-mapping.png)
+
+The sheet displays a preview of your CSV data with a dropdown above each column. Use the dropdowns to assign each CSV column to the corresponding AssetFlow field, or leave it as **— Skip —** to ignore that column.
+
+- **Auto-detection**: If the CSV headers already match the expected column names (case-insensitive), the mapping sheet is skipped entirely and parsing proceeds immediately.
+- **Pre-selection**: Columns that partially match (e.g., "Currency" is recognized even when "Asset Name" is not) are preselected automatically.
+- **Validation**: The **Confirm** button is disabled until all required columns are assigned. If two columns are mapped to the same field, a warning is shown and the conflicting dropdowns are highlighted in red.
+- **Re-mapping**: To change the mapping after confirming, simply re-select the file. The mapping sheet will appear again.
+
+!!! note
+
+    Column mapping is also available for per-platform CSV imports in the [Bulk Entry](bulk-entry.md#per-platform-csv-import) view. In that case, the **Platform** option is not shown since the platform is already determined by which section you're importing into.
 
 ---
 

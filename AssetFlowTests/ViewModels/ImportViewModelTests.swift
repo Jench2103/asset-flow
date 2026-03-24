@@ -2356,4 +2356,139 @@ struct ImportViewModelTests {
     let all = try tc.context.fetch(descriptor)
     #expect(all.count == 1)
   }
+
+  // MARK: - Column Mapping Integration
+
+  @Test("loadCSVData with canonical headers does not show mapping sheet")
+  func testLoadCSVDataCanonicalHeadersNoSheet() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.snapshotDate = makeDate(year: 2025, month: 1, day: 1)
+
+    viewModel.loadCSVData(validAssetCSVData())
+
+    #expect(!viewModel.showColumnMappingSheet)
+    #expect(viewModel.assetPreviewRows.count == 3)
+  }
+
+  @Test("loadCSVData with canonical headers in different casing does not show mapping sheet")
+  func testLoadCSVDataCaseInsensitiveCanonicalNoSheet() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.snapshotDate = makeDate(year: 2025, month: 1, day: 1)
+
+    let csv = csvData("asset name,MARKET VALUE\nAAPL,15000")
+    viewModel.loadCSVData(csv)
+
+    #expect(!viewModel.showColumnMappingSheet)
+    #expect(viewModel.assetPreviewRows.count == 1)
+  }
+
+  @Test("loadCSVData with non-matching headers shows mapping sheet")
+  func testLoadCSVDataNonMatchingShowsSheet() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.snapshotDate = makeDate(year: 2025, month: 1, day: 1)
+
+    let csv = csvData("Symbol,Price,Account\nAAPL,15000,Schwab")
+    viewModel.loadCSVData(csv)
+
+    #expect(viewModel.showColumnMappingSheet)
+    #expect(viewModel.assetPreviewRows.isEmpty)
+    #expect(viewModel.pendingRawHeaders == ["Symbol", "Price", "Account"])
+    #expect(!viewModel.pendingSampleRows.isEmpty)
+  }
+
+  @Test("loadCSVData with partially matching headers pre-populates partial mapping")
+  func testLoadCSVDataPartialMatchPrePopulates() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.snapshotDate = makeDate(year: 2025, month: 1, day: 1)
+
+    let csv = csvData("Symbol,Price,Platform\nAAPL,15000,Schwab")
+    viewModel.loadCSVData(csv)
+
+    #expect(viewModel.showColumnMappingSheet)
+    #expect(viewModel.pendingPartialMapping[.platform] == 2)
+    #expect(viewModel.pendingPartialMapping[.assetName] == nil)
+  }
+
+  @Test("confirmColumnMapping populates preview rows and dismisses sheet")
+  func testConfirmColumnMappingPopulatesPreview() throws {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.snapshotDate = makeDate(year: 2025, month: 1, day: 1)
+
+    let csv = csvData("Symbol,Price,Account\nAAPL,15000,Schwab\nVTI,28000,Fidelity")
+    viewModel.loadCSVData(csv)
+    #expect(viewModel.showColumnMappingSheet)
+
+    let mapping = CSVColumnMapping(
+      schema: .asset,
+      columnMap: [.assetName: 0, .marketValue: 1, .platform: 2],
+      rawHeaders: ["Symbol", "Price", "Account"])
+    viewModel.confirmColumnMapping(mapping)
+
+    #expect(!viewModel.showColumnMappingSheet)
+    let rows = viewModel.assetPreviewRows
+    #expect(rows.count == 2)
+    let first = try #require(rows.first)
+    #expect(first.csvRow.assetName == "AAPL")
+    #expect(first.csvRow.platform == "Schwab")
+  }
+
+  @Test("loadCSVData with non-matching cash flow headers shows mapping sheet")
+  func testLoadCSVDataCashFlowNonMatchingShowsSheet() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.importType = .cashFlows
+    viewModel.snapshotDate = makeDate(year: 2025, month: 1, day: 1)
+
+    let csv = csvData("Label,Value\nDeposit,5000\nWithdrawal,-2000")
+    viewModel.loadCSVData(csv)
+
+    #expect(viewModel.showColumnMappingSheet)
+    #expect(viewModel.cashFlowPreviewRows.isEmpty)
+  }
+
+  @Test("confirmColumnMapping for cash flow populates preview rows")
+  func testConfirmColumnMappingCashFlow() throws {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.importType = .cashFlows
+    viewModel.snapshotDate = makeDate(year: 2025, month: 1, day: 1)
+
+    let csv = csvData("Label,Value\nDeposit,5000")
+    viewModel.loadCSVData(csv)
+
+    let mapping = CSVColumnMapping(
+      schema: .cashFlow,
+      columnMap: [.description: 0, .amount: 1],
+      rawHeaders: ["Label", "Value"])
+    viewModel.confirmColumnMapping(mapping)
+
+    #expect(!viewModel.showColumnMappingSheet)
+    let cfRows = viewModel.cashFlowPreviewRows
+    #expect(cfRows.count == 1)
+    let firstCF = try #require(cfRows.first)
+    #expect(firstCF.csvRow.description == "Deposit")
+  }
+
+  @Test("clearLoadedData clears mapping state")
+  func testClearLoadedDataClearsMappingState() {
+    let tc = createTestContext()
+    let viewModel = ImportViewModel(modelContext: tc.context)
+    viewModel.snapshotDate = makeDate(year: 2025, month: 1, day: 1)
+
+    let csv = csvData("Symbol,Price\nAAPL,15000")
+    viewModel.loadCSVData(csv)
+    #expect(viewModel.showColumnMappingSheet)
+
+    viewModel.clearLoadedData()
+
+    #expect(!viewModel.showColumnMappingSheet)
+    #expect(viewModel.pendingRawHeaders.isEmpty)
+    #expect(viewModel.pendingSampleRows.isEmpty)
+    #expect(viewModel.pendingPartialMapping.isEmpty)
+  }
 }

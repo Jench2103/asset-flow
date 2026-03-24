@@ -61,6 +61,16 @@ final class BulkEntryViewModel {
     return duplicateIDs
   }
   var hasDuplicateNames: Bool { !duplicateNameRowIDs.isEmpty }
+
+  // MARK: - Column Mapping State
+
+  var showColumnMappingSheet: Bool = false
+  var pendingRawHeaders: [String] = []
+  var pendingSampleRows: [[String]] = []
+  var pendingPartialMapping: [CanonicalColumn: Int] = [:]
+  var pendingCSVData: Data?
+  var pendingCSVPlatform: String = ""
+  var lastImportResult: CSVImportResult?
   var canSave: Bool {
     includedCount > 0 && zeroValueCount == 0 && !hasInvalidNewRows && !hasDuplicateNames
       && !rows.contains(where: { $0.isIncluded && $0.hasValidationError })
@@ -165,11 +175,71 @@ final class BulkEntryViewModel {
 
   @discardableResult
   func importCSV(data: Data, forPlatform platform: String) -> CSVImportResult {
-    // Parse without importPlatform override to get raw CSV platform/currency values
     let result = CSVParsingService.parseAssetCSV(data: data, importPlatform: nil)
+    return importCSVFromParsedRows(result, forPlatform: platform)
+  }
 
+  // MARK: - Column Mapping
+
+  /// Loads CSV data with auto-detection. Shows mapping sheet if headers don't match.
+  ///
+  /// If headers match, calls `importCSV` directly. Otherwise, populates
+  /// mapping state and sets `showColumnMappingSheet = true`.
+  func loadCSVForMapping(data: Data, forPlatform platform: String) {
+    let headers = CSVParsingService.extractHeaders(from: data)
+
+    // Empty/invalid files — import directly to get proper error reporting
+    guard !headers.isEmpty else {
+      _ = importCSV(data: data, forPlatform: platform)
+      return
+    }
+
+    let detectResult = CSVParsingService.autoDetectMapping(
+      headers: headers, schema: .assetWithoutPlatform)
+
+    switch detectResult {
+    case .matched:
+      lastImportResult = importCSV(data: data, forPlatform: platform)
+
+    case .needsUserMapping(let rawHeaders, let partialMap):
+      pendingCSVData = data
+      pendingCSVPlatform = platform
+      pendingRawHeaders = rawHeaders
+      pendingSampleRows = CSVParsingService.extractSampleRows(from: data)
+      pendingPartialMapping = partialMap
+      showColumnMappingSheet = true
+    }
+  }
+
+  /// Confirms a user-provided column mapping and imports the pending CSV data.
+  @discardableResult
+  func confirmColumnMapping(_ mapping: CSVColumnMapping) -> CSVImportResult? {
+    showColumnMappingSheet = false
+    guard let data = pendingCSVData else { return nil }
+    let platform = pendingCSVPlatform
+
+    let parseResult = CSVParsingService.parseAssetCSV(
+      data: data, mapping: mapping, importPlatform: nil)
+    let result = importCSVFromParsedRows(parseResult, forPlatform: platform)
+    lastImportResult = result
+
+    pendingCSVData = nil
+    pendingCSVPlatform = ""
+    pendingRawHeaders = []
+    pendingSampleRows = []
+    pendingPartialMapping = [:]
+
+    return result
+  }
+
+  /// Imports already-parsed CSV rows into the bulk entry rows.
+  private func importCSVFromParsedRows(
+    _ parseResult: CSVParseResult<AssetCSVRow>,
+    forPlatform platform: String
+  ) -> CSVImportResult {
     // Clear previous CSV values for this platform
-    for index in rows.indices where rows[index].platform == platform && rows[index].source == .csv {
+    for index in rows.indices
+    where rows[index].platform == platform && rows[index].source == .csv {
       if rows[index].asset != nil {
         rows[index].newValueText = ""
         rows[index].source = .manual
@@ -177,8 +247,8 @@ final class BulkEntryViewModel {
     }
     rows.removeAll { $0.platform == platform && $0.source == .csv && $0.asset == nil }
 
-    let errors = result.errors.map(\.message)
-    let parserWarnings = result.warnings.map(\.message)
+    let errors = parseResult.errors.map(\.message)
+    let parserWarnings = parseResult.warnings.map(\.message)
     let mainCurrency = SettingsService.shared.mainCurrency
 
     var matchedCount = 0
@@ -186,8 +256,7 @@ final class BulkEntryViewModel {
     var platformMismatches: [String] = []
     var currencyMismatches: [String] = []
 
-    for csvRow in result.rows {
-      // Platform mismatch: CSV has a platform column value that differs from the target group
+    for csvRow in parseResult.rows {
       if !csvRow.platform.isEmpty,
         csvRow.platform.normalizedForIdentity != platform.normalizedForIdentity
       {
@@ -199,7 +268,6 @@ final class BulkEntryViewModel {
       if let index = rows.firstIndex(where: {
         $0.platform == platform && $0.assetName.normalizedForIdentity == normalizedCSVName
       }) {
-        // Currency mismatch: CSV has a currency value that differs from the existing asset
         if !csvRow.currency.isEmpty,
           csvRow.currency.uppercased() != rows[index].currency.uppercased()
         {
@@ -220,9 +288,6 @@ final class BulkEntryViewModel {
           newValueText: "\(csvRow.marketValue)",
           isIncluded: true,
           source: .csv,
-          // categoryName is intentionally nil: AssetCSVRow has no category field,
-          // so CSVParsingService cannot provide one. Users assign categories in
-          // SnapshotDetailView after saving.
           categoryName: nil
         )
         rows.append(newRow)

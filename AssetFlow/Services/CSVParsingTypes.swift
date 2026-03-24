@@ -96,3 +96,65 @@ enum RowParseResult<T> {
   case row(T, [CSVWarning])
   case error(CSVError)
 }
+
+// MARK: - Column Mapping
+
+/// Canonical column identifiers for CSV mapping.
+///
+/// Used to map arbitrary CSV column headers to the columns expected
+/// by `CSVParsingService`. Raw values are the canonical header names.
+enum CanonicalColumn: String, CaseIterable, Identifiable {
+  case assetName = "Asset Name"
+  case marketValue = "Market Value"
+  case platform = "Platform"
+  case currency = "Currency"
+  case description = "Description"
+  case amount = "Amount"
+
+  var id: String { rawValue }
+}
+
+/// Defines the required and optional columns for a CSV schema.
+enum CSVColumnSchema: CaseIterable {
+  case asset
+  case assetWithoutPlatform
+  case cashFlow
+
+  var requiredColumns: [CanonicalColumn] {
+    switch self {
+    case .asset, .assetWithoutPlatform: [.assetName, .marketValue]
+    case .cashFlow: [.description, .amount]
+    }
+  }
+
+  var optionalColumns: [CanonicalColumn] {
+    switch self {
+    case .asset: [.platform, .currency]
+    case .assetWithoutPlatform: [.currency]
+    case .cashFlow: [.currency]
+    }
+  }
+
+  var allColumns: [CanonicalColumn] {
+    requiredColumns + optionalColumns
+  }
+}
+
+/// A confirmed mapping from canonical columns to CSV column indices.
+struct CSVColumnMapping {
+  let schema: CSVColumnSchema
+  let columnMap: [CanonicalColumn: Int]
+  let rawHeaders: [String]
+
+  func index(for column: CanonicalColumn) -> Int? {
+    columnMap[column]
+  }
+}
+
+/// Result of attempting auto-detection of column mapping.
+enum CSVAutoDetectResult {
+  /// All required (and any matching optional) columns found.
+  case matched(CSVColumnMapping)
+  /// At least one required column could not be matched. User must map manually.
+  case needsUserMapping(rawHeaders: [String], partialMap: [CanonicalColumn: Int])
+}

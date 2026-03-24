@@ -194,6 +194,76 @@
           }
         }
       }
+    },
+    "Map CSV Columns" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "對應 CSV 欄位"
+          }
+        }
+      }
+    },
+    "Use the dropdowns above each column to assign it to the corresponding field." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用每個欄位上方的下拉選單，將其指定為對應的欄位。"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
+    "Confirm" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認"
+          }
+        }
+      }
+    },
+    "— Skip —" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "— 略過 —"
+          }
+        }
+      }
+    },
+    "Two or more columns are mapped to the same field." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有兩個以上的欄位被指定為相同的欄位。"
+          }
+        }
+      }
+    },
+    "%lld of %lld required columns mapped." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已對應 %1$lld / %2$lld 個必填欄位。"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

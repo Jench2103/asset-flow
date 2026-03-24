@@ -68,6 +68,20 @@ struct ImportView: View {
     ) { result in
       handleFileImport(result)
     }
+    .sheet(isPresented: $viewModel.showColumnMappingSheet) {
+      ColumnMappingSheet(
+        rawHeaders: viewModel.pendingRawHeaders,
+        schema: viewModel.importType == .assets ? .asset : .cashFlow,
+        sampleRows: viewModel.pendingSampleRows,
+        initialMapping: viewModel.pendingPartialMapping,
+        onConfirm: { mapping in
+          viewModel.confirmColumnMapping(mapping)
+        },
+        onCancel: {
+          viewModel.showColumnMappingSheet = false
+        }
+      )
+    }
     .alert("Discard import?", isPresented: $showDiscardAlert) {
       Button("Discard", role: .destructive) {
         viewModel.reset()
