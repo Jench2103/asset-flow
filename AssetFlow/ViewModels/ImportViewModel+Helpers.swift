@@ -304,6 +304,10 @@ extension ImportViewModel {
     baseAssetWarnings = []
     baseCashFlowWarnings = []
     excludedAssetIndices = []
+    showColumnMappingSheet = false
+    pendingRawHeaders = []
+    pendingSampleRows = []
+    pendingPartialMapping = [:]
   }
 
   func fetchAllAssets() -> [Asset] {
