@@ -99,13 +99,28 @@ struct BulkEntryView: View {
       if url.startAccessingSecurityScopedResource() {
         defer { url.stopAccessingSecurityScopedResource() }
         if let data = try? Data(contentsOf: url) {
-          let importResult = viewModel.importCSV(data: data, forPlatform: platform)
-          let formatted = importResult.formattedResult()
-          importResultTitle = formatted.title
-          importResultMessage = formatted.message
-          showImportResult = true
+          viewModel.loadCSVForMapping(data: data, forPlatform: platform)
+          if !viewModel.showColumnMappingSheet {
+            // Auto-detected — show result immediately
+            showLastImportResult()
+          }
         }
       }
+    }
+    .sheet(isPresented: $viewModel.showColumnMappingSheet) {
+      ColumnMappingSheet(
+        rawHeaders: viewModel.pendingRawHeaders,
+        schema: .asset,
+        sampleRows: viewModel.pendingSampleRows,
+        initialMapping: viewModel.pendingPartialMapping,
+        onConfirm: { mapping in
+          _ = viewModel.confirmColumnMapping(mapping)
+          showLastImportResult()
+        },
+        onCancel: {
+          viewModel.showColumnMappingSheet = false
+        }
+      )
     }
     .alert(
       String(
@@ -334,6 +349,15 @@ struct BulkEntryView: View {
       sortBy: [SortDescriptor(\.displayOrder), SortDescriptor(\.name)])
     let categories = (try? modelContext.fetch(descriptor)) ?? []
     cachedCategoryNames = categories.map(\.name)
+  }
+
+  private func showLastImportResult() {
+    guard let importResult = viewModel.lastImportResult else { return }
+    let formatted = importResult.formattedResult()
+    importResultTitle = formatted.title
+    importResultMessage = formatted.message
+    showImportResult = true
+    viewModel.lastImportResult = nil
   }
 
 }

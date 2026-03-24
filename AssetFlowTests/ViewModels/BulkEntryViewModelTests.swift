@@ -748,4 +748,83 @@ struct BulkEntryViewModelTests {
 
     return (snapshot, createdAssets)
   }
+
+  // MARK: - Column Mapping Integration
+
+  @Test("loadCSVForMapping with canonical headers does not show mapping sheet")
+  func testLoadCSVForMappingCanonicalNoSheet() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(
+          name: "Stock A", platform: "Vanguard", currency: "USD", value: Decimal(1000))
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let csvData = "Asset Name,Market Value\nStock A,1500\n".data(using: .utf8)!
+    viewModel.loadCSVForMapping(data: csvData, forPlatform: "Vanguard")
+
+    #expect(!viewModel.showColumnMappingSheet)
+    let stockRow = viewModel.rows.first(where: { $0.assetName == "Stock A" })
+    #expect(stockRow?.newValueText == "1500")
+  }
+
+  @Test("loadCSVForMapping with non-matching headers shows mapping sheet")
+  func testLoadCSVForMappingNonMatchingShowsSheet() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(
+          name: "Stock A", platform: "Vanguard", currency: "USD", value: Decimal(1000))
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let csvData = "Symbol,Price\nStock A,1500\n".data(using: .utf8)!
+    viewModel.loadCSVForMapping(data: csvData, forPlatform: "Vanguard")
+
+    #expect(viewModel.showColumnMappingSheet)
+    #expect(viewModel.pendingRawHeaders == ["Symbol", "Price"])
+    #expect(viewModel.pendingCSVPlatform == "Vanguard")
+  }
+
+  @Test("confirmColumnMapping produces correct import result and dismisses sheet")
+  func testConfirmColumnMappingBulkEntry() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(
+          name: "Stock A", platform: "Vanguard", currency: "USD", value: Decimal(1000))
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let csvData = "Symbol,Price\nStock A,1500\nNew Fund,3000\n".data(using: .utf8)!
+    viewModel.loadCSVForMapping(data: csvData, forPlatform: "Vanguard")
+    #expect(viewModel.showColumnMappingSheet)
+
+    let mapping = CSVColumnMapping(
+      schema: .asset,
+      columnMap: [.assetName: 0, .marketValue: 1],
+      rawHeaders: ["Symbol", "Price"])
+    let result = viewModel.confirmColumnMapping(mapping)
+
+    #expect(!viewModel.showColumnMappingSheet)
+    let importResult = try #require(result)
+    #expect(importResult.matchedCount == 1)
+    #expect(importResult.newCount == 1)
+  }
 }
