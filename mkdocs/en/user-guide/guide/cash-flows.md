@@ -10,6 +10,12 @@ Cash flows record external money movements — deposits into and withdrawals fro
 
 ## Adding Cash Flows
 
+### During Snapshot Creation (Bulk Entry)
+
+When creating a new snapshot via [Bulk Entry](bulk-entry.md), you can add cash flows directly alongside your asset values. The **Cash Flow Operations** section appears below the asset table. This is the most convenient way to record cash flows at the same time as your portfolio update.
+
+### From the Snapshot Detail View
+
 1. Navigate to a snapshot's detail view.
 1. Scroll down to the **Cash Flow Operations** section.
 1. Click **Add Cash Flow**.

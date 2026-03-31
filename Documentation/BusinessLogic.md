@@ -500,6 +500,29 @@ Assets with a market value of 0 trigger warnings in multiple contexts:
 - **Snapshot detail view**: A yellow warning icon appears next to assets with value 0, with a tooltip explaining that the value may need updating or the asset should be removed
 - **Asset list view**: Assets whose latest snapshot value is 0 display a warning indicator
 
+### Cash Flow Operations in Bulk Entry
+
+Cash flow rows are portfolio-level and do not carry forward from previous snapshots. The cash flow section starts empty each time a new bulk entry session begins.
+
+**Input methods**:
+
+1. **Manual entry**: The "Add Cash Flow" button appends an inline row with editable description, amount, and currency fields. Manually-added rows (`.manualNew`) can be deleted via a trash button.
+1. **CSV import**: The "Import CSV" button uses the `.cashFlow` schema with auto-detect column mapping (required: Description, Amount; optional: Currency). Re-importing CSV clears all previous CSV-sourced rows globally (cash flows are portfolio-level, not per-platform) before applying the new import. CSV rows are matched to existing rows by normalized description (`normalizedForIdentity`).
+
+**Validation rules**:
+
+1. Non-empty description is required for all included rows
+1. Case-insensitive duplicate description detection via `normalizedForIdentity` blocks save
+1. Invalid (unparseable) amount text blocks save
+1. All cash flow validation errors prevent saving (reflected in `canSave`)
+
+**Save semantics**:
+
+- **Included rows**: Create `CashFlowOperation` objects on the snapshot. All included rows must have a non-empty, parseable amount (enforced by `canSave`). Explicit zero amounts are allowed. Currency is preserved from the row.
+- **Excluded rows**: Omitted entirely; no `CashFlowOperation` is created.
+
+**`canSave` integration**: The bulk entry `canSave` check includes cash flow validation alongside asset validation: no cash flow validation errors, no empty amounts, no empty descriptions on included rows. Duplicate cash flow descriptions are validated at save time (not in `canSave`) to avoid expensive `normalizedForIdentity` computation on every keystroke.
+
 ______________________________________________________________________
 
 ## Data Validation Rules

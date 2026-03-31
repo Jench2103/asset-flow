@@ -15,6 +15,8 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
+// swiftlint:disable file_length
+
 import Foundation
 import SwiftData
 import Testing
@@ -160,6 +162,7 @@ struct BulkEntryRowTests {
 
 @Suite("BulkEntryViewModel Tests")
 @MainActor
+// swiftlint:disable:next type_body_length
 struct BulkEntryViewModelTests {
 
   @Test("init loads rows from latest snapshot before given date")
@@ -826,5 +829,629 @@ struct BulkEntryViewModelTests {
     let importResult = try #require(result)
     #expect(importResult.matchedCount == 1)
     #expect(importResult.newCount == 1)
+  }
+
+  // MARK: - Cash Flow State Tests
+
+  @Test("addManualCashFlowRow creates row with correct defaults")
+  func addManualCashFlowRowDefaults() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    let rowID = viewModel.addManualCashFlowRow()
+
+    #expect(viewModel.cashFlowRows.count == 1)
+    let row = viewModel.cashFlowRows[0]
+    #expect(row.id == rowID)
+    #expect(row.cashFlowDescription.isEmpty)
+    #expect(row.amountText.isEmpty)
+    #expect(row.currency == SettingsService.shared.mainCurrency)
+    #expect(row.isIncluded == true)
+    #expect(row.source == .manualNew)
+  }
+
+  @Test("removeCashFlowRow only removes manualNew rows")
+  func removeCashFlowRowOnlyManualNew() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    // Add a manualNew row
+    let manualID = viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[0].cashFlowDescription = "Manual Flow"
+
+    // Add a CSV-sourced row manually
+    let csvRow = BulkEntryCashFlowRow(
+      id: UUID(), cashFlowDescription: "CSV Flow",
+      amountText: "1000", currency: "USD",
+      isIncluded: true, source: .csv)
+    viewModel.cashFlowRows.append(csvRow)
+
+    #expect(viewModel.cashFlowRows.count == 2)
+
+    // Attempt to remove CSV row — should fail
+    viewModel.removeCashFlowRow(rowID: csvRow.id)
+    #expect(viewModel.cashFlowRows.count == 2)
+
+    // Remove manualNew row — should succeed
+    viewModel.removeCashFlowRow(rowID: manualID)
+    #expect(viewModel.cashFlowRows.count == 1)
+    #expect(viewModel.cashFlowRows[0].cashFlowDescription == "CSV Flow")
+  }
+
+  @Test("toggleCashFlowInclude toggles inclusion and clears amount")
+  func toggleCashFlowInclude() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    let rowID = viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
+    viewModel.cashFlowRows[0].amountText = "5000"
+
+    #expect(viewModel.cashFlowRows[0].isIncluded == true)
+    #expect(viewModel.cashFlowRows[0].amountText == "5000")
+
+    viewModel.toggleCashFlowInclude(rowID: rowID)
+    #expect(viewModel.cashFlowRows[0].isIncluded == false)
+    #expect(viewModel.cashFlowRows[0].amountText.isEmpty)
+
+    viewModel.toggleCashFlowInclude(rowID: rowID)
+    #expect(viewModel.cashFlowRows[0].isIncluded == true)
+  }
+
+  @Test("cashFlowCount reflects only included rows")
+  func cashFlowCountReflectsInclusion() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    let id1 = viewModel.addManualCashFlowRow()
+    viewModel.addManualCashFlowRow()
+
+    #expect(viewModel.cashFlowCount == 2)
+
+    viewModel.toggleCashFlowInclude(rowID: id1)
+    #expect(viewModel.cashFlowCount == 1)
+  }
+
+  @Test("saveSnapshot throws on duplicate cash flow descriptions (case-insensitive)")
+  func saveSnapshotThrowsOnDuplicateCashFlowDescriptions() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "100"
+
+    viewModel.addManualCashFlowRow()
+    viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
+    viewModel.cashFlowRows[0].amountText = "5000"
+    viewModel.cashFlowRows[1].cashFlowDescription = "salary"
+    viewModel.cashFlowRows[1].amountText = "3000"
+
+    #expect(throws: SnapshotError.self) {
+      try viewModel.saveSnapshot()
+    }
+  }
+
+  @Test("saveSnapshot allows duplicate descriptions when one is excluded")
+  func saveSnapshotAllowsDuplicateWhenExcluded() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "100"
+
+    viewModel.addManualCashFlowRow()
+    viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
+    viewModel.cashFlowRows[0].amountText = "5000"
+    viewModel.cashFlowRows[1].cashFlowDescription = "salary"
+    viewModel.cashFlowRows[1].amountText = "3000"
+    viewModel.toggleCashFlowInclude(rowID: viewModel.cashFlowRows[1].id)
+
+    let snapshot = try viewModel.saveSnapshot()
+    let operations = snapshot.cashFlowOperations ?? []
+    #expect(operations.count == 1)
+    #expect(operations[0].cashFlowDescription == "Salary")
+  }
+
+  @Test("canSave is false when cash flow row has validation error")
+  func canSaveFalseWithCashFlowValidationError() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "100"
+
+    // Add cash flow with invalid amount
+    viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
+    viewModel.cashFlowRows[0].amountText = "abc"
+
+    #expect(viewModel.canSave == false)
+  }
+
+  @Test("canSave is false when cash flow has empty description")
+  func canSaveFalseWithEmptyCashFlowDescription() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "100"
+
+    // Add cash flow with empty description
+    viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[0].amountText = "5000"
+
+    #expect(viewModel.canSave == false)
+  }
+
+  @Test("canSave is false when cash flow has empty amount")
+  func canSaveFalseWithEmptyCashFlowAmount() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "100"
+
+    viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
+    // amountText left empty
+
+    #expect(viewModel.canSave == false)
+  }
+
+  @Test("canSave is true with valid cash flow rows")
+  func canSaveTrueWithValidCashFlowRows() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "100"
+
+    viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
+    viewModel.cashFlowRows[0].amountText = "5000"
+
+    #expect(viewModel.canSave == true)
+  }
+
+  @Test("canSave is true with no cash flow rows")
+  func canSaveTrueWithNoCashFlowRows() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "100"
+
+    #expect(viewModel.canSave == true)
+  }
+
+  @Test("hasUnsavedChanges is true when cash flow rows exist")
+  func hasUnsavedChangesWithCashFlowRows() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    #expect(viewModel.hasUnsavedChanges == false)
+
+    viewModel.addManualCashFlowRow()
+    #expect(viewModel.hasUnsavedChanges == true)
+  }
+
+  // MARK: - Cash Flow CSV Import Tests
+
+  @Test("importCashFlowCSV adds rows with csv source")
+  func importCashFlowCSVAddsRows() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let csvData = "Description,Amount\nSalary,50000\nBonus,10000\n".data(using: .utf8)!
+    let result = viewModel.importCashFlowCSV(data: csvData)
+
+    #expect(result.errors.isEmpty)
+    #expect(result.newCount == 2)
+    #expect(viewModel.cashFlowRows.count == 2)
+
+    let salaryRow = viewModel.cashFlowRows.first(where: {
+      $0.cashFlowDescription == "Salary"
+    })
+    #expect(salaryRow != nil)
+    #expect(salaryRow?.amountText == "50000")
+    #expect(salaryRow?.source == .csv)
+    #expect(salaryRow?.isIncluded == true)
+  }
+
+  @Test("importCashFlowCSV matches existing manual rows by description")
+  func importCashFlowCSVMatchesManualRows() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
+
+    let csvData = "Description,Amount\nSalary,50000\n".data(using: .utf8)!
+    let result = viewModel.importCashFlowCSV(data: csvData)
+
+    #expect(result.matchedCount == 1)
+    #expect(result.newCount == 0)
+    #expect(viewModel.cashFlowRows.count == 1)
+    #expect(viewModel.cashFlowRows[0].amountText == "50000")
+    #expect(viewModel.cashFlowRows[0].source == .csv)
+  }
+
+  @Test("re-importing cash flow CSV replaces previous values")
+  func reImportCashFlowCSVReplacesValues() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let csv1 = "Description,Amount\nSalary,50000\n".data(using: .utf8)!
+    viewModel.importCashFlowCSV(data: csv1)
+    #expect(viewModel.cashFlowRows[0].amountText == "50000")
+
+    let csv2 = "Description,Amount\nSalary,60000\n".data(using: .utf8)!
+    viewModel.importCashFlowCSV(data: csv2)
+    #expect(viewModel.cashFlowRows[0].amountText == "60000")
+  }
+
+  @Test("importCashFlowCSV handles currency column and mainCurrency fallback")
+  func importCashFlowCSVCurrencyHandling() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let csvData = "Description,Amount,Currency\nSalary,50000,TWD\nBonus,10000,\n".data(
+      using: .utf8)!
+    let result = viewModel.importCashFlowCSV(data: csvData)
+
+    #expect(result.newCount == 2)
+    let salaryRow = viewModel.cashFlowRows.first(where: {
+      $0.cashFlowDescription == "Salary"
+    })
+    let bonusRow = viewModel.cashFlowRows.first(where: {
+      $0.cashFlowDescription == "Bonus"
+    })
+    #expect(salaryRow?.currency == "TWD")
+    #expect(bonusRow?.currency == SettingsService.shared.mainCurrency)
+  }
+
+  @Test("loadCashFlowCSVForMapping with canonical headers auto-imports")
+  func loadCashFlowCSVForMappingCanonical() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let csvData = "Description,Amount\nSalary,50000\n".data(using: .utf8)!
+    viewModel.loadCashFlowCSVForMapping(data: csvData)
+
+    #expect(!viewModel.showCashFlowColumnMappingSheet)
+    #expect(viewModel.cashFlowRows.count == 1)
+    #expect(viewModel.cashFlowRows[0].cashFlowDescription == "Salary")
+  }
+
+  @Test("loadCashFlowCSVForMapping with non-matching headers shows sheet")
+  func loadCashFlowCSVForMappingShowsSheet() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let csvData = "Label,Value\nSalary,50000\n".data(using: .utf8)!
+    viewModel.loadCashFlowCSVForMapping(data: csvData)
+
+    #expect(viewModel.showCashFlowColumnMappingSheet)
+    #expect(viewModel.pendingCashFlowRawHeaders == ["Label", "Value"])
+    #expect(viewModel.cashFlowRows.isEmpty)
+  }
+
+  @Test("confirmCashFlowColumnMapping imports rows and dismisses sheet")
+  func confirmCashFlowColumnMappingImports() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let csvData = "Label,Value\nSalary,50000\nBonus,10000\n".data(using: .utf8)!
+    viewModel.loadCashFlowCSVForMapping(data: csvData)
+    #expect(viewModel.showCashFlowColumnMappingSheet)
+
+    let mapping = CSVColumnMapping(
+      schema: .cashFlow,
+      columnMap: [.description: 0, .amount: 1],
+      rawHeaders: ["Label", "Value"])
+    let result = viewModel.confirmCashFlowColumnMapping(mapping)
+
+    #expect(!viewModel.showCashFlowColumnMappingSheet)
+    let importResult = try #require(result)
+    #expect(importResult.newCount == 2)
+    #expect(viewModel.cashFlowRows.count == 2)
+  }
+
+  // MARK: - Save Snapshot Cash Flow Tests
+
+  @Test("saveSnapshot creates CashFlowOperation objects with correct data")
+  func saveSnapshotCreatesCashFlowOperations() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "100"
+
+    viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
+    viewModel.cashFlowRows[0].amountText = "50000"
+    viewModel.cashFlowRows[0].currency = "TWD"
+
+    let snapshot = try viewModel.saveSnapshot()
+    let operations = snapshot.cashFlowOperations ?? []
+    #expect(operations.count == 1)
+    #expect(operations[0].cashFlowDescription == "Salary")
+    #expect(operations[0].amount == Decimal(50000))
+    #expect(operations[0].currency == "TWD")
+  }
+
+  @Test("saveSnapshot excludes unchecked cash flow rows")
+  func saveSnapshotExcludesUncheckedCashFlows() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "100"
+
+    let id1 = viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
+    viewModel.cashFlowRows[0].amountText = "50000"
+
+    viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[1].cashFlowDescription = "Bonus"
+    viewModel.cashFlowRows[1].amountText = "10000"
+
+    viewModel.toggleCashFlowInclude(rowID: id1)
+
+    let snapshot = try viewModel.saveSnapshot()
+    let operations = snapshot.cashFlowOperations ?? []
+    #expect(operations.count == 1)
+    #expect(operations[0].cashFlowDescription == "Bonus")
+  }
+
+  @Test("saveSnapshot creates no cash flow operations when no cash flow rows")
+  func saveSnapshotNoCashFlowWhenEmpty() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "100"
+
+    let snapshot = try viewModel.saveSnapshot()
+    let operations = snapshot.cashFlowOperations ?? []
+    #expect(operations.isEmpty)
+  }
+
+  @Test("saveSnapshot saves cash flow with explicit zero amount")
+  func saveSnapshotCashFlowExplicitZeroAmount() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.rows[0].newValueText = "100"
+
+    viewModel.addManualCashFlowRow()
+    viewModel.cashFlowRows[0].cashFlowDescription = "No change"
+    viewModel.cashFlowRows[0].amountText = "0"
+
+    let snapshot = try viewModel.saveSnapshot()
+    let operations = snapshot.cashFlowOperations ?? []
+    #expect(operations.count == 1)
+    #expect(operations[0].amount == Decimal(0))
+  }
+}
+
+@Suite("BulkEntryCashFlowRow Tests")
+@MainActor
+struct BulkEntryCashFlowRowTests {
+
+  @Test("amount parses valid decimal string")
+  func amountParsesDecimal() {
+    var row = makeCashFlowRow()
+    row.amountText = "5000.50"
+    #expect(row.amount == Decimal(string: "5000.50"))
+  }
+
+  @Test("amount returns nil for invalid string")
+  func amountReturnsNilForInvalid() {
+    var row = makeCashFlowRow()
+    row.amountText = "not-a-number"
+    #expect(row.amount == nil)
+  }
+
+  @Test("hasValidationError is true when text is non-empty but not a valid decimal")
+  func hasValidationErrorWithInvalidText() {
+    var row = makeCashFlowRow()
+    row.amountText = "abc"
+    #expect(row.hasValidationError == true)
+  }
+
+  @Test("hasValidationError is false when text is empty")
+  func hasValidationErrorFalseWhenEmpty() {
+    let row = makeCashFlowRow()
+    #expect(row.hasValidationError == false)
+  }
+
+  @Test("hasEmptyDescription is true when description is empty or whitespace")
+  func hasEmptyDescriptionWhenEmpty() {
+    let empty = makeCashFlowRow(description: "")
+    let whitespace = makeCashFlowRow(description: "  ")
+    let valid = makeCashFlowRow(description: "Salary")
+    #expect(empty.hasEmptyDescription == true)
+    #expect(whitespace.hasEmptyDescription == true)
+    #expect(valid.hasEmptyDescription == false)
+  }
+
+  @Test("negative and zero amounts parse correctly")
+  func negativeAndZeroAmounts() {
+    var negative = makeCashFlowRow()
+    negative.amountText = "-10000"
+    #expect(negative.amount == Decimal(-10000))
+
+    var zero = makeCashFlowRow()
+    zero.amountText = "0"
+    #expect(zero.amount == Decimal(0))
+  }
+
+  @Test("hasEmptyAmount is true when included and amount is empty or whitespace")
+  func hasEmptyAmountWhenEmpty() {
+    let empty = makeCashFlowRow(amountText: "")
+    let whitespace = makeCashFlowRow(amountText: "  ")
+    var filled = makeCashFlowRow(amountText: "100")
+    var excluded = makeCashFlowRow(amountText: "")
+    excluded.isIncluded = false
+
+    #expect(empty.hasEmptyAmount == true)
+    #expect(whitespace.hasEmptyAmount == true)
+    #expect(filled.hasEmptyAmount == false)
+    #expect(excluded.hasEmptyAmount == false)
+
+    filled.amountText = "0"
+    #expect(filled.hasEmptyAmount == false)
+  }
+
+  private func makeCashFlowRow(
+    description: String = "Test Cash Flow",
+    amountText: String = "",
+    currency: String = "USD",
+    source: ValueSource = .manualNew
+  ) -> BulkEntryCashFlowRow {
+    BulkEntryCashFlowRow(
+      id: UUID(), cashFlowDescription: description,
+      amountText: amountText, currency: currency,
+      isIncluded: true, source: source)
+  }
+}
+
+@Suite("CashFlowCSVImportResult Tests")
+@MainActor
+struct CashFlowCSVImportResultTests {
+
+  @Test("totalImported is sum of matched and new counts")
+  func totalImported() {
+    let result = CashFlowCSVImportResult(
+      matchedCount: 3, newCount: 2, errors: [], parserWarnings: [])
+    #expect(result.totalImported == 5)
+  }
+
+  @Test("hasErrors is true when errors exist")
+  func hasErrors() {
+    let result = CashFlowCSVImportResult(
+      matchedCount: 0, newCount: 0, errors: ["Bad file"], parserWarnings: [])
+    #expect(result.hasErrors == true)
+  }
+
+  @Test("hasWarnings is true when warnings exist")
+  func hasWarnings() {
+    let result = CashFlowCSVImportResult(
+      matchedCount: 0, newCount: 0, errors: [], parserWarnings: ["Zero amount"])
+    #expect(result.hasWarnings == true)
+  }
+
+  @Test("formattedResult uses error title when errors exist")
+  func formattedResultError() {
+    let result = CashFlowCSVImportResult(
+      matchedCount: 0, newCount: 0, errors: ["Bad file"], parserWarnings: [])
+    let formatted = result.formattedResult()
+    #expect(formatted.title == String(localized: "Import Error", table: "Snapshot"))
+  }
+
+  @Test("formattedResult uses warning title when warnings exist")
+  func formattedResultWarning() {
+    let result = CashFlowCSVImportResult(
+      matchedCount: 1, newCount: 0, errors: [], parserWarnings: ["Zero amount"])
+    let formatted = result.formattedResult()
+    #expect(formatted.title == String(localized: "Import Warning", table: "Snapshot"))
+  }
+
+  @Test("formattedResult uses success title when no errors or warnings")
+  func formattedResultSuccess() {
+    let result = CashFlowCSVImportResult(
+      matchedCount: 1, newCount: 2, errors: [], parserWarnings: [])
+    let formatted = result.formattedResult()
+    #expect(formatted.title == String(localized: "CSV Import", table: "Snapshot"))
   }
 }

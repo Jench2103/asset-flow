@@ -38,6 +38,10 @@ struct BulkEntryView: View {
   @State private var showImportResult = false
   @State private var importResultTitle = ""
   @State private var importResultMessage = ""
+  @State private var showCashFlowCSVImporter = false
+  @State private var showCashFlowImportResult = false
+  @State private var cashFlowImportResultTitle = ""
+  @State private var cashFlowImportResultMessage = ""
   @State private var showAddPlatformPopover = false
   @State private var showEmptyStatePopover = false
   @State private var newPlatformName = ""
@@ -80,6 +84,9 @@ struct BulkEntryView: View {
             ForEach(viewModel.platformGroups, id: \.platform) { group in
               platformSection(group, duplicateIDs: duplicateIDs)
             }
+            BulkEntryCashFlowSection(
+              viewModel: viewModel,
+              showCSVImporter: $showCashFlowCSVImporter)
           }
           .padding()
         }
@@ -138,7 +145,10 @@ struct BulkEntryView: View {
             "You can update these values later in the snapshot detail view.",
           table: "Snapshot"))
     }
-    .alert("Error", isPresented: $showError) {
+    .alert(
+      String(localized: "Unable to Save Snapshot", table: "Snapshot"),
+      isPresented: $showError
+    ) {
       Button("OK") {}
     } message: {
       Text(errorMessage)
@@ -147,6 +157,41 @@ struct BulkEntryView: View {
       Button("OK") {}
     } message: {
       Text(importResultMessage)
+    }
+    .fileImporter(
+      isPresented: $showCashFlowCSVImporter,
+      allowedContentTypes: [.commaSeparatedText, .plainText]
+    ) { result in
+      guard let url = try? result.get() else { return }
+      if url.startAccessingSecurityScopedResource() {
+        defer { url.stopAccessingSecurityScopedResource() }
+        if let data = try? Data(contentsOf: url) {
+          viewModel.loadCashFlowCSVForMapping(data: data)
+          if !viewModel.showCashFlowColumnMappingSheet {
+            showLastCashFlowImportResult()
+          }
+        }
+      }
+    }
+    .sheet(isPresented: $viewModel.showCashFlowColumnMappingSheet) {
+      ColumnMappingSheet(
+        rawHeaders: viewModel.pendingCashFlowRawHeaders,
+        schema: .cashFlow,
+        sampleRows: viewModel.pendingCashFlowSampleRows,
+        initialMapping: viewModel.pendingCashFlowPartialMapping,
+        onConfirm: { mapping in
+          _ = viewModel.confirmCashFlowColumnMapping(mapping)
+          showLastCashFlowImportResult()
+        },
+        onCancel: {
+          viewModel.showCashFlowColumnMappingSheet = false
+        }
+      )
+    }
+    .alert(cashFlowImportResultTitle, isPresented: $showCashFlowImportResult) {
+      Button("OK") {}
+    } message: {
+      Text(cashFlowImportResultMessage)
     }
   }
 
@@ -168,7 +213,10 @@ struct BulkEntryView: View {
       BulkEntryValidationWarnings(
         zeroValueCount: viewModel.zeroValueCount,
         hasInvalidNewRows: viewModel.hasInvalidNewRows,
-        hasDuplicateNames: viewModel.hasDuplicateNames
+        hasDuplicateNames: viewModel.hasDuplicateNames,
+        hasEmptyCashFlowDescriptions: viewModel.hasEmptyCashFlowDescriptions,
+        hasEmptyCashFlowAmounts: viewModel.hasEmptyCashFlowAmounts,
+        hasCashFlowValidationErrors: viewModel.hasCashFlowValidationErrors
       )
 
       Button {
@@ -358,6 +406,15 @@ struct BulkEntryView: View {
     importResultMessage = formatted.message
     showImportResult = true
     viewModel.lastImportResult = nil
+  }
+
+  private func showLastCashFlowImportResult() {
+    guard let importResult = viewModel.lastCashFlowImportResult else { return }
+    let formatted = importResult.formattedResult()
+    cashFlowImportResultTitle = formatted.title
+    cashFlowImportResultMessage = formatted.message
+    showCashFlowImportResult = true
+    viewModel.lastCashFlowImportResult = nil
   }
 
 }

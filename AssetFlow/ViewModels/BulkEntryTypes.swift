@@ -121,3 +121,74 @@ struct BulkEntryRow: Identifiable {
   var hasEmptyName: Bool { isNewRow && assetName.trimmingCharacters(in: .whitespaces).isEmpty }
   var isNewAsset: Bool { asset == nil }
 }
+
+/// A single row in the bulk entry cash flow section.
+struct BulkEntryCashFlowRow: Identifiable {
+  let id: UUID
+  var cashFlowDescription: String
+  var amountText: String
+  var currency: String
+  var isIncluded: Bool
+  var source: ValueSource
+
+  var amount: Decimal? { Decimal(string: amountText) }
+  var hasValidationError: Bool { !amountText.isEmpty && amount == nil }
+  var hasEmptyAmount: Bool { isIncluded && amountText.trimmingCharacters(in: .whitespaces).isEmpty }
+  var hasEmptyDescription: Bool {
+    cashFlowDescription.trimmingCharacters(in: .whitespaces).isEmpty
+  }
+}
+
+/// Result of a cash flow CSV import operation in bulk entry.
+struct CashFlowCSVImportResult {
+  let matchedCount: Int
+  let newCount: Int
+  let errors: [String]
+  let parserWarnings: [String]
+
+  var totalImported: Int { matchedCount + newCount }
+  var hasErrors: Bool { !errors.isEmpty }
+  var hasWarnings: Bool { !parserWarnings.isEmpty }
+
+  /// Formats the import result into a user-facing title and message.
+  func formattedResult() -> (title: String, message: String) {
+    let title: String
+    if hasErrors {
+      title = String(localized: "Import Error", table: "Snapshot")
+    } else if hasWarnings {
+      title = String(localized: "Import Warning", table: "Snapshot")
+    } else {
+      title = String(localized: "CSV Import", table: "Snapshot")
+    }
+
+    var lines: [String] = []
+
+    if matchedCount > 0 {
+      lines.append(
+        String(
+          localized: "\(matchedCount) existing cash flows updated.",
+          table: "Snapshot"))
+    }
+    if newCount > 0 {
+      lines.append(
+        String(
+          localized: "\(newCount) new cash flows added.",
+          table: "Snapshot"))
+    }
+    if totalImported == 0 && !hasErrors {
+      lines.append(
+        String(
+          localized: "No cash flows were imported.",
+          table: "Snapshot"))
+    }
+
+    for error in errors {
+      lines.append(error)
+    }
+    for warning in parserWarnings {
+      lines.append(warning)
+    }
+
+    return (title: title, message: lines.joined(separator: "\n\n"))
+  }
+}

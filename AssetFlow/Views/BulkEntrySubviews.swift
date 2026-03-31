@@ -62,6 +62,9 @@ struct BulkEntryValidationWarnings: View {
   let zeroValueCount: Int
   let hasInvalidNewRows: Bool
   let hasDuplicateNames: Bool
+  let hasEmptyCashFlowDescriptions: Bool
+  let hasEmptyCashFlowAmounts: Bool
+  let hasCashFlowValidationErrors: Bool
 
   @State private var isHovering = false
   @Environment(\.isAppLocked) private var isLocked
@@ -85,6 +88,24 @@ struct BulkEntryValidationWarnings: View {
       result.append(
         String(
           localized: "Duplicate asset names found within a platform.",
+          table: "Snapshot"))
+    }
+    if hasEmptyCashFlowDescriptions {
+      result.append(
+        String(
+          localized: "Some cash flows are missing a description.",
+          table: "Snapshot"))
+    }
+    if hasEmptyCashFlowAmounts {
+      result.append(
+        String(
+          localized: "Some cash flows are missing an amount.",
+          table: "Snapshot"))
+    }
+    if hasCashFlowValidationErrors {
+      result.append(
+        String(
+          localized: "Some cash flows have invalid amounts.",
           table: "Snapshot"))
     }
     return result
@@ -145,6 +166,241 @@ struct BulkEntryColumnHeaders: View {
     .padding(.vertical, 4)
     .padding(.horizontal, 4)
     .background(.fill.quaternary)
+  }
+}
+
+// MARK: - Cash Flow Section
+
+/// The entire cash flow section extracted as its own observation boundary.
+///
+/// By placing all `viewModel.cashFlowRows` accesses (header count badge,
+/// row list, etc.) inside this struct, mutations to cash flow rows only
+/// invalidate this subtree — not the parent `BulkEntryView.body` which
+/// also reads asset-related properties like `platformGroups`.
+struct BulkEntryCashFlowSection: View {
+  var viewModel: BulkEntryViewModel
+  @Binding var showCSVImporter: Bool
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      header
+        .padding(.top, 24)
+
+      BulkEntryCashFlowList(viewModel: viewModel)
+    }
+    .padding(.bottom, 16)
+  }
+
+  private var header: some View {
+    HStack(spacing: 12) {
+      Text("Cash Flow Operations")
+        .font(.title3)
+        .fontWeight(.bold)
+
+      if !viewModel.cashFlowRows.isEmpty {
+        Text("\(viewModel.cashFlowCount)")
+          .font(.caption)
+          .padding(.horizontal, 6)
+          .padding(.vertical, 2)
+          .background(.quaternary, in: Capsule())
+      }
+
+      Spacer()
+
+      Button {
+        viewModel.addManualCashFlowRow()
+      } label: {
+        Label("Add Cash Flow", systemImage: "plus")
+          .font(.callout)
+      }
+      .helpWhenUnlocked("Add a new cash flow operation")
+
+      Button {
+        showCSVImporter = true
+      } label: {
+        Label("Import CSV", systemImage: "doc.text")
+          .font(.callout)
+      }
+      .helpWhenUnlocked("Import cash flows from a CSV file")
+    }
+    .padding(.vertical, 8)
+    .padding(.horizontal, 4)
+  }
+}
+
+// MARK: - Cash Flow Row List
+
+/// Isolates the cash flow `ForEach` into its own observation boundary.
+///
+/// When this struct's `body` accesses `viewModel.cashFlowRows`, only this
+/// subtree is invalidated on mutations — the parent `BulkEntryView.body`
+/// (which also reads asset-related properties like `platformGroups` and
+/// `duplicateNameRowIDs`) is NOT re-evaluated.
+struct BulkEntryCashFlowList: View {
+  var viewModel: BulkEntryViewModel
+
+  var body: some View {
+    if !viewModel.cashFlowRows.isEmpty {
+      BulkEntryCashFlowColumnHeaders()
+      ForEach(viewModel.cashFlowRows) { row in
+        BulkEntryCashFlowRowView(
+          viewModel: viewModel,
+          row: row,
+          onDelete: { viewModel.removeCashFlowRow(rowID: row.id) })
+        Divider()
+      }
+    }
+  }
+}
+
+// MARK: - Cash Flow Column Headers View
+
+struct BulkEntryCashFlowColumnHeaders: View {
+  var body: some View {
+    HStack(spacing: 8) {
+      Text("Include")
+        .frame(width: 60, alignment: .center)
+      Text("Description")
+        .frame(minWidth: 150, alignment: .leading)
+      Spacer()
+      Text("Amount")
+        .frame(width: 160, alignment: .trailing)
+      Text("Currency")
+        .frame(width: 80, alignment: .center)
+      Spacer()
+        .frame(width: 28)
+    }
+    .font(.caption)
+    .foregroundStyle(.secondary)
+    .padding(.vertical, 4)
+    .padding(.horizontal, 4)
+    .background(.fill.quaternary)
+  }
+}
+
+// MARK: - Cash Flow Entry Row View
+
+struct BulkEntryCashFlowRowView: View {
+  var viewModel: BulkEntryViewModel
+  let row: BulkEntryCashFlowRow
+  let onDelete: () -> Void
+
+  var body: some View {
+    let isExcluded = !row.isIncluded
+
+    HStack(spacing: 8) {
+      // Include toggle
+      Toggle("", isOn: includeBinding)
+        .labelsHidden()
+        .accessibilityLabel("Include \(row.cashFlowDescription)")
+        .frame(width: 60, alignment: .center)
+        .helpWhenUnlocked("Include or exclude this cash flow from the snapshot")
+
+      // Description + source badge
+      HStack(spacing: 6) {
+        TextField("Description", text: descriptionBinding)
+          .textFieldStyle(.roundedBorder)
+          .frame(minWidth: 150)
+          .disabled(isExcluded)
+          .overlay(
+            RoundedRectangle(cornerRadius: 6)
+              .stroke(
+                row.hasEmptyDescription && row.isIncluded ? .red : .clear,
+                lineWidth: 1.5))
+        sourceBadge
+      }
+      .frame(minWidth: 150, alignment: .leading)
+
+      Spacer()
+
+      // Amount field
+      TextField("Enter amount", text: amountBinding)
+        .textFieldStyle(.roundedBorder)
+        .monospacedDigit()
+        .frame(width: 160)
+        .multilineTextAlignment(.trailing)
+        .disabled(isExcluded)
+        .overlay(
+          RoundedRectangle(cornerRadius: 6)
+            .stroke(
+              row.hasValidationError || row.hasEmptyAmount ? .red : .clear,
+              lineWidth: 1.5))
+
+      // Currency picker
+      CashFlowCurrencyPicker(selection: currencyBinding)
+        .frame(width: 80)
+        .disabled(isExcluded)
+
+      // Delete button (only for manualNew)
+      if row.source == .manualNew {
+        Button {
+          onDelete()
+        } label: {
+          Image(systemName: "trash")
+            .foregroundStyle(.red)
+        }
+        .buttonStyle(.plain)
+        .helpWhenUnlocked("Remove this cash flow")
+        .frame(width: 28)
+      } else {
+        Spacer().frame(width: 28)
+      }
+    }
+    .padding(.vertical, 6)
+    .padding(.horizontal, 4)
+    .opacity(isExcluded ? 0.5 : 1.0)
+  }
+
+  // MARK: - Subviews
+
+  @ViewBuilder
+  private var sourceBadge: some View {
+    if row.source == .csv {
+      Text("CSV")
+        .font(.caption2)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 1)
+        .background(.blue.opacity(0.15), in: Capsule())
+        .foregroundStyle(.blue)
+    }
+  }
+
+  // MARK: - Bindings
+
+  private var includeBinding: Binding<Bool> {
+    Binding(
+      get: { row.isIncluded },
+      set: { _ in viewModel.toggleCashFlowInclude(rowID: row.id) })
+  }
+
+  private var descriptionBinding: Binding<String> {
+    Binding(
+      get: { row.cashFlowDescription },
+      set: { newValue in
+        if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }) {
+          viewModel.cashFlowRows[index].cashFlowDescription = newValue
+        }
+      })
+  }
+
+  private var amountBinding: Binding<String> {
+    Binding(
+      get: { row.amountText },
+      set: { newValue in
+        if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }) {
+          viewModel.cashFlowRows[index].amountText = newValue
+        }
+      })
+  }
+
+  private var currencyBinding: Binding<String> {
+    Binding(
+      get: { row.currency },
+      set: { newValue in
+        if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }) {
+          viewModel.cashFlowRows[index].currency = newValue
+        }
+      })
   }
 }
 
@@ -432,5 +688,26 @@ struct BulkEntryCategoryPicker: View {
 
     showNewField = false
     newName = ""
+  }
+}
+
+// MARK: - Cash Flow Currency Picker
+
+/// An extracted currency picker that avoids rebuilding 340+ items on every parent re-render.
+///
+/// By isolating the `ForEach(CurrencyService.shared.currencies)` in its own `View` struct,
+/// SwiftUI can skip re-diffing the picker content when only the parent's other state changes
+/// (e.g., typing in a description field). The `@Binding` only triggers re-render when the
+/// selected currency actually changes.
+struct CashFlowCurrencyPicker: View {
+  @Binding var selection: String
+
+  var body: some View {
+    Picker("", selection: $selection) {
+      ForEach(CurrencyService.shared.currencies) { currency in
+        Text(currency.code).tag(currency.code)
+      }
+    }
+    .labelsHidden()
   }
 }

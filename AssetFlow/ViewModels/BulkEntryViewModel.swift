@@ -24,7 +24,17 @@ final class BulkEntryViewModel {
 
   var snapshotDate: Date
   var rows: [BulkEntryRow]
+  var cashFlowRows: [BulkEntryCashFlowRow] = []
   var savedSnapshot: Snapshot?
+
+  // MARK: - Cash Flow Column Mapping State
+
+  var showCashFlowColumnMappingSheet: Bool = false
+  var pendingCashFlowRawHeaders: [String] = []
+  var pendingCashFlowSampleRows: [[String]] = []
+  var pendingCashFlowPartialMapping: [CanonicalColumn: Int] = [:]
+  var pendingCashFlowCSVData: Data?
+  var lastCashFlowImportResult: CashFlowCSVImportResult?
 
   private let modelContext: ModelContext
 
@@ -62,6 +72,22 @@ final class BulkEntryViewModel {
   }
   var hasDuplicateNames: Bool { !duplicateNameRowIDs.isEmpty }
 
+  var cashFlowCount: Int {
+    cashFlowRows.filter(\.isIncluded).count
+  }
+
+  var hasEmptyCashFlowAmounts: Bool {
+    cashFlowRows.contains(where: \.hasEmptyAmount)
+  }
+
+  var hasEmptyCashFlowDescriptions: Bool {
+    cashFlowRows.contains { $0.isIncluded && $0.hasEmptyDescription }
+  }
+
+  var hasCashFlowValidationErrors: Bool {
+    cashFlowRows.contains { $0.isIncluded && $0.hasValidationError }
+  }
+
   // MARK: - Column Mapping State
 
   var showColumnMappingSheet: Bool = false
@@ -74,11 +100,15 @@ final class BulkEntryViewModel {
   var canSave: Bool {
     includedCount > 0 && zeroValueCount == 0 && !hasInvalidNewRows && !hasDuplicateNames
       && !rows.contains(where: { $0.isIncluded && $0.hasValidationError })
+      && !cashFlowRows.contains(where: { $0.isIncluded && $0.hasValidationError })
+      && !cashFlowRows.contains(where: { $0.isIncluded && $0.hasEmptyDescription })
+      && !cashFlowRows.contains(where: \.hasEmptyAmount)
   }
   var hasUnsavedChanges: Bool {
     rows.contains { !$0.newValueText.isEmpty }
       || rows.contains { !$0.isIncluded }
       || rows.contains { $0.source == .manualNew }
+      || !cashFlowRows.isEmpty
   }
 
   init(modelContext: ModelContext, date: Date) {
@@ -127,6 +157,72 @@ final class BulkEntryViewModel {
     rows.removeAll { $0.id == rowID && $0.source == .manualNew }
   }
 
+  // MARK: - Cash Flow Row Management
+
+  @discardableResult
+  func addManualCashFlowRow() -> UUID {
+    let row = BulkEntryCashFlowRow(
+      id: UUID(), cashFlowDescription: "", amountText: "",
+      currency: SettingsService.shared.mainCurrency,
+      isIncluded: true, source: .manualNew)
+    cashFlowRows.append(row)
+    return row.id
+  }
+
+  func removeCashFlowRow(rowID: UUID) {
+    cashFlowRows.removeAll { $0.id == rowID && $0.source == .manualNew }
+  }
+
+  func toggleCashFlowInclude(rowID: UUID) {
+    guard let index = cashFlowRows.firstIndex(where: { $0.id == rowID }) else { return }
+    cashFlowRows[index].isIncluded.toggle()
+    if !cashFlowRows[index].isIncluded {
+      cashFlowRows[index].amountText = ""
+    }
+  }
+
+  // MARK: - Cash Flow CSV Import
+
+  @discardableResult
+  func importCashFlowCSV(data: Data) -> CashFlowCSVImportResult {
+    let parseResult = CSVParsingService.parseCashFlowCSV(data: data)
+    return importCashFlowCSVFromParsedRows(parseResult)
+  }
+
+  func loadCashFlowCSVForMapping(data: Data) {
+    let headers = CSVParsingService.extractHeaders(from: data)
+    guard !headers.isEmpty else {
+      _ = importCashFlowCSV(data: data)
+      return
+    }
+    let detectResult = CSVParsingService.autoDetectMapping(headers: headers, schema: .cashFlow)
+    switch detectResult {
+    case .matched:
+      lastCashFlowImportResult = importCashFlowCSV(data: data)
+
+    case .needsUserMapping(let rawHeaders, let partialMap):
+      pendingCashFlowCSVData = data
+      pendingCashFlowRawHeaders = rawHeaders
+      pendingCashFlowSampleRows = CSVParsingService.extractSampleRows(from: data)
+      pendingCashFlowPartialMapping = partialMap
+      showCashFlowColumnMappingSheet = true
+    }
+  }
+
+  @discardableResult
+  func confirmCashFlowColumnMapping(_ mapping: CSVColumnMapping) -> CashFlowCSVImportResult? {
+    showCashFlowColumnMappingSheet = false
+    guard let data = pendingCashFlowCSVData else { return nil }
+    let parseResult = CSVParsingService.parseCashFlowCSV(data: data, mapping: mapping)
+    let result = importCashFlowCSVFromParsedRows(parseResult)
+    lastCashFlowImportResult = result
+    pendingCashFlowCSVData = nil
+    pendingCashFlowRawHeaders = []
+    pendingCashFlowSampleRows = []
+    pendingCashFlowPartialMapping = [:]
+    return result
+  }
+
   func saveSnapshot() throws -> Snapshot {
     let includedRows = rows.filter(\.isIncluded)
     guard !includedRows.isEmpty else {
@@ -142,6 +238,18 @@ final class BulkEntryViewModel {
     dateCheckDescriptor.fetchLimit = 1
     if ((try? modelContext.fetch(dateCheckDescriptor)) ?? []).first != nil {
       throw SnapshotError.dateAlreadyExists(snapshotDate)
+    }
+
+    // Validate cash flow description uniqueness before creating anything
+    // (avoids expensive normalizedForIdentity on every keystroke during editing)
+    let includedCashFlows = cashFlowRows.filter(\.isIncluded)
+    var seenDescriptions = [String: String]()
+    for cfRow in includedCashFlows {
+      let key = cfRow.cashFlowDescription.normalizedForIdentity
+      if let existing = seenDescriptions[key] {
+        throw SnapshotError.duplicateCashFlowDescription(existing)
+      }
+      seenDescriptions[key] = cfRow.cashFlowDescription
     }
 
     let snapshot = Snapshot(date: snapshotDate)
@@ -167,6 +275,15 @@ final class BulkEntryViewModel {
       sav.snapshot = snapshot
       sav.asset = asset
       modelContext.insert(sav)
+    }
+
+    for cfRow in includedCashFlows {
+      let amount = cfRow.amount ?? Decimal(0)
+      let operation = CashFlowOperation(
+        cashFlowDescription: cfRow.cashFlowDescription, amount: amount)
+      operation.currency = cfRow.currency
+      operation.snapshot = snapshot
+      modelContext.insert(operation)
     }
 
     savedSnapshot = snapshot
@@ -306,6 +423,58 @@ final class BulkEntryViewModel {
   }
 
   // MARK: - Private
+
+  private func importCashFlowCSVFromParsedRows(
+    _ parseResult: CSVParseResult<CashFlowCSVRow>
+  ) -> CashFlowCSVImportResult {
+    // Clear previous CSV cash flow rows: revert CSV-sourced to manual, remove empty ones
+    for index in cashFlowRows.indices where cashFlowRows[index].source == .csv {
+      cashFlowRows[index].amountText = ""
+      cashFlowRows[index].source = .manualNew
+    }
+    cashFlowRows.removeAll {
+      $0.source == .manualNew && $0.cashFlowDescription.trimmingCharacters(in: .whitespaces).isEmpty
+        && $0.amountText.isEmpty
+    }
+
+    let errors = parseResult.errors.map(\.message)
+    let parserWarnings = parseResult.warnings.map(\.message)
+    let mainCurrency = SettingsService.shared.mainCurrency
+
+    guard !parseResult.hasErrors else {
+      return CashFlowCSVImportResult(
+        matchedCount: 0, newCount: 0, errors: errors, parserWarnings: parserWarnings)
+    }
+
+    var matchedCount = 0
+    var newCount = 0
+
+    for csvRow in parseResult.rows {
+      let normalizedDesc = csvRow.description.normalizedForIdentity
+      if let index = cashFlowRows.firstIndex(where: {
+        $0.cashFlowDescription.normalizedForIdentity == normalizedDesc
+      }) {
+        cashFlowRows[index].amountText = "\(csvRow.amount)"
+        cashFlowRows[index].source = .csv
+        if !csvRow.currency.isEmpty {
+          cashFlowRows[index].currency = csvRow.currency
+        }
+        matchedCount += 1
+      } else {
+        let newRow = BulkEntryCashFlowRow(
+          id: UUID(), cashFlowDescription: csvRow.description,
+          amountText: "\(csvRow.amount)",
+          currency: csvRow.currency.isEmpty ? mainCurrency : csvRow.currency,
+          isIncluded: true, source: .csv)
+        cashFlowRows.append(newRow)
+        newCount += 1
+      }
+    }
+
+    return CashFlowCSVImportResult(
+      matchedCount: matchedCount, newCount: newCount,
+      errors: errors, parserWarnings: parserWarnings)
+  }
 
   private func loadRowsFromLatestSnapshot() {
     let targetDate = snapshotDate

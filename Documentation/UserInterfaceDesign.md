@@ -333,6 +333,30 @@ Full-screen view for entering asset values across all platforms in a single sess
 - Empty names: "Some new assets are missing a name."
 - Duplicate names: "Duplicate asset names found within a platform."
 
+**Cash Flow Operations section** (below asset table, separated by a divider):
+
+- **Section header**: "Cash Flow Operations" title with a count badge showing the number of included cash flow rows, an "Add Cash Flow" button for manual entry, and an "Import CSV" button for CSV import
+- Cash flows are portfolio-level (not grouped by platform)
+- The section starts empty each time (no carry-forward from previous snapshots)
+
+**Cash flow columns**:
+
+- **Include** (toggle): Controls whether the row is saved to the snapshot
+- **Description** (text field): Required; identifies the cash flow operation
+- **Amount** (text field): Monetary value; positive = inflow, negative = outflow
+- **Currency** (picker): Currency for the cash flow operation
+- **Delete** (trash button): Only available for manually-added rows (`.manualNew`)
+
+**Cash flow row badges**: CSV-imported rows display a blue "CSV" source badge next to the description field.
+
+**Cash flow CSV import**: The "Import CSV" button opens a file picker filtered to `.csv`. Uses the `.cashFlow` schema with auto-detect column mapping (required: Description, Amount; optional: Currency). Re-importing CSV clears all previous CSV-sourced rows before applying the new import.
+
+**Cash flow validation warnings** (displayed in the toolbar popover alongside asset warnings):
+
+- Empty descriptions: "Some cash flows are missing a description."
+- Duplicate descriptions: Case-insensitive duplicate detection blocks save
+- Invalid amount text: Unparseable amount values block save
+
 **Confirmation alerts**:
 
 - **Save with pending rows**: Warning that N assets will be saved with a value of 0, with options to proceed or cancel.
