@@ -136,7 +136,7 @@ ______________________________________________________________________
   - Previous value column for reference
   - Zero-value warning for assets saved with a market value of 0
   - Duplicate asset name validation within a platform (case-insensitive)
-  - Tab/Enter keyboard navigation between value fields
+  - Tab/Enter keyboard navigation between value fields (assets and cash flows)
   - Self-sufficient empty state when no prior snapshots exist
 
 **Snapshot detail view** (on selection):
@@ -145,7 +145,7 @@ ______________________________________________________________________
 - Zero-value warning indicator on assets with a market value of 0
 - Category allocation summary for this snapshot
 - Cash flow operations table: lists all CashFlowOperations for this snapshot (Description, Amount)
-- Net cash flow summary line showing the total (sum of all operations)
+- Per-currency net cash flow summary lines showing the total for each currency
 - Actions: Add asset, Edit values, Remove asset, Delete snapshot, Add cash flow, Edit cash flow, Remove cash flow
 
 ______________________________________________________________________

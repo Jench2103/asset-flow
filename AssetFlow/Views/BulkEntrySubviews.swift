@@ -490,15 +490,32 @@ struct BulkEntryPlatformSection: View, Equatable {
 struct BulkEntryCashFlowSection: View {
   var viewModel: BulkEntryViewModel
   @Binding var showCSVImporter: Bool
+  @FocusState private var focusedAmountRowID: UUID?
+  @FocusState private var focusedDescriptionRowID: UUID?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       header
         .padding(.top, 24)
 
-      BulkEntryCashFlowList(viewModel: viewModel)
+      BulkEntryCashFlowList(
+        viewModel: viewModel,
+        focusedAmountRowID: $focusedAmountRowID,
+        focusedDescriptionRowID: $focusedDescriptionRowID
+      )
     }
     .padding(.bottom, 16)
+    .onChange(of: viewModel.pendingCashFlowFocusRowID) { _, rowID in
+      guard let rowID else { return }
+      let isNewRow =
+        viewModel.cashFlowRows.first(where: { $0.id == rowID })?.source == .manualNew
+      if isNewRow {
+        focusedDescriptionRowID = rowID
+      } else {
+        focusedAmountRowID = rowID
+      }
+      viewModel.pendingCashFlowFocusRowID = nil
+    }
   }
 
   private var header: some View {
@@ -547,6 +564,8 @@ struct BulkEntryCashFlowSection: View {
 /// is NOT re-evaluated.
 struct BulkEntryCashFlowList: View {
   var viewModel: BulkEntryViewModel
+  var focusedAmountRowID: FocusState<UUID?>.Binding
+  var focusedDescriptionRowID: FocusState<UUID?>.Binding
 
   var body: some View {
     if !viewModel.cashFlowRows.isEmpty {
@@ -554,11 +573,41 @@ struct BulkEntryCashFlowList: View {
       ForEach(viewModel.cashFlowRows) { row in
         BulkEntryCashFlowRowView(
           viewModel: viewModel,
-          row: row
+          row: row,
+          focusedAmountRowID: focusedAmountRowID,
+          focusedDescriptionRowID: focusedDescriptionRowID
         )
         .equatable()
         Divider()
       }
+      BulkEntryCashFlowNetSummary(viewModel: viewModel)
+    }
+  }
+}
+
+// MARK: - Cash Flow Net Summary
+
+struct BulkEntryCashFlowNetSummary: View {
+  var viewModel: BulkEntryViewModel
+
+  var body: some View {
+    let totals = viewModel.includedCashFlowNetByCurrency
+    if !totals.isEmpty {
+      HStack(alignment: .firstTextBaseline) {
+        Text("Net Cash Flow")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+        Spacer()
+        VStack(alignment: .trailing, spacing: 2) {
+          ForEach(totals, id: \.currency) { entry in
+            Text(entry.total.formatted(currency: entry.currency))
+              .monospacedDigit()
+              .fontWeight(.semibold)
+          }
+        }
+      }
+      .padding(.horizontal, 4)
+      .padding(.vertical, 8)
     }
   }
 }
@@ -585,165 +634,5 @@ struct BulkEntryCashFlowColumnHeaders: View {
     .padding(.vertical, 4)
     .padding(.horizontal, 4)
     .background(.fill.quaternary)
-  }
-}
-
-// MARK: - Cash Flow Entry Row View
-
-struct BulkEntryCashFlowRowView: View, Equatable {
-  var viewModel: BulkEntryViewModel
-  let row: BulkEntryCashFlowRow
-
-  static func == (lhs: BulkEntryCashFlowRowView, rhs: BulkEntryCashFlowRowView) -> Bool {
-    lhs.row == rhs.row
-  }
-
-  private enum CashFlowField {
-    case description
-    case amount
-  }
-
-  @State private var localDescription: String = ""
-  @State private var localAmount: String = ""
-  @FocusState private var focusedField: CashFlowField?
-
-  var body: some View {
-    let isExcluded = !row.isIncluded
-    let localEmptyDescription =
-      row.isIncluded
-      && localDescription.trimmingCharacters(in: .whitespaces).isEmpty
-    let localValidationError = !localAmount.isEmpty && Decimal(string: localAmount) == nil
-    let localEmptyAmount =
-      row.isIncluded && localAmount.trimmingCharacters(in: .whitespaces).isEmpty
-
-    HStack(spacing: 8) {
-      // Include toggle
-      Toggle("", isOn: includeBinding)
-        .labelsHidden()
-        .accessibilityLabel("Include \(row.cashFlowDescription)")
-        .frame(width: 60, alignment: .center)
-        .helpWhenUnlocked("Include or exclude this cash flow from the snapshot")
-
-      // Description + source badge
-      HStack(spacing: 6) {
-        TextField("Description", text: $localDescription)
-          .textFieldStyle(.roundedBorder)
-          .frame(minWidth: 150)
-          .disabled(isExcluded)
-          .focused($focusedField, equals: .description)
-          .onSubmit { commitDescription() }
-          .overlay(
-            RoundedRectangle(cornerRadius: 6)
-              .stroke(
-                localEmptyDescription ? .red : .clear,
-                lineWidth: 1.5))
-        sourceBadge
-      }
-      .frame(minWidth: 150, alignment: .leading)
-
-      Spacer()
-
-      // Amount field
-      TextField("Enter amount", text: $localAmount)
-        .textFieldStyle(.roundedBorder)
-        .monospacedDigit()
-        .frame(width: 160)
-        .multilineTextAlignment(.trailing)
-        .disabled(isExcluded)
-        .focused($focusedField, equals: .amount)
-        .onSubmit { commitAmount() }
-        .overlay(
-          RoundedRectangle(cornerRadius: 6)
-            .stroke(
-              localValidationError || localEmptyAmount ? .red : .clear,
-              lineWidth: 1.5))
-
-      // Currency picker
-      BulkEntryCurrencyPicker(selection: currencyBinding)
-        .frame(width: 80)
-        .disabled(isExcluded)
-
-      // Delete button (only for manualNew)
-      if row.source == .manualNew {
-        Button {
-          viewModel.removeCashFlowRow(rowID: row.id)
-        } label: {
-          Image(systemName: "trash")
-            .foregroundStyle(.red)
-        }
-        .buttonStyle(.plain)
-        .helpWhenUnlocked("Remove this cash flow")
-        .frame(width: 28)
-      } else {
-        Spacer().frame(width: 28)
-      }
-    }
-    .padding(.vertical, 6)
-    .padding(.horizontal, 4)
-    .opacity(isExcluded ? 0.5 : 1.0)
-    .onAppear {
-      localDescription = row.cashFlowDescription
-      localAmount = row.amountText
-    }
-    .onChange(of: row.cashFlowDescription) { _, newValue in
-      localDescription = newValue
-    }
-    .onChange(of: row.amountText) { _, newValue in
-      localAmount = newValue
-    }
-    .onChange(of: focusedField) { oldValue, _ in
-      if oldValue == .description { commitDescription() }
-      if oldValue == .amount { commitAmount() }
-    }
-  }
-
-  // MARK: - Subviews
-
-  @ViewBuilder
-  private var sourceBadge: some View {
-    if row.source == .csv {
-      Text("CSV")
-        .font(.caption2)
-        .padding(.horizontal, 4)
-        .padding(.vertical, 1)
-        .background(.blue.opacity(0.15), in: Capsule())
-        .foregroundStyle(.blue)
-    }
-  }
-
-  // MARK: - Local State Commits
-
-  private func commitDescription() {
-    if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }),
-      viewModel.cashFlowRows[index].cashFlowDescription != localDescription
-    {
-      viewModel.cashFlowRows[index].cashFlowDescription = localDescription
-    }
-  }
-
-  private func commitAmount() {
-    if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }),
-      viewModel.cashFlowRows[index].amountText != localAmount
-    {
-      viewModel.cashFlowRows[index].amountText = localAmount
-    }
-  }
-
-  // MARK: - Bindings
-
-  private var includeBinding: Binding<Bool> {
-    Binding(
-      get: { row.isIncluded },
-      set: { _ in viewModel.toggleCashFlowInclude(rowID: row.id) })
-  }
-
-  private var currencyBinding: Binding<String> {
-    Binding(
-      get: { row.currency },
-      set: { newValue in
-        if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.cashFlowRows[index].currency = newValue
-        }
-      })
   }
 }

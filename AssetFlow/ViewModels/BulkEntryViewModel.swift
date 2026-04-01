@@ -27,6 +27,7 @@ final class BulkEntryViewModel {
   var cashFlowRows: [BulkEntryCashFlowRow] = []
   var savedSnapshot: Snapshot?
   var pendingFocusRowID: UUID?
+  var pendingCashFlowFocusRowID: UUID?
 
   // MARK: - Cash Flow Column Mapping State
 
@@ -57,6 +58,15 @@ final class BulkEntryViewModel {
 
   var cashFlowCount: Int {
     cashFlowRows.filter(\.isIncluded).count
+  }
+
+  var includedCashFlowNetByCurrency: [(currency: String, total: Decimal)] {
+    var totals: [String: Decimal] = [:]
+    for row in cashFlowRows where row.isIncluded {
+      guard let amount = row.amount else { continue }
+      totals[row.currency, default: 0] += amount
+    }
+    return totals.sorted { $0.key < $1.key }.map { (currency: $0.key, total: $0.value) }
   }
 
   var hasEmptyCashFlowAmounts: Bool {
@@ -128,6 +138,19 @@ final class BulkEntryViewModel {
     pendingFocusRowID = nextFocusRowID(after: currentRowID)
   }
 
+  func nextCashFlowFocusRowID(after currentRowID: UUID) -> UUID? {
+    var found = false
+    for row in cashFlowRows where row.isIncluded {
+      if found { return row.id }
+      if row.id == currentRowID { found = true }
+    }
+    return nil
+  }
+
+  func advanceCashFlowFocus(from currentRowID: UUID) {
+    pendingCashFlowFocusRowID = nextCashFlowFocusRowID(after: currentRowID)
+  }
+
   func toggleInclude(rowID: UUID) {
     guard let index = rows.firstIndex(where: { $0.id == rowID }) else { return }
     rows[index].isIncluded.toggle()
@@ -176,6 +199,7 @@ final class BulkEntryViewModel {
       currency: SettingsService.shared.mainCurrency,
       isIncluded: true, source: .manualNew)
     cashFlowRows.append(row)
+    pendingCashFlowFocusRowID = row.id
     return row.id
   }
 

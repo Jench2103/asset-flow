@@ -2,12 +2,12 @@
 
 Quick reference for keyboard shortcuts in AssetFlow.
 
-| Shortcut      | Action                                       |
-| ------------- | -------------------------------------------- |
-| ++cmd+n++     | Create new snapshot                          |
-| ++cmd+i++     | Open CSV import                              |
-| ++cmd+comma++ | Open Settings                                |
-| ++enter++     | Move to next row's New Value (in Bulk Entry) |
+| Shortcut      | Action                                                                                |
+| ------------- | ------------------------------------------------------------------------------------- |
+| ++cmd+n++     | Create new snapshot                                                                   |
+| ++cmd+i++     | Open CSV import                                                                       |
+| ++cmd+comma++ | Open Settings                                                                         |
+| ++enter++     | Move to next row's value/amount field (in Bulk Entry, for both assets and cash flows) |
 
 !!! note
 

@@ -1555,6 +1555,191 @@ struct BulkEntryViewModelTests {
   }
 }
 
+// MARK: - Cash Flow Focus & Summary Tests
+
+@Suite("BulkEntry Cash Flow Focus Tests")
+@MainActor
+struct BulkEntryCashFlowFocusTests {
+
+  // MARK: - nextCashFlowFocusRowID
+
+  @Test("nextCashFlowFocusRowID advances to next included row")
+  func nextCashFlowFocusRowIDAdvances() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
+
+    let id1 = viewModel.addManualCashFlowRow()
+    let id2 = viewModel.addManualCashFlowRow()
+    _ = viewModel.addManualCashFlowRow()
+
+    let next = viewModel.nextCashFlowFocusRowID(after: id1)
+    #expect(next == id2)
+  }
+
+  @Test("nextCashFlowFocusRowID skips excluded rows")
+  func nextCashFlowFocusRowIDSkipsExcluded() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
+
+    let id1 = viewModel.addManualCashFlowRow()
+    let id2 = viewModel.addManualCashFlowRow()
+    let id3 = viewModel.addManualCashFlowRow()
+
+    viewModel.toggleCashFlowInclude(rowID: id2)
+
+    let next = viewModel.nextCashFlowFocusRowID(after: id1)
+    #expect(next == id3)
+  }
+
+  @Test("nextCashFlowFocusRowID returns nil at last included row")
+  func nextCashFlowFocusRowIDNilAtEnd() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
+
+    let id1 = viewModel.addManualCashFlowRow()
+
+    let next = viewModel.nextCashFlowFocusRowID(after: id1)
+    #expect(next == nil)
+  }
+
+  @Test("nextCashFlowFocusRowID returns nil for unknown row ID")
+  func nextCashFlowFocusRowIDNilForUnknown() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
+
+    _ = viewModel.addManualCashFlowRow()
+
+    let next = viewModel.nextCashFlowFocusRowID(after: UUID())
+    #expect(next == nil)
+  }
+
+  // MARK: - advanceCashFlowFocus
+
+  @Test("advanceCashFlowFocus sets pendingCashFlowFocusRowID")
+  func advanceCashFlowFocusSetsPending() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
+
+    let id1 = viewModel.addManualCashFlowRow()
+    let id2 = viewModel.addManualCashFlowRow()
+
+    // Clear the pending ID set by addManualCashFlowRow
+    viewModel.pendingCashFlowFocusRowID = nil
+
+    viewModel.advanceCashFlowFocus(from: id1)
+    #expect(viewModel.pendingCashFlowFocusRowID == id2)
+  }
+
+  // MARK: - addManualCashFlowRow auto-focus
+
+  @Test("addManualCashFlowRow sets pendingCashFlowFocusRowID to new row")
+  func addManualCashFlowRowSetsPending() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
+
+    #expect(viewModel.pendingCashFlowFocusRowID == nil)
+    let newID = viewModel.addManualCashFlowRow()
+    #expect(viewModel.pendingCashFlowFocusRowID == newID)
+  }
+
+  // MARK: - includedCashFlowNetByCurrency
+
+  @Test("includedCashFlowNetByCurrency sums per currency")
+  func netByCurrencySumsCorrectly() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
+
+    let id1 = viewModel.addManualCashFlowRow()
+    let id2 = viewModel.addManualCashFlowRow()
+    let idx1 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id1 }))
+    let idx2 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id2 }))
+    viewModel.cashFlowRows[idx1].amountText = "1000"
+    viewModel.cashFlowRows[idx2].amountText = "-500"
+
+    let totals = viewModel.includedCashFlowNetByCurrency
+    #expect(totals.count == 1)
+    #expect(totals.first?.total == Decimal(500))
+  }
+
+  @Test("includedCashFlowNetByCurrency groups different currencies separately")
+  func netByCurrencyGroupsByCurrency() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
+
+    let id1 = viewModel.addManualCashFlowRow()
+    let id2 = viewModel.addManualCashFlowRow()
+    let idx1 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id1 }))
+    let idx2 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id2 }))
+    viewModel.cashFlowRows[idx1].amountText = "1000"
+    viewModel.cashFlowRows[idx1].currency = "USD"
+    viewModel.cashFlowRows[idx2].amountText = "5000"
+    viewModel.cashFlowRows[idx2].currency = "TWD"
+
+    let totals = viewModel.includedCashFlowNetByCurrency
+    #expect(totals.count == 2)
+    // Sorted by currency key
+    #expect(totals[0].currency == "TWD")
+    #expect(totals[0].total == Decimal(5000))
+    #expect(totals[1].currency == "USD")
+    #expect(totals[1].total == Decimal(1000))
+  }
+
+  @Test("includedCashFlowNetByCurrency excludes non-included rows")
+  func netByCurrencyExcludesNonIncluded() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
+
+    let id1 = viewModel.addManualCashFlowRow()
+    let id2 = viewModel.addManualCashFlowRow()
+    let idx1 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id1 }))
+    let idx2 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id2 }))
+    viewModel.cashFlowRows[idx1].amountText = "1000"
+    viewModel.cashFlowRows[idx2].amountText = "2000"
+
+    viewModel.toggleCashFlowInclude(rowID: id2)
+
+    let totals = viewModel.includedCashFlowNetByCurrency
+    #expect(totals.count == 1)
+    #expect(totals.first?.total == Decimal(1000))
+  }
+
+  @Test("includedCashFlowNetByCurrency excludes rows with invalid amount text")
+  func netByCurrencyExcludesInvalid() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
+
+    let id1 = viewModel.addManualCashFlowRow()
+    let id2 = viewModel.addManualCashFlowRow()
+    let idx1 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id1 }))
+    let idx2 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id2 }))
+    viewModel.cashFlowRows[idx1].amountText = "1000"
+    viewModel.cashFlowRows[idx2].amountText = "abc"
+
+    let totals = viewModel.includedCashFlowNetByCurrency
+    #expect(totals.count == 1)
+    #expect(totals.first?.total == Decimal(1000))
+  }
+
+  @Test("includedCashFlowNetByCurrency returns empty when no cash flow rows")
+  func netByCurrencyEmptyWhenNoRows() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+    let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
+
+    #expect(viewModel.includedCashFlowNetByCurrency.isEmpty)
+  }
+}
+
 @Suite("BulkEntryCashFlowRow Tests")
 @MainActor
 struct BulkEntryCashFlowRowTests {

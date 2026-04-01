@@ -37,7 +37,7 @@ Assets are organized into collapsible platform sections, sorted alphabetically. 
 | **Category**       | Shows the asset's category. For new assets, a dropdown lets you pick an existing category or create a new one. |
 | **Currency**       | Read-only for existing assets. A dropdown picker for new assets.                                               |
 | **Previous Value** | The asset's value from your most recent prior snapshot, for reference. Shows "—" if no prior value exists.     |
-| **New Value**      | Enter the current market value here. Press ++enter++ to move to the next row.                                  |
+| **New Value**      | Enter the current market value here. Press ++enter++ to move to the next row's value field.                    |
 
 ### Row States
 
@@ -109,13 +109,17 @@ Cash flows are portfolio-level (not grouped by platform) and start empty each ti
 
 ### Adding Cash Flows
 
-Click **Add Cash Flow** to append a new row. Fill in:
+Click **Add Cash Flow** to append a new row — the description field is automatically focused so you can start typing immediately. Fill in:
 
-- **Description** — a label for this cash flow (e.g., "Salary deposit", "Rent withdrawal"). Must be unique within the snapshot (case-insensitive).
-- **Amount** — positive for deposits, negative for withdrawals.
+- **Description** — a label for this cash flow (e.g., "Salary deposit", "Rent withdrawal"). Must be unique within the snapshot (case-insensitive). Press ++enter++ to move to the amount field.
+- **Amount** — positive for deposits, negative for withdrawals. Press ++enter++ to move to the next row.
 - **Currency** — defaults to your main currency.
 
 Use the trash icon to remove a manually-added row. Use the **Include** toggle to exclude a row without deleting it.
+
+### Net Cash Flow Summary
+
+Below the cash flow rows, a **Net Cash Flow** summary shows the total of all included rows' amounts. If your cash flows use multiple currencies, each currency's total is shown separately.
 
 ### Cash Flow CSV Import
 

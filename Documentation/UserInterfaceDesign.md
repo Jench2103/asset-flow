@@ -35,7 +35,7 @@ All core screens and features are **implemented**:
 - ✅ Sheet standardization: all sheets use `NavigationStack` + toolbar placements
 - ✅ `@FocusState` auto-focus in all sheets and popovers
 - ✅ `.helpWhenUnlocked()` tooltips on toolbar buttons and interactive controls
-- ✅ Accessibility labels on charts and metric cards
+- ✅ Accessibility labels on charts, metric cards, and Bulk Entry rows (assets and cash flows)
 - ✅ Glass card material adapts to Reduce Transparency accessibility setting
 - ✅ Animations with Reduce Motion support via `AnimationConstants`
 
@@ -152,7 +152,7 @@ ______________________________________________________________________
 - Category allocation summary for this snapshot
 - Exchange rates section (only for multi-currency snapshots): shows used currency rates in "1 foreign = X base" format; auto-fetches when missing or when display currency changes
 - Cash flow operations table: Description, Amount
-- Net cash flow summary line
+- Per-currency net cash flow summary (one line per currency, showing the net total for included rows)
 - Actions: Add asset, Edit values, Remove asset, Delete snapshot, Add cash flow, Edit cash flow, Remove cash flow
 
 **Add asset to snapshot**: Two paths:
@@ -323,7 +323,7 @@ Full-screen view for entering asset values across all platforms in a single sess
 
 **Add Platform**: Toolbar button opens a popover with a text field for the platform name. Validates against empty names and case-insensitive duplicates. Creates a new platform group with one empty asset row.
 
-**Keyboard navigation**: Tab and Enter advance focus to the next value field in order.
+**Keyboard navigation**: Enter advances focus to the next included row's value field (assets) or amount field (cash flows). In cash flow rows, Enter on the description field moves to the same row's amount field. Adding a new asset or cash flow row auto-focuses the appropriate field (name or description).
 
 **Per-platform CSV import**: Each platform section has an import button that opens a file picker filtered to `.csv`. Parsed values are matched to assets by name (including manually-added rows) and populate the New Value fields.
 
@@ -348,6 +348,12 @@ Full-screen view for entering asset values across all platforms in a single sess
 - **Delete** (trash button): Only available for manually-added rows (`.manualNew`)
 
 **Cash flow row badges**: CSV-imported rows display a blue "CSV" source badge next to the description field.
+
+**Cash flow keyboard navigation**: Enter on a description field advances to the same row's amount field. Enter on an amount field advances to the next included row (description field for new rows, amount field for existing/CSV rows). Adding a new cash flow row auto-focuses the description field.
+
+**Cash flow net summary**: Below the cash flow rows, a per-currency net cash flow summary displays the total of all included rows' amounts, grouped by currency. Hidden when no cash flow rows exist.
+
+**Cash flow accessibility**: Each row has a composite `.accessibilityLabel` including description, amount, and included/excluded status.
 
 **Cash flow CSV import**: The "Import CSV" button opens a file picker filtered to `.csv`. Uses the `.cashFlow` schema with auto-detect column mapping (required: Description, Amount; optional: Currency). Re-importing CSV clears all previous CSV-sourced rows before applying the new import.
 
