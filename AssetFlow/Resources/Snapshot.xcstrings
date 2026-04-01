@@ -195,18 +195,12 @@
         }
       }
     },
-    "Duplicate asset names found within a platform.": {
+    "Duplicate asset name '%@' found in platform '%@'. Each asset name must be unique within a platform.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Duplicate asset names found within a platform."
-          }
-        },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "同一平台內存在重複的資產名稱。"
+            "value": "在平台「%2$@」中發現重複的資產名稱「%1$@」。每個資產名稱在同一平台內必須唯一。"
           }
         }
       }

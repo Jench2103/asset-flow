@@ -414,7 +414,7 @@ ______________________________________________________________________
 #### Bulk Entry Validation Rules
 
 - New asset rows (`.manualNew`) must have a non-empty name before saving
-- Duplicate asset names within the same platform (case-insensitive) are blocked with a red border and toolbar warning
+- Duplicate asset names within the same platform (case-insensitive) are validated at save time (same pattern as cash flow duplicate descriptions)
 - Same asset name in different platforms is allowed
 - Categories for new assets are stored as name strings and resolved on save via `resolveCategory(name:)` (case-insensitive find-or-create)
 - New categories typed by the user are immediately available in the picker for other new asset rows but are not created in the database until save

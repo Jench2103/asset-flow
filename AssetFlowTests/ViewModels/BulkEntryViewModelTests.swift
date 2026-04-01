@@ -615,26 +615,45 @@ struct BulkEntryViewModelTests {
     #expect(viewModel.hasUnsavedChanges == true)
   }
 
-  @Test("duplicateNameRowIDs detects two rows with same normalized name in same platform")
-  func duplicateNameDetectsWithinPlatform() {
+  @Test("canSave allows duplicate asset names (validated at save time instead)")
+  func canSaveAllowsDuplicateNames() {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    let id1 = viewModel.addManualRow(forPlatform: "P1")
-    let id2 = viewModel.addManualRow(forPlatform: "P1")
+    viewModel.addManualRow(forPlatform: "P1")
+    viewModel.addManualRow(forPlatform: "P1")
     viewModel.rows[0].assetName = "Stock A"
+    viewModel.rows[0].newValueText = "100"
     viewModel.rows[1].assetName = "stock a"
+    viewModel.rows[1].newValueText = "200"
 
-    let dupes = viewModel.duplicateNameRowIDs
-    #expect(dupes.contains(id1))
-    #expect(dupes.contains(id2))
-    #expect(viewModel.canSave == false)
+    // canSave is true because duplicate names are now validated at save time
+    #expect(viewModel.canSave == true)
   }
 
-  @Test("duplicateNameRowIDs does not flag rows with same name in different platforms")
-  func duplicateNameNotFlaggedAcrossPlatforms() {
+  @Test("saveSnapshot throws on duplicate asset names within same platform")
+  func saveSnapshotThrowsOnDuplicateAssetNames() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.addManualRow(forPlatform: "P1")
+    viewModel.addManualRow(forPlatform: "P1")
+    viewModel.rows[0].assetName = "Stock A"
+    viewModel.rows[0].newValueText = "100"
+    viewModel.rows[1].assetName = "stock a"
+    viewModel.rows[1].newValueText = "200"
+
+    #expect(throws: SnapshotError.self) {
+      try viewModel.saveSnapshot()
+    }
+  }
+
+  @Test("saveSnapshot allows same asset name in different platforms")
+  func saveSnapshotAllowsSameNameDifferentPlatforms() throws {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
 
@@ -647,8 +666,29 @@ struct BulkEntryViewModelTests {
     viewModel.rows[1].assetName = "Stock A"
     viewModel.rows[1].newValueText = "200"
 
-    #expect(viewModel.duplicateNameRowIDs.isEmpty)
-    #expect(viewModel.canSave == true)
+    let snapshot = try viewModel.saveSnapshot()
+    let values = snapshot.assetValues ?? []
+    #expect(values.count == 2)
+  }
+
+  @Test("saveSnapshot allows duplicate asset names when one is excluded")
+  func saveSnapshotAllowsDuplicateAssetNamesWhenOneExcluded() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+    viewModel.addManualRow(forPlatform: "P1")
+    viewModel.addManualRow(forPlatform: "P1")
+    viewModel.rows[0].assetName = "Stock A"
+    viewModel.rows[0].newValueText = "100"
+    viewModel.rows[1].assetName = "stock a"
+    viewModel.rows[1].newValueText = "200"
+    viewModel.toggleInclude(rowID: viewModel.rows[1].id)
+
+    let snapshot = try viewModel.saveSnapshot()
+    let values = snapshot.assetValues ?? []
+    #expect(values.count == 1)
   }
 
   @Test("saveSnapshot creates asset for manualNew row")

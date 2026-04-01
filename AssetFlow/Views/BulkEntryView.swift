@@ -29,8 +29,8 @@ struct BulkEntryView: View {
   let onSave: (Snapshot) -> Void
 
   @Environment(\.modelContext) private var modelContext
-  @FocusState private var focusedRowID: UUID?
   @State private var showZeroPendingConfirmation = false
+  @State private var zeroPendingCount = 0
   @State private var csvImportPlatform: String = ""
   @State private var showCSVImporter = false
   @State private var showError = false
@@ -42,10 +42,6 @@ struct BulkEntryView: View {
   @State private var showCashFlowImportResult = false
   @State private var cashFlowImportResultTitle = ""
   @State private var cashFlowImportResultMessage = ""
-  @State private var showAddPlatformPopover = false
-  @State private var showEmptyStatePopover = false
-  @State private var newPlatformName = ""
-  @State private var addPlatformError = ""
   @State private var cachedCategoryNames: [String] = []
 
   init(viewModel: BulkEntryViewModel, onSave: @escaping (Snapshot) -> Void) {
@@ -54,43 +50,17 @@ struct BulkEntryView: View {
   }
 
   var body: some View {
-    let duplicateIDs = viewModel.duplicateNameRowIDs
-
     VStack(spacing: 0) {
-      toolbar
+      BulkEntryToolbar(
+        viewModel: viewModel,
+        onSave: { handleSave() })
       Divider()
-      if viewModel.rows.isEmpty {
-        ContentUnavailableView {
-          Label("No Assets", systemImage: "tray")
-        } description: {
-          Text(
-            "Add a platform to start building your snapshot, or import assets from a CSV file."
-          )
-        } actions: {
-          Button("Add Platform") {
-            newPlatformName = ""
-            addPlatformError = ""
-            showEmptyStatePopover = true
-          }
-          .buttonStyle(.borderedProminent)
-          .popover(isPresented: $showEmptyStatePopover, arrowEdge: .bottom) {
-            addPlatformPopover
-          }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-      } else {
-        ScrollView {
-          LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
-            ForEach(viewModel.platformGroups, id: \.platform) { group in
-              platformSection(group, duplicateIDs: duplicateIDs)
-            }
-            BulkEntryCashFlowSection(
-              viewModel: viewModel,
-              showCSVImporter: $showCashFlowCSVImporter)
-          }
-          .padding()
-        }
-      }
+      BulkEntryContentArea(
+        viewModel: viewModel,
+        cachedCategoryNames: $cachedCategoryNames,
+        csvImportPlatform: $csvImportPlatform,
+        showCSVImporter: $showCSVImporter,
+        showCashFlowCSVImporter: $showCashFlowCSVImporter)
     }
     .onAppear {
       loadCachedCategoryNames()
@@ -132,7 +102,7 @@ struct BulkEntryView: View {
     .alert(
       String(
         localized:
-          "\(viewModel.pendingCount) assets will be saved with a value of 0. Continue?",
+          "\(zeroPendingCount) assets will be saved with a value of 0. Continue?",
         table: "Snapshot"),
       isPresented: $showZeroPendingConfirmation
     ) {
@@ -195,187 +165,12 @@ struct BulkEntryView: View {
     }
   }
 
-  // MARK: - Toolbar
-
-  private var toolbar: some View {
-    HStack(spacing: 16) {
-      Text("New Snapshot — \(viewModel.snapshotDate.settingsFormatted())")
-        .font(.headline)
-
-      Spacer()
-
-      BulkEntryProgressStats(
-        updatedCount: viewModel.updatedCount,
-        pendingCount: viewModel.pendingCount,
-        excludedCount: viewModel.excludedCount
-      )
-
-      BulkEntryValidationWarnings(
-        zeroValueCount: viewModel.zeroValueCount,
-        hasInvalidNewRows: viewModel.hasInvalidNewRows,
-        hasDuplicateNames: viewModel.hasDuplicateNames,
-        hasEmptyCashFlowDescriptions: viewModel.hasEmptyCashFlowDescriptions,
-        hasEmptyCashFlowAmounts: viewModel.hasEmptyCashFlowAmounts,
-        hasCashFlowValidationErrors: viewModel.hasCashFlowValidationErrors
-      )
-
-      Button {
-        newPlatformName = ""
-        addPlatformError = ""
-        showAddPlatformPopover = true
-      } label: {
-        Label("Add Platform", systemImage: "plus.rectangle.on.folder")
-      }
-      .helpWhenUnlocked("Add a new platform with an empty asset")
-      .popover(isPresented: $showAddPlatformPopover, arrowEdge: .bottom) {
-        addPlatformPopover
-      }
-
-      Button("Save Snapshot") {
-        handleSave()
-      }
-      .buttonStyle(.borderedProminent)
-      .disabled(!viewModel.canSave)
-      .helpWhenUnlocked("Save the snapshot with entered values")
-      .accessibilityIdentifier("Save Snapshot Button")
-    }
-    .padding(.horizontal)
-    .padding(.vertical, 12)
-    .background(.ultraThinMaterial)
-  }
-
-  // MARK: - Add Platform Popover
-
-  private var addPlatformPopover: some View {
-    VStack(spacing: 12) {
-      Text("New Platform")
-        .font(.headline)
-      TextField("Platform name", text: $newPlatformName)
-        .textFieldStyle(.roundedBorder)
-        .onSubmit { commitNewPlatform() }
-      if !addPlatformError.isEmpty {
-        Text(addPlatformError)
-          .font(.caption)
-          .foregroundStyle(.red)
-      }
-      HStack {
-        Button("Cancel") { showAddPlatformPopover = false }
-        Button("Add") { commitNewPlatform() }
-          .buttonStyle(.borderedProminent)
-          .disabled(newPlatformName.trimmingCharacters(in: .whitespaces).isEmpty)
-      }
-    }
-    .padding()
-    .frame(width: 260)
-  }
-
-  private func commitNewPlatform() {
-    let trimmed = newPlatformName.trimmingCharacters(in: .whitespaces)
-    guard !trimmed.isEmpty else {
-      addPlatformError = String(
-        localized: "Platform name cannot be empty.", table: "Snapshot")
-      return
-    }
-    if let rowID = viewModel.addPlatform(name: trimmed) {
-      showAddPlatformPopover = false
-      Task { @MainActor in
-        focusedRowID = rowID
-      }
-    } else {
-      addPlatformError = String(
-        localized: "A platform with this name already exists.", table: "Snapshot")
-    }
-  }
-
-  // MARK: - Platform Section
-
-  @ViewBuilder
-  private func platformSection(
-    _ group: (platform: String, rows: [BulkEntryRow]),
-    duplicateIDs: Set<UUID>
-  ) -> some View {
-    VStack(alignment: .leading, spacing: 0) {
-      platformHeader(group)
-      BulkEntryColumnHeaders()
-      ForEach(group.rows) { row in
-        BulkEntryRowView(
-          viewModel: viewModel,
-          row: row,
-          isDuplicate: duplicateIDs.contains(row.id),
-          cachedCategoryNames: $cachedCategoryNames,
-          focusedRowID: $focusedRowID,
-          onAdvanceFocus: { advanceFocus() },
-          onDelete: { viewModel.removeManualRow(rowID: row.id) }
-        )
-        Divider()
-      }
-    }
-    .padding(.bottom, 16)
-  }
-
-  private func platformHeader(
-    _ group: (platform: String, rows: [BulkEntryRow])
-  ) -> some View {
-    HStack(spacing: 12) {
-      Text(group.platform.isEmpty ? "No Platform" : group.platform)
-        .font(.title3)
-        .fontWeight(.bold)
-
-      Text("\(group.rows.count)")
-        .font(.caption)
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
-        .background(.quaternary, in: Capsule())
-
-      let groupUpdated = group.rows.filter(\.isUpdated).count
-      let groupTotal = group.rows.filter(\.isIncluded).count
-      Text("\(groupUpdated)/\(groupTotal)")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-
-      Spacer()
-
-      Button {
-        let rowID = viewModel.addManualRow(forPlatform: group.platform)
-        Task { @MainActor in
-          focusedRowID = rowID
-        }
-      } label: {
-        Label("Add Asset", systemImage: "plus")
-          .font(.callout)
-      }
-      .helpWhenUnlocked("Add a new asset to this platform")
-
-      Button {
-        csvImportPlatform = group.platform
-        showCSVImporter = true
-      } label: {
-        Label("Import CSV", systemImage: "doc.text")
-          .font(.callout)
-      }
-      .helpWhenUnlocked("Import a CSV file to fill values for this platform")
-    }
-    .padding(.vertical, 8)
-    .padding(.horizontal, 4)
-  }
-
-  // MARK: - Keyboard Navigation
-
-  private func advanceFocus() {
-    let includedRows = viewModel.platformGroups.flatMap(\.rows).filter(\.isIncluded)
-    guard let currentIndex = includedRows.firstIndex(where: { $0.id == focusedRowID }) else {
-      return
-    }
-    let nextIndex = currentIndex + 1
-    if nextIndex < includedRows.count {
-      focusedRowID = includedRows[nextIndex].id
-    }
-  }
-
   // MARK: - Save
 
   private func handleSave() {
-    if viewModel.pendingCount > 0 {
+    let pending = viewModel.pendingCount
+    if pending > 0 {
+      zeroPendingCount = pending
       showZeroPendingConfirmation = true
     } else {
       performSave()

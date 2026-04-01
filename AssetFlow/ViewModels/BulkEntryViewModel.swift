@@ -26,6 +26,7 @@ final class BulkEntryViewModel {
   var rows: [BulkEntryRow]
   var cashFlowRows: [BulkEntryCashFlowRow] = []
   var savedSnapshot: Snapshot?
+  var pendingFocusRowID: UUID?
 
   // MARK: - Cash Flow Column Mapping State
 
@@ -41,7 +42,7 @@ final class BulkEntryViewModel {
   var platformGroups: [(platform: String, rows: [BulkEntryRow])] {
     let grouped = Dictionary(grouping: rows, by: \.platform)
     return grouped.keys.sorted().map { platform in
-      (platform: platform, rows: (grouped[platform] ?? []).sorted { $0.assetName < $1.assetName })
+      (platform: platform, rows: grouped[platform] ?? [])
     }
   }
 
@@ -53,24 +54,6 @@ final class BulkEntryViewModel {
   var hasInvalidNewRows: Bool {
     rows.contains { $0.isIncluded && $0.hasEmptyName }
   }
-  var duplicateNameRowIDs: Set<UUID> {
-    var duplicateIDs = Set<UUID>()
-    for (_, groupRows) in Dictionary(grouping: rows.filter(\.isIncluded), by: \.platform) {
-      var seen = [String: UUID]()
-      for row in groupRows {
-        let key = row.assetName.normalizedForIdentity
-        guard !key.isEmpty else { continue }
-        if let existingID = seen[key] {
-          duplicateIDs.insert(existingID)
-          duplicateIDs.insert(row.id)
-        } else {
-          seen[key] = row.id
-        }
-      }
-    }
-    return duplicateIDs
-  }
-  var hasDuplicateNames: Bool { !duplicateNameRowIDs.isEmpty }
 
   var cashFlowCount: Int {
     cashFlowRows.filter(\.isIncluded).count
@@ -98,11 +81,21 @@ final class BulkEntryViewModel {
   var pendingCSVPlatform: String = ""
   var lastImportResult: CSVImportResult?
   var canSave: Bool {
-    includedCount > 0 && zeroValueCount == 0 && !hasInvalidNewRows && !hasDuplicateNames
-      && !rows.contains(where: { $0.isIncluded && $0.hasValidationError })
-      && !cashFlowRows.contains(where: { $0.isIncluded && $0.hasValidationError })
-      && !cashFlowRows.contains(where: { $0.isIncluded && $0.hasEmptyDescription })
-      && !cashFlowRows.contains(where: \.hasEmptyAmount)
+    var hasIncluded = false
+    for row in rows {
+      guard row.isIncluded else { continue }
+      hasIncluded = true
+      if row.hasZeroValueError || row.hasEmptyName || row.hasValidationError {
+        return false
+      }
+    }
+    guard hasIncluded else { return false }
+    for cfRow in cashFlowRows {
+      if cfRow.hasEmptyAmount { return false }
+      guard cfRow.isIncluded else { continue }
+      if cfRow.hasValidationError || cfRow.hasEmptyDescription { return false }
+    }
+    return true
   }
   var hasUnsavedChanges: Bool {
     rows.contains { !$0.newValueText.isEmpty }
@@ -116,6 +109,16 @@ final class BulkEntryViewModel {
     self.snapshotDate = Calendar.current.startOfDay(for: date)
     self.rows = []
     loadRowsFromLatestSnapshot()
+  }
+
+  func advanceFocus(from currentRowID: UUID) {
+    let includedRows = platformGroups.flatMap(\.rows).filter(\.isIncluded)
+    guard let currentIndex = includedRows.firstIndex(where: { $0.id == currentRowID })
+    else { return }
+    let nextIndex = currentIndex + 1
+    if nextIndex < includedRows.count {
+      pendingFocusRowID = includedRows[nextIndex].id
+    }
   }
 
   func toggleInclude(rowID: UUID) {
@@ -238,6 +241,20 @@ final class BulkEntryViewModel {
     dateCheckDescriptor.fetchLimit = 1
     if ((try? modelContext.fetch(dateCheckDescriptor)) ?? []).first != nil {
       throw SnapshotError.dateAlreadyExists(snapshotDate)
+    }
+
+    // Validate asset name uniqueness within each platform before creating anything
+    // (avoids expensive normalizedForIdentity on every keystroke during editing)
+    for (platform, platformRows) in Dictionary(grouping: includedRows, by: \.platform) {
+      var seenNames = [String: String]()
+      for row in platformRows {
+        let key = row.assetName.normalizedForIdentity
+        guard !key.isEmpty else { continue }
+        if seenNames[key] != nil {
+          throw SnapshotError.duplicateAssetName(row.assetName, platform)
+        }
+        seenNames[key] = row.assetName
+      }
     }
 
     // Validate cash flow description uniqueness before creating anything

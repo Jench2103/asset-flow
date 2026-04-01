@@ -98,7 +98,6 @@ The toolbar displays validation warnings that must be resolved before saving:
 
 - **Zero-value assets**: "N assets have a value of 0. Exclude them or enter a non-zero value." Fields with a value of 0 are highlighted with a red border.
 - **Missing names**: "Some new assets are missing a name." New asset rows must have a name before saving.
-- **Duplicate names**: "Duplicate asset names found within a platform." Both duplicate rows are highlighted with a red border.
 
 The **Save Snapshot** button is disabled until all validation issues are resolved.
 
@@ -141,6 +140,8 @@ Duplicate descriptions are checked when you click **Save Snapshot**. If duplicat
 ## Saving the Snapshot
 
 When everything looks good, click **Save Snapshot**. If any included assets still have no value (pending), a confirmation dialog will ask whether you'd like to save them with a value of 0. You can always update these values later in the snapshot detail view.
+
+Duplicate asset names within the same platform (case-insensitive) and duplicate cash flow descriptions are checked at save time. If duplicates are found, the save is rejected with an error dialog identifying the duplicate.
 
 After saving, you're taken to the snapshot detail view where you can review the result or make further edits.
 

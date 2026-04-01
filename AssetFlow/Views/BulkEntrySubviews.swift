@@ -17,6 +17,107 @@
 
 import SwiftUI
 
+// MARK: - Toolbar
+
+/// Toolbar extracted as its own observation boundary.
+///
+/// Reading `viewModel.updatedCount`, `pendingCount`, `excludedCount`, etc.
+/// inside this struct means that `rows` mutations only invalidate this
+/// subtree — not the parent `BulkEntryView.body`.
+struct BulkEntryToolbar: View {
+  var viewModel: BulkEntryViewModel
+  let onSave: () -> Void
+
+  @State private var showAddPlatformPopover = false
+  @State private var newPlatformName = ""
+  @State private var addPlatformError = ""
+
+  var body: some View {
+    HStack(spacing: 16) {
+      Text("New Snapshot — \(viewModel.snapshotDate.settingsFormatted())")
+        .font(.headline)
+
+      Spacer()
+
+      BulkEntryProgressStats(
+        updatedCount: viewModel.updatedCount,
+        pendingCount: viewModel.pendingCount,
+        excludedCount: viewModel.excludedCount
+      )
+
+      BulkEntryValidationWarnings(
+        zeroValueCount: viewModel.zeroValueCount,
+        hasInvalidNewRows: viewModel.hasInvalidNewRows,
+        hasEmptyCashFlowDescriptions: viewModel.hasEmptyCashFlowDescriptions,
+        hasEmptyCashFlowAmounts: viewModel.hasEmptyCashFlowAmounts,
+        hasCashFlowValidationErrors: viewModel.hasCashFlowValidationErrors
+      )
+
+      Button {
+        newPlatformName = ""
+        addPlatformError = ""
+        showAddPlatformPopover = true
+      } label: {
+        Label("Add Platform", systemImage: "plus.rectangle.on.folder")
+      }
+      .helpWhenUnlocked("Add a new platform with an empty asset")
+      .popover(isPresented: $showAddPlatformPopover, arrowEdge: .bottom) {
+        addPlatformPopover
+      }
+
+      Button("Save Snapshot") {
+        onSave()
+      }
+      .buttonStyle(.borderedProminent)
+      .disabled(!viewModel.canSave)
+      .helpWhenUnlocked("Save the snapshot with entered values")
+      .accessibilityIdentifier("Save Snapshot Button")
+    }
+    .padding(.horizontal)
+    .padding(.vertical, 12)
+    .background(.ultraThinMaterial)
+  }
+
+  private var addPlatformPopover: some View {
+    VStack(spacing: 12) {
+      Text("New Platform")
+        .font(.headline)
+      TextField("Platform name", text: $newPlatformName)
+        .textFieldStyle(.roundedBorder)
+        .onSubmit { commitNewPlatform() }
+      if !addPlatformError.isEmpty {
+        Text(addPlatformError)
+          .font(.caption)
+          .foregroundStyle(.red)
+      }
+      HStack {
+        Button("Cancel") { showAddPlatformPopover = false }
+        Button("Add") { commitNewPlatform() }
+          .buttonStyle(.borderedProminent)
+          .disabled(newPlatformName.trimmingCharacters(in: .whitespaces).isEmpty)
+      }
+    }
+    .padding()
+    .frame(width: 260)
+  }
+
+  private func commitNewPlatform() {
+    let trimmed = newPlatformName.trimmingCharacters(in: .whitespaces)
+    guard !trimmed.isEmpty else {
+      addPlatformError = String(
+        localized: "Platform name cannot be empty.", table: "Snapshot")
+      return
+    }
+    if let rowID = viewModel.addPlatform(name: trimmed) {
+      showAddPlatformPopover = false
+      viewModel.pendingFocusRowID = rowID
+    } else {
+      addPlatformError = String(
+        localized: "A platform with this name already exists.", table: "Snapshot")
+    }
+  }
+}
+
 // MARK: - Progress Stats View
 
 struct BulkEntryProgressStats: View {
@@ -61,7 +162,6 @@ struct BulkEntryProgressStats: View {
 struct BulkEntryValidationWarnings: View {
   let zeroValueCount: Int
   let hasInvalidNewRows: Bool
-  let hasDuplicateNames: Bool
   let hasEmptyCashFlowDescriptions: Bool
   let hasEmptyCashFlowAmounts: Bool
   let hasCashFlowValidationErrors: Bool
@@ -82,12 +182,6 @@ struct BulkEntryValidationWarnings: View {
       result.append(
         String(
           localized: "Some new assets are missing a name.",
-          table: "Snapshot"))
-    }
-    if hasDuplicateNames {
-      result.append(
-        String(
-          localized: "Duplicate asset names found within a platform.",
           table: "Snapshot"))
     }
     if hasEmptyCashFlowDescriptions {
@@ -169,6 +263,222 @@ struct BulkEntryColumnHeaders: View {
   }
 }
 
+// MARK: - Content Area
+
+/// Owns the `viewModel.rows.isEmpty` observation so that `BulkEntryView.body`
+/// does not depend on `rows`, preventing cascading re-evaluations of unrelated
+/// children (toolbar, cash flow section) on every asset row commit.
+struct BulkEntryContentArea: View {
+  var viewModel: BulkEntryViewModel
+  @Binding var cachedCategoryNames: [String]
+  var csvImportPlatform: Binding<String>
+  var showCSVImporter: Binding<Bool>
+  @Binding var showCashFlowCSVImporter: Bool
+
+  @State private var showEmptyStatePopover = false
+  @State private var emptyStatePlatformName = ""
+  @State private var emptyStatePlatformError = ""
+
+  var body: some View {
+    if viewModel.rows.isEmpty {
+      ContentUnavailableView {
+        Label("No Assets", systemImage: "tray")
+      } description: {
+        Text(
+          "Add a platform to start building your snapshot, or import assets from a CSV file."
+        )
+      } actions: {
+        Button("Add Platform") {
+          emptyStatePlatformName = ""
+          emptyStatePlatformError = ""
+          showEmptyStatePopover = true
+        }
+        .buttonStyle(.borderedProminent)
+        .popover(isPresented: $showEmptyStatePopover, arrowEdge: .bottom) {
+          emptyStateAddPlatformPopover
+        }
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+    } else {
+      ScrollView {
+        LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
+          BulkEntryAssetSection(
+            viewModel: viewModel,
+            cachedCategoryNames: $cachedCategoryNames,
+            csvImportPlatform: csvImportPlatform,
+            showCSVImporter: showCSVImporter)
+          BulkEntryCashFlowSection(
+            viewModel: viewModel,
+            showCSVImporter: $showCashFlowCSVImporter)
+        }
+        .padding()
+      }
+    }
+  }
+
+  private var emptyStateAddPlatformPopover: some View {
+    VStack(spacing: 12) {
+      Text("New Platform")
+        .font(.headline)
+      TextField("Platform name", text: $emptyStatePlatformName)
+        .textFieldStyle(.roundedBorder)
+        .onSubmit { commitEmptyStatePlatform() }
+      if !emptyStatePlatformError.isEmpty {
+        Text(emptyStatePlatformError)
+          .font(.caption)
+          .foregroundStyle(.red)
+      }
+      HStack {
+        Button("Cancel") { showEmptyStatePopover = false }
+        Button("Add") { commitEmptyStatePlatform() }
+          .buttonStyle(.borderedProminent)
+          .disabled(emptyStatePlatformName.trimmingCharacters(in: .whitespaces).isEmpty)
+      }
+    }
+    .padding()
+    .frame(width: 260)
+  }
+
+  private func commitEmptyStatePlatform() {
+    let trimmed = emptyStatePlatformName.trimmingCharacters(in: .whitespaces)
+    guard !trimmed.isEmpty else {
+      emptyStatePlatformError = String(
+        localized: "Platform name cannot be empty.", table: "Snapshot")
+      return
+    }
+    if let rowID = viewModel.addPlatform(name: trimmed) {
+      showEmptyStatePopover = false
+      viewModel.pendingFocusRowID = rowID
+    } else {
+      emptyStatePlatformError = String(
+        localized: "A platform with this name already exists.", table: "Snapshot")
+    }
+  }
+}
+
+// MARK: - Asset Section
+
+/// The entire asset section extracted as its own observation boundary.
+///
+/// By placing `viewModel.platformGroups` access inside this struct, mutations
+/// to `rows` only invalidate this subtree — not the parent `BulkEntryView.body`.
+/// This mirrors the `BulkEntryCashFlowSection` pattern for cash flow rows.
+struct BulkEntryAssetSection: View {
+  var viewModel: BulkEntryViewModel
+  @Binding var cachedCategoryNames: [String]
+  var csvImportPlatform: Binding<String>
+  var showCSVImporter: Binding<Bool>
+  @FocusState private var focusedRowID: UUID?
+  @FocusState private var nameFieldFocusedRowID: UUID?
+
+  var body: some View {
+    ForEach(viewModel.platformGroups, id: \.platform) { group in
+      BulkEntryPlatformSection(
+        viewModel: viewModel,
+        platform: group.platform,
+        rows: group.rows,
+        cachedCategoryNames: $cachedCategoryNames,
+        focusedRowID: $focusedRowID,
+        nameFieldFocusedRowID: $nameFieldFocusedRowID,
+        csvImportPlatform: csvImportPlatform,
+        showCSVImporter: showCSVImporter
+      )
+      .equatable()
+    }
+    .onChange(of: viewModel.pendingFocusRowID) { _, rowID in
+      guard let rowID else { return }
+      let isNewRow = viewModel.rows.first(where: { $0.id == rowID })?.isNewRow ?? false
+      if isNewRow {
+        nameFieldFocusedRowID = rowID
+      } else {
+        focusedRowID = rowID
+      }
+      viewModel.pendingFocusRowID = nil
+    }
+  }
+}
+
+/// A single platform's header + rows, extracted as an Equatable observation boundary.
+///
+/// When only one platform's rows change, SwiftUI compares `platform` and `rows`
+/// via `Equatable` and skips body re-evaluation for all unchanged platforms.
+struct BulkEntryPlatformSection: View, Equatable {
+  var viewModel: BulkEntryViewModel
+  let platform: String
+  let rows: [BulkEntryRow]
+  @Binding var cachedCategoryNames: [String]
+  var focusedRowID: FocusState<UUID?>.Binding
+  var nameFieldFocusedRowID: FocusState<UUID?>.Binding
+  var csvImportPlatform: Binding<String>
+  var showCSVImporter: Binding<Bool>
+
+  static func == (lhs: BulkEntryPlatformSection, rhs: BulkEntryPlatformSection) -> Bool {
+    lhs.platform == rhs.platform && lhs.rows == rhs.rows
+      && lhs.cachedCategoryNames == rhs.cachedCategoryNames
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      platformHeader
+      BulkEntryColumnHeaders()
+      ForEach(rows) { row in
+        BulkEntryRowView(
+          viewModel: viewModel,
+          row: row,
+          cachedCategoryNames: $cachedCategoryNames,
+          focusedRowID: focusedRowID,
+          nameFieldFocusedRowID: nameFieldFocusedRowID
+        )
+        .equatable()
+        Divider()
+      }
+    }
+    .padding(.bottom, 16)
+  }
+
+  private var platformHeader: some View {
+    HStack(spacing: 12) {
+      Text(platform.isEmpty ? "No Platform" : platform)
+        .font(.title3)
+        .fontWeight(.bold)
+
+      Text("\(rows.count)")
+        .font(.caption)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(.quaternary, in: Capsule())
+
+      let groupUpdated = rows.filter(\.isUpdated).count
+      let groupTotal = rows.filter(\.isIncluded).count
+      Text("\(groupUpdated)/\(groupTotal)")
+        .font(.caption)
+        .foregroundStyle(.secondary)
+
+      Spacer()
+
+      Button {
+        let rowID = viewModel.addManualRow(forPlatform: platform)
+        nameFieldFocusedRowID.wrappedValue = rowID
+      } label: {
+        Label("Add Asset", systemImage: "plus")
+          .font(.callout)
+      }
+      .helpWhenUnlocked("Add a new asset to this platform")
+
+      Button {
+        csvImportPlatform.wrappedValue = platform
+        showCSVImporter.wrappedValue = true
+      } label: {
+        Label("Import CSV", systemImage: "doc.text")
+          .font(.callout)
+      }
+      .helpWhenUnlocked("Import a CSV file to fill values for this platform")
+    }
+    .padding(.vertical, 8)
+    .padding(.horizontal, 4)
+  }
+}
+
 // MARK: - Cash Flow Section
 
 /// The entire cash flow section extracted as its own observation boundary.
@@ -234,8 +544,7 @@ struct BulkEntryCashFlowSection: View {
 ///
 /// When this struct's `body` accesses `viewModel.cashFlowRows`, only this
 /// subtree is invalidated on mutations — the parent `BulkEntryView.body`
-/// (which also reads asset-related properties like `platformGroups` and
-/// `duplicateNameRowIDs`) is NOT re-evaluated.
+/// is NOT re-evaluated.
 struct BulkEntryCashFlowList: View {
   var viewModel: BulkEntryViewModel
 
@@ -245,8 +554,9 @@ struct BulkEntryCashFlowList: View {
       ForEach(viewModel.cashFlowRows) { row in
         BulkEntryCashFlowRowView(
           viewModel: viewModel,
-          row: row,
-          onDelete: { viewModel.removeCashFlowRow(rowID: row.id) })
+          row: row
+        )
+        .equatable()
         Divider()
       }
     }
@@ -280,13 +590,31 @@ struct BulkEntryCashFlowColumnHeaders: View {
 
 // MARK: - Cash Flow Entry Row View
 
-struct BulkEntryCashFlowRowView: View {
+struct BulkEntryCashFlowRowView: View, Equatable {
   var viewModel: BulkEntryViewModel
   let row: BulkEntryCashFlowRow
-  let onDelete: () -> Void
+
+  static func == (lhs: BulkEntryCashFlowRowView, rhs: BulkEntryCashFlowRowView) -> Bool {
+    lhs.row == rhs.row
+  }
+
+  private enum CashFlowField {
+    case description
+    case amount
+  }
+
+  @State private var localDescription: String = ""
+  @State private var localAmount: String = ""
+  @FocusState private var focusedField: CashFlowField?
 
   var body: some View {
     let isExcluded = !row.isIncluded
+    let localEmptyDescription =
+      row.isIncluded
+      && localDescription.trimmingCharacters(in: .whitespaces).isEmpty
+    let localValidationError = !localAmount.isEmpty && Decimal(string: localAmount) == nil
+    let localEmptyAmount =
+      row.isIncluded && localAmount.trimmingCharacters(in: .whitespaces).isEmpty
 
     HStack(spacing: 8) {
       // Include toggle
@@ -298,14 +626,16 @@ struct BulkEntryCashFlowRowView: View {
 
       // Description + source badge
       HStack(spacing: 6) {
-        TextField("Description", text: descriptionBinding)
+        TextField("Description", text: $localDescription)
           .textFieldStyle(.roundedBorder)
           .frame(minWidth: 150)
           .disabled(isExcluded)
+          .focused($focusedField, equals: .description)
+          .onSubmit { commitDescription() }
           .overlay(
             RoundedRectangle(cornerRadius: 6)
               .stroke(
-                row.hasEmptyDescription && row.isIncluded ? .red : .clear,
+                localEmptyDescription ? .red : .clear,
                 lineWidth: 1.5))
         sourceBadge
       }
@@ -314,27 +644,29 @@ struct BulkEntryCashFlowRowView: View {
       Spacer()
 
       // Amount field
-      TextField("Enter amount", text: amountBinding)
+      TextField("Enter amount", text: $localAmount)
         .textFieldStyle(.roundedBorder)
         .monospacedDigit()
         .frame(width: 160)
         .multilineTextAlignment(.trailing)
         .disabled(isExcluded)
+        .focused($focusedField, equals: .amount)
+        .onSubmit { commitAmount() }
         .overlay(
           RoundedRectangle(cornerRadius: 6)
             .stroke(
-              row.hasValidationError || row.hasEmptyAmount ? .red : .clear,
+              localValidationError || localEmptyAmount ? .red : .clear,
               lineWidth: 1.5))
 
       // Currency picker
-      CashFlowCurrencyPicker(selection: currencyBinding)
+      BulkEntryCurrencyPicker(selection: currencyBinding)
         .frame(width: 80)
         .disabled(isExcluded)
 
       // Delete button (only for manualNew)
       if row.source == .manualNew {
         Button {
-          onDelete()
+          viewModel.removeCashFlowRow(rowID: row.id)
         } label: {
           Image(systemName: "trash")
             .foregroundStyle(.red)
@@ -349,6 +681,20 @@ struct BulkEntryCashFlowRowView: View {
     .padding(.vertical, 6)
     .padding(.horizontal, 4)
     .opacity(isExcluded ? 0.5 : 1.0)
+    .onAppear {
+      localDescription = row.cashFlowDescription
+      localAmount = row.amountText
+    }
+    .onChange(of: row.cashFlowDescription) { _, newValue in
+      localDescription = newValue
+    }
+    .onChange(of: row.amountText) { _, newValue in
+      localAmount = newValue
+    }
+    .onChange(of: focusedField) { oldValue, _ in
+      if oldValue == .description { commitDescription() }
+      if oldValue == .amount { commitAmount() }
+    }
   }
 
   // MARK: - Subviews
@@ -365,32 +711,30 @@ struct BulkEntryCashFlowRowView: View {
     }
   }
 
+  // MARK: - Local State Commits
+
+  private func commitDescription() {
+    if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }),
+      viewModel.cashFlowRows[index].cashFlowDescription != localDescription
+    {
+      viewModel.cashFlowRows[index].cashFlowDescription = localDescription
+    }
+  }
+
+  private func commitAmount() {
+    if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }),
+      viewModel.cashFlowRows[index].amountText != localAmount
+    {
+      viewModel.cashFlowRows[index].amountText = localAmount
+    }
+  }
+
   // MARK: - Bindings
 
   private var includeBinding: Binding<Bool> {
     Binding(
       get: { row.isIncluded },
       set: { _ in viewModel.toggleCashFlowInclude(rowID: row.id) })
-  }
-
-  private var descriptionBinding: Binding<String> {
-    Binding(
-      get: { row.cashFlowDescription },
-      set: { newValue in
-        if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.cashFlowRows[index].cashFlowDescription = newValue
-        }
-      })
-  }
-
-  private var amountBinding: Binding<String> {
-    Binding(
-      get: { row.amountText },
-      set: { newValue in
-        if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.cashFlowRows[index].amountText = newValue
-        }
-      })
   }
 
   private var currencyBinding: Binding<String> {
@@ -401,313 +745,5 @@ struct BulkEntryCashFlowRowView: View {
           viewModel.cashFlowRows[index].currency = newValue
         }
       })
-  }
-}
-
-// MARK: - Asset Entry Row View
-
-struct BulkEntryRowView: View {
-  var viewModel: BulkEntryViewModel
-  let row: BulkEntryRow
-  let isDuplicate: Bool
-  @Binding var cachedCategoryNames: [String]
-  var focusedRowID: FocusState<UUID?>.Binding
-  let onAdvanceFocus: () -> Void
-  let onDelete: () -> Void
-
-  var body: some View {
-    let isExcluded = !row.isIncluded
-    let isUpdated = row.isUpdated
-
-    HStack(spacing: 8) {
-      Toggle("", isOn: includeBinding)
-        .labelsHidden()
-        .accessibilityLabel("Include \(row.assetName)")
-        .frame(width: 60, alignment: .center)
-        .helpWhenUnlocked("Include or exclude this asset from the snapshot")
-
-      // Asset name column
-      HStack(spacing: 6) {
-        if row.isNewRow {
-          TextField("Asset name", text: assetNameBinding)
-            .textFieldStyle(.roundedBorder)
-            .frame(minWidth: 100)
-            .disabled(isExcluded)
-            .overlay(
-              RoundedRectangle(cornerRadius: 6)
-                .stroke(
-                  (row.hasEmptyName || isDuplicate) ? .red : .clear,
-                  lineWidth: 1.5)
-            )
-        } else {
-          Text(row.assetName)
-            .strikethrough(isExcluded)
-        }
-        sourceBadge
-      }
-      .frame(minWidth: 120, alignment: .leading)
-
-      Spacer()
-
-      // Category column
-      if row.isNewAsset {
-        BulkEntryCategoryPicker(
-          categoryName: categoryNameBinding,
-          cachedNames: $cachedCategoryNames
-        )
-        .frame(width: 120)
-      } else {
-        Text(row.asset?.category?.name ?? "\u{2014}")
-          .font(.callout)
-          .foregroundStyle(row.asset?.category != nil ? .primary : .secondary)
-          .frame(width: 120, alignment: .center)
-      }
-
-      // Currency column
-      if row.isNewRow {
-        Picker("", selection: currencyBinding) {
-          ForEach(CurrencyService.shared.currencies) { currency in
-            Text(currency.code).tag(currency.code)
-          }
-        }
-        .labelsHidden()
-        .frame(width: 80)
-      } else {
-        Text(row.currency.uppercased())
-          .font(.callout)
-          .frame(width: 80, alignment: .center)
-      }
-
-      Text(row.previousValue?.formatted(currency: row.currency) ?? "\u{2014}")
-        .monospacedDigit()
-        .foregroundStyle(.secondary)
-        .frame(width: 140, alignment: .trailing)
-
-      TextField("Enter value\u{2026}", text: valueBinding)
-        .textFieldStyle(.roundedBorder)
-        .monospacedDigit()
-        .frame(width: 160)
-        .multilineTextAlignment(.trailing)
-        .focused(focusedRowID, equals: row.id)
-        .onSubmit { onAdvanceFocus() }
-        .disabled(isExcluded)
-        .overlay(
-          RoundedRectangle(cornerRadius: 6)
-            .stroke(
-              (row.hasValidationError || row.hasZeroValueError) ? .red : .clear,
-              lineWidth: 1.5)
-        )
-        .helpWhenUnlocked(
-          row.hasZeroValueError
-            ? LocalizedStringKey(
-              "Value cannot be 0. Exclude the asset instead if it is no longer held.")
-            : nil
-        )
-
-      // Delete button for manualNew rows, padding for others
-      if row.isNewRow {
-        Button {
-          onDelete()
-        } label: {
-          Image(systemName: "trash")
-            .foregroundStyle(.red)
-        }
-        .buttonStyle(.plain)
-        .helpWhenUnlocked("Remove this manually added asset")
-        .frame(width: 28)
-      } else {
-        Spacer()
-          .frame(width: 28)
-      }
-    }
-    .padding(.vertical, 6)
-    .padding(.horizontal, 4)
-    .background(
-      isUpdated
-        ? Color.green.opacity(0.06)
-        : Color.clear
-    )
-    .opacity(isExcluded ? 0.5 : 1.0)
-    .accessibilityLabel(
-      "\(row.assetName), \(row.platform), \(row.isUpdated ? "updated" : row.isPending ? "pending" : "excluded")"
-    )
-  }
-
-  // MARK: - Source Badge
-
-  @ViewBuilder
-  private var sourceBadge: some View {
-    if row.source == .csv {
-      Text("CSV")
-        .font(.caption2)
-        .padding(.horizontal, 4)
-        .padding(.vertical, 1)
-        .background(.blue.opacity(0.15), in: Capsule())
-        .foregroundStyle(.blue)
-    } else if row.source == .manualNew {
-      Text("NEW")
-        .font(.caption2)
-        .padding(.horizontal, 4)
-        .padding(.vertical, 1)
-        .background(.green.opacity(0.15), in: Capsule())
-        .foregroundStyle(.green)
-    }
-  }
-
-  // MARK: - Bindings
-
-  private var includeBinding: Binding<Bool> {
-    Binding(
-      get: { viewModel.rows.first(where: { $0.id == row.id })?.isIncluded ?? false },
-      set: { _ in viewModel.toggleInclude(rowID: row.id) }
-    )
-  }
-
-  private var valueBinding: Binding<String> {
-    Binding(
-      get: { viewModel.rows.first(where: { $0.id == row.id })?.newValueText ?? "" },
-      set: { newValue in
-        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.rows[index].newValueText = newValue
-        }
-      }
-    )
-  }
-
-  private var assetNameBinding: Binding<String> {
-    Binding(
-      get: { viewModel.rows.first(where: { $0.id == row.id })?.assetName ?? "" },
-      set: { newValue in
-        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.rows[index].assetName = newValue
-        }
-      }
-    )
-  }
-
-  private var currencyBinding: Binding<String> {
-    Binding(
-      get: { viewModel.rows.first(where: { $0.id == row.id })?.currency ?? "" },
-      set: { newValue in
-        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.rows[index].currency = newValue
-        }
-      }
-    )
-  }
-
-  private var categoryNameBinding: Binding<String> {
-    Binding(
-      get: { viewModel.rows.first(where: { $0.id == row.id })?.categoryName ?? "" },
-      set: { newValue in
-        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.rows[index].categoryName = newValue.isEmpty ? nil : newValue
-        }
-      }
-    )
-  }
-}
-
-// MARK: - Category Name Picker
-
-/// A lightweight picker for selecting or creating a category by name.
-///
-/// Unlike `CategoryPickerField`, this does not create `Category` objects
-/// in the database. It stores category names as strings, deferring
-/// database creation to snapshot save time.
-struct BulkEntryCategoryPicker: View {
-  @Binding var categoryName: String
-  @Binding var cachedNames: [String]
-
-  @State private var showNewField = false
-  @State private var newName = ""
-
-  var body: some View {
-    if showNewField {
-      HStack(spacing: 2) {
-        TextField("Category", text: $newName)
-          .textFieldStyle(.roundedBorder)
-          .font(.callout)
-          .onSubmit { commitNew() }
-        Button {
-          commitNew()
-        } label: {
-          Image(systemName: "checkmark.circle.fill")
-            .foregroundStyle(.green)
-        }
-        .buttonStyle(.plain)
-        Button {
-          showNewField = false
-          newName = ""
-        } label: {
-          Image(systemName: "xmark.circle.fill")
-            .foregroundStyle(.secondary)
-        }
-        .buttonStyle(.plain)
-      }
-    } else {
-      Picker("", selection: pickerBinding) {
-        Text("None").tag("")
-        ForEach(cachedNames, id: \.self) { name in
-          Text(name).tag(name)
-        }
-        Divider()
-        Text("New Category\u{2026}").tag("__new__")
-      }
-      .labelsHidden()
-      .font(.callout)
-    }
-  }
-
-  private var pickerBinding: Binding<String> {
-    Binding(
-      get: { categoryName },
-      set: { newValue in
-        if newValue == "__new__" {
-          showNewField = true
-          newName = ""
-        } else {
-          categoryName = newValue
-        }
-      }
-    )
-  }
-
-  private func commitNew() {
-    let trimmed = newName.trimmingCharacters(in: .whitespaces)
-    guard !trimmed.isEmpty else { return }
-
-    // Case-insensitive match against existing names
-    if let match = cachedNames.first(where: { $0.lowercased() == trimmed.lowercased() }) {
-      categoryName = match
-    } else {
-      categoryName = trimmed
-      cachedNames.append(trimmed)
-      cachedNames.sort()
-    }
-
-    showNewField = false
-    newName = ""
-  }
-}
-
-// MARK: - Cash Flow Currency Picker
-
-/// An extracted currency picker that avoids rebuilding 340+ items on every parent re-render.
-///
-/// By isolating the `ForEach(CurrencyService.shared.currencies)` in its own `View` struct,
-/// SwiftUI can skip re-diffing the picker content when only the parent's other state changes
-/// (e.g., typing in a description field). The `@Binding` only triggers re-render when the
-/// selected currency actually changes.
-struct CashFlowCurrencyPicker: View {
-  @Binding var selection: String
-
-  var body: some View {
-    Picker("", selection: $selection) {
-      ForEach(CurrencyService.shared.currencies) { currency in
-        Text(currency.code).tag(currency.code)
-      }
-    }
-    .labelsHidden()
   }
 }

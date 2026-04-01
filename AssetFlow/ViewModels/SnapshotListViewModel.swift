@@ -24,6 +24,7 @@ enum SnapshotError: LocalizedError, Equatable {
   case dateAlreadyExists(Date)
   case assetAlreadyInSnapshot(String)
   case duplicateCashFlowDescription(String)
+  case duplicateAssetName(String, String)
   case noAssetsIncluded
 
   var errorDescription: String? {
@@ -49,6 +50,12 @@ enum SnapshotError: LocalizedError, Equatable {
       return String(
         localized:
           "A cash flow operation with description '\(description)' already exists in this snapshot.",
+        table: "Snapshot")
+
+    case .duplicateAssetName(let name, let platform):
+      return String(
+        localized:
+          "Duplicate asset name '\(name)' found in platform '\(platform)'. Each asset name must be unique within a platform.",
         table: "Snapshot")
 
     case .noAssetsIncluded:

@@ -93,14 +93,14 @@ struct CSVImportResult {
 }
 
 /// Source of a bulk entry row's value.
-enum ValueSource {
+enum ValueSource: Equatable {
   case manual
   case csv
   case manualNew
 }
 
 /// A single row in the bulk entry table, representing one asset to update.
-struct BulkEntryRow: Identifiable {
+struct BulkEntryRow: Identifiable, Equatable {
   let id: UUID
   let asset: Asset?
   var assetName: String
@@ -120,10 +120,23 @@ struct BulkEntryRow: Identifiable {
   var isNewRow: Bool { source == .manualNew }
   var hasEmptyName: Bool { isNewRow && assetName.trimmingCharacters(in: .whitespaces).isEmpty }
   var isNewAsset: Bool { asset == nil }
+
+  static func == (lhs: BulkEntryRow, rhs: BulkEntryRow) -> Bool {
+    lhs.id == rhs.id
+      && lhs.asset === rhs.asset
+      && lhs.assetName == rhs.assetName
+      && lhs.platform == rhs.platform
+      && lhs.currency == rhs.currency
+      && lhs.previousValue == rhs.previousValue
+      && lhs.newValueText == rhs.newValueText
+      && lhs.isIncluded == rhs.isIncluded
+      && lhs.source == rhs.source
+      && lhs.categoryName == rhs.categoryName
+  }
 }
 
 /// A single row in the bulk entry cash flow section.
-struct BulkEntryCashFlowRow: Identifiable {
+struct BulkEntryCashFlowRow: Identifiable, Equatable {
   let id: UUID
   var cashFlowDescription: String
   var amountText: String
