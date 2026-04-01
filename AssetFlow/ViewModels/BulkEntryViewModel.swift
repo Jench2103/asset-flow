@@ -111,14 +111,21 @@ final class BulkEntryViewModel {
     loadRowsFromLatestSnapshot()
   }
 
-  func advanceFocus(from currentRowID: UUID) {
-    let includedRows = platformGroups.flatMap(\.rows).filter(\.isIncluded)
-    guard let currentIndex = includedRows.firstIndex(where: { $0.id == currentRowID })
-    else { return }
-    let nextIndex = currentIndex + 1
-    if nextIndex < includedRows.count {
-      pendingFocusRowID = includedRows[nextIndex].id
+  /// Returns the ID of the next included row in visual (platform-grouped) order
+  /// after the row with the given ID, or `nil` if already at the last included row.
+  func nextFocusRowID(after currentRowID: UUID) -> UUID? {
+    var found = false
+    for group in platformGroups {
+      for row in group.rows where row.isIncluded {
+        if found { return row.id }
+        if row.id == currentRowID { found = true }
+      }
     }
+    return nil
+  }
+
+  func advanceFocus(from currentRowID: UUID) {
+    pendingFocusRowID = nextFocusRowID(after: currentRowID)
   }
 
   func toggleInclude(rowID: UUID) {
@@ -385,6 +392,14 @@ final class BulkEntryViewModel {
     let parserWarnings = parseResult.warnings.map(\.message)
     let mainCurrency = SettingsService.shared.mainCurrency
 
+    // Pre-build lookup: normalizedName → row index for the target platform.
+    // Avoids O(m×n) repeated normalization inside the CSV row loop.
+    let normalizedPlatform = platform.normalizedForIdentity
+    var nameIndex: [String: Int] = [:]
+    for (idx, row) in rows.enumerated() where row.platform == platform {
+      nameIndex[row.assetName.normalizedForIdentity] = idx
+    }
+
     var matchedCount = 0
     var newCount = 0
     var platformMismatches: [String] = []
@@ -392,16 +407,14 @@ final class BulkEntryViewModel {
 
     for csvRow in parseResult.rows {
       if !csvRow.platform.isEmpty,
-        csvRow.platform.normalizedForIdentity != platform.normalizedForIdentity
+        csvRow.platform.normalizedForIdentity != normalizedPlatform
       {
         platformMismatches.append(csvRow.assetName)
         continue
       }
 
       let normalizedCSVName = csvRow.assetName.normalizedForIdentity
-      if let index = rows.firstIndex(where: {
-        $0.platform == platform && $0.assetName.normalizedForIdentity == normalizedCSVName
-      }) {
+      if let index = nameIndex[normalizedCSVName] {
         if !csvRow.currency.isEmpty,
           csvRow.currency.uppercased() != rows[index].currency.uppercased()
         {
@@ -424,6 +437,7 @@ final class BulkEntryViewModel {
           source: .csv,
           categoryName: nil
         )
+        nameIndex[normalizedCSVName] = rows.count
         rows.append(newRow)
         newCount += 1
       }
@@ -463,14 +477,19 @@ final class BulkEntryViewModel {
         matchedCount: 0, newCount: 0, errors: errors, parserWarnings: parserWarnings)
     }
 
+    // Pre-build lookup: normalizedDescription → row index.
+    // Avoids O(m×c) repeated normalization inside the CSV row loop.
+    var descIndex: [String: Int] = [:]
+    for (idx, row) in cashFlowRows.enumerated() {
+      descIndex[row.cashFlowDescription.normalizedForIdentity] = idx
+    }
+
     var matchedCount = 0
     var newCount = 0
 
     for csvRow in parseResult.rows {
       let normalizedDesc = csvRow.description.normalizedForIdentity
-      if let index = cashFlowRows.firstIndex(where: {
-        $0.cashFlowDescription.normalizedForIdentity == normalizedDesc
-      }) {
+      if let index = descIndex[normalizedDesc] {
         cashFlowRows[index].amountText = "\(csvRow.amount)"
         cashFlowRows[index].source = .csv
         if !csvRow.currency.isEmpty {
@@ -483,6 +502,7 @@ final class BulkEntryViewModel {
           amountText: "\(csvRow.amount)",
           currency: csvRow.currency.isEmpty ? mainCurrency : csvRow.currency,
           isIncluded: true, source: .csv)
+        descIndex[normalizedDesc] = cashFlowRows.count
         cashFlowRows.append(newRow)
         newCount += 1
       }

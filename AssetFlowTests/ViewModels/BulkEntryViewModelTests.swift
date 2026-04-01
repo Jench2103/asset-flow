@@ -750,6 +750,197 @@ struct BulkEntryViewModelTests {
     #expect(viewModel.rows[0].source == .csv)
   }
 
+  @Test("importCSV second new row matches first via updated name index")
+  func importCSVSecondNewRowMatchesViaIndex() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    // CSV has "New Fund" then "new fund" — different strings but same
+    // normalizedForIdentity. The first row appends and updates nameIndex;
+    // the second must hit the index (not create a duplicate).
+    let csvData =
+      "Asset Name,Market Value\nNew Fund,1000\nnew fund,2000\n"
+      .data(using: .utf8)!  // swiftlint:disable:this force_unwrapping
+    viewModel.importCSV(data: csvData, forPlatform: "Vanguard")
+
+    let matchingRows = viewModel.rows.filter {
+      $0.assetName.lowercased() == "new fund"
+    }
+    #expect(matchingRows.count == 1)
+    #expect(matchingRows[0].newValueText == "2000")
+  }
+
+  // MARK: - advanceFocus / nextFocusRowID Tests
+
+  @Test("nextFocusRowID advances to next included row within same platform")
+  func nextFocusRowIDWithinPlatform() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "Alpha", platform: "Vanguard", currency: "USD", value: Decimal(100)),
+        TestAssetData(name: "Beta", platform: "Vanguard", currency: "USD", value: Decimal(200)),
+        TestAssetData(name: "Gamma", platform: "Vanguard", currency: "USD", value: Decimal(300)),
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let groups = viewModel.platformGroups
+    let rows = try #require(groups.first?.rows)
+    let alphaID = try #require(rows.first(where: { $0.assetName == "Alpha" })).id
+    let betaID = try #require(rows.first(where: { $0.assetName == "Beta" })).id
+
+    let next = viewModel.nextFocusRowID(after: alphaID)
+    #expect(next == betaID)
+  }
+
+  @Test("nextFocusRowID advances across platform boundaries in sorted order")
+  func nextFocusRowIDCrossPlatform() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(
+          name: "Last In A", platform: "AAA Platform", currency: "USD", value: Decimal(100)),
+        TestAssetData(
+          name: "First In B", platform: "BBB Platform", currency: "USD", value: Decimal(200)),
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let groups = viewModel.platformGroups
+    let lastInA = try #require(groups[0].rows.last).id
+    let firstInB = try #require(groups[1].rows.first).id
+
+    let next = viewModel.nextFocusRowID(after: lastInA)
+    #expect(next == firstInB)
+  }
+
+  @Test("nextFocusRowID skips excluded rows")
+  func nextFocusRowIDSkipsExcluded() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "Alpha", platform: "P1", currency: "USD", value: Decimal(100)),
+        TestAssetData(name: "Beta", platform: "P1", currency: "USD", value: Decimal(200)),
+        TestAssetData(name: "Gamma", platform: "P1", currency: "USD", value: Decimal(300)),
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let rows = try #require(viewModel.platformGroups.first?.rows)
+    let betaID = try #require(rows.first(where: { $0.assetName == "Beta" })).id
+    viewModel.toggleInclude(rowID: betaID)
+
+    let alphaID = try #require(rows.first(where: { $0.assetName == "Alpha" })).id
+    let gammaID = try #require(rows.first(where: { $0.assetName == "Gamma" })).id
+
+    let next = viewModel.nextFocusRowID(after: alphaID)
+    #expect(next == gammaID)
+  }
+
+  @Test("nextFocusRowID returns nil when at last included row")
+  func nextFocusRowIDNilAtEnd() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "Only", platform: "P1", currency: "USD", value: Decimal(100))
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let onlyID = viewModel.rows[0].id
+    let next = viewModel.nextFocusRowID(after: onlyID)
+    #expect(next == nil)
+  }
+
+  @Test("nextFocusRowID returns nil for unknown row ID")
+  func nextFocusRowIDNilForUnknown() {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "A", platform: "P1", currency: "USD", value: Decimal(100))
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let next = viewModel.nextFocusRowID(after: UUID())
+    #expect(next == nil)
+  }
+
+  @Test("advanceFocus sets pendingFocusRowID to next included row")
+  func advanceFocusSetsPendingFocusRowID() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "Alpha", platform: "P1", currency: "USD", value: Decimal(100)),
+        TestAssetData(name: "Beta", platform: "P1", currency: "USD", value: Decimal(200)),
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let rows = try #require(viewModel.platformGroups.first?.rows)
+    let alphaID = try #require(rows.first(where: { $0.assetName == "Alpha" })).id
+    let betaID = try #require(rows.first(where: { $0.assetName == "Beta" })).id
+
+    #expect(viewModel.pendingFocusRowID == nil)
+    viewModel.advanceFocus(from: alphaID)
+    #expect(viewModel.pendingFocusRowID == betaID)
+  }
+
+  @Test("nextFocusRowID returns nil when all remaining rows are excluded")
+  func nextFocusRowIDNilWhenRemainingExcluded() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    createSnapshotWithAssets(
+      context: context, date: makeDate(2026, 3, 1),
+      assets: [
+        TestAssetData(name: "Alpha", platform: "P1", currency: "USD", value: Decimal(100)),
+        TestAssetData(name: "Beta", platform: "P1", currency: "USD", value: Decimal(200)),
+        TestAssetData(name: "Gamma", platform: "P1", currency: "USD", value: Decimal(300)),
+      ])
+
+    let viewModel = BulkEntryViewModel(
+      modelContext: context, date: makeDate(2026, 3, 15))
+
+    let rows = try #require(viewModel.platformGroups.first?.rows)
+    let alphaID = try #require(rows.first(where: { $0.assetName == "Alpha" })).id
+    let betaID = try #require(rows.first(where: { $0.assetName == "Beta" })).id
+    let gammaID = try #require(rows.first(where: { $0.assetName == "Gamma" })).id
+
+    viewModel.toggleInclude(rowID: betaID)
+    viewModel.toggleInclude(rowID: gammaID)
+
+    let next = viewModel.nextFocusRowID(after: alphaID)
+    #expect(next == nil)
+  }
+
   // MARK: - Helpers
 
   private struct TestAssetData {
