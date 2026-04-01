@@ -2024,7 +2024,6 @@
 <ul>
 <li><strong>Zero-value assets</strong>: "N assets have a value of 0. Exclude them or enter a non-zero value." Fields with a value of 0 are highlighted with a red border.</li>
 <li><strong>Missing names</strong>: "Some new assets are missing a name." New asset rows must have a name before saving.</li>
-<li><strong>Duplicate names</strong>: "Duplicate asset names found within a platform." Both duplicate rows are highlighted with a red border.</li>
 </ul>
 <p>The <strong>Save Snapshot</strong> button is disabled until all validation issues are resolved.</p>
 <h2 id="cash-flow-operations">Cash Flow Operations<a class="headerlink" href="#cash-flow-operations" title="Permanent link">&para;</a></h2>
@@ -2055,6 +2054,7 @@
 <p>Duplicate descriptions are checked when you click <strong>Save Snapshot</strong>. If duplicates are found, the save is rejected with an error dialog.</p>
 <h2 id="saving-the-snapshot">Saving the Snapshot<a class="headerlink" href="#saving-the-snapshot" title="Permanent link">&para;</a></h2>
 <p>When everything looks good, click <strong>Save Snapshot</strong>. If any included assets still have no value (pending), a confirmation dialog will ask whether you'd like to save them with a value of 0. You can always update these values later in the snapshot detail view.</p>
+<p>Duplicate asset names within the same platform (case-insensitive) and duplicate cash flow descriptions are checked at save time. If duplicates are found, the save is rejected with an error dialog identifying the duplicate.</p>
 <p>After saving, you're taken to the snapshot detail view where you can review the result or make further edits.</p>
 <h2 id="zero-value-warnings">Zero-Value Warnings<a class="headerlink" href="#zero-value-warnings" title="Permanent link">&para;</a></h2>
 <p>Assets saved with a value of 0 are flagged throughout the app to remind you to update them:</p>
@@ -2091,7 +2091,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 31, 2026 17:12:13 UTC">March 31, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="April 1, 2026 06:44:43 UTC">April 1, 2026</span>
   </span>
 
     
