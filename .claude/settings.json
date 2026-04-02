@@ -6,5 +6,6 @@
   },
   "env": {
     "ENABLE_LSP_TOOL": "1"
-  }
+  },
+  "effortLevel": "high"
 }

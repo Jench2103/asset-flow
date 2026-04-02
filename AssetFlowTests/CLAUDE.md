@@ -8,6 +8,14 @@ Uses **Swift Testing** (`import Testing`), NOT XCTest. No `XCTAssert*` or `XCTes
 
 Red-Green-Refactor: write a failing test first, implement minimum code to pass, then refactor. Services are stateless — test with pure input/output.
 
+**RED phase must produce assertion failures, not compilation errors.** Compilation errors are trivial and don't validate that the tests actually test anything. Before running tests:
+
+1. Write the test file with all test functions
+1. Write minimal code stubs (empty methods returning dummy values like `[]`, `false`, `0`, etc.) so everything compiles
+1. Run tests — confirm they fail with **assertion failures**
+1. Only then implement the real logic
+1. Run tests — confirm GREEN
+
 ## Structure
 
 ```swift
@@ -57,9 +65,19 @@ let tc = createSnapshotWithContext()
 let (context, snapshot) = (tc.context, tc.snapshot)
 ```
 
+## Running Tests
+
+**Always capture test output to a log file and read from it.** Never run tests multiple times to grep for different pieces of information.
+
+```bash
+xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow test -destination 'platform=macOS' 2>&1 | tee /tmp/assetflow-test-output.txt
+```
+
+Then use the Read tool (or grep) on `/tmp/assetflow-test-output.txt` to extract all needed info (pass/fail counts, failure names, error messages) in one pass. Do not re-run tests just to check different aspects of the output.
+
 ## Debugging Crashes
 
-- Capture output once: `xcodebuild ... test > /tmp/test-output.txt 2>&1`
+- Use the log file from above (`/tmp/assetflow-test-output.txt`) — do not re-run tests
 - Use `-parallel-testing-enabled NO` and `-only-testing:AssetFlowTests/SuiteName` to isolate
 - Use `-maximum-test-execution-time-allowance 10` to prevent crash/retry cycles from running forever
 - When one test crashes (SIGTRAP), the entire process dies and all tests report "failed" at 0.000s — only one pattern is at fault

@@ -9,6 +9,11 @@ AssetFlow is a macOS 15.0+ desktop app for snapshot-based portfolio management a
 ```bash
 xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow build
 xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow test -destination 'platform=macOS'
+```
+
+**Formatting and linting are handled by pre-commit hooks — do not run them manually after edits.** They run automatically at commit time. Manual invocation if needed:
+
+```bash
 swift-format format --in-place --recursive --parallel .
 swift-format lint --strict --recursive --parallel .
 swiftlint --fix

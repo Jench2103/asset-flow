@@ -26,6 +26,7 @@ repos:
         name: mdformat (project)
         additional_dependencies:
           - mdformat-gfm
+          - mdformat-frontmatter
         exclude: ^(mkdocs/)
       - id: mdformat
         name: mdformat (mkdocs)
