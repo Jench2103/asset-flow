@@ -111,6 +111,7 @@ struct BulkEntryRow: Identifiable, Equatable {
   var isIncluded: Bool
   var source: ValueSource
   var categoryName: String?
+  var commitSequence: Int = 0
 
   var newValue: Decimal? { Decimal(string: newValueText) }
   var isUpdated: Bool { isIncluded && newValue != nil && !hasZeroValueError }
@@ -132,6 +133,7 @@ struct BulkEntryRow: Identifiable, Equatable {
       && lhs.isIncluded == rhs.isIncluded
       && lhs.source == rhs.source
       && lhs.categoryName == rhs.categoryName
+      && lhs.commitSequence == rhs.commitSequence
   }
 }
 
@@ -143,6 +145,7 @@ struct BulkEntryCashFlowRow: Identifiable, Equatable {
   var currency: String
   var isIncluded: Bool
   var source: ValueSource
+  var commitSequence: Int = 0
 
   var amount: Decimal? { Decimal(string: amountText) }
   var hasValidationError: Bool { !amountText.isEmpty && amount == nil }

@@ -151,6 +151,18 @@ final class BulkEntryViewModel {
     pendingCashFlowFocusRowID = nextCashFlowFocusRowID(after: currentRowID)
   }
 
+  func requestCommit(for rowID: UUID) {
+    if let index = rows.firstIndex(where: { $0.id == rowID }) {
+      rows[index].commitSequence += 1
+    }
+  }
+
+  func requestCashFlowCommit(for rowID: UUID) {
+    if let index = cashFlowRows.firstIndex(where: { $0.id == rowID }) {
+      cashFlowRows[index].commitSequence += 1
+    }
+  }
+
   func toggleInclude(rowID: UUID) {
     guard let index = rows.firstIndex(where: { $0.id == rowID }) else { return }
     rows[index].isIncluded.toggle()

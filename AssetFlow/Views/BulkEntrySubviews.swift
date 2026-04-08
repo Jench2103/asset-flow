@@ -385,6 +385,16 @@ struct BulkEntryAssetSection: View {
       )
       .equatable()
     }
+    .onChange(of: focusedRowID) { oldValue, _ in
+      if let oldID = oldValue {
+        viewModel.requestCommit(for: oldID)
+      }
+    }
+    .onChange(of: nameFieldFocusedRowID) { oldValue, _ in
+      if let oldID = oldValue {
+        viewModel.requestCommit(for: oldID)
+      }
+    }
     .onChange(of: viewModel.pendingFocusRowID) { _, rowID in
       guard let rowID else { return }
       let isNewRow = viewModel.rows.first(where: { $0.id == rowID })?.isNewRow ?? false
@@ -505,6 +515,16 @@ struct BulkEntryCashFlowSection: View {
       )
     }
     .padding(.bottom, 16)
+    .onChange(of: focusedAmountRowID) { oldValue, _ in
+      if let oldID = oldValue {
+        viewModel.requestCashFlowCommit(for: oldID)
+      }
+    }
+    .onChange(of: focusedDescriptionRowID) { oldValue, _ in
+      if let oldID = oldValue {
+        viewModel.requestCashFlowCommit(for: oldID)
+      }
+    }
     .onChange(of: viewModel.pendingCashFlowFocusRowID) { _, rowID in
       guard let rowID else { return }
       let isNewRow =

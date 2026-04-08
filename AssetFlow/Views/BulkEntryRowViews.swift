@@ -169,15 +169,9 @@ struct BulkEntryRowView: View, Equatable {
     .onChange(of: row.assetName) { _, newValue in
       localAssetName = newValue
     }
-    .onChange(of: focusedRowID.wrappedValue) { oldValue, _ in
-      if oldValue == row.id {
-        commitValue()
-      }
-    }
-    .onChange(of: nameFieldFocusedRowID.wrappedValue) { oldValue, _ in
-      if oldValue == row.id {
-        commitAssetName()
-      }
+    .onChange(of: row.commitSequence) { _, _ in
+      commitValue()
+      commitAssetName()
     }
   }
 

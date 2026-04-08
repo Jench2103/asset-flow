@@ -137,15 +137,9 @@ struct BulkEntryCashFlowRowView: View, Equatable {
     .onChange(of: row.amountText) { _, newValue in
       localAmount = newValue
     }
-    .onChange(of: focusedField) { oldValue, _ in
-      if oldValue == .description { commitDescription() }
-      if oldValue == .amount { commitAmount() }
-    }
-    .onChange(of: focusedAmountRowID.wrappedValue) { oldValue, _ in
-      if oldValue == row.id { commitAmount() }
-    }
-    .onChange(of: focusedDescriptionRowID.wrappedValue) { oldValue, _ in
-      if oldValue == row.id { commitDescription() }
+    .onChange(of: row.commitSequence) { _, _ in
+      commitDescription()
+      commitAmount()
     }
   }
 
