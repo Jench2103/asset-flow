@@ -159,6 +159,10 @@ struct BulkEntryRowView: View, Equatable {
       localValueText = row.newValueText
       localAssetName = row.assetName
     }
+    .onDisappear {
+      commitValue()
+      commitAssetName()
+    }
     .onChange(of: row.newValueText) { _, newValue in
       localValueText = newValue
     }

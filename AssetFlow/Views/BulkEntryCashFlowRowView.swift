@@ -127,6 +127,10 @@ struct BulkEntryCashFlowRowView: View, Equatable {
       localDescription = row.cashFlowDescription
       localAmount = row.amountText
     }
+    .onDisappear {
+      commitDescription()
+      commitAmount()
+    }
     .onChange(of: row.cashFlowDescription) { _, newValue in
       localDescription = newValue
     }
