@@ -243,9 +243,6 @@ final class BulkEntryViewModel {
     guard let index = _rowIDToIndex[rowID] else { return }
     let old = rows[index]
     rows[index].isIncluded.toggle()
-    if !rows[index].isIncluded {
-      rows[index].newValueText = ""
-    }
     applyAssetRowDelta(old: old, new: rows[index])
   }
 
@@ -317,9 +314,6 @@ final class BulkEntryViewModel {
     guard let index = _cashFlowRowIDToIndex[rowID] else { return }
     let old = cashFlowRows[index]
     cashFlowRows[index].isIncluded.toggle()
-    if !cashFlowRows[index].isIncluded {
-      cashFlowRows[index].amountText = ""
-    }
     applyCashFlowRowDelta(old: old, new: cashFlowRows[index])
   }
 

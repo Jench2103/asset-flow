@@ -1101,7 +1101,7 @@ struct BulkEntryViewModelTests {
     #expect(viewModel.cashFlowRows[0].cashFlowDescription == "CSV Flow")
   }
 
-  @Test("toggleCashFlowInclude toggles inclusion and clears amount")
+  @Test("toggleCashFlowInclude toggles inclusion and preserves amount")
   func toggleCashFlowInclude() {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
@@ -1117,10 +1117,11 @@ struct BulkEntryViewModelTests {
 
     viewModel.toggleCashFlowInclude(rowID: rowID)
     #expect(viewModel.cashFlowRows[0].isIncluded == false)
-    #expect(viewModel.cashFlowRows[0].amountText.isEmpty)
+    #expect(viewModel.cashFlowRows[0].amountText == "5000")
 
     viewModel.toggleCashFlowInclude(rowID: rowID)
     #expect(viewModel.cashFlowRows[0].isIncluded == true)
+    #expect(viewModel.cashFlowRows[0].amountText == "5000")
   }
 
   @Test("cashFlowCount reflects only included rows")
