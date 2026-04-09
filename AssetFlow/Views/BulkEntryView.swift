@@ -168,7 +168,7 @@ struct BulkEntryView: View {
   // MARK: - Save
 
   private func handleSave() {
-    let pending = viewModel.pendingCount
+    let pending = viewModel.toolbarStats.pendingCount
     if pending > 0 {
       zeroPendingCount = pending
       showZeroPendingConfirmation = true

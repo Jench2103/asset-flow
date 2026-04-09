@@ -17,6 +17,37 @@
 
 import Foundation
 
+/// Aggregated toolbar statistics for bulk entry, maintained incrementally
+/// via delta updates rather than recomputed from scratch on every mutation.
+/// Using counts (not booleans) so delta subtraction works correctly.
+struct BulkEntryToolbarStats: Equatable {
+  var updatedCount = 0
+  var pendingCount = 0
+  var excludedCount = 0
+  var includedCount = 0
+  var zeroValueCount = 0
+  var invalidNewRowCount = 0
+  var validationErrorCount = 0
+  var emptyCashFlowAmountCount = 0
+  var emptyCashFlowDescriptionCount = 0
+  var cashFlowValidationErrorCount = 0
+
+  var hasInvalidNewRows: Bool { invalidNewRowCount > 0 }
+  var hasEmptyCashFlowAmounts: Bool { emptyCashFlowAmountCount > 0 }
+  var hasEmptyCashFlowDescriptions: Bool { emptyCashFlowDescriptionCount > 0 }
+  var hasCashFlowValidationErrors: Bool { cashFlowValidationErrorCount > 0 }
+
+  var canSave: Bool {
+    includedCount > 0
+      && zeroValueCount == 0
+      && invalidNewRowCount == 0
+      && validationErrorCount == 0
+      && emptyCashFlowAmountCount == 0
+      && cashFlowValidationErrorCount == 0
+      && emptyCashFlowDescriptionCount == 0
+  }
+}
+
 /// Result of a CSV import operation in bulk entry.
 struct CSVImportResult {
   let matchedCount: Int
@@ -111,7 +142,6 @@ struct BulkEntryRow: Identifiable, Equatable {
   var isIncluded: Bool
   var source: ValueSource
   var categoryName: String?
-  var commitSequence: Int = 0
 
   var newValue: Decimal? { Decimal(string: newValueText) }
   var isUpdated: Bool { isIncluded && newValue != nil && !hasZeroValueError }
@@ -133,7 +163,6 @@ struct BulkEntryRow: Identifiable, Equatable {
       && lhs.isIncluded == rhs.isIncluded
       && lhs.source == rhs.source
       && lhs.categoryName == rhs.categoryName
-      && lhs.commitSequence == rhs.commitSequence
   }
 }
 
@@ -145,7 +174,6 @@ struct BulkEntryCashFlowRow: Identifiable, Equatable {
   var currency: String
   var isIncluded: Bool
   var source: ValueSource
-  var commitSequence: Int = 0
 
   var amount: Decimal? { Decimal(string: amountText) }
   var hasValidationError: Bool { !amountText.isEmpty && amount == nil }

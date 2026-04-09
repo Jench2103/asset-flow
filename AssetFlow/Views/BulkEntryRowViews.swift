@@ -169,9 +169,11 @@ struct BulkEntryRowView: View, Equatable {
     .onChange(of: row.assetName) { _, newValue in
       localAssetName = newValue
     }
-    .onChange(of: row.commitSequence) { _, _ in
-      commitValue()
-      commitAssetName()
+    .onChange(of: localValueText) { _, newValue in
+      viewModel.setPendingValue(row.id, to: newValue)
+    }
+    .onChange(of: localAssetName) { _, newValue in
+      viewModel.setPendingName(row.id, to: newValue)
     }
   }
 
@@ -199,20 +201,12 @@ struct BulkEntryRowView: View, Equatable {
   // MARK: - Local State Commits
 
   private func commitValue() {
-    if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }),
-      viewModel.rows[index].newValueText != localValueText
-    {
-      viewModel.rows[index].newValueText = localValueText
-    }
+    viewModel.updateRowValue(row.id, to: localValueText)
   }
 
   private func commitAssetName() {
     guard row.isNewRow else { return }
-    if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }),
-      viewModel.rows[index].assetName != localAssetName
-    {
-      viewModel.rows[index].assetName = localAssetName
-    }
+    viewModel.updateRowAssetName(row.id, to: localAssetName)
   }
 
   // MARK: - Bindings
@@ -227,11 +221,7 @@ struct BulkEntryRowView: View, Equatable {
   private var currencyBinding: Binding<String> {
     Binding(
       get: { row.currency },
-      set: { newValue in
-        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.rows[index].currency = newValue
-        }
-      }
+      set: { newValue in viewModel.updateRowCurrency(row.id, to: newValue) }
     )
   }
 
@@ -239,9 +229,7 @@ struct BulkEntryRowView: View, Equatable {
     Binding(
       get: { row.categoryName ?? "" },
       set: { newValue in
-        if let index = viewModel.rows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.rows[index].categoryName = newValue.isEmpty ? nil : newValue
-        }
+        viewModel.updateRowCategoryName(row.id, to: newValue.isEmpty ? nil : newValue)
       }
     )
   }

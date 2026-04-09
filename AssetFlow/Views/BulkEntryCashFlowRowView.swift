@@ -137,9 +137,11 @@ struct BulkEntryCashFlowRowView: View, Equatable {
     .onChange(of: row.amountText) { _, newValue in
       localAmount = newValue
     }
-    .onChange(of: row.commitSequence) { _, _ in
-      commitDescription()
-      commitAmount()
+    .onChange(of: localDescription) { _, newValue in
+      viewModel.setPendingCashFlowDescription(row.id, to: newValue)
+    }
+    .onChange(of: localAmount) { _, newValue in
+      viewModel.setPendingCashFlowAmount(row.id, to: newValue)
     }
   }
 
@@ -160,19 +162,11 @@ struct BulkEntryCashFlowRowView: View, Equatable {
   // MARK: - Local State Commits
 
   private func commitDescription() {
-    if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }),
-      viewModel.cashFlowRows[index].cashFlowDescription != localDescription
-    {
-      viewModel.cashFlowRows[index].cashFlowDescription = localDescription
-    }
+    viewModel.updateCashFlowDescription(row.id, to: localDescription)
   }
 
   private func commitAmount() {
-    if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }),
-      viewModel.cashFlowRows[index].amountText != localAmount
-    {
-      viewModel.cashFlowRows[index].amountText = localAmount
-    }
+    viewModel.updateCashFlowAmount(row.id, to: localAmount)
   }
 
   // MARK: - Bindings
@@ -186,10 +180,6 @@ struct BulkEntryCashFlowRowView: View, Equatable {
   private var currencyBinding: Binding<String> {
     Binding(
       get: { row.currency },
-      set: { newValue in
-        if let index = viewModel.cashFlowRows.firstIndex(where: { $0.id == row.id }) {
-          viewModel.cashFlowRows[index].currency = newValue
-        }
-      })
+      set: { newValue in viewModel.updateCashFlowCurrency(row.id, to: newValue) })
   }
 }

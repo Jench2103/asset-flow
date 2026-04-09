@@ -21,9 +21,8 @@ import SwiftUI
 
 /// Toolbar extracted as its own observation boundary.
 ///
-/// Reading `viewModel.updatedCount`, `pendingCount`, `excludedCount`, etc.
-/// inside this struct means that `rows` mutations only invalidate this
-/// subtree — not the parent `BulkEntryView.body`.
+/// Reading `viewModel.toolbarStats` inside this struct means only changes
+/// to the stored stats (not every `rows` mutation) invalidate this subtree.
 struct BulkEntryToolbar: View {
   var viewModel: BulkEntryViewModel
   let onSave: () -> Void
@@ -33,6 +32,7 @@ struct BulkEntryToolbar: View {
   @State private var addPlatformError = ""
 
   var body: some View {
+    let stats = viewModel.toolbarStats
     HStack(spacing: 16) {
       Text("New Snapshot — \(viewModel.snapshotDate.settingsFormatted())")
         .font(.headline)
@@ -40,17 +40,17 @@ struct BulkEntryToolbar: View {
       Spacer()
 
       BulkEntryProgressStats(
-        updatedCount: viewModel.updatedCount,
-        pendingCount: viewModel.pendingCount,
-        excludedCount: viewModel.excludedCount
+        updatedCount: stats.updatedCount,
+        pendingCount: stats.pendingCount,
+        excludedCount: stats.excludedCount
       )
 
       BulkEntryValidationWarnings(
-        zeroValueCount: viewModel.zeroValueCount,
-        hasInvalidNewRows: viewModel.hasInvalidNewRows,
-        hasEmptyCashFlowDescriptions: viewModel.hasEmptyCashFlowDescriptions,
-        hasEmptyCashFlowAmounts: viewModel.hasEmptyCashFlowAmounts,
-        hasCashFlowValidationErrors: viewModel.hasCashFlowValidationErrors
+        zeroValueCount: stats.zeroValueCount,
+        hasInvalidNewRows: stats.hasInvalidNewRows,
+        hasEmptyCashFlowDescriptions: stats.hasEmptyCashFlowDescriptions,
+        hasEmptyCashFlowAmounts: stats.hasEmptyCashFlowAmounts,
+        hasCashFlowValidationErrors: stats.hasCashFlowValidationErrors
       )
 
       Button {
@@ -69,7 +69,7 @@ struct BulkEntryToolbar: View {
         onSave()
       }
       .buttonStyle(.borderedProminent)
-      .disabled(!viewModel.canSave)
+      .disabled(!stats.canSave)
       .helpWhenUnlocked("Save the snapshot with entered values")
       .accessibilityIdentifier("Save Snapshot Button")
     }
@@ -387,12 +387,12 @@ struct BulkEntryAssetSection: View {
     }
     .onChange(of: focusedRowID) { oldValue, _ in
       if let oldID = oldValue {
-        viewModel.requestCommit(for: oldID)
+        viewModel.flushRowCommit(for: oldID)
       }
     }
     .onChange(of: nameFieldFocusedRowID) { oldValue, _ in
       if let oldID = oldValue {
-        viewModel.requestCommit(for: oldID)
+        viewModel.flushRowCommit(for: oldID)
       }
     }
     .onChange(of: viewModel.pendingFocusRowID) { _, rowID in
@@ -458,8 +458,12 @@ struct BulkEntryPlatformSection: View, Equatable {
         .padding(.vertical, 2)
         .background(.quaternary, in: Capsule())
 
-      let groupUpdated = rows.filter(\.isUpdated).count
-      let groupTotal = rows.filter(\.isIncluded).count
+      let (groupUpdated, groupTotal) = rows.reduce(into: (0, 0)) { acc, row in
+        if row.isIncluded {
+          acc.1 += 1
+          if row.isUpdated { acc.0 += 1 }
+        }
+      }
       Text("\(groupUpdated)/\(groupTotal)")
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -517,12 +521,12 @@ struct BulkEntryCashFlowSection: View {
     .padding(.bottom, 16)
     .onChange(of: focusedAmountRowID) { oldValue, _ in
       if let oldID = oldValue {
-        viewModel.requestCashFlowCommit(for: oldID)
+        viewModel.flushCashFlowCommit(for: oldID)
       }
     }
     .onChange(of: focusedDescriptionRowID) { oldValue, _ in
       if let oldID = oldValue {
-        viewModel.requestCashFlowCommit(for: oldID)
+        viewModel.flushCashFlowCommit(for: oldID)
       }
     }
     .onChange(of: viewModel.pendingCashFlowFocusRowID) { _, rowID in

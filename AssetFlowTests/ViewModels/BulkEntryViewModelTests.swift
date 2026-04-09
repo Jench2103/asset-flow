@@ -240,19 +240,19 @@ struct BulkEntryViewModelTests {
       modelContext: context, date: makeDate(2026, 3, 15))
 
     // Initially all pending
-    #expect(viewModel.pendingCount == 3)
-    #expect(viewModel.updatedCount == 0)
-    #expect(viewModel.excludedCount == 0)
+    #expect(viewModel.toolbarStats.pendingCount == 3)
+    #expect(viewModel.toolbarStats.updatedCount == 0)
+    #expect(viewModel.toolbarStats.excludedCount == 0)
 
     // Update one
-    viewModel.rows[0].newValueText = "150"
-    #expect(viewModel.updatedCount == 1)
-    #expect(viewModel.pendingCount == 2)
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "150")
+    #expect(viewModel.toolbarStats.updatedCount == 1)
+    #expect(viewModel.toolbarStats.pendingCount == 2)
 
     // Exclude one
     viewModel.toggleInclude(rowID: viewModel.rows[2].id)
-    #expect(viewModel.excludedCount == 1)
-    #expect(viewModel.pendingCount == 1)
+    #expect(viewModel.toolbarStats.excludedCount == 1)
+    #expect(viewModel.toolbarStats.pendingCount == 1)
   }
 
   @Test("canSave is true when rows are pending (they will be saved as 0)")
@@ -267,7 +267,7 @@ struct BulkEntryViewModelTests {
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
 
-    #expect(viewModel.canSave == true)
+    #expect(viewModel.toolbarStats.canSave == true)
   }
 
   @Test("canSave is false when all rows are excluded")
@@ -283,7 +283,7 @@ struct BulkEntryViewModelTests {
       modelContext: context, date: makeDate(2026, 3, 15))
     viewModel.toggleInclude(rowID: viewModel.rows[0].id)
 
-    #expect(viewModel.canSave == false)
+    #expect(viewModel.toolbarStats.canSave == false)
   }
 
   @Test("saveSnapshot creates snapshot with asset values for updated rows")
@@ -300,8 +300,8 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "2100"
-    viewModel.rows[1].newValueText = "1100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "2100")
+    viewModel.updateRowValue(viewModel.rows[1].id, to: "1100")
 
     let snapshot = try viewModel.saveSnapshot()
 
@@ -348,7 +348,7 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "2100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "2100")
     viewModel.toggleInclude(rowID: viewModel.rows[1].id)
 
     let snapshot = try viewModel.saveSnapshot()
@@ -382,22 +382,11 @@ struct BulkEntryViewModelTests {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
 
-    // No previous snapshot — add a CSV row manually
+    // No previous snapshot — import a CSV row
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows.append(
-      BulkEntryRow(
-        id: UUID(),
-        asset: nil,
-        assetName: "New Fund",
-        platform: "Fidelity",
-        currency: "EUR",
-        previousValue: nil,
-        newValueText: "5000",
-        isIncluded: true,
-        source: .csv,
-        categoryName: nil
-      ))
+    let csv = "Asset Name,Market Value,Currency\nNew Fund,5000,EUR"
+    _ = viewModel.importCSV(data: csv.data(using: .utf8)!, forPlatform: "Fidelity")
 
     let snapshot = try viewModel.saveSnapshot()
     let values = snapshot.assetValues ?? []
@@ -599,7 +588,7 @@ struct BulkEntryViewModelTests {
       modelContext: context, date: makeDate(2026, 3, 15))
     viewModel.addPlatform(name: "Fidelity")
 
-    #expect(viewModel.canSave == false)
+    #expect(viewModel.toolbarStats.canSave == false)
   }
 
   @Test("hasUnsavedChanges is true when manualNew rows exist")
@@ -624,13 +613,13 @@ struct BulkEntryViewModelTests {
       modelContext: context, date: makeDate(2026, 3, 15))
     viewModel.addManualRow(forPlatform: "P1")
     viewModel.addManualRow(forPlatform: "P1")
-    viewModel.rows[0].assetName = "Stock A"
-    viewModel.rows[0].newValueText = "100"
-    viewModel.rows[1].assetName = "stock a"
-    viewModel.rows[1].newValueText = "200"
+    viewModel.updateRowAssetName(viewModel.rows[0].id, to: "Stock A")
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
+    viewModel.updateRowAssetName(viewModel.rows[1].id, to: "stock a")
+    viewModel.updateRowValue(viewModel.rows[1].id, to: "200")
 
     // canSave is true because duplicate names are now validated at save time
-    #expect(viewModel.canSave == true)
+    #expect(viewModel.toolbarStats.canSave == true)
   }
 
   @Test("saveSnapshot throws on duplicate asset names within same platform")
@@ -642,10 +631,10 @@ struct BulkEntryViewModelTests {
       modelContext: context, date: makeDate(2026, 3, 15))
     viewModel.addManualRow(forPlatform: "P1")
     viewModel.addManualRow(forPlatform: "P1")
-    viewModel.rows[0].assetName = "Stock A"
-    viewModel.rows[0].newValueText = "100"
-    viewModel.rows[1].assetName = "stock a"
-    viewModel.rows[1].newValueText = "200"
+    viewModel.updateRowAssetName(viewModel.rows[0].id, to: "Stock A")
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
+    viewModel.updateRowAssetName(viewModel.rows[1].id, to: "stock a")
+    viewModel.updateRowValue(viewModel.rows[1].id, to: "200")
 
     #expect(throws: SnapshotError.self) {
       try viewModel.saveSnapshot()
@@ -661,10 +650,10 @@ struct BulkEntryViewModelTests {
       modelContext: context, date: makeDate(2026, 3, 15))
     viewModel.addManualRow(forPlatform: "P1")
     viewModel.addManualRow(forPlatform: "P2")
-    viewModel.rows[0].assetName = "Stock A"
-    viewModel.rows[0].newValueText = "100"
-    viewModel.rows[1].assetName = "Stock A"
-    viewModel.rows[1].newValueText = "200"
+    viewModel.updateRowAssetName(viewModel.rows[0].id, to: "Stock A")
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
+    viewModel.updateRowAssetName(viewModel.rows[1].id, to: "Stock A")
+    viewModel.updateRowValue(viewModel.rows[1].id, to: "200")
 
     let snapshot = try viewModel.saveSnapshot()
     let values = snapshot.assetValues ?? []
@@ -680,10 +669,10 @@ struct BulkEntryViewModelTests {
       modelContext: context, date: makeDate(2026, 3, 15))
     viewModel.addManualRow(forPlatform: "P1")
     viewModel.addManualRow(forPlatform: "P1")
-    viewModel.rows[0].assetName = "Stock A"
-    viewModel.rows[0].newValueText = "100"
-    viewModel.rows[1].assetName = "stock a"
-    viewModel.rows[1].newValueText = "200"
+    viewModel.updateRowAssetName(viewModel.rows[0].id, to: "Stock A")
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
+    viewModel.updateRowAssetName(viewModel.rows[1].id, to: "stock a")
+    viewModel.updateRowValue(viewModel.rows[1].id, to: "200")
     viewModel.toggleInclude(rowID: viewModel.rows[1].id)
 
     let snapshot = try viewModel.saveSnapshot()
@@ -699,9 +688,9 @@ struct BulkEntryViewModelTests {
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
     viewModel.addPlatform(name: "Fidelity")
-    viewModel.rows[0].assetName = "New Fund"
-    viewModel.rows[0].currency = "EUR"
-    viewModel.rows[0].newValueText = "5000"
+    viewModel.updateRowAssetName(viewModel.rows[0].id, to: "New Fund")
+    viewModel.updateRowCurrency(viewModel.rows[0].id, to: "EUR")
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "5000")
 
     let snapshot = try viewModel.saveSnapshot()
     let values = snapshot.assetValues ?? []
@@ -720,9 +709,9 @@ struct BulkEntryViewModelTests {
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
     viewModel.addPlatform(name: "Fidelity")
-    viewModel.rows[0].assetName = "Stock X"
-    viewModel.rows[0].newValueText = "1000"
-    viewModel.rows[0].categoryName = "Equities"
+    viewModel.updateRowAssetName(viewModel.rows[0].id, to: "Stock X")
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "1000")
+    viewModel.updateRowCategoryName(viewModel.rows[0].id, to: "Equities")
 
     let snapshot = try viewModel.saveSnapshot()
     let values = snapshot.assetValues ?? []
@@ -738,7 +727,7 @@ struct BulkEntryViewModelTests {
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
     viewModel.addPlatform(name: "Vanguard")
-    viewModel.rows[0].assetName = "Stock A"
+    viewModel.updateRowAssetName(viewModel.rows[0].id, to: "Stock A")
 
     let csvData = "Asset Name,Market Value\nStock A,1500\n".data(using: .utf8)!
     let result = viewModel.importCSV(data: csvData, forPlatform: "Vanguard")
@@ -1093,19 +1082,17 @@ struct BulkEntryViewModelTests {
 
     // Add a manualNew row
     let manualID = viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[0].cashFlowDescription = "Manual Flow"
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[0].id, to: "Manual Flow")
 
-    // Add a CSV-sourced row manually
-    let csvRow = BulkEntryCashFlowRow(
-      id: UUID(), cashFlowDescription: "CSV Flow",
-      amountText: "1000", currency: "USD",
-      isIncluded: true, source: .csv)
-    viewModel.cashFlowRows.append(csvRow)
+    // Import a CSV-sourced row
+    let csv = "Description,Amount,Currency\nCSV Flow,1000,USD"
+    _ = viewModel.importCashFlowCSV(data: csv.data(using: .utf8)!)
 
     #expect(viewModel.cashFlowRows.count == 2)
 
     // Attempt to remove CSV row — should fail
-    viewModel.removeCashFlowRow(rowID: csvRow.id)
+    let csvRowID = viewModel.cashFlowRows.first(where: { $0.cashFlowDescription == "CSV Flow" })!.id
+    viewModel.removeCashFlowRow(rowID: csvRowID)
     #expect(viewModel.cashFlowRows.count == 2)
 
     // Remove manualNew row — should succeed
@@ -1122,8 +1109,8 @@ struct BulkEntryViewModelTests {
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
     let rowID = viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
-    viewModel.cashFlowRows[0].amountText = "5000"
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[0].id, to: "Salary")
+    viewModel.updateCashFlowAmount(viewModel.cashFlowRows[0].id, to: "5000")
 
     #expect(viewModel.cashFlowRows[0].isIncluded == true)
     #expect(viewModel.cashFlowRows[0].amountText == "5000")
@@ -1163,14 +1150,14 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
 
     viewModel.addManualCashFlowRow()
     viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
-    viewModel.cashFlowRows[0].amountText = "5000"
-    viewModel.cashFlowRows[1].cashFlowDescription = "salary"
-    viewModel.cashFlowRows[1].amountText = "3000"
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[0].id, to: "Salary")
+    viewModel.updateCashFlowAmount(viewModel.cashFlowRows[0].id, to: "5000")
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[1].id, to: "salary")
+    viewModel.updateCashFlowAmount(viewModel.cashFlowRows[1].id, to: "3000")
 
     #expect(throws: SnapshotError.self) {
       try viewModel.saveSnapshot()
@@ -1188,14 +1175,14 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
 
     viewModel.addManualCashFlowRow()
     viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
-    viewModel.cashFlowRows[0].amountText = "5000"
-    viewModel.cashFlowRows[1].cashFlowDescription = "salary"
-    viewModel.cashFlowRows[1].amountText = "3000"
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[0].id, to: "Salary")
+    viewModel.updateCashFlowAmount(viewModel.cashFlowRows[0].id, to: "5000")
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[1].id, to: "salary")
+    viewModel.updateCashFlowAmount(viewModel.cashFlowRows[1].id, to: "3000")
     viewModel.toggleCashFlowInclude(rowID: viewModel.cashFlowRows[1].id)
 
     let snapshot = try viewModel.saveSnapshot()
@@ -1215,14 +1202,14 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
 
     // Add cash flow with invalid amount
     viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
-    viewModel.cashFlowRows[0].amountText = "abc"
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[0].id, to: "Salary")
+    viewModel.updateCashFlowAmount(viewModel.cashFlowRows[0].id, to: "abc")
 
-    #expect(viewModel.canSave == false)
+    #expect(viewModel.toolbarStats.canSave == false)
   }
 
   @Test("canSave is false when cash flow has empty description")
@@ -1236,13 +1223,13 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
 
     // Add cash flow with empty description
     viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[0].amountText = "5000"
+    viewModel.updateCashFlowAmount(viewModel.cashFlowRows[0].id, to: "5000")
 
-    #expect(viewModel.canSave == false)
+    #expect(viewModel.toolbarStats.canSave == false)
   }
 
   @Test("canSave is false when cash flow has empty amount")
@@ -1256,13 +1243,13 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
 
     viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[0].id, to: "Salary")
     // amountText left empty
 
-    #expect(viewModel.canSave == false)
+    #expect(viewModel.toolbarStats.canSave == false)
   }
 
   @Test("canSave is true with valid cash flow rows")
@@ -1276,13 +1263,13 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
 
     viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
-    viewModel.cashFlowRows[0].amountText = "5000"
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[0].id, to: "Salary")
+    viewModel.updateCashFlowAmount(viewModel.cashFlowRows[0].id, to: "5000")
 
-    #expect(viewModel.canSave == true)
+    #expect(viewModel.toolbarStats.canSave == true)
   }
 
   @Test("canSave is true with no cash flow rows")
@@ -1296,9 +1283,9 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
 
-    #expect(viewModel.canSave == true)
+    #expect(viewModel.toolbarStats.canSave == true)
   }
 
   @Test("hasUnsavedChanges is true when cash flow rows exist")
@@ -1348,7 +1335,7 @@ struct BulkEntryViewModelTests {
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
     viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[0].id, to: "Salary")
 
     let csvData = "Description,Amount\nSalary,50000\n".data(using: .utf8)!
     let result = viewModel.importCashFlowCSV(data: csvData)
@@ -1469,12 +1456,12 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
 
     viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
-    viewModel.cashFlowRows[0].amountText = "50000"
-    viewModel.cashFlowRows[0].currency = "TWD"
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[0].id, to: "Salary")
+    viewModel.updateCashFlowAmount(viewModel.cashFlowRows[0].id, to: "50000")
+    viewModel.updateCashFlowCurrency(viewModel.cashFlowRows[0].id, to: "TWD")
 
     let snapshot = try viewModel.saveSnapshot()
     let operations = snapshot.cashFlowOperations ?? []
@@ -1495,15 +1482,15 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
 
     let id1 = viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[0].cashFlowDescription = "Salary"
-    viewModel.cashFlowRows[0].amountText = "50000"
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[0].id, to: "Salary")
+    viewModel.updateCashFlowAmount(viewModel.cashFlowRows[0].id, to: "50000")
 
     viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[1].cashFlowDescription = "Bonus"
-    viewModel.cashFlowRows[1].amountText = "10000"
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[1].id, to: "Bonus")
+    viewModel.updateCashFlowAmount(viewModel.cashFlowRows[1].id, to: "10000")
 
     viewModel.toggleCashFlowInclude(rowID: id1)
 
@@ -1524,7 +1511,7 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
 
     let snapshot = try viewModel.saveSnapshot()
     let operations = snapshot.cashFlowOperations ?? []
@@ -1542,11 +1529,11 @@ struct BulkEntryViewModelTests {
 
     let viewModel = BulkEntryViewModel(
       modelContext: context, date: makeDate(2026, 3, 15))
-    viewModel.rows[0].newValueText = "100"
+    viewModel.updateRowValue(viewModel.rows[0].id, to: "100")
 
     viewModel.addManualCashFlowRow()
-    viewModel.cashFlowRows[0].cashFlowDescription = "No change"
-    viewModel.cashFlowRows[0].amountText = "0"
+    viewModel.updateCashFlowDescription(viewModel.cashFlowRows[0].id, to: "No change")
+    viewModel.updateCashFlowAmount(viewModel.cashFlowRows[0].id, to: "0")
 
     let snapshot = try viewModel.saveSnapshot()
     let operations = snapshot.cashFlowOperations ?? []
@@ -1651,17 +1638,15 @@ struct BulkEntryCashFlowFocusTests {
   // MARK: - includedCashFlowNetByCurrency
 
   @Test("includedCashFlowNetByCurrency sums per currency")
-  func netByCurrencySumsCorrectly() throws {
+  func netByCurrencySumsCorrectly() {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
     let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
 
     let id1 = viewModel.addManualCashFlowRow()
     let id2 = viewModel.addManualCashFlowRow()
-    let idx1 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id1 }))
-    let idx2 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id2 }))
-    viewModel.cashFlowRows[idx1].amountText = "1000"
-    viewModel.cashFlowRows[idx2].amountText = "-500"
+    viewModel.updateCashFlowAmount(id1, to: "1000")
+    viewModel.updateCashFlowAmount(id2, to: "-500")
 
     let totals = viewModel.includedCashFlowNetByCurrency
     #expect(totals.count == 1)
@@ -1669,19 +1654,17 @@ struct BulkEntryCashFlowFocusTests {
   }
 
   @Test("includedCashFlowNetByCurrency groups different currencies separately")
-  func netByCurrencyGroupsByCurrency() throws {
+  func netByCurrencyGroupsByCurrency() {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
     let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
 
     let id1 = viewModel.addManualCashFlowRow()
     let id2 = viewModel.addManualCashFlowRow()
-    let idx1 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id1 }))
-    let idx2 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id2 }))
-    viewModel.cashFlowRows[idx1].amountText = "1000"
-    viewModel.cashFlowRows[idx1].currency = "USD"
-    viewModel.cashFlowRows[idx2].amountText = "5000"
-    viewModel.cashFlowRows[idx2].currency = "TWD"
+    viewModel.updateCashFlowAmount(id1, to: "1000")
+    viewModel.updateCashFlowCurrency(id1, to: "USD")
+    viewModel.updateCashFlowAmount(id2, to: "5000")
+    viewModel.updateCashFlowCurrency(id2, to: "TWD")
 
     let totals = viewModel.includedCashFlowNetByCurrency
     #expect(totals.count == 2)
@@ -1693,17 +1676,15 @@ struct BulkEntryCashFlowFocusTests {
   }
 
   @Test("includedCashFlowNetByCurrency excludes non-included rows")
-  func netByCurrencyExcludesNonIncluded() throws {
+  func netByCurrencyExcludesNonIncluded() {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
     let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
 
     let id1 = viewModel.addManualCashFlowRow()
     let id2 = viewModel.addManualCashFlowRow()
-    let idx1 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id1 }))
-    let idx2 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id2 }))
-    viewModel.cashFlowRows[idx1].amountText = "1000"
-    viewModel.cashFlowRows[idx2].amountText = "2000"
+    viewModel.updateCashFlowAmount(id1, to: "1000")
+    viewModel.updateCashFlowAmount(id2, to: "2000")
 
     viewModel.toggleCashFlowInclude(rowID: id2)
 
@@ -1713,17 +1694,15 @@ struct BulkEntryCashFlowFocusTests {
   }
 
   @Test("includedCashFlowNetByCurrency excludes rows with invalid amount text")
-  func netByCurrencyExcludesInvalid() throws {
+  func netByCurrencyExcludesInvalid() {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
     let viewModel = BulkEntryViewModel(modelContext: context, date: Date())
 
     let id1 = viewModel.addManualCashFlowRow()
     let id2 = viewModel.addManualCashFlowRow()
-    let idx1 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id1 }))
-    let idx2 = try #require(viewModel.cashFlowRows.firstIndex(where: { $0.id == id2 }))
-    viewModel.cashFlowRows[idx1].amountText = "1000"
-    viewModel.cashFlowRows[idx2].amountText = "abc"
+    viewModel.updateCashFlowAmount(id1, to: "1000")
+    viewModel.updateCashFlowAmount(id2, to: "abc")
 
     let totals = viewModel.includedCashFlowNetByCurrency
     #expect(totals.count == 1)

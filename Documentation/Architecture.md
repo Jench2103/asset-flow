@@ -135,7 +135,7 @@ ViewModels that compute aggregate or currency-converted values use `withObservat
 
 **Applied to:** `DashboardViewModel`, `SnapshotDetailViewModel`, `SnapshotListViewModel`, `CategoryListViewModel`, `CategoryDetailViewModel`, `PlatformListViewModel`, `PlatformDetailViewModel`, `AssetListViewModel`, `AssetDetailViewModel`, `RebalancingViewModel`.
 
-**Not applied to:** `ImportViewModel`, `SettingsViewModel` (do not display converted aggregate values).
+**Not applied to:** `ImportViewModel`, `BulkEntryViewModel`, `SettingsViewModel` (do not display converted aggregate values). `BulkEntryViewModel` uses `private(set)` rows with centralized mutation methods and a stored `toolbarStats` property maintained via O(1) delta updates instead.
 
 #### Model Layer (SwiftData)
 

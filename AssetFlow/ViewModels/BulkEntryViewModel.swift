@@ -23,8 +23,9 @@ import SwiftData
 final class BulkEntryViewModel {
 
   var snapshotDate: Date
-  var rows: [BulkEntryRow]
-  var cashFlowRows: [BulkEntryCashFlowRow] = []
+  private(set) var rows: [BulkEntryRow]
+  private(set) var cashFlowRows: [BulkEntryCashFlowRow] = []
+  private(set) var toolbarStats = BulkEntryToolbarStats()
   var savedSnapshot: Snapshot?
   var pendingFocusRowID: UUID?
   var pendingCashFlowFocusRowID: UUID?
@@ -40,20 +41,26 @@ final class BulkEntryViewModel {
 
   private let modelContext: ModelContext
 
-  var platformGroups: [(platform: String, rows: [BulkEntryRow])] {
-    let grouped = Dictionary(grouping: rows, by: \.platform)
-    return grouped.keys.sorted().map { platform in
-      (platform: platform, rows: grouped[platform] ?? [])
-    }
-  }
+  // MARK: - Structural Caches (observation-ignored)
 
-  var updatedCount: Int { rows.filter(\.isUpdated).count }
-  var pendingCount: Int { rows.filter(\.isPending).count }
-  var excludedCount: Int { rows.filter { !$0.isIncluded }.count }
-  var includedCount: Int { rows.filter(\.isIncluded).count }
-  var zeroValueCount: Int { rows.filter(\.hasZeroValueError).count }
-  var hasInvalidNewRows: Bool {
-    rows.contains { $0.isIncluded && $0.hasEmptyName }
+  @ObservationIgnored private var _platformGrouping: [(platform: String, rowIndices: [Int])] = []
+  @ObservationIgnored private var _rowIDToIndex: [UUID: Int] = [:]
+  @ObservationIgnored private var _cashFlowRowIDToIndex: [UUID: Int] = [:]
+
+  // MARK: - Pending Commit Buffers (observation-ignored)
+
+  /// Local text field values written on every keystroke.  The parent section's
+  /// `onChange(of: focusedRowID)` calls `flushRowCommit` / `flushCashFlowCommit`
+  /// to push pending values into `rows` / `cashFlowRows` in a single mutation.
+  @ObservationIgnored private var _pendingValues: [UUID: String] = [:]
+  @ObservationIgnored private var _pendingNames: [UUID: String] = [:]
+  @ObservationIgnored private var _pendingCashFlowAmounts: [UUID: String] = [:]
+  @ObservationIgnored private var _pendingCashFlowDescriptions: [UUID: String] = [:]
+
+  var platformGroups: [(platform: String, rows: [BulkEntryRow])] {
+    _platformGrouping.map { group in
+      (platform: group.platform, rows: group.rowIndices.map { rows[$0] })
+    }
   }
 
   var cashFlowCount: Int {
@@ -69,18 +76,6 @@ final class BulkEntryViewModel {
     return totals.sorted { $0.key < $1.key }.map { (currency: $0.key, total: $0.value) }
   }
 
-  var hasEmptyCashFlowAmounts: Bool {
-    cashFlowRows.contains(where: \.hasEmptyAmount)
-  }
-
-  var hasEmptyCashFlowDescriptions: Bool {
-    cashFlowRows.contains { $0.isIncluded && $0.hasEmptyDescription }
-  }
-
-  var hasCashFlowValidationErrors: Bool {
-    cashFlowRows.contains { $0.isIncluded && $0.hasValidationError }
-  }
-
   // MARK: - Column Mapping State
 
   var showColumnMappingSheet: Bool = false
@@ -90,23 +85,7 @@ final class BulkEntryViewModel {
   var pendingCSVData: Data?
   var pendingCSVPlatform: String = ""
   var lastImportResult: CSVImportResult?
-  var canSave: Bool {
-    var hasIncluded = false
-    for row in rows {
-      guard row.isIncluded else { continue }
-      hasIncluded = true
-      if row.hasZeroValueError || row.hasEmptyName || row.hasValidationError {
-        return false
-      }
-    }
-    guard hasIncluded else { return false }
-    for cfRow in cashFlowRows {
-      if cfRow.hasEmptyAmount { return false }
-      guard cfRow.isIncluded else { continue }
-      if cfRow.hasValidationError || cfRow.hasEmptyDescription { return false }
-    }
-    return true
-  }
+
   var hasUnsavedChanges: Bool {
     rows.contains { !$0.newValueText.isEmpty }
       || rows.contains { !$0.isIncluded }
@@ -119,16 +98,125 @@ final class BulkEntryViewModel {
     self.snapshotDate = Calendar.current.startOfDay(for: date)
     self.rows = []
     loadRowsFromLatestSnapshot()
+    rebuildStructuralCaches()
+    recomputeToolbarStats()
+  }
+
+  // MARK: - Pending Buffer Setters (called from row views on every keystroke)
+
+  func setPendingValue(_ rowID: UUID, to value: String) {
+    _pendingValues[rowID] = value
+  }
+
+  func setPendingName(_ rowID: UUID, to name: String) {
+    _pendingNames[rowID] = name
+  }
+
+  func setPendingCashFlowAmount(_ rowID: UUID, to amount: String) {
+    _pendingCashFlowAmounts[rowID] = amount
+  }
+
+  func setPendingCashFlowDescription(_ rowID: UUID, to description: String) {
+    _pendingCashFlowDescriptions[rowID] = description
+  }
+
+  /// Flushes any pending local values for the given asset row into `rows`.
+  /// Called by the parent section's `onChange(of: focusedRowID)` when focus
+  /// leaves a row.
+  func flushRowCommit(for rowID: UUID) {
+    if let value = _pendingValues[rowID] {
+      updateRowValue(rowID, to: value)
+    }
+    if let name = _pendingNames[rowID] {
+      updateRowAssetName(rowID, to: name)
+    }
+  }
+
+  /// Flushes any pending local values for the given cash flow row.
+  func flushCashFlowCommit(for rowID: UUID) {
+    if let amount = _pendingCashFlowAmounts[rowID] {
+      updateCashFlowAmount(rowID, to: amount)
+    }
+    if let description = _pendingCashFlowDescriptions[rowID] {
+      updateCashFlowDescription(rowID, to: description)
+    }
+  }
+
+  // MARK: - Centralized Row Mutations
+
+  func updateRowValue(_ rowID: UUID, to newValueText: String) {
+    _pendingValues.removeValue(forKey: rowID)
+    guard let index = _rowIDToIndex[rowID],
+      rows[index].newValueText != newValueText
+    else { return }
+    let old = rows[index]
+    rows[index].newValueText = newValueText
+    applyAssetRowDelta(old: old, new: rows[index])
+  }
+
+  func updateRowAssetName(_ rowID: UUID, to name: String) {
+    _pendingNames.removeValue(forKey: rowID)
+    guard let index = _rowIDToIndex[rowID],
+      rows[index].assetName != name
+    else { return }
+    let old = rows[index]
+    rows[index].assetName = name
+    applyAssetRowDelta(old: old, new: rows[index])
+  }
+
+  /// Currency does not affect any toolbar stat contribution — no delta update needed.
+  func updateRowCurrency(_ rowID: UUID, to currency: String) {
+    guard let index = _rowIDToIndex[rowID],
+      rows[index].currency != currency
+    else { return }
+    rows[index].currency = currency
+  }
+
+  func updateRowCategoryName(_ rowID: UUID, to name: String?) {
+    guard let index = _rowIDToIndex[rowID],
+      rows[index].categoryName != name
+    else { return }
+    rows[index].categoryName = name
+  }
+
+  // MARK: - Centralized Cash Flow Mutations
+
+  func updateCashFlowDescription(_ rowID: UUID, to description: String) {
+    _pendingCashFlowDescriptions.removeValue(forKey: rowID)
+    guard let index = _cashFlowRowIDToIndex[rowID],
+      cashFlowRows[index].cashFlowDescription != description
+    else { return }
+    let old = cashFlowRows[index]
+    cashFlowRows[index].cashFlowDescription = description
+    applyCashFlowRowDelta(old: old, new: cashFlowRows[index])
+  }
+
+  func updateCashFlowAmount(_ rowID: UUID, to amountText: String) {
+    _pendingCashFlowAmounts.removeValue(forKey: rowID)
+    guard let index = _cashFlowRowIDToIndex[rowID],
+      cashFlowRows[index].amountText != amountText
+    else { return }
+    let old = cashFlowRows[index]
+    cashFlowRows[index].amountText = amountText
+    applyCashFlowRowDelta(old: old, new: cashFlowRows[index])
+  }
+
+  /// Currency does not affect any toolbar stat contribution — no delta update needed.
+  func updateCashFlowCurrency(_ rowID: UUID, to currency: String) {
+    guard let index = _cashFlowRowIDToIndex[rowID],
+      cashFlowRows[index].currency != currency
+    else { return }
+    cashFlowRows[index].currency = currency
   }
 
   /// Returns the ID of the next included row in visual (platform-grouped) order
   /// after the row with the given ID, or `nil` if already at the last included row.
   func nextFocusRowID(after currentRowID: UUID) -> UUID? {
     var found = false
-    for group in platformGroups {
-      for row in group.rows where row.isIncluded {
-        if found { return row.id }
-        if row.id == currentRowID { found = true }
+    for group in _platformGrouping {
+      for index in group.rowIndices where rows[index].isIncluded {
+        if found { return rows[index].id }
+        if rows[index].id == currentRowID { found = true }
       }
     }
     return nil
@@ -151,24 +239,14 @@ final class BulkEntryViewModel {
     pendingCashFlowFocusRowID = nextCashFlowFocusRowID(after: currentRowID)
   }
 
-  func requestCommit(for rowID: UUID) {
-    if let index = rows.firstIndex(where: { $0.id == rowID }) {
-      rows[index].commitSequence += 1
-    }
-  }
-
-  func requestCashFlowCommit(for rowID: UUID) {
-    if let index = cashFlowRows.firstIndex(where: { $0.id == rowID }) {
-      cashFlowRows[index].commitSequence += 1
-    }
-  }
-
   func toggleInclude(rowID: UUID) {
-    guard let index = rows.firstIndex(where: { $0.id == rowID }) else { return }
+    guard let index = _rowIDToIndex[rowID] else { return }
+    let old = rows[index]
     rows[index].isIncluded.toggle()
     if !rows[index].isIncluded {
       rows[index].newValueText = ""
     }
+    applyAssetRowDelta(old: old, new: rows[index])
   }
 
   @discardableResult
@@ -186,6 +264,8 @@ final class BulkEntryViewModel {
       categoryName: nil
     )
     rows.append(row)
+    rebuildStructuralCaches()
+    addAssetRowToStats(row)
     return row.id
   }
 
@@ -199,7 +279,13 @@ final class BulkEntryViewModel {
   }
 
   func removeManualRow(rowID: UUID) {
+    if let row = rows.first(where: { $0.id == rowID && $0.source == .manualNew }) {
+      removeAssetRowFromStats(row)
+    }
+    _pendingValues.removeValue(forKey: rowID)
+    _pendingNames.removeValue(forKey: rowID)
     rows.removeAll { $0.id == rowID && $0.source == .manualNew }
+    rebuildStructuralCaches()
   }
 
   // MARK: - Cash Flow Row Management
@@ -211,20 +297,30 @@ final class BulkEntryViewModel {
       currency: SettingsService.shared.mainCurrency,
       isIncluded: true, source: .manualNew)
     cashFlowRows.append(row)
+    rebuildStructuralCaches()
+    addCashFlowRowToStats(row)
     pendingCashFlowFocusRowID = row.id
     return row.id
   }
 
   func removeCashFlowRow(rowID: UUID) {
+    if let row = cashFlowRows.first(where: { $0.id == rowID && $0.source == .manualNew }) {
+      removeCashFlowRowFromStats(row)
+    }
+    _pendingCashFlowAmounts.removeValue(forKey: rowID)
+    _pendingCashFlowDescriptions.removeValue(forKey: rowID)
     cashFlowRows.removeAll { $0.id == rowID && $0.source == .manualNew }
+    rebuildStructuralCaches()
   }
 
   func toggleCashFlowInclude(rowID: UUID) {
-    guard let index = cashFlowRows.firstIndex(where: { $0.id == rowID }) else { return }
+    guard let index = _cashFlowRowIDToIndex[rowID] else { return }
+    let old = cashFlowRows[index]
     cashFlowRows[index].isIncluded.toggle()
     if !cashFlowRows[index].isIncluded {
       cashFlowRows[index].amountText = ""
     }
+    applyCashFlowRowDelta(old: old, new: cashFlowRows[index])
   }
 
   // MARK: - Cash Flow CSV Import
@@ -479,6 +575,8 @@ final class BulkEntryViewModel {
       }
     }
 
+    rebuildStructuralCaches()
+    recomputeToolbarStats()
     return CSVImportResult(
       matchedCount: matchedCount,
       newCount: newCount,
@@ -544,6 +642,8 @@ final class BulkEntryViewModel {
       }
     }
 
+    rebuildStructuralCaches()
+    recomputeToolbarStats()
     return CashFlowCSVImportResult(
       matchedCount: matchedCount, newCount: newCount,
       errors: errors, parserWarnings: parserWarnings)
@@ -580,5 +680,128 @@ final class BulkEntryViewModel {
           categoryName: nil
         )
       }.sorted { ($0.platform, $0.assetName) < ($1.platform, $1.assetName) }
+  }
+
+  // MARK: - Structural Caches Maintenance
+
+  private func rebuildStructuralCaches() {
+    let grouped = Dictionary(grouping: rows.indices, by: { rows[$0].platform })
+    _platformGrouping = grouped.keys.sorted().map { platform in
+      (platform: platform, rowIndices: grouped[platform]!)
+    }
+    _rowIDToIndex = Dictionary(
+      uniqueKeysWithValues: rows.enumerated().map { ($1.id, $0) })
+    _cashFlowRowIDToIndex = Dictionary(
+      uniqueKeysWithValues: cashFlowRows.enumerated().map { ($1.id, $0) })
+  }
+
+  // MARK: - Toolbar Stats Maintenance
+
+  private func recomputeToolbarStats() {
+    var stats = BulkEntryToolbarStats()
+    for row in rows {
+      if row.isIncluded {
+        stats.includedCount += 1
+        if row.isUpdated { stats.updatedCount += 1 }
+        if row.isPending { stats.pendingCount += 1 }
+        if row.hasZeroValueError { stats.zeroValueCount += 1 }
+        if row.hasEmptyName { stats.invalidNewRowCount += 1 }
+        if row.hasValidationError { stats.validationErrorCount += 1 }
+      } else {
+        stats.excludedCount += 1
+      }
+    }
+    for cfRow in cashFlowRows {
+      if cfRow.hasEmptyAmount { stats.emptyCashFlowAmountCount += 1 }
+      guard cfRow.isIncluded else { continue }
+      if cfRow.hasValidationError { stats.cashFlowValidationErrorCount += 1 }
+      if cfRow.hasEmptyDescription { stats.emptyCashFlowDescriptionCount += 1 }
+    }
+    toolbarStats = stats
+  }
+
+  private static func assetRowContribution(_ row: BulkEntryRow) -> BulkEntryToolbarStats {
+    var c = BulkEntryToolbarStats()
+    if row.isIncluded {
+      c.includedCount = 1
+      if row.isUpdated { c.updatedCount = 1 }
+      if row.isPending { c.pendingCount = 1 }
+      if row.hasZeroValueError { c.zeroValueCount = 1 }
+      if row.hasEmptyName { c.invalidNewRowCount = 1 }
+      if row.hasValidationError { c.validationErrorCount = 1 }
+    } else {
+      c.excludedCount = 1
+    }
+    return c
+  }
+
+  private static func cashFlowRowContribution(
+    _ row: BulkEntryCashFlowRow
+  ) -> BulkEntryToolbarStats {
+    var c = BulkEntryToolbarStats()
+    if row.hasEmptyAmount { c.emptyCashFlowAmountCount = 1 }
+    guard row.isIncluded else { return c }
+    if row.hasValidationError { c.cashFlowValidationErrorCount = 1 }
+    if row.hasEmptyDescription { c.emptyCashFlowDescriptionCount = 1 }
+    return c
+  }
+
+  private func applyAssetRowDelta(old: BulkEntryRow, new: BulkEntryRow) {
+    applyStatsDelta(
+      oldContribution: Self.assetRowContribution(old),
+      newContribution: Self.assetRowContribution(new))
+  }
+
+  private func applyCashFlowRowDelta(
+    old: BulkEntryCashFlowRow, new: BulkEntryCashFlowRow
+  ) {
+    applyStatsDelta(
+      oldContribution: Self.cashFlowRowContribution(old),
+      newContribution: Self.cashFlowRowContribution(new))
+  }
+
+  private func applyStatsDelta(
+    oldContribution oldC: BulkEntryToolbarStats,
+    newContribution newC: BulkEntryToolbarStats
+  ) {
+    var stats = toolbarStats
+    stats.updatedCount += newC.updatedCount - oldC.updatedCount
+    stats.pendingCount += newC.pendingCount - oldC.pendingCount
+    stats.excludedCount += newC.excludedCount - oldC.excludedCount
+    stats.includedCount += newC.includedCount - oldC.includedCount
+    stats.zeroValueCount += newC.zeroValueCount - oldC.zeroValueCount
+    stats.invalidNewRowCount += newC.invalidNewRowCount - oldC.invalidNewRowCount
+    stats.validationErrorCount += newC.validationErrorCount - oldC.validationErrorCount
+    stats.emptyCashFlowAmountCount +=
+      newC.emptyCashFlowAmountCount - oldC.emptyCashFlowAmountCount
+    stats.emptyCashFlowDescriptionCount +=
+      newC.emptyCashFlowDescriptionCount - oldC.emptyCashFlowDescriptionCount
+    stats.cashFlowValidationErrorCount +=
+      newC.cashFlowValidationErrorCount - oldC.cashFlowValidationErrorCount
+    if stats != toolbarStats { toolbarStats = stats }
+  }
+
+  private func addAssetRowToStats(_ row: BulkEntryRow) {
+    applyStatsDelta(
+      oldContribution: BulkEntryToolbarStats(),
+      newContribution: Self.assetRowContribution(row))
+  }
+
+  private func removeAssetRowFromStats(_ row: BulkEntryRow) {
+    applyStatsDelta(
+      oldContribution: Self.assetRowContribution(row),
+      newContribution: BulkEntryToolbarStats())
+  }
+
+  private func addCashFlowRowToStats(_ row: BulkEntryCashFlowRow) {
+    applyStatsDelta(
+      oldContribution: BulkEntryToolbarStats(),
+      newContribution: Self.cashFlowRowContribution(row))
+  }
+
+  private func removeCashFlowRowFromStats(_ row: BulkEntryCashFlowRow) {
+    applyStatsDelta(
+      oldContribution: Self.cashFlowRowContribution(row),
+      newContribution: BulkEntryToolbarStats())
   }
 }
