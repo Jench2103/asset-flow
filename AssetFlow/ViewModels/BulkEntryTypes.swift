@@ -123,6 +123,14 @@ struct CSVImportResult {
   }
 }
 
+/// Which CSV import context is active.  SwiftUI on macOS silently drops
+/// duplicate `.fileImporter` modifiers attached to the same view, so we
+/// use a single modifier and dispatch on this value.
+enum CSVImportTarget {
+  case asset(platform: String)
+  case cashFlow
+}
+
 /// Source of a bulk entry row's value.
 enum ValueSource: Equatable {
   case manual

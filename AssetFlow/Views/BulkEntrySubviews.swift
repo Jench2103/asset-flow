@@ -271,9 +271,7 @@ struct BulkEntryColumnHeaders: View {
 struct BulkEntryContentArea: View {
   var viewModel: BulkEntryViewModel
   @Binding var cachedCategoryNames: [String]
-  var csvImportPlatform: Binding<String>
-  var showCSVImporter: Binding<Bool>
-  @Binding var showCashFlowCSVImporter: Bool
+  var csvImportTarget: Binding<CSVImportTarget?>
 
   @State private var showEmptyStatePopover = false
   @State private var emptyStatePlatformName = ""
@@ -305,11 +303,10 @@ struct BulkEntryContentArea: View {
           BulkEntryAssetSection(
             viewModel: viewModel,
             cachedCategoryNames: $cachedCategoryNames,
-            csvImportPlatform: csvImportPlatform,
-            showCSVImporter: showCSVImporter)
+            csvImportTarget: csvImportTarget)
           BulkEntryCashFlowSection(
             viewModel: viewModel,
-            showCSVImporter: $showCashFlowCSVImporter)
+            csvImportTarget: csvImportTarget)
         }
         .padding()
       }
@@ -366,8 +363,7 @@ struct BulkEntryContentArea: View {
 struct BulkEntryAssetSection: View {
   var viewModel: BulkEntryViewModel
   @Binding var cachedCategoryNames: [String]
-  var csvImportPlatform: Binding<String>
-  var showCSVImporter: Binding<Bool>
+  var csvImportTarget: Binding<CSVImportTarget?>
   @FocusState private var focusedRowID: UUID?
   @FocusState private var nameFieldFocusedRowID: UUID?
 
@@ -380,8 +376,7 @@ struct BulkEntryAssetSection: View {
         cachedCategoryNames: $cachedCategoryNames,
         focusedRowID: $focusedRowID,
         nameFieldFocusedRowID: $nameFieldFocusedRowID,
-        csvImportPlatform: csvImportPlatform,
-        showCSVImporter: showCSVImporter
+        csvImportTarget: csvImportTarget
       )
       .equatable()
     }
@@ -419,8 +414,7 @@ struct BulkEntryPlatformSection: View, Equatable {
   @Binding var cachedCategoryNames: [String]
   var focusedRowID: FocusState<UUID?>.Binding
   var nameFieldFocusedRowID: FocusState<UUID?>.Binding
-  var csvImportPlatform: Binding<String>
-  var showCSVImporter: Binding<Bool>
+  var csvImportTarget: Binding<CSVImportTarget?>
 
   static func == (lhs: BulkEntryPlatformSection, rhs: BulkEntryPlatformSection) -> Bool {
     lhs.platform == rhs.platform && lhs.rows == rhs.rows
@@ -480,8 +474,7 @@ struct BulkEntryPlatformSection: View, Equatable {
       .helpWhenUnlocked("Add a new asset to this platform")
 
       Button {
-        csvImportPlatform.wrappedValue = platform
-        showCSVImporter.wrappedValue = true
+        csvImportTarget.wrappedValue = .asset(platform: platform)
       } label: {
         Label("Import CSV", systemImage: "doc.text")
           .font(.callout)
@@ -503,7 +496,7 @@ struct BulkEntryPlatformSection: View, Equatable {
 /// also reads asset-related properties like `platformGroups`.
 struct BulkEntryCashFlowSection: View {
   var viewModel: BulkEntryViewModel
-  @Binding var showCSVImporter: Bool
+  @Binding var csvImportTarget: CSVImportTarget?
   @FocusState private var focusedAmountRowID: UUID?
   @FocusState private var focusedDescriptionRowID: UUID?
 
@@ -567,7 +560,7 @@ struct BulkEntryCashFlowSection: View {
       .helpWhenUnlocked("Add a new cash flow operation")
 
       Button {
-        showCSVImporter = true
+        csvImportTarget = .cashFlow
       } label: {
         Label("Import CSV", systemImage: "doc.text")
           .font(.callout)

@@ -31,22 +31,29 @@ struct BulkEntryView: View {
   @Environment(\.modelContext) private var modelContext
   @State private var showZeroPendingConfirmation = false
   @State private var zeroPendingCount = 0
-  @State private var csvImportPlatform: String = ""
-  @State private var showCSVImporter = false
+  @State private var csvImportTarget: CSVImportTarget?
   @State private var showError = false
   @State private var errorMessage = ""
   @State private var showImportResult = false
   @State private var importResultTitle = ""
   @State private var importResultMessage = ""
-  @State private var showCashFlowCSVImporter = false
-  @State private var showCashFlowImportResult = false
-  @State private var cashFlowImportResultTitle = ""
-  @State private var cashFlowImportResultMessage = ""
   @State private var cachedCategoryNames: [String] = []
 
   init(viewModel: BulkEntryViewModel, onSave: @escaping (Snapshot) -> Void) {
     _viewModel = State(initialValue: viewModel)
     self.onSave = onSave
+  }
+
+  /// Derived binding that maps `csvImportTarget` to the Bool that
+  /// `.fileImporter(isPresented:)` expects.  The setter is a no-op:
+  /// `csvImportTarget` is cleared inside the `onCompletion` callback
+  /// (which always fires — both on selection and cancel) so the target
+  /// context is still available when the callback reads it.
+  private var showCSVFileImporter: Binding<Bool> {
+    Binding(
+      get: { csvImportTarget != nil },
+      set: { _ in }
+    )
   }
 
   var body: some View {
@@ -58,28 +65,35 @@ struct BulkEntryView: View {
       BulkEntryContentArea(
         viewModel: viewModel,
         cachedCategoryNames: $cachedCategoryNames,
-        csvImportPlatform: $csvImportPlatform,
-        showCSVImporter: $showCSVImporter,
-        showCashFlowCSVImporter: $showCashFlowCSVImporter)
+        csvImportTarget: $csvImportTarget)
     }
     .onAppear {
       loadCachedCategoryNames()
     }
     .fileImporter(
-      isPresented: $showCSVImporter,
+      isPresented: showCSVFileImporter,
       allowedContentTypes: [.commaSeparatedText, .plainText]
     ) { result in
-      let platform = csvImportPlatform
-      guard !platform.isEmpty,
-        let url = try? result.get()
-      else { return }
+      let target = csvImportTarget
+      csvImportTarget = nil
+      guard let target, let url = try? result.get() else { return }
       if url.startAccessingSecurityScopedResource() {
         defer { url.stopAccessingSecurityScopedResource() }
-        if let data = try? Data(contentsOf: url) {
+        guard let data = try? Data(contentsOf: url) else { return }
+        switch target {
+        case .asset(let platform):
           viewModel.loadCSVForMapping(data: data, forPlatform: platform)
           if !viewModel.showColumnMappingSheet {
-            // Auto-detected — show result immediately
-            showLastImportResult()
+            showImportResultAlert(for: viewModel.lastImportResult?.formattedResult())
+            viewModel.lastImportResult = nil
+          }
+
+        case .cashFlow:
+          viewModel.loadCashFlowCSVForMapping(data: data)
+          if !viewModel.showCashFlowColumnMappingSheet {
+            showImportResultAlert(
+              for: viewModel.lastCashFlowImportResult?.formattedResult())
+            viewModel.lastCashFlowImportResult = nil
           }
         }
       }
@@ -92,10 +106,28 @@ struct BulkEntryView: View {
         initialMapping: viewModel.pendingPartialMapping,
         onConfirm: { mapping in
           _ = viewModel.confirmColumnMapping(mapping)
-          showLastImportResult()
+          showImportResultAlert(for: viewModel.lastImportResult?.formattedResult())
+          viewModel.lastImportResult = nil
         },
         onCancel: {
           viewModel.showColumnMappingSheet = false
+        }
+      )
+    }
+    .sheet(isPresented: $viewModel.showCashFlowColumnMappingSheet) {
+      ColumnMappingSheet(
+        rawHeaders: viewModel.pendingCashFlowRawHeaders,
+        schema: .cashFlow,
+        sampleRows: viewModel.pendingCashFlowSampleRows,
+        initialMapping: viewModel.pendingCashFlowPartialMapping,
+        onConfirm: { mapping in
+          _ = viewModel.confirmCashFlowColumnMapping(mapping)
+          showImportResultAlert(
+            for: viewModel.lastCashFlowImportResult?.formattedResult())
+          viewModel.lastCashFlowImportResult = nil
+        },
+        onCancel: {
+          viewModel.showCashFlowColumnMappingSheet = false
         }
       )
     }
@@ -128,41 +160,6 @@ struct BulkEntryView: View {
     } message: {
       Text(importResultMessage)
     }
-    .fileImporter(
-      isPresented: $showCashFlowCSVImporter,
-      allowedContentTypes: [.commaSeparatedText, .plainText]
-    ) { result in
-      guard let url = try? result.get() else { return }
-      if url.startAccessingSecurityScopedResource() {
-        defer { url.stopAccessingSecurityScopedResource() }
-        if let data = try? Data(contentsOf: url) {
-          viewModel.loadCashFlowCSVForMapping(data: data)
-          if !viewModel.showCashFlowColumnMappingSheet {
-            showLastCashFlowImportResult()
-          }
-        }
-      }
-    }
-    .sheet(isPresented: $viewModel.showCashFlowColumnMappingSheet) {
-      ColumnMappingSheet(
-        rawHeaders: viewModel.pendingCashFlowRawHeaders,
-        schema: .cashFlow,
-        sampleRows: viewModel.pendingCashFlowSampleRows,
-        initialMapping: viewModel.pendingCashFlowPartialMapping,
-        onConfirm: { mapping in
-          _ = viewModel.confirmCashFlowColumnMapping(mapping)
-          showLastCashFlowImportResult()
-        },
-        onCancel: {
-          viewModel.showCashFlowColumnMappingSheet = false
-        }
-      )
-    }
-    .alert(cashFlowImportResultTitle, isPresented: $showCashFlowImportResult) {
-      Button("OK") {}
-    } message: {
-      Text(cashFlowImportResultMessage)
-    }
   }
 
   // MARK: - Save
@@ -194,22 +191,11 @@ struct BulkEntryView: View {
     cachedCategoryNames = categories.map(\.name)
   }
 
-  private func showLastImportResult() {
-    guard let importResult = viewModel.lastImportResult else { return }
-    let formatted = importResult.formattedResult()
-    importResultTitle = formatted.title
-    importResultMessage = formatted.message
+  private func showImportResultAlert(for result: (title: String, message: String)?) {
+    guard let result else { return }
+    importResultTitle = result.title
+    importResultMessage = result.message
     showImportResult = true
-    viewModel.lastImportResult = nil
-  }
-
-  private func showLastCashFlowImportResult() {
-    guard let importResult = viewModel.lastCashFlowImportResult else { return }
-    let formatted = importResult.formattedResult()
-    cashFlowImportResultTitle = formatted.title
-    cashFlowImportResultMessage = formatted.message
-    showCashFlowImportResult = true
-    viewModel.lastCashFlowImportResult = nil
   }
 
 }
