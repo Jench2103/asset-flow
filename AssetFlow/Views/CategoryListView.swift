@@ -302,7 +302,7 @@ private struct AddCategorySheet: View {
     let targetAllocation: Decimal?
     if targetAllocationText.trimmingCharacters(in: .whitespaces).isEmpty {
       targetAllocation = nil
-    } else if let value = Decimal(string: targetAllocationText) {
+    } else if let value = Decimal.parse(targetAllocationText) {
       targetAllocation = value
     } else {
       errorMessage = String(

@@ -64,7 +64,7 @@ struct AddCashFlowSheet: View {
           }
           .disabled(
             description.trimmingCharacters(in: .whitespaces).isEmpty
-              || Decimal(string: amountText) == nil
+              || Decimal.parse(amountText) == nil
           )
         }
       }
@@ -79,7 +79,7 @@ struct AddCashFlowSheet: View {
   }
 
   private func addCashFlow() {
-    guard let amount = Decimal(string: amountText) else { return }
+    guard let amount = Decimal.parse(amountText) else { return }
     do {
       try viewModel.addCashFlow(
         description: description, amount: amount, currency: cashFlowCurrency)
@@ -134,7 +134,7 @@ struct EditCashFlowPopover: View {
           .keyboardShortcut(.defaultAction)
           .disabled(
             description.trimmingCharacters(in: .whitespaces).isEmpty
-              || Decimal(string: amountText) == nil
+              || Decimal.parse(amountText) == nil
           )
       }
     }
@@ -145,7 +145,7 @@ struct EditCashFlowPopover: View {
 
   private func saveIfValid() {
     let trimmed = description.trimmingCharacters(in: .whitespaces)
-    guard !trimmed.isEmpty, let amount = Decimal(string: amountText) else { return }
+    guard !trimmed.isEmpty, let amount = Decimal.parse(amountText) else { return }
     onSave(trimmed, amount)
     dismiss()
   }

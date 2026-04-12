@@ -60,4 +60,9 @@ enum Constants {
     static let screenLockTimeout = "screenLockTimeout"
     static let platformOrder = "platformOrder"
   }
+
+  enum Parsing {
+    /// Currency symbols to strip from user-entered numeric strings.
+    static let currencySymbols: Set<Character> = ["$", "€", "£", "¥", "₩", "₹"]
+  }
 }

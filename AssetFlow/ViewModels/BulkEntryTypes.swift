@@ -151,7 +151,7 @@ struct BulkEntryRow: Identifiable, Equatable {
   var source: ValueSource
   var categoryName: String?
 
-  var newValue: Decimal? { Decimal(string: newValueText) }
+  var newValue: Decimal? { Decimal.parse(newValueText) }
   var isUpdated: Bool { isIncluded && newValue != nil && !hasZeroValueError }
   var isPending: Bool { isIncluded && (newValueText.isEmpty || newValue == nil) }
   var hasValidationError: Bool { !newValueText.isEmpty && newValue == nil }
@@ -183,7 +183,7 @@ struct BulkEntryCashFlowRow: Identifiable, Equatable {
   var isIncluded: Bool
   var source: ValueSource
 
-  var amount: Decimal? { Decimal(string: amountText) }
+  var amount: Decimal? { Decimal.parse(amountText) }
   var hasValidationError: Bool { !amountText.isEmpty && amount == nil }
   var hasEmptyAmount: Bool { isIncluded && amountText.trimmingCharacters(in: .whitespaces).isEmpty }
   var hasEmptyDescription: Bool {

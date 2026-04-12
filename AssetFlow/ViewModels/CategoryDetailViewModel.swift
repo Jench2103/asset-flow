@@ -56,7 +56,7 @@ final class CategoryDetailViewModel {
       let trimmed = targetAllocationText.trimmingCharacters(in: .whitespaces)
       if trimmed.isEmpty {
         editedTargetAllocation = nil
-      } else if let value = Decimal(string: trimmed) {
+      } else if let value = Decimal.parse(trimmed) {
         editedTargetAllocation = value
       }
     }

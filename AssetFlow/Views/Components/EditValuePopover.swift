@@ -49,7 +49,7 @@ struct EditValuePopover: View {
         Spacer()
         Button("Save") { saveIfValid() }
           .keyboardShortcut(.defaultAction)
-          .disabled(Decimal(string: valueText) == nil)
+          .disabled(Decimal.parse(valueText) == nil)
       }
     }
     .frame(width: 280)
@@ -58,7 +58,7 @@ struct EditValuePopover: View {
   }
 
   private func saveIfValid() {
-    guard let newValue = Decimal(string: valueText) else { return }
+    guard let newValue = Decimal.parse(valueText) else { return }
     onSave(newValue)
     dismiss()
   }

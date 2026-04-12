@@ -451,11 +451,7 @@ extension CSVParsingService {
 
   static func parseDecimalValue(_ raw: String) -> Decimal? {
     var cleaned = raw.trimmingCharacters(in: .whitespaces)
-    let currencySymbols: Set<Character> = [
-      "$", "€", "£", "¥", "₩", "₹",
-    ]
-    cleaned = String(
-      cleaned.filter { !currencySymbols.contains($0) })
+    cleaned = String(cleaned.filter { !Constants.Parsing.currencySymbols.contains($0) })
     cleaned = cleaned.replacingOccurrences(of: ",", with: "")
     cleaned = cleaned.trimmingCharacters(in: .whitespaces)
     guard !cleaned.isEmpty else { return nil }

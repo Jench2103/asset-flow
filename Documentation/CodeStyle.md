@@ -407,6 +407,27 @@ let formatted = value.formatted(currency: "USD")  // "$1,234.56"
 let percentage = ratio.formattedPercentage()       // "12.34%"
 ```
 
+### Parsing User Input
+
+Use `Decimal.parse(_:locale:)` for parsing user-entered numeric strings. Never use `Decimal(string:)` directly for UI text field input — it doesn't handle locale-specific separators.
+
+```swift
+// Good — locale-aware parsing handles "1,000" correctly
+guard let value = Decimal.parse(amountText) else { return }
+
+// Bad — "1,000" returns nil or parses incorrectly
+guard let value = Decimal(string: amountText) else { return }
+```
+
+`Decimal.parse()` uses `NumberFormatter` internally, supporting:
+
+- Thousands separators (comma in US, period in Germany, space in France)
+- Decimal separators (period in US, comma in Germany)
+- Currency symbols ($, €, £, ¥, ₩, ₹)
+- Leading/trailing whitespace
+
+**Note**: CSV parsing uses `CSVParsingService.parseDecimalValue()` which has different rules (strips all commas) since CSV files use a canonical format.
+
 ______________________________________________________________________
 
 ## Localization

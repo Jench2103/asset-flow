@@ -185,11 +185,11 @@ struct AddAssetSheet: View {
   private var isAddDisabled: Bool {
     switch mode {
     case .selectExisting:
-      return selectedAsset == nil || Decimal(string: marketValueText) == nil
+      return selectedAsset == nil || Decimal.parse(marketValueText) == nil
 
     case .createNew:
       return newAssetName.trimmingCharacters(in: .whitespaces).isEmpty
-        || Decimal(string: newMarketValueText) == nil
+        || Decimal.parse(newMarketValueText) == nil
     }
   }
 
@@ -198,12 +198,12 @@ struct AddAssetSheet: View {
       switch mode {
       case .selectExisting:
         guard let asset = selectedAsset,
-          let value = Decimal(string: marketValueText)
+          let value = Decimal.parse(marketValueText)
         else { return }
         try viewModel.addExistingAsset(asset, marketValue: value)
 
       case .createNew:
-        guard let value = Decimal(string: newMarketValueText) else { return }
+        guard let value = Decimal.parse(newMarketValueText) else { return }
         try viewModel.addNewAsset(
           name: newAssetName,
           platform: newPlatform,

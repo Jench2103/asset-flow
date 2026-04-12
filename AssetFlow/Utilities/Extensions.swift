@@ -70,6 +70,49 @@ extension Decimal {
     }
     return formatter.string(from: NSDecimalNumber(decimal: self / 100)) ?? "\(self)%"
   }
+
+  // MARK: - Parsing
+
+  @MainActor private static var parseFormatters: [String: NumberFormatter] = [:]
+
+  /// Parses a user-entered numeric string, handling locale-specific separators and currency symbols.
+  ///
+  /// Supports:
+  /// - Thousands grouping separators (e.g., "1,000" in US, "1.000" in Germany)
+  /// - Decimal separators (e.g., "1.50" in US, "1,50" in Germany)
+  /// - Currency symbols ($, €, £, ¥, ₩, ₹)
+  /// - Leading/trailing whitespace
+  ///
+  /// - Parameters:
+  ///   - string: The user-entered numeric string
+  ///   - locale: The locale to use for parsing (defaults to `.current`)
+  /// - Returns: The parsed Decimal, or nil if parsing fails
+  @MainActor
+  static func parse(_ string: String, locale: Locale = .current) -> Decimal? {
+    // Strip whitespace and currency symbols in one pass
+    let cleaned = String(
+      string.trimmingCharacters(in: .whitespacesAndNewlines)
+        .filter { !Constants.Parsing.currencySymbols.contains($0) }
+    )
+
+    guard !cleaned.isEmpty else { return nil }
+
+    // Use cached NumberFormatter for locale-aware parsing
+    let key = locale.identifier
+    let formatter: NumberFormatter
+    if let cached = parseFormatters[key] {
+      formatter = cached
+    } else {
+      let f = NumberFormatter()
+      f.numberStyle = .decimal
+      f.locale = locale
+      parseFormatters[key] = f
+      formatter = f
+    }
+
+    guard let number = formatter.number(from: cleaned) else { return nil }
+    return number.decimalValue
+  }
 }
 
 // MARK: - ModelContext Extensions

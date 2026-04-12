@@ -43,7 +43,7 @@ struct BulkEntryCashFlowRowView: View, Equatable {
     let localEmptyDescription =
       row.isIncluded
       && localDescription.trimmingCharacters(in: .whitespaces).isEmpty
-    let localValidationError = !localAmount.isEmpty && Decimal(string: localAmount) == nil
+    let localValidationError = !localAmount.isEmpty && Decimal.parse(localAmount) == nil
     let localEmptyAmount =
       row.isIncluded && localAmount.trimmingCharacters(in: .whitespaces).isEmpty
 

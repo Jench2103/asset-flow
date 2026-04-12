@@ -35,12 +35,10 @@ struct BulkEntryRowView: View, Equatable {
 
   var body: some View {
     let isExcluded = !row.isIncluded
-    let localIsUpdated =
-      row.isIncluded && Decimal(string: localValueText) != nil
-      && Decimal(string: localValueText) != Decimal(0)
-    let localValidationError = !localValueText.isEmpty && Decimal(string: localValueText) == nil
-    let localZeroValueError =
-      row.isIncluded && Decimal(string: localValueText) == Decimal(0)
+    let parsedValue = Decimal.parse(localValueText)
+    let localIsUpdated = row.isIncluded && parsedValue != nil && parsedValue != Decimal(0)
+    let localValidationError = !localValueText.isEmpty && parsedValue == nil
+    let localZeroValueError = row.isIncluded && parsedValue == Decimal(0)
 
     HStack(spacing: 8) {
       Toggle("", isOn: includeBinding)
