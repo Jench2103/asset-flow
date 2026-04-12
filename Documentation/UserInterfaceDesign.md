@@ -310,7 +310,7 @@ Full-screen view for entering asset values across all platforms in a single sess
 - **Asset Name**: Read-only for existing assets; editable `TextField` for new rows (`.manualNew`), with "NEW" green badge or "CSV" blue badge
 - **Category**: Static text for existing assets; `CategoryNamePicker` dropdown for new assets (deferred DB creation)
 - **Currency**: Static text for existing assets; `Picker` for new rows
-- **Previous Value**: Value from the most recent prior snapshot (or "\\u{2014}" if none)
+- **Previous Value**: Value from the most recent prior snapshot with full decimal precision (or "\\u{2014}" if none). Hover reveals a fill button (`arrow.right.circle.fill`) that copies the value to the New Value field.
 - **New Value**: Editable text field for the new market value
 
 **Row states**:

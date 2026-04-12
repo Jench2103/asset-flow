@@ -30,14 +30,14 @@ Assets are organized into collapsible platform sections, sorted alphabetically. 
 
 ### Columns
 
-| Column             | Description                                                                                                    |
-| ------------------ | -------------------------------------------------------------------------------------------------------------- |
-| **Include**        | Checkbox to include or exclude the asset from the snapshot. Excluded assets are dimmed and won't be saved.     |
-| **Asset Name**     | Read-only for existing assets. Editable for newly created assets, with a green "NEW" badge.                    |
-| **Category**       | Shows the asset's category. For new assets, a dropdown lets you pick an existing category or create a new one. |
-| **Currency**       | Read-only for existing assets. A dropdown picker for new assets.                                               |
-| **Previous Value** | The asset's value from your most recent prior snapshot, for reference. Shows "—" if no prior value exists.     |
-| **New Value**      | Enter the current market value here. Press ++enter++ to move to the next row's value field.                    |
+| Column             | Description                                                                                                                                                             |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Include**        | Checkbox to include or exclude the asset from the snapshot. Excluded assets are dimmed and won't be saved.                                                              |
+| **Asset Name**     | Read-only for existing assets. Editable for newly created assets, with a green "NEW" badge.                                                                             |
+| **Category**       | Shows the asset's category. For new assets, a dropdown lets you pick an existing category or create a new one.                                                          |
+| **Currency**       | Read-only for existing assets. A dropdown picker for new assets.                                                                                                        |
+| **Previous Value** | The asset's value from your most recent prior snapshot. Hover to reveal a fill button that copies the value to the New Value field. Shows "—" if no prior value exists. |
+| **New Value**      | Enter the current market value here. Press ++enter++ to move to the next row's value field.                                                                             |
 
 ### Row States
 

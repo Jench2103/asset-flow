@@ -154,6 +154,13 @@ final class BulkEntryViewModel {
     applyAssetRowDelta(old: old, new: rows[index])
   }
 
+  func fillWithPreviousValue(_ rowID: UUID) {
+    guard let index = _rowIDToIndex[rowID],
+      let previousValue = rows[index].previousValue
+    else { return }
+    updateRowValue(rowID, to: "\(previousValue)")
+  }
+
   func updateRowAssetName(_ rowID: UUID, to name: String) {
     _pendingNames.removeValue(forKey: rowID)
     guard let index = _rowIDToIndex[rowID],

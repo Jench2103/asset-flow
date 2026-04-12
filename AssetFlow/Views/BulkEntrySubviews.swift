@@ -248,8 +248,13 @@ struct BulkEntryColumnHeaders: View {
         .frame(width: 120, alignment: .center)
       Text("Currency")
         .frame(width: 80, alignment: .center)
-      Text("Previous Value")
-        .frame(width: 140, alignment: .trailing)
+      HStack(spacing: 4) {
+        Text("Previous Value")
+          .frame(minWidth: 100, alignment: .trailing)
+        // Placeholder matching the fill button width
+        Color.clear
+          .frame(width: 14, height: 14)
+      }
       Text("New Value")
         .frame(width: 160, alignment: .trailing)
       Spacer()

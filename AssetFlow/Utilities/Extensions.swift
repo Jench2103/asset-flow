@@ -42,6 +42,41 @@ extension Decimal {
     return formatter.string(from: NSDecimalNumber(decimal: self)) ?? "\(self)"
   }
 
+  @MainActor private static var fullPrecisionFormatters: [String: NumberFormatter] = [:]
+
+  /// Formats a currency value preserving full decimal precision.
+  ///
+  /// Unlike `formatted(currency:)` which uses the currency's default fraction digits (typically 2),
+  /// this method preserves all significant digits. Useful for displaying crypto values, fractional
+  /// shares, or any high-precision monetary values.
+  ///
+  /// Examples:
+  ///   - Input: Decimal(1234.56789) → Output: "$1,234.56789" (vs "$1,234.57" from formatted())
+  ///   - Input: Decimal(0.00012345) → Output: "$0.00012345" (vs "$0.00" from formatted())
+  ///
+  /// - Parameters:
+  ///   - currency: The currency code (e.g., "USD", "EUR")
+  ///   - locale: The locale for formatting (defaults to `.current`)
+  /// - Returns: Formatted currency string with full precision
+  func formattedFullPrecision(currency: String = "USD", locale: Locale = .current) -> String {
+    let key = "full-\(currency)-\(locale.identifier)"
+    let formatter: NumberFormatter
+    if let cached = Self.fullPrecisionFormatters[key] {
+      formatter = cached
+    } else {
+      let f = NumberFormatter()
+      f.numberStyle = .currency
+      f.currencyCode = currency
+      f.locale = locale
+      f.usesSignificantDigits = true
+      f.minimumSignificantDigits = 1
+      f.maximumSignificantDigits = 15
+      Self.fullPrecisionFormatters[key] = f
+      formatter = f
+    }
+    return formatter.string(from: NSDecimalNumber(decimal: self)) ?? "\(self)"
+  }
+
   @MainActor private static var percentageFormatters: [Int: NumberFormatter] = [:]
 
   /// Formats a percentage value for display.

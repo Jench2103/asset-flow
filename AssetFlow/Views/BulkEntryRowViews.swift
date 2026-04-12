@@ -32,6 +32,7 @@ struct BulkEntryRowView: View, Equatable {
 
   @State private var localValueText: String = ""
   @State private var localAssetName: String = ""
+  @State private var isHoveringPreviousValue = false
 
   var body: some View {
     let isExcluded = !row.isIncluded
@@ -97,10 +98,33 @@ struct BulkEntryRowView: View, Equatable {
           .frame(width: 80, alignment: .center)
       }
 
-      Text(row.previousValue?.formatted(currency: row.currency) ?? "\u{2014}")
-        .monospacedDigit()
-        .foregroundStyle(.secondary)
-        .frame(width: 140, alignment: .trailing)
+      HStack(spacing: 4) {
+        Text(row.previousValue?.formattedFullPrecision(currency: row.currency) ?? "\u{2014}")
+          .monospacedDigit()
+          .foregroundStyle(.secondary)
+          .fixedSize()
+          .frame(minWidth: 100, alignment: .trailing)
+
+        if row.previousValue != nil && row.isIncluded {
+          Button {
+            viewModel.fillWithPreviousValue(row.id)
+            localValueText = "\(row.previousValue!)"
+          } label: {
+            Image(systemName: "arrow.right.circle.fill")
+              .foregroundStyle(.secondary)
+              .imageScale(.small)
+          }
+          .buttonStyle(.plain)
+          .helpWhenUnlocked("Fill with previous value")
+          .opacity(isHoveringPreviousValue ? 1 : 0)
+        } else {
+          // Placeholder to maintain consistent spacing
+          Color.clear
+            .frame(width: 14, height: 14)
+        }
+      }
+      .contentShape(Rectangle())
+      .onHoverWhenUnlocked { isHoveringPreviousValue = $0 }
 
       TextField("Enter value\u{2026}", text: $localValueText)
         .textFieldStyle(.roundedBorder)
