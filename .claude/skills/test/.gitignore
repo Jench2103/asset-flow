@@ -1,0 +1,3 @@
+# Test output files
+results/*
+!results/.gitkeep

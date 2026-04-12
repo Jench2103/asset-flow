@@ -67,21 +67,10 @@ let (context, snapshot) = (tc.context, tc.snapshot)
 
 ## Running Tests
 
-**Always capture test output to a log file and read from it.** Never run tests multiple times to grep for different pieces of information.
+Use the `/test` skill to run unit tests. See `.claude/skills/test/SKILL.md` for details.
 
-```bash
-xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow test -destination 'platform=macOS' 2>&1 | tee /tmp/assetflow-test-output.txt
-```
-
-Then use the Read tool (or grep) on `/tmp/assetflow-test-output.txt` to extract all needed info (pass/fail counts, failure names, error messages) in one pass. Do not re-run tests just to check different aspects of the output.
-
-## Debugging Crashes
-
-- Use the log file from above (`/tmp/assetflow-test-output.txt`) — do not re-run tests
-- Use `-parallel-testing-enabled NO` and `-only-testing:AssetFlowTests/SuiteName` to isolate
-- Use `-maximum-test-execution-time-allowance 10` to prevent crash/retry cycles from running forever
-- When one test crashes (SIGTRAP), the entire process dies and all tests report "failed" at 0.000s — only one pattern is at fault
-- Use `xcrun xcresulttool get test-results summary --path <.xcresult>` for structured JSON output
+- `/test` - Run all tests
+- `/test SuiteName` - Run specific test suite
 
 ## Directory Structure
 
