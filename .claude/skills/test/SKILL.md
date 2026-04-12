@@ -58,4 +58,7 @@ The script prints the output path after each run. Use the Read tool to examine f
 - Use `--no-parallel` and `--timeout N` flags to isolate crashes and prevent retry loops
 - When one test crashes (SIGTRAP), the entire process dies and all tests report "failed" at 0.000s — only one test is at fault
 - The script prints the `.xcresult` path — use it with: `xcrun xcresulttool get test-results summary --path <.xcresult>`
-- For unexpected issues, bare `xcodebuild` commands are still acceptable for full control over flags
+- For unexpected issues, bare `xcodebuild` commands are still acceptable for full control over flags:
+  ```bash
+  xcodebuild -project AssetFlow.xcodeproj -scheme AssetFlow test -destination 'platform=macOS'
+  ```
