@@ -92,6 +92,7 @@ struct BulkEntryToolbar: View {
       }
       HStack {
         Button("Cancel") { showAddPlatformPopover = false }
+          .buttonStyle(.bordered)
         Button("Add") { commitNewPlatform() }
           .buttonStyle(.borderedProminent)
           .disabled(newPlatformName.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -332,6 +333,7 @@ struct BulkEntryContentArea: View {
       }
       HStack {
         Button("Cancel") { showEmptyStatePopover = false }
+          .buttonStyle(.bordered)
         Button("Add") { commitEmptyStatePlatform() }
           .buttonStyle(.borderedProminent)
           .disabled(emptyStatePlatformName.trimmingCharacters(in: .whitespaces).isEmpty)

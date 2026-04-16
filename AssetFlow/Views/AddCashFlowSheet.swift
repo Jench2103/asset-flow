@@ -129,6 +129,7 @@ struct EditCashFlowPopover: View {
       HStack {
         Button("Cancel", role: .cancel) { dismiss() }
           .keyboardShortcut(.cancelAction)
+          .buttonStyle(.bordered)
         Spacer()
         Button("Save") { saveIfValid() }
           .keyboardShortcut(.defaultAction)
@@ -136,6 +137,7 @@ struct EditCashFlowPopover: View {
             description.trimmingCharacters(in: .whitespaces).isEmpty
               || Decimal.parse(amountText) == nil
           )
+          .buttonStyle(.borderedProminent)
       }
     }
     .frame(width: 280)

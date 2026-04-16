@@ -46,10 +46,12 @@ struct EditValuePopover: View {
       HStack {
         Button("Cancel", role: .cancel) { dismiss() }
           .keyboardShortcut(.cancelAction)
+          .buttonStyle(.bordered)
         Spacer()
         Button("Save") { saveIfValid() }
           .keyboardShortcut(.defaultAction)
           .disabled(Decimal.parse(valueText) == nil)
+          .buttonStyle(.borderedProminent)
       }
     }
     .frame(width: 280)

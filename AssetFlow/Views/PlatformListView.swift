@@ -176,6 +176,7 @@ private struct RenamePlatformPopover: View {
           dismiss()
         }
         .keyboardShortcut(.cancelAction)
+        .buttonStyle(.bordered)
 
         Spacer()
 
@@ -184,6 +185,7 @@ private struct RenamePlatformPopover: View {
         }
         .keyboardShortcut(.defaultAction)
         .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+        .buttonStyle(.borderedProminent)
       }
     }
     .frame(width: 280)
