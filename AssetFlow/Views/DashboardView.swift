@@ -420,23 +420,13 @@ private struct HeroMetricCard: View {
     }
     .padding()
     .frame(maxWidth: .infinity)
-    .background {
-      ZStack {
-        Rectangle().fill(reduceTransparency ? .regularMaterial : .ultraThinMaterial)
-        Rectangle().fill(.tint.opacity(0.06))
-      }
-    }
-    .clipShape(RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius))
-    .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
-    .shadow(color: .black.opacity(0.2), radius: 5, y: 4)
+    .background(
+      .tint.opacity(0.06), in: RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
+    )
+    .glassCard()
     .overlay(
       RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
         .strokeBorder(.tint.opacity(0.15), lineWidth: 1)
-    )
-    .overlay(
-      RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
-        .stroke(.white.opacity(0.05), lineWidth: 1)
-        .blendMode(.plusLighter)
     )
     .accessibilityElement(children: .combine)
   }

@@ -68,26 +68,29 @@ enum ChartConstants {
 
 // MARK: - Glass Card Modifier
 
-/// Applies a frosted glass material background with subtle shadows and border,
-/// following the Liquid Glass design system.
 struct GlassCardModifier: ViewModifier {
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
   func body(content: Content) -> some View {
-    content
-      .background(reduceTransparency ? .regularMaterial : .ultraThinMaterial)
-      .clipShape(RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius))
-      .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
-      .shadow(color: .black.opacity(0.2), radius: 5, y: 4)
-      .overlay(
-        RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
-          .stroke(.primary.opacity(0.1), lineWidth: 0.5)
-      )
-      .overlay(
-        RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
-          .stroke(.white.opacity(0.05), lineWidth: 1)
-          .blendMode(.plusLighter)
-      )
+    if #available(macOS 26, *) {
+      content
+        .glassEffect(in: RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius))
+    } else {
+      content
+        .background(reduceTransparency ? .regularMaterial : .ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius))
+        .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
+        .shadow(color: .black.opacity(0.2), radius: 5, y: 4)
+        .overlay(
+          RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
+            .stroke(.primary.opacity(0.1), lineWidth: 0.5)
+        )
+        .overlay(
+          RoundedRectangle(cornerRadius: ChartConstants.cardCornerRadius)
+            .stroke(.white.opacity(0.05), lineWidth: 1)
+            .blendMode(.plusLighter)
+        )
+    }
   }
 }
 
