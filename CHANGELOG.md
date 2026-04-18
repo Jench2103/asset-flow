@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.5.0](https://github.com/Jench2103/asset-flow/compare/v0.4.1...v0.5.0) (2026-04-18)
+
+
+### Features
+
+* **bulk-entry:** add bulk entry workflow for snapshot creation ([#26](https://github.com/Jench2103/asset-flow/issues/26)) ([50b9c8e](https://github.com/Jench2103/asset-flow/commit/50b9c8e08897409e42067ad8fa617bb0685df171))
+* **bulk-entry:** add cash flow support for snapshot creation ([0e82259](https://github.com/Jench2103/asset-flow/commit/0e822594175df7f081d3ff6dcd9b6ba1e36c6fcf))
+* **bulk-entry:** add keyboard navigation, auto-focus, and summary to cash flow section ([6909c5e](https://github.com/Jench2103/asset-flow/commit/6909c5e40bff4029fc52ab212612675cd0f758e5)), closes [#30](https://github.com/Jench2103/asset-flow/issues/30)
+* **bulk-entry:** show full-precision previous values with fill button ([08f3521](https://github.com/Jench2103/asset-flow/commit/08f352148547ed3fd795850a3e5f3efbb598ee1e))
+* **csv:** add column mapping for CSV imports ([#28](https://github.com/Jench2103/asset-flow/issues/28)) ([6b04e1c](https://github.com/Jench2103/asset-flow/commit/6b04e1c590b239e242337260e63aacb4e96385bf))
+* **parsing:** add locale-aware decimal parsing for number fields ([c854267](https://github.com/Jench2103/asset-flow/commit/c854267b05eb520202afb81be94f20f1638e7189))
+* **ui:** apply explicit button styles to HStack popovers ([ac3a014](https://github.com/Jench2103/asset-flow/commit/ac3a01467e5a63ab0e72c8c5c7b9af5c61fb79c9))
+
+
+### Bug Fixes
+
+* **bulk-entry:** commit field values on focus change despite .equatable() ([f1db3f1](https://github.com/Jench2103/asset-flow/commit/f1db3f1a18e1285eb0e45bab86e4278283f9972d))
+* **bulk-entry:** consolidate duplicate .fileImporter into single modifier ([a7155ab](https://github.com/Jench2103/asset-flow/commit/a7155ab93f11406e67916dee40f24be8ccfd2025))
+* **bulk-entry:** preserve field values when rows scroll off-screen ([f120c20](https://github.com/Jench2103/asset-flow/commit/f120c203576730d7f2858e75897ab6ad1d882446))
+* **bulk-entry:** preserve field values when toggling row exclusion ([9405a73](https://github.com/Jench2103/asset-flow/commit/9405a7376e208964e800f5b8d7ee705cc611274d))
+
+
+### Performance Improvements
+
+* **bulk-entry:** eliminate input latency from redundant view recomputation ([33f3bf7](https://github.com/Jench2103/asset-flow/commit/33f3bf77a3f8ac45a500811ad4dfc6c39c268e2a)), closes [#29](https://github.com/Jench2103/asset-flow/issues/29)
+* **bulk-entry:** reduce SwiftUI invalidation cascades and redundant iterations ([a076a40](https://github.com/Jench2103/asset-flow/commit/a076a40468827a2e323ad026e1b0f187857b7384))
+* **bulk-entry:** reduce unnecessary work in focus advance and CSV import ([a4caafd](https://github.com/Jench2103/asset-flow/commit/a4caafd525dc2dd90e242e4c0eadafe7aefe1bb9))
+* **snapshot:** use #Predicate and fetchLimit for snapshot lookups ([28ad9fd](https://github.com/Jench2103/asset-flow/commit/28ad9fde230a0e4a0209a1907156d4b09cceab88))
+
 ## [0.4.1](https://github.com/Jench2103/asset-flow/compare/v0.4.0...v0.4.1) (2026-03-15)
 
 ### Continuous Integration
