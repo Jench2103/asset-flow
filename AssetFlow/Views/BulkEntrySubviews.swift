@@ -305,10 +305,10 @@ struct BulkEntryColumnHeaders: View {
         .gridColumnAlignment(.leading)
         .modifier(BulkEntryHeaderCellStyle())
       Text("Category")
-        .gridColumnAlignment(.center)
+        .gridColumnAlignment(.leading)
         .modifier(BulkEntryHeaderCellStyle())
       Text("Currency")
-        .gridColumnAlignment(.center)
+        .gridColumnAlignment(.leading)
         .modifier(BulkEntryHeaderCellStyle())
       // Reserve space for the trailing fill-button so the "Previous Value"
       // header label right-aligns with the previous-value text in rows.
@@ -753,7 +753,7 @@ struct BulkEntryCashFlowColumnHeaders: View {
         .gridColumnAlignment(.trailing)
         .modifier(BulkEntryHeaderCellStyle())
       Text("Currency")
-        .gridColumnAlignment(.center)
+        .gridColumnAlignment(.leading)
         .modifier(BulkEntryHeaderCellStyle())
       Color.clear
         .frame(width: 28, height: 1)
