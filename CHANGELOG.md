@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/Jench2103/asset-flow/compare/v0.5.0...v0.5.1) (2026-04-28)
+
+
+### Bug Fixes
+
+* **bulk-entry:** left-align text-categorical column headers ([146decc](https://github.com/Jench2103/asset-flow/commit/146decccf1113d8ae20b45982e20781b3d43d697))
+
 ## [0.5.0](https://github.com/Jench2103/asset-flow/compare/v0.4.1...v0.5.0) (2026-04-18)
 
 ### Features
