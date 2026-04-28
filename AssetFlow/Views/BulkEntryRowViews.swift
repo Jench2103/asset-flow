@@ -41,19 +41,23 @@ struct BulkEntryRowView: View, Equatable {
     let localValidationError = !localValueText.isEmpty && parsedValue == nil
     let localZeroValueError = row.isIncluded && parsedValue == Decimal(0)
 
-    HStack(spacing: 8) {
+    let cellStyle = BulkEntryRowCellStyle()
+
+    GridRow {
       Toggle("", isOn: includeBinding)
         .labelsHidden()
         .accessibilityLabel("Include \(row.assetName)")
-        .frame(width: 60, alignment: .center)
         .helpWhenUnlocked("Include or exclude this asset from the snapshot")
+        .modifier(cellStyle)
 
-      // Asset name column
+      // `.frame(maxWidth: .infinity)` makes this the flex column.
+      // `TextField`'s natural width is independent of its text, so
+      // typing does not reflow the column.
       HStack(spacing: 6) {
         if row.isNewRow {
           TextField("Asset name", text: $localAssetName)
             .textFieldStyle(.roundedBorder)
-            .frame(minWidth: 100)
+            .frame(maxWidth: .infinity)
             .disabled(isExcluded)
             .focused(nameFieldFocusedRowID, equals: row.id)
             .onSubmit { commitAssetName() }
@@ -67,43 +71,46 @@ struct BulkEntryRowView: View, Equatable {
         } else {
           Text(row.assetName)
             .strikethrough(isExcluded)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         sourceBadge
       }
-      .frame(minWidth: 120, alignment: .leading)
+      .modifier(cellStyle)
 
-      Spacer()
-
-      // Category column
-      if row.isNewAsset {
-        BulkEntryCategoryPicker(
-          categoryName: categoryNameBinding,
-          cachedNames: $cachedCategoryNames
-        )
-        .frame(width: 120)
-      } else {
-        Text(row.asset?.category?.name ?? "\u{2014}")
-          .font(.callout)
-          .foregroundStyle(row.asset?.category != nil ? .primary : .secondary)
-          .frame(width: 120, alignment: .center)
+      // `Grid` widens this column to fit the longest category name across
+      // all rows in the section, instead of clipping to a fixed width.
+      Group {
+        if row.isNewAsset {
+          BulkEntryCategoryPicker(
+            categoryName: categoryNameBinding,
+            cachedNames: $cachedCategoryNames
+          )
+        } else {
+          Text(row.asset?.category?.name ?? "\u{2014}")
+            .font(.callout)
+            .foregroundStyle(row.asset?.category != nil ? .primary : .secondary)
+        }
       }
+      .modifier(cellStyle)
 
-      // Currency column
-      if row.isNewRow {
-        BulkEntryCurrencyPicker(selection: currencyBinding)
-          .frame(width: 80)
-      } else {
-        Text(row.currency.uppercased())
-          .font(.callout)
-          .frame(width: 80, alignment: .center)
+      Group {
+        if row.isNewRow {
+          BulkEntryCurrencyPicker(selection: currencyBinding)
+        } else {
+          Text(row.currency.uppercased())
+            .font(.callout)
+        }
       }
+      .modifier(cellStyle)
 
+      // `.fixedSize()` reports each cell's natural text width; `Grid`
+      // widens the column to the widest cell, so trailing edges align
+      // across the header and every row.
       HStack(spacing: 4) {
         Text(row.previousValue?.formattedFullPrecision(currency: row.currency) ?? "\u{2014}")
           .monospacedDigit()
           .foregroundStyle(.secondary)
           .fixedSize()
-          .frame(minWidth: 100, alignment: .trailing)
 
         if row.previousValue != nil && row.isIncluded {
           Button {
@@ -125,7 +132,10 @@ struct BulkEntryRowView: View, Equatable {
       }
       .contentShape(Rectangle())
       .onHoverWhenUnlocked { isHoveringPreviousValue = $0 }
+      .modifier(cellStyle)
 
+      // Fixed 160pt width — letting this `TextField` flex with content
+      // would reflow the entire column on every keystroke.
       TextField("Enter value\u{2026}", text: $localValueText)
         .textFieldStyle(.roundedBorder)
         .monospacedDigit()
@@ -149,25 +159,26 @@ struct BulkEntryRowView: View, Equatable {
               "Value cannot be 0. Exclude the asset instead if it is no longer held.")
             : nil
         )
+        .modifier(cellStyle)
 
-      // Delete button for manualNew rows, padding for others
-      if row.isNewRow {
-        Button {
-          viewModel.removeManualRow(rowID: row.id)
-        } label: {
-          Image(systemName: "trash")
-            .foregroundStyle(.red)
+      Group {
+        if row.isNewRow {
+          Button {
+            viewModel.removeManualRow(rowID: row.id)
+          } label: {
+            Image(systemName: "trash")
+              .foregroundStyle(.red)
+          }
+          .buttonStyle(.plain)
+          .helpWhenUnlocked("Remove this manually added asset")
+        } else {
+          Color.clear
+            .frame(width: 1, height: 1)
         }
-        .buttonStyle(.plain)
-        .helpWhenUnlocked("Remove this manually added asset")
-        .frame(width: 28)
-      } else {
-        Spacer()
-          .frame(width: 28)
       }
+      .frame(width: 28)
+      .modifier(cellStyle)
     }
-    .padding(.vertical, 6)
-    .padding(.horizontal, 4)
     .background(
       localIsUpdated
         ? Color.green.opacity(0.06)
@@ -254,6 +265,21 @@ struct BulkEntryRowView: View, Equatable {
         viewModel.updateRowCategoryName(row.id, to: newValue.isEmpty ? nil : newValue)
       }
     )
+  }
+}
+
+// MARK: - Row Cell Style
+
+/// Per-cell padding/sizing for asset / cash-flow data rows. The
+/// per-row tint (green for updated rows) and the excluded-row dim are
+/// applied at the `GridRow` level (see each row view's `body`) so they
+/// render as single contiguous strips across the full row width.
+struct BulkEntryRowCellStyle: ViewModifier {
+  func body(content: Content) -> some View {
+    content
+      .padding(.horizontal, 8)
+      .padding(.vertical, 6)
+      .frame(maxHeight: .infinity)
   }
 }
 

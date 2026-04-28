@@ -235,37 +235,111 @@ struct BulkEntryValidationWarnings: View {
   }
 }
 
+// MARK: - Header Background Sizing
+
+/// Height of the header `GridRow` (asset or cash-flow), captured via
+/// `GeometryReader` so the parent `Grid` can render a single continuous
+/// `.fill.quaternary` strip behind the header.
+///
+/// This is necessary because `.background()` applied to a `GridRow` is
+/// forwarded to each cell individually rather than spanning the row, so
+/// any column where the data row is wider than the header label leaves
+/// a gap in a per-cell tint. Capturing the row's height and rendering
+/// the strip as a `.background(alignment: .top)` on the parent `Grid`
+/// guarantees a contiguous bar across the full Grid width.
+struct BulkEntryHeaderHeightKey: PreferenceKey {
+  static let defaultValue: CGFloat = 0
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = max(value, nextValue())
+  }
+}
+
+extension View {
+  /// Publishes this view's measured height via `BulkEntryHeaderHeightKey`,
+  /// for the parent `Grid` to consume when sizing the header tint strip.
+  fileprivate func publishesBulkEntryHeaderHeight() -> some View {
+    background(
+      GeometryReader { proxy in
+        Color.clear.preference(
+          key: BulkEntryHeaderHeightKey.self,
+          value: proxy.size.height)
+      }
+    )
+  }
+
+  /// Renders a continuous `.fill.quaternary` strip behind the top of this
+  /// view, sized to the height published by `BulkEntryHeaderHeightKey`.
+  fileprivate func bulkEntryHeaderTintStrip() -> some View {
+    modifier(BulkEntryHeaderTintStripModifier())
+  }
+}
+
+private struct BulkEntryHeaderTintStripModifier: ViewModifier {
+  @State private var headerHeight: CGFloat = 0
+  func body(content: Content) -> some View {
+    content
+      .background(alignment: .top) {
+        Rectangle()
+          .fill(.fill.quaternary)
+          .frame(height: headerHeight)
+      }
+      .onPreferenceChange(BulkEntryHeaderHeightKey.self) { headerHeight = $0 }
+  }
+}
+
 // MARK: - Column Headers View
 
+/// Asset table column headers — emitted as a `GridRow` so the parent `Grid`
+/// can size every column to the widest cell across the header and all
+/// data rows simultaneously, eliminating header/row alignment drift.
+///
+/// Per-column-alignment is set here on the header cells; data rows
+/// inherit the same alignment from the column.
 struct BulkEntryColumnHeaders: View {
   var body: some View {
-    HStack(spacing: 8) {
+    GridRow {
       Text("Include")
-        .frame(width: 60, alignment: .center)
+        .gridColumnAlignment(.center)
+        .modifier(BulkEntryHeaderCellStyle())
       Text("Asset Name")
-        .frame(minWidth: 120, alignment: .leading)
-      Spacer()
+        .gridColumnAlignment(.leading)
+        .modifier(BulkEntryHeaderCellStyle())
       Text("Category")
-        .frame(width: 120, alignment: .center)
+        .gridColumnAlignment(.center)
+        .modifier(BulkEntryHeaderCellStyle())
       Text("Currency")
-        .frame(width: 80, alignment: .center)
+        .gridColumnAlignment(.center)
+        .modifier(BulkEntryHeaderCellStyle())
+      // Reserve space for the trailing fill-button so the "Previous Value"
+      // header label right-aligns with the previous-value text in rows.
       HStack(spacing: 4) {
         Text("Previous Value")
-          .frame(minWidth: 100, alignment: .trailing)
-        // Placeholder matching the fill button width
-        Color.clear
-          .frame(width: 14, height: 14)
+        Color.clear.frame(width: 14, height: 14)
       }
+      .gridColumnAlignment(.trailing)
+      .modifier(BulkEntryHeaderCellStyle())
       Text("New Value")
-        .frame(width: 160, alignment: .trailing)
-      Spacer()
-        .frame(width: 28)
+        .gridColumnAlignment(.trailing)
+        .modifier(BulkEntryHeaderCellStyle())
+      Color.clear
+        .frame(width: 28, height: 1)
+        .modifier(BulkEntryHeaderCellStyle())
     }
     .font(.caption)
     .foregroundStyle(.secondary)
-    .padding(.vertical, 4)
-    .padding(.horizontal, 4)
-    .background(.fill.quaternary)
+    .publishesBulkEntryHeaderHeight()
+  }
+}
+
+/// Per-cell padding for asset-table column headers. The header tint is
+/// rendered at the parent `Grid` level via `BulkEntryHeaderHeightKey`, not
+/// here, so this modifier only handles spacing/sizing.
+struct BulkEntryHeaderCellStyle: ViewModifier {
+  func body(content: Content) -> some View {
+    content
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
+      .frame(maxHeight: .infinity)
   }
 }
 
@@ -431,18 +505,40 @@ struct BulkEntryPlatformSection: View, Equatable {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       platformHeader
-      BulkEntryColumnHeaders()
-      ForEach(rows) { row in
-        BulkEntryRowView(
-          viewModel: viewModel,
-          row: row,
-          cachedCategoryNames: $cachedCategoryNames,
-          focusedRowID: focusedRowID,
-          nameFieldFocusedRowID: nameFieldFocusedRowID
-        )
-        .equatable()
-        Divider()
+      // One `Grid` per platform section. Column widths auto-size to the
+      // widest cell across the header and every row in this section, so
+      // the "Previous Value" and "Category" columns finally have a single
+      // shared width that respects content (the long-standing alignment
+      // drift between the header and rows is eliminated). Cells use
+      // `horizontalSpacing: 0` and per-cell horizontal padding.
+      //
+      // The header tint is rendered as a `.background(alignment: .top)`
+      // `Rectangle` on this `Grid`, sized via the height published by
+      // `BulkEntryHeaderHeightKey`. `Grid` has no native row-background
+      // API and `.background()` on `GridRow` is forwarded per cell —
+      // this is the SwiftUI-idiomatic alternative.
+      //
+      // NOTE: `.equatable()` cannot be applied to `BulkEntryRowView` here:
+      // `EquatableView` is opaque to `Grid`'s row introspection, so the
+      // `GridRow` returned from the row's `body` would not be recognized
+      // and each cell would render as its own implicit row. The row view
+      // is left un-`.equatable()`-wrapped; the section-level
+      // `BulkEntryPlatformSection: Equatable` boundary still keeps cross-
+      // platform mutations isolated.
+      Grid(alignment: .center, horizontalSpacing: 0, verticalSpacing: 0) {
+        BulkEntryColumnHeaders()
+        ForEach(rows) { row in
+          BulkEntryRowView(
+            viewModel: viewModel,
+            row: row,
+            cachedCategoryNames: $cachedCategoryNames,
+            focusedRowID: focusedRowID,
+            nameFieldFocusedRowID: nameFieldFocusedRowID
+          )
+          Divider()
+        }
       }
+      .bulkEntryHeaderTintStrip()
     }
     .padding(.bottom, 16)
   }
@@ -593,17 +689,21 @@ struct BulkEntryCashFlowList: View {
 
   var body: some View {
     if !viewModel.cashFlowRows.isEmpty {
-      BulkEntryCashFlowColumnHeaders()
-      ForEach(viewModel.cashFlowRows) { row in
-        BulkEntryCashFlowRowView(
-          viewModel: viewModel,
-          row: row,
-          focusedAmountRowID: focusedAmountRowID,
-          focusedDescriptionRowID: focusedDescriptionRowID
-        )
-        .equatable()
-        Divider()
+      // See `BulkEntryPlatformSection.body` for why `.equatable()` is
+      // not applied to the row view inside a `Grid`.
+      Grid(alignment: .center, horizontalSpacing: 0, verticalSpacing: 0) {
+        BulkEntryCashFlowColumnHeaders()
+        ForEach(viewModel.cashFlowRows) { row in
+          BulkEntryCashFlowRowView(
+            viewModel: viewModel,
+            row: row,
+            focusedAmountRowID: focusedAmountRowID,
+            focusedDescriptionRowID: focusedDescriptionRowID
+          )
+          Divider()
+        }
       }
+      .bulkEntryHeaderTintStrip()
       BulkEntryCashFlowNetSummary(viewModel: viewModel)
     }
   }
@@ -638,25 +738,29 @@ struct BulkEntryCashFlowNetSummary: View {
 
 // MARK: - Cash Flow Column Headers View
 
+/// Cash-flow table column headers — emitted as a `GridRow` so the parent
+/// `Grid` can size each column to the widest cell across header and rows.
 struct BulkEntryCashFlowColumnHeaders: View {
   var body: some View {
-    HStack(spacing: 8) {
+    GridRow {
       Text("Include")
-        .frame(width: 60, alignment: .center)
+        .gridColumnAlignment(.center)
+        .modifier(BulkEntryHeaderCellStyle())
       Text("Description")
-        .frame(minWidth: 150, alignment: .leading)
-      Spacer()
+        .gridColumnAlignment(.leading)
+        .modifier(BulkEntryHeaderCellStyle())
       Text("Amount")
-        .frame(width: 160, alignment: .trailing)
+        .gridColumnAlignment(.trailing)
+        .modifier(BulkEntryHeaderCellStyle())
       Text("Currency")
-        .frame(width: 80, alignment: .center)
-      Spacer()
-        .frame(width: 28)
+        .gridColumnAlignment(.center)
+        .modifier(BulkEntryHeaderCellStyle())
+      Color.clear
+        .frame(width: 28, height: 1)
+        .modifier(BulkEntryHeaderCellStyle())
     }
     .font(.caption)
     .foregroundStyle(.secondary)
-    .padding(.vertical, 4)
-    .padding(.horizontal, 4)
-    .background(.fill.quaternary)
+    .publishesBulkEntryHeaderHeight()
   }
 }

@@ -47,19 +47,23 @@ struct BulkEntryCashFlowRowView: View, Equatable {
     let localEmptyAmount =
       row.isIncluded && localAmount.trimmingCharacters(in: .whitespaces).isEmpty
 
-    HStack(spacing: 8) {
+    let cellStyle = BulkEntryRowCellStyle()
+
+    GridRow {
       // Include toggle
       Toggle("", isOn: includeBinding)
         .labelsHidden()
         .accessibilityLabel("Include \(row.cashFlowDescription)")
-        .frame(width: 60, alignment: .center)
         .helpWhenUnlocked("Include or exclude this cash flow from the snapshot")
+        .modifier(cellStyle)
 
-      // Description + source badge
+      // `.frame(maxWidth: .infinity)` makes this the flex column.
+      // `TextField`'s natural width is independent of its text, so
+      // typing does not reflow the column.
       HStack(spacing: 6) {
         TextField("Description", text: $localDescription)
           .textFieldStyle(.roundedBorder)
-          .frame(minWidth: 150)
+          .frame(maxWidth: .infinity)
           .disabled(isExcluded)
           .focused(focusedDescriptionRowID, equals: row.id)
           .focused($focusedField, equals: .description)
@@ -74,11 +78,10 @@ struct BulkEntryCashFlowRowView: View, Equatable {
                 lineWidth: 1.5))
         sourceBadge
       }
-      .frame(minWidth: 150, alignment: .leading)
+      .modifier(cellStyle)
 
-      Spacer()
-
-      // Amount field
+      // Fixed 160pt width — letting this `TextField` flex with content
+      // would reflow the entire column on every keystroke.
       TextField("Enter amount", text: $localAmount)
         .textFieldStyle(.roundedBorder)
         .monospacedDigit()
@@ -95,30 +98,32 @@ struct BulkEntryCashFlowRowView: View, Equatable {
           RoundedRectangle(cornerRadius: 6)
             .stroke(
               localValidationError || localEmptyAmount ? .red : .clear,
-              lineWidth: 1.5))
+              lineWidth: 1.5)
+        )
+        .modifier(cellStyle)
 
-      // Currency picker
       BulkEntryCurrencyPicker(selection: currencyBinding)
-        .frame(width: 80)
         .disabled(isExcluded)
+        .modifier(cellStyle)
 
-      // Delete button (only for manualNew)
-      if row.source == .manualNew {
-        Button {
-          viewModel.removeCashFlowRow(rowID: row.id)
-        } label: {
-          Image(systemName: "trash")
-            .foregroundStyle(.red)
+      Group {
+        if row.source == .manualNew {
+          Button {
+            viewModel.removeCashFlowRow(rowID: row.id)
+          } label: {
+            Image(systemName: "trash")
+              .foregroundStyle(.red)
+          }
+          .buttonStyle(.plain)
+          .helpWhenUnlocked("Remove this cash flow")
+        } else {
+          Color.clear
+            .frame(width: 1, height: 1)
         }
-        .buttonStyle(.plain)
-        .helpWhenUnlocked("Remove this cash flow")
-        .frame(width: 28)
-      } else {
-        Spacer().frame(width: 28)
       }
+      .frame(width: 28)
+      .modifier(cellStyle)
     }
-    .padding(.vertical, 6)
-    .padding(.horizontal, 4)
     .opacity(isExcluded ? 0.5 : 1.0)
     .accessibilityLabel(
       "\(row.cashFlowDescription), \(localAmount), \(row.isIncluded ? "included" : "excluded")"
