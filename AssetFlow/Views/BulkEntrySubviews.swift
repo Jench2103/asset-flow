@@ -266,24 +266,89 @@ extension View {
       }
     )
   }
+}
 
-  /// Renders a continuous `.fill.quaternary` strip behind the top of this
-  /// view, sized to the height published by `BulkEntryHeaderHeightKey`.
-  fileprivate func bulkEntryHeaderTintStrip() -> some View {
-    modifier(BulkEntryHeaderTintStripModifier())
+// MARK: - Data Row Backgrounds
+
+/// Per-row metadata (height + tint state) published by data rows; same
+/// rationale as `BulkEntryHeaderHeightKey`.
+struct BulkEntryDataRowMetadata: Equatable {
+  let height: CGFloat
+  let isTinted: Bool
+}
+
+struct BulkEntryDataRowsKey: PreferenceKey {
+  static let defaultValue: [UUID: BulkEntryDataRowMetadata] = [:]
+  static func reduce(
+    value: inout [UUID: BulkEntryDataRowMetadata],
+    nextValue: () -> [UUID: BulkEntryDataRowMetadata]
+  ) {
+    value.merge(nextValue()) { _, new in new }
   }
 }
 
-private struct BulkEntryHeaderTintStripModifier: ViewModifier {
+extension View {
+  /// Publishes this view's measured height and tint state via
+  /// `BulkEntryDataRowsKey`, for the parent `Grid` to consume when
+  /// sizing the row tint strips. Attach to a single cell, not the
+  /// `GridRow`: `.background()` on a `GridRow` forwards per cell and
+  /// would publish the same value 7 times per row.
+  func publishesBulkEntryDataRowMetadata(
+    rowID: UUID,
+    isTinted: Bool
+  ) -> some View {
+    background(
+      GeometryReader { proxy in
+        Color.clear.preference(
+          key: BulkEntryDataRowsKey.self,
+          value: [
+            rowID: BulkEntryDataRowMetadata(
+              height: proxy.size.height,
+              isTinted: isTinted)
+          ]
+        )
+      }
+    )
+  }
+
+  /// Renders the section's header tint strip and (optionally) per-row
+  /// tint strips behind the Grid, sized via the heights published by
+  /// `BulkEntryHeaderHeightKey` and `BulkEntryDataRowsKey`. Pass an
+  /// empty `rowIDs` for sections without per-row tints (cash flow).
+  fileprivate func bulkEntrySectionBackgrounds(
+    rowIDs: [UUID] = []
+  ) -> some View {
+    modifier(BulkEntrySectionBackgroundsModifier(rowIDs: rowIDs))
+  }
+}
+
+private struct BulkEntrySectionBackgroundsModifier: ViewModifier {
+  let rowIDs: [UUID]
   @State private var headerHeight: CGFloat = 0
+  @State private var rowMetadata: [UUID: BulkEntryDataRowMetadata] = [:]
+
   func body(content: Content) -> some View {
     content
       .background(alignment: .top) {
-        Rectangle()
-          .fill(.fill.quaternary)
-          .frame(height: headerHeight)
+        VStack(spacing: 0) {
+          Rectangle()
+            .fill(.fill.quaternary)
+            .frame(height: headerHeight)
+          ForEach(rowIDs, id: \.self) { id in
+            let metadata = rowMetadata[id]
+            Rectangle()
+              .fill(
+                metadata?.isTinted == true
+                  ? Color.green.opacity(0.06) : Color.clear
+              )
+              .frame(height: metadata?.height ?? 0)
+            // 1pt spacer matches the Divider() between rows in the Grid
+            Color.clear.frame(height: 1)
+          }
+        }
       }
       .onPreferenceChange(BulkEntryHeaderHeightKey.self) { headerHeight = $0 }
+      .onPreferenceChange(BulkEntryDataRowsKey.self) { rowMetadata = $0 }
   }
 }
 
@@ -512,11 +577,13 @@ struct BulkEntryPlatformSection: View, Equatable {
       // drift between the header and rows is eliminated). Cells use
       // `horizontalSpacing: 0` and per-cell horizontal padding.
       //
-      // The header tint is rendered as a `.background(alignment: .top)`
-      // `Rectangle` on this `Grid`, sized via the height published by
-      // `BulkEntryHeaderHeightKey`. `Grid` has no native row-background
-      // API and `.background()` on `GridRow` is forwarded per cell —
-      // this is the SwiftUI-idiomatic alternative.
+      // The header tint and per-row "updated" tints are rendered as a
+      // single `.background(alignment: .top)` strip stack on this `Grid`,
+      // sized via the heights published by `BulkEntryHeaderHeightKey` and
+      // `BulkEntryDataRowsKey`. `Grid` has no native row-background API
+      // and `.background()` on `GridRow` is forwarded per cell (which
+      // leaves gaps where a cell is narrower than its column) — this is
+      // the SwiftUI-idiomatic alternative.
       //
       // NOTE: `.equatable()` cannot be applied to `BulkEntryRowView` here:
       // `EquatableView` is opaque to `Grid`'s row introspection, so the
@@ -538,7 +605,7 @@ struct BulkEntryPlatformSection: View, Equatable {
           Divider()
         }
       }
-      .bulkEntryHeaderTintStrip()
+      .bulkEntrySectionBackgrounds(rowIDs: rows.map(\.id))
     }
     .padding(.bottom, 16)
   }
@@ -703,7 +770,7 @@ struct BulkEntryCashFlowList: View {
           Divider()
         }
       }
-      .bulkEntryHeaderTintStrip()
+      .bulkEntrySectionBackgrounds()
       BulkEntryCashFlowNetSummary(viewModel: viewModel)
     }
   }

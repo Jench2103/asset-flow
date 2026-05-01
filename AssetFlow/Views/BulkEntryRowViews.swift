@@ -49,6 +49,7 @@ struct BulkEntryRowView: View, Equatable {
         .accessibilityLabel("Include \(row.assetName)")
         .helpWhenUnlocked("Include or exclude this asset from the snapshot")
         .modifier(cellStyle)
+        .publishesBulkEntryDataRowMetadata(rowID: row.id, isTinted: localIsUpdated)
 
       // `.frame(maxWidth: .infinity)` makes this the flex column.
       // `TextField`'s natural width is independent of its text, so
@@ -179,11 +180,6 @@ struct BulkEntryRowView: View, Equatable {
       .frame(width: 28)
       .modifier(cellStyle)
     }
-    .background(
-      localIsUpdated
-        ? Color.green.opacity(0.06)
-        : Color.clear
-    )
     .opacity(isExcluded ? 0.5 : 1.0)
     .accessibilityLabel(
       "\(row.assetName), \(row.platform), \(row.isUpdated ? "updated" : row.isPending ? "pending" : "excluded")"
@@ -271,9 +267,9 @@ struct BulkEntryRowView: View, Equatable {
 // MARK: - Row Cell Style
 
 /// Per-cell padding/sizing for asset / cash-flow data rows. The
-/// per-row tint (green for updated rows) and the excluded-row dim are
-/// applied at the `GridRow` level (see each row view's `body`) so they
-/// render as single contiguous strips across the full row width.
+/// updated-row tint is rendered behind the Grid via
+/// `BulkEntryDataRowsKey` rather than at the `GridRow` level (which
+/// would forward per cell and leave gaps).
 struct BulkEntryRowCellStyle: ViewModifier {
   func body(content: Content) -> some View {
     content
