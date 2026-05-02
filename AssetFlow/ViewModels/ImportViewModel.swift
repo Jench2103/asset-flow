@@ -114,6 +114,12 @@ class ImportViewModel {
   /// Preview rows for cash flow CSV import.
   var cashFlowPreviewRows: [CashFlowPreviewRow] = []
 
+  /// Cached platform options for the import toolbar picker.
+  var availablePlatforms: [String] = []
+
+  /// Cached category options for the import toolbar picker.
+  var availableCategories: [Category] = []
+
   /// Validation errors (block import).
   var validationErrors: [CSVError] = []
 
@@ -199,6 +205,7 @@ class ImportViewModel {
     if !defaultPlatform.isEmpty {
       self.selectedPlatform = defaultPlatform
     }
+    refreshPickerOptions()
   }
 
   // MARK: - File Loading
@@ -296,6 +303,21 @@ class ImportViewModel {
 
   /// Returns all distinct, non-empty platforms from existing assets.
   func existingPlatforms() -> [String] {
+    fetchExistingPlatforms()
+  }
+
+  /// Returns all existing categories.
+  func existingCategories() -> [Category] {
+    fetchExistingCategories()
+  }
+
+  /// Refreshes cached picker options outside SwiftUI body evaluation.
+  func refreshPickerOptions() {
+    availablePlatforms = fetchExistingPlatforms()
+    availableCategories = fetchExistingCategories()
+  }
+
+  private func fetchExistingPlatforms() -> [String] {
     let descriptor = FetchDescriptor<Asset>()
     let allAssets = (try? modelContext.fetch(descriptor)) ?? []
 
@@ -308,8 +330,7 @@ class ImportViewModel {
     return platforms.sorted()
   }
 
-  /// Returns all existing categories.
-  func existingCategories() -> [Category] {
+  private func fetchExistingCategories() -> [Category] {
     let descriptor = FetchDescriptor<Category>(
       sortBy: [SortDescriptor(\.displayOrder), SortDescriptor(\.name)])
     return (try? modelContext.fetch(descriptor)) ?? []
@@ -349,6 +370,7 @@ class ImportViewModel {
 
     hasUnsavedChanges = false
     importedSnapshot = snapshot
+    refreshPickerOptions()
     return snapshot
   }
 
@@ -365,6 +387,7 @@ class ImportViewModel {
     importError = nil
     hasUnsavedChanges = false
     importedSnapshot = nil
+    refreshPickerOptions()
   }
 
   // MARK: - Column Mapping
@@ -402,22 +425,17 @@ class ImportViewModel {
 
     let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
 
-    let snapshotDescriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
-    let allSnapshots = (try? modelContext.fetch(snapshotDescriptor)) ?? []
-
     // No copy-forward when importing into an existing snapshot
-    if allSnapshots.contains(where: { $0.date == normalizedDate }) {
+    if SnapshotSummaryService.fetchSnapshot(on: normalizedDate, modelContext: modelContext) != nil {
       copyForwardPlatforms = []
       return
     }
 
-    // Find the most recent prior snapshot
-    let priorSnapshots =
-      allSnapshots
-      .filter { $0.date < normalizedDate }
-      .sorted { $0.date > $1.date }
-
-    guard let latestPrior = priorSnapshots.first else {
+    guard
+      let latestPrior = SnapshotSummaryService.fetchLatestSnapshot(
+        before: normalizedDate,
+        modelContext: modelContext)
+    else {
       copyForwardPlatforms = []
       return
     }

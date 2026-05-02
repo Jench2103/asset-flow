@@ -104,6 +104,7 @@ class DashboardViewModel {
 
   private var allSnapshots: [Snapshot] = []
   private var sortedSnapshotsCache: [Snapshot] = []
+  private var snapshotSummariesCache: [UUID: SnapshotSummary] = [:]
 
   /// Total value per snapshot (built once per load cycle).
   private var snapshotTotalCache: [UUID: Decimal] = [:]
@@ -164,6 +165,7 @@ class DashboardViewModel {
       sortedSnapshotsCache = []
       snapshotTotalCache = [:]
       categoryValuesCache = [:]
+      snapshotSummariesCache = [:]
       cachedPeriodReturns = []
       resolvedPeriodCache = [:]
       intermediateSnapshotsCache = [:]
@@ -176,19 +178,23 @@ class DashboardViewModel {
     let sortedSnapshots = allSnapshots.sorted { $0.date < $1.date }
     sortedSnapshotsCache = sortedSnapshots
 
-    // Build caches once: categoryValues per snapshot, derive totals from sums
+    // Build converted snapshot summaries once for all dashboard charts/cards.
     let displayCurrency = SettingsService.shared.mainCurrency
     cachedDisplayCurrency = displayCurrency
     var totalCache: [UUID: Decimal] = [:]
     var catCache: [UUID: [String: Decimal]] = [:]
-    for snapshot in sortedSnapshots {
-      let catValues = CurrencyConversionService.categoryValues(
-        for: snapshot, displayCurrency: displayCurrency, exchangeRate: snapshot.exchangeRate)
-      catCache[snapshot.id] = catValues
-      totalCache[snapshot.id] = catValues.values.reduce(0, +)
+    var summaryCache: [UUID: SnapshotSummary] = [:]
+    for summary in SnapshotSummaryService.makeSummaries(
+      for: sortedSnapshots,
+      displayCurrency: displayCurrency)
+    {
+      summaryCache[summary.snapshot.id] = summary
+      catCache[summary.snapshot.id] = summary.categoryValues
+      totalCache[summary.snapshot.id] = summary.totalValue
     }
     snapshotTotalCache = totalCache
     categoryValuesCache = catCache
+    snapshotSummariesCache = summaryCache
 
     // Build period returns cache once
     if sortedSnapshots.count >= 2 {
@@ -339,7 +345,9 @@ class DashboardViewModel {
 
     totalPortfolioValue = snapshotTotal(for: latestSnapshot)
     latestSnapshotDate = latestSnapshot.date
-    assetCount = (latestSnapshot.assetValues ?? []).count
+    assetCount =
+      snapshotSummariesCache[latestSnapshot.id]?.assetCount
+      ?? (latestSnapshot.assetValues ?? []).count
 
     // Cumulative TWR — treat nil returns as 0% (identity) to match twrHistory
     if sortedSnapshots.count >= 2 {
@@ -472,7 +480,8 @@ class DashboardViewModel {
       RecentSnapshotData(
         date: snapshot.date,
         totalValue: snapshotTotal(for: snapshot),
-        assetCount: (snapshot.assetValues ?? []).count
+        assetCount: snapshotSummariesCache[snapshot.id]?.assetCount
+          ?? (snapshot.assetValues ?? []).count
       )
     }
   }
@@ -480,8 +489,7 @@ class DashboardViewModel {
   // MARK: - Private: Helpers
 
   private func fetchAllSnapshots() -> [Snapshot] {
-    let descriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
-    return (try? modelContext.fetch(descriptor)) ?? []
+    SnapshotSummaryService.fetchSnapshots(modelContext: modelContext)
   }
 
   private func snapshotTotal(for snapshot: Snapshot) -> Decimal {

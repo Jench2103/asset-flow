@@ -190,16 +190,19 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 
 1. **CurrencyConversionService** (`enum`): Stateless conversion logic used by ViewModels. Provides `convert(value:from:to:using:)`, `totalValue(for:displayCurrency:exchangeRate:)`, `netCashFlow(for:displayCurrency:exchangeRate:)`, and `categoryValues(for:displayCurrency:exchangeRate:)`. Gracefully degrades (returns unconverted values) when exchange rate is nil.
 
+1. **SnapshotSummaryService** (`@MainActor enum`): Provides bounded snapshot fetch helpers (latest, latest prior, date lookup, sorted history) and one-pass converted snapshot summaries containing total value, asset count, category totals, and platform totals. ViewModels use this to avoid repeated full-table fetches and duplicate aggregate traversal logic.
+
 **Duplicate Detection**: AssetFlow handles duplicate detection in two layers:
 
 - **CSV-internal duplicates**: Detected by `CSVParsingService` during parsing (same name+platform within file, or same description within cash flow CSV)
 - **CSV-vs-snapshot duplicates**: Detected by `ImportViewModel` when loading preview (checks CSV rows against existing snapshot data)
 
-**Supporting Types**: `DateFormatStyle`, `BackupTypes`, `CSVParsingTypes` (result types), `ChartDataService` (chart data filtering and axis formatting). Domain error enums (`AssetError`, `CategoryError`, `PlatformError`) are in `Models/`.
+**Supporting Types**: `DateFormatStyle`, `BackupTypes`, `CSVParsingTypes` (result types), `SnapshotSummary` (converted snapshot aggregates), `ChartDataService` (chart data filtering and axis formatting). Domain error enums (`AssetError`, `CategoryError`, `PlatformError`) are in `Models/`.
 
 **Design Principles**:
 
-- Services perform pure calculations without requiring MainActor
+- Services perform pure calculations without requiring MainActor where possible
+- Services that accept `ModelContext` are `@MainActor` and use bounded fetch descriptors when the caller only needs the latest, latest-prior, or date-specific snapshot
 - Models remain simple data containers
 - ViewModels coordinate between services and UI
 - Testability: mock data can be passed to services without side effects

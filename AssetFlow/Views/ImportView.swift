@@ -103,6 +103,9 @@ struct ImportView: View {
         Text(error)
       }
     }
+    .onAppear {
+      viewModel.refreshPickerOptions()
+    }
   }
 
   private var previewRowsEmpty: Bool {
@@ -258,7 +261,7 @@ struct ImportView: View {
             .foregroundStyle(.secondary)
           Picker("Platform", selection: platformBinding) {
             Text("None").tag("")
-            ForEach(viewModel.existingPlatforms(), id: \.self) { platform in
+            ForEach(viewModel.availablePlatforms, id: \.self) { platform in
               Text(platform).tag(platform)
             }
             Divider()
@@ -312,7 +315,7 @@ struct ImportView: View {
     guard !trimmed.isEmpty else { return }
 
     // Check if it matches an existing platform (case-insensitive)
-    let existing = viewModel.existingPlatforms()
+    let existing = viewModel.availablePlatforms
     if let match = existing.first(where: { $0.lowercased() == trimmed.lowercased() }) {
       viewModel.selectedPlatform = match
     } else {
@@ -346,7 +349,7 @@ struct ImportView: View {
             .foregroundStyle(.secondary)
           Picker("Category", selection: categoryBinding) {
             Text("None").tag("")
-            ForEach(viewModel.existingCategories()) { category in
+            ForEach(viewModel.availableCategories) { category in
               Text(category.name).tag(category.id.uuidString)
             }
             Divider()
@@ -389,7 +392,7 @@ struct ImportView: View {
         } else if newValue.isEmpty {
           viewModel.selectedCategory = nil
         } else {
-          let categories = viewModel.existingCategories()
+          let categories = viewModel.availableCategories
           viewModel.selectedCategory = categories.first {
             $0.id.uuidString == newValue
           }
@@ -403,6 +406,7 @@ struct ImportView: View {
     guard !trimmed.isEmpty else { return }
 
     let resolved = viewModel.resolveCategory(name: trimmed)
+    viewModel.refreshPickerOptions()
     viewModel.selectedCategory = resolved
 
     showNewCategoryField = false

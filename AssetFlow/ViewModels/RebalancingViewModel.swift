@@ -85,7 +85,6 @@ final class RebalancingViewModel {
   }
 
   private func performLoadRebalancing() {
-    let allSnapshots = fetchAllSnapshots()
     let allCategories = fetchAllCategories()
 
     // Clear state
@@ -95,7 +94,9 @@ final class RebalancingViewModel {
     summaryTexts = []
     totalPortfolioValue = 0
 
-    guard let latestSnapshot = allSnapshots.last else { return }
+    guard
+      let latestSnapshot = SnapshotSummaryService.fetchLatestSnapshot(modelContext: modelContext)
+    else { return }
 
     let displayCurrency = SettingsService.shared.mainCurrency
     totalPortfolioValue = CurrencyConversionService.totalValue(
@@ -208,11 +209,6 @@ final class RebalancingViewModel {
       .sorted {
         $0.categoryName.localizedCaseInsensitiveCompare($1.categoryName) == .orderedAscending
       }
-  }
-
-  private func fetchAllSnapshots() -> [Snapshot] {
-    let descriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
-    return (try? modelContext.fetch(descriptor)) ?? []
   }
 
   private func fetchAllCategories() -> [Category] {

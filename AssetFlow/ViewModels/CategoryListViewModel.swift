@@ -69,14 +69,14 @@ final class CategoryListViewModel {
 
   private func performLoadCategories() {
     let allCategories = fetchAllCategories()
-    let allSnapshots = fetchAllSnapshots()
+    let latestSnapshot = SnapshotSummaryService.fetchLatestSnapshot(modelContext: modelContext)
 
     // Build latest value lookup grouped by category
     let categoryValues = buildCategoryValueLookup(
-      categories: allCategories, allSnapshots: allSnapshots)
+      latestSnapshot: latestSnapshot)
 
     let totalValue = categoryValues.values.reduce(Decimal(0), +)
-    let hasSnapshots = !allSnapshots.isEmpty
+    let hasSnapshots = latestSnapshot != nil
 
     normalizeDisplayOrderIfNeeded(allCategories)
 
@@ -237,18 +237,12 @@ final class CategoryListViewModel {
     }
   }
 
-  private func fetchAllSnapshots() -> [Snapshot] {
-    let descriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
-
   /// Builds a lookup of category ID → total market value from the latest snapshot,
   /// converting each asset's value to the display currency.
   private func buildCategoryValueLookup(
-    categories: [Category],
-    allSnapshots: [Snapshot]
+    latestSnapshot: Snapshot?
   ) -> [UUID: Decimal] {
-    guard let latestSnapshot = allSnapshots.last else { return [:] }
+    guard let latestSnapshot else { return [:] }
 
     let assetValues = latestSnapshot.assetValues ?? []
     let displayCurrency = settingsService.mainCurrency

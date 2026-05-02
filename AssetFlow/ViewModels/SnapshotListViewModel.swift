@@ -149,18 +149,18 @@ class SnapshotListViewModel {
   ///
   /// Wraps the load in `withObservationTracking` so that any `@Observable`/`@Model`
   /// property change (e.g. currency, asset values) automatically triggers a reload.
-  func loadRowData() {
+  func loadRowData(snapshots: [Snapshot]? = nil) {
     withObservationTracking {
-      performLoadRowData()
+      performLoadRowData(snapshots: snapshots)
     } onChange: { [weak self] in
       Task { @MainActor [weak self] in
-        self?.loadRowData()
+        self?.loadRowData(snapshots: snapshots)
       }
     }
   }
 
-  private func performLoadRowData() {
-    rowDataMap = loadAllSnapshotRowData()
+  private func performLoadRowData(snapshots: [Snapshot]?) {
+    rowDataMap = loadAllSnapshotRowData(snapshots: snapshots)
   }
 
   // MARK: - Creation
@@ -232,8 +232,8 @@ class SnapshotListViewModel {
   // MARK: - Row Data
 
   /// Computes row data for all snapshots in a single batch.
-  func loadAllSnapshotRowData() -> [UUID: SnapshotRowData] {
-    let allSnapshots = fetchAllSnapshots()
+  func loadAllSnapshotRowData(snapshots: [Snapshot]? = nil) -> [UUID: SnapshotRowData] {
+    let allSnapshots = snapshots ?? fetchAllSnapshots()
 
     var result: [UUID: SnapshotRowData] = [:]
     for snapshot in allSnapshots {
@@ -273,8 +273,7 @@ class SnapshotListViewModel {
   // MARK: - Private Helpers
 
   private func fetchAllSnapshots() -> [Snapshot] {
-    let descriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
-    return (try? modelContext.fetch(descriptor)) ?? []
+    SnapshotSummaryService.fetchSnapshots(modelContext: modelContext)
   }
 
   /// Copies all direct asset values from the most recent prior snapshot to the new snapshot.

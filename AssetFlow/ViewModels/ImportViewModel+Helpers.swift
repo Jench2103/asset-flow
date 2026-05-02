@@ -240,16 +240,11 @@ extension ImportViewModel {
 
     let normalizedDate = Calendar.current.startOfDay(for: snapshotDate)
 
-    // Find the most recent prior snapshot
-    let snapshotDescriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
-    let allSnapshots = (try? modelContext.fetch(snapshotDescriptor)) ?? []
-
-    let priorSnapshots =
-      allSnapshots
-      .filter { $0.date < normalizedDate }
-      .sorted { $0.date > $1.date }
-
-    guard let latestPrior = priorSnapshots.first else { return }
+    guard
+      let latestPrior = SnapshotSummaryService.fetchLatestSnapshot(
+        before: normalizedDate,
+        modelContext: modelContext)
+    else { return }
 
     let selectedPlatformNames = Set(selectedPlatforms.map { $0.platformName.lowercased() })
     let priorValues = latestPrior.assetValues ?? []

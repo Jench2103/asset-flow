@@ -546,6 +546,46 @@ enum CurrencyConversionService {
 
 ______________________________________________________________________
 
+### SnapshotSummaryService
+
+**Purpose**: Shared snapshot fetch and aggregation helper used by ViewModels that need converted totals. Fetch helpers use bounded descriptors for latest, latest-prior, and date-specific snapshot lookups.
+
+**File**: `AssetFlow/Services/SnapshotSummaryService.swift`
+
+```swift
+struct SnapshotSummary {
+    let snapshot: Snapshot
+    let date: Date
+    let assetCount: Int
+    let totalValue: Decimal
+    let categoryValues: [String: Decimal]
+    let platformValues: [String: Decimal]
+}
+
+@MainActor
+enum SnapshotSummaryService {
+    static func fetchSnapshots(modelContext: ModelContext) -> [Snapshot]
+    static func fetchLatestSnapshot(modelContext: ModelContext) -> Snapshot?
+    static func fetchSnapshot(on date: Date, modelContext: ModelContext) -> Snapshot?
+    static func fetchLatestSnapshot(
+        before date: Date,
+        modelContext: ModelContext
+    ) -> Snapshot?
+    static func makeSummaries(
+        for snapshots: [Snapshot],
+        displayCurrency: String
+    ) -> [SnapshotSummary]
+    static func makeSummary(
+        for snapshot: Snapshot,
+        displayCurrency: String
+    ) -> SnapshotSummary
+}
+```
+
+**Usage**: List and workflow ViewModels use `fetchLatestSnapshot` / `fetchLatestSnapshot(before:)` when only one snapshot is needed. Dashboard, category detail, and platform detail use `makeSummaries` so total, category, and platform history values are computed in one converted pass per snapshot.
+
+______________________________________________________________________
+
 ### ChartDataService
 
 **Purpose**: Stateless service for chart data filtering by time range and Y-axis label abbreviation.

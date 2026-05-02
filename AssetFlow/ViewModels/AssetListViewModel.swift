@@ -72,10 +72,9 @@ final class AssetListViewModel {
 
   private func performLoadAssets() {
     let allAssets = fetchAllAssets()
-    let allSnapshots = fetchAllSnapshots()
-
     // Build latest value lookup from most recent snapshot
-    let latestValueLookup = buildLatestValueLookup(allSnapshots: allSnapshots)
+    let latestValueLookup = buildLatestValueLookup(
+      latestSnapshot: SnapshotSummaryService.fetchLatestSnapshot(modelContext: modelContext))
 
     // Build row data for each asset
     let rowDataList = allAssets.map { asset in
@@ -110,16 +109,11 @@ final class AssetListViewModel {
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 
-  private func fetchAllSnapshots() -> [Snapshot] {
-    let descriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
-
   /// Builds a lookup of asset ID → latest market value from the most recent snapshot.
   private func buildLatestValueLookup(
-    allSnapshots: [Snapshot]
+    latestSnapshot: Snapshot?
   ) -> [UUID: Decimal] {
-    guard let latestSnapshot = allSnapshots.last else { return [:] }
+    guard let latestSnapshot else { return [:] }
 
     let assetValues = latestSnapshot.assetValues ?? []
 

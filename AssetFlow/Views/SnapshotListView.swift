@@ -77,10 +77,10 @@ struct SnapshotListView: View {
       }
     }
     .onAppear {
-      viewModel.loadRowData()
+      viewModel.loadRowData(snapshots: snapshots)
     }
     .onChange(of: snapshots) {
-      viewModel.loadRowData()
+      viewModel.loadRowData(snapshots: snapshots)
     }
     .sheet(isPresented: $showNewSnapshotSheet) {
       NewSnapshotSheet(

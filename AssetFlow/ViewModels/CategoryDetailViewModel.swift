@@ -65,6 +65,7 @@ final class CategoryDetailViewModel {
   var assets: [DetailAssetRowData] = []
   var valueHistory: [CategoryValueHistoryEntry] = []
   var allocationHistory: [CategoryAllocationHistoryEntry] = []
+  private var summaries: [SnapshotSummary] = []
 
   init(category: Category, modelContext: ModelContext, settingsService: SettingsService? = nil) {
     self.category = category
@@ -110,10 +111,13 @@ final class CategoryDetailViewModel {
   }
 
   private func performLoadData() {
-    let allSnapshots = fetchAllSnapshots()
+    let allSnapshots = SnapshotSummaryService.fetchSnapshots(modelContext: modelContext)
+    summaries = SnapshotSummaryService.makeSummaries(
+      for: allSnapshots,
+      displayCurrency: settingsService.mainCurrency)
 
     loadAssets(allSnapshots: allSnapshots)
-    loadHistory(allSnapshots: allSnapshots)
+    loadHistory()
   }
 
   // MARK: - Save
@@ -157,11 +161,6 @@ final class CategoryDetailViewModel {
   }
 
   // MARK: - Private Helpers
-
-  private func fetchAllSnapshots() -> [Snapshot] {
-    let descriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
 
   /// Loads assets in this category with their latest values.
   private func loadAssets(allSnapshots: [Snapshot]) {
@@ -209,42 +208,19 @@ final class CategoryDetailViewModel {
   /// **Note:** Values reflect **current** category membership applied retroactively.
   /// The data model does not track historical category assignments, so an asset
   /// moved between categories will appear in its current category for all past snapshots.
-  private func loadHistory(allSnapshots: [Snapshot]) {
-    let categoryAssetIDs = Set((category.assets ?? []).map(\.id))
-
+  private func loadHistory() {
     var valueEntries: [CategoryValueHistoryEntry] = []
     var allocationEntries: [CategoryAllocationHistoryEntry] = []
 
-    let displayCurrency = settingsService.mainCurrency
-
-    for snapshot in allSnapshots {
-      let assetValues = snapshot.assetValues ?? []
-      let exchangeRate = snapshot.exchangeRate
-
-      // Single pass: accumulate both totalValue and categoryValue simultaneously
-      var totalValue: Decimal = 0
-      var categoryValue: Decimal = 0
-      for sav in assetValues {
-        let assetCurrency = sav.asset?.currency ?? ""
-        let effectiveCurrency = assetCurrency.isEmpty ? displayCurrency : assetCurrency
-        let converted = CurrencyConversionService.convert(
-          value: sav.marketValue,
-          from: effectiveCurrency,
-          to: displayCurrency,
-          using: exchangeRate)
-        totalValue += converted
-        if let assetID = sav.asset?.id, categoryAssetIDs.contains(assetID) {
-          categoryValue += converted
-        }
-      }
-
+    for summary in summaries {
+      let categoryValue = summary.categoryValues[category.name] ?? 0
       valueEntries.append(
-        CategoryValueHistoryEntry(date: snapshot.date, totalValue: categoryValue))
+        CategoryValueHistoryEntry(date: summary.date, totalValue: categoryValue))
 
       let allocation = CalculationService.categoryAllocation(
-        categoryValue: categoryValue, totalValue: totalValue)
+        categoryValue: categoryValue, totalValue: summary.totalValue)
       allocationEntries.append(
-        CategoryAllocationHistoryEntry(date: snapshot.date, allocationPercentage: allocation))
+        CategoryAllocationHistoryEntry(date: summary.date, allocationPercentage: allocation))
     }
 
     valueHistory = valueEntries

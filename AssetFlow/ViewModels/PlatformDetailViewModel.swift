@@ -52,6 +52,7 @@ final class PlatformDetailViewModel {
 
   /// Platform total value per snapshot across all snapshots.
   var valueHistory: [PlatformValueHistoryEntry] = []
+  private var summaries: [SnapshotSummary] = []
 
   init(platformName: String, modelContext: ModelContext, settingsService: SettingsService? = nil) {
     self.platformName = platformName
@@ -77,10 +78,13 @@ final class PlatformDetailViewModel {
   }
 
   private func performLoadData() {
-    let allSnapshots = fetchAllSnapshots()
+    let allSnapshots = SnapshotSummaryService.fetchSnapshots(modelContext: modelContext)
+    summaries = SnapshotSummaryService.makeSummaries(
+      for: allSnapshots,
+      displayCurrency: settingsService.mainCurrency)
 
     loadAssets(allSnapshots: allSnapshots)
-    loadHistory(allSnapshots: allSnapshots)
+    loadHistory()
   }
 
   // MARK: - Save (Rename)
@@ -122,11 +126,6 @@ final class PlatformDetailViewModel {
   }
 
   // MARK: - Private Helpers
-
-  private func fetchAllSnapshots() -> [Snapshot] {
-    let descriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
 
   private func fetchAllAssets() -> [Asset] {
     let descriptor = FetchDescriptor<Asset>(sortBy: [SortDescriptor(\.name)])
@@ -180,30 +179,14 @@ final class PlatformDetailViewModel {
   }
 
   /// Computes value history across all snapshots for this platform.
-  private func loadHistory(allSnapshots: [Snapshot]) {
-    let displayCurrency = settingsService.mainCurrency
+  private func loadHistory() {
     var entries: [PlatformValueHistoryEntry] = []
 
-    for snapshot in allSnapshots {
-      let assetValues = snapshot.assetValues ?? []
-      let exchangeRate = snapshot.exchangeRate
-
-      let platformValue =
-        assetValues
-        .filter { $0.asset?.platform == platformName }
-        .reduce(Decimal(0)) { sum, sav in
-          let assetCurrency = sav.asset?.currency ?? ""
-          let effectiveCurrency = assetCurrency.isEmpty ? displayCurrency : assetCurrency
-          return sum
-            + CurrencyConversionService.convert(
-              value: sav.marketValue,
-              from: effectiveCurrency,
-              to: displayCurrency,
-              using: exchangeRate)
-        }
-
+    for summary in summaries {
       entries.append(
-        PlatformValueHistoryEntry(date: snapshot.date, totalValue: platformValue))
+        PlatformValueHistoryEntry(
+          date: summary.date,
+          totalValue: summary.platformValues[platformName] ?? 0))
     }
 
     valueHistory = entries

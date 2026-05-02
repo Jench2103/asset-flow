@@ -652,12 +652,10 @@ final class BulkEntryViewModel {
 
   private func loadRowsFromLatestSnapshot() {
     let targetDate = snapshotDate
-    let descriptor = FetchDescriptor<Snapshot>(
-      sortBy: [SortDescriptor(\.date, order: .reverse)]
-    )
-
-    guard let allSnapshots = try? modelContext.fetch(descriptor),
-      let latestBefore = allSnapshots.first(where: { $0.date < targetDate }),
+    guard
+      let latestBefore = SnapshotSummaryService.fetchLatestSnapshot(
+        before: targetDate,
+        modelContext: modelContext),
       let assetValues = latestBefore.assetValues
     else { return }
 

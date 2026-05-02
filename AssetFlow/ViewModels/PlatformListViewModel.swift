@@ -63,7 +63,6 @@ final class PlatformListViewModel {
 
   private func performLoadPlatforms() {
     let allAssets = fetchAllAssets()
-    let allSnapshots = fetchAllSnapshots()
 
     // Group assets by non-empty platform
     let assetsByPlatform = Dictionary(
@@ -72,7 +71,8 @@ final class PlatformListViewModel {
     )
 
     // Build platform → total value lookup from latest snapshot
-    let platformValues = buildPlatformValueLookup(allSnapshots: allSnapshots)
+    let platformValues = buildPlatformValueLookup(
+      latestSnapshot: SnapshotSummaryService.fetchLatestSnapshot(modelContext: modelContext))
 
     let rows =
       assetsByPlatform.map { platform, assets in
@@ -184,16 +184,11 @@ final class PlatformListViewModel {
     return (try? modelContext.fetch(descriptor)) ?? []
   }
 
-  private func fetchAllSnapshots() -> [Snapshot] {
-    let descriptor = FetchDescriptor<Snapshot>(sortBy: [SortDescriptor(\.date)])
-    return (try? modelContext.fetch(descriptor)) ?? []
-  }
-
   /// Builds a lookup of platform name → total market value from the latest snapshot.
   private func buildPlatformValueLookup(
-    allSnapshots: [Snapshot]
+    latestSnapshot: Snapshot?
   ) -> [String: Decimal] {
-    guard let latestSnapshot = allSnapshots.last else { return [:] }
+    guard let latestSnapshot else { return [:] }
 
     let assetValues = latestSnapshot.assetValues ?? []
     let displayCurrency = settingsService.mainCurrency
