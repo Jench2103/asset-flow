@@ -65,10 +65,10 @@ struct SettingsView: View {
     .formStyle(.grouped)
     .navigationTitle("Settings")
     .frame(
-      minWidth: 450, idealWidth: 550, maxWidth: .infinity,
+      minWidth: 450, idealWidth: 800, maxWidth: .infinity,
       minHeight: 400, idealHeight: 650, maxHeight: .infinity
     )
-    .windowResizable()
+    .windowResizable(initialContentSize: NSSize(width: 800, height: 650))
     .alert(
       isError ? "Error" : "Success",
       isPresented: $showResultAlert
