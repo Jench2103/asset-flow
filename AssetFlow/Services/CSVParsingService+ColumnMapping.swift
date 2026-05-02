@@ -25,7 +25,7 @@ extension CSVParsingService {
   ///
   /// Note: This and `extractSampleRows` each independently decode and split
   /// the CSV. A combined helper could avoid redundant work, but the data is
-  /// small (only the header + a few sample rows are read) and the clarity of
+  /// usually small, and the clarity of
   /// separate, single-purpose methods is preferred for now.
   static func extractHeaders(from data: Data) -> [String] {
     let lines = splitCSVLines(decodeCSVData(data))
@@ -33,10 +33,13 @@ extension CSVParsingService {
     return parseCSVRow(headerLine)
   }
 
-  /// Extracts the first N data rows (excluding header) as raw string arrays.
-  static func extractSampleRows(from data: Data, count: Int = 3) -> [[String]] {
+  /// Extracts data rows (excluding header) as raw string arrays.
+  ///
+  /// Pass `nil` for `count` to extract every data row.
+  static func extractSampleRows(from data: Data, count: Int? = 3) -> [[String]] {
     let lines = splitCSVLines(decodeCSVData(data))
-    let dataLines = Array(lines.dropFirst().prefix(count))
+    let rows = lines.dropFirst()
+    let dataLines = count.map { Array(rows.prefix($0)) } ?? Array(rows)
     return dataLines.map { parseCSVRow($0) }
   }
 

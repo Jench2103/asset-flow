@@ -27,16 +27,20 @@ struct ColumnMappingSheet: View {
   let schema: CSVColumnSchema
   let sampleRows: [[String]]
   let initialMapping: [CanonicalColumn: Int]
+  let parentSize: CGSize?
   let onConfirm: (CSVColumnMapping) -> Void
   let onCancel: () -> Void
 
   @State private var columnAssignments: [CanonicalColumn?]
+  @State private var measuredTableSize: CGSize = .zero
+  @State private var measuredChromeSize: CGSize = .zero
 
   init(
     rawHeaders: [String],
     schema: CSVColumnSchema,
     sampleRows: [[String]],
     initialMapping: [CanonicalColumn: Int],
+    parentSize: CGSize? = nil,
     onConfirm: @escaping (CSVColumnMapping) -> Void,
     onCancel: @escaping () -> Void
   ) {
@@ -44,6 +48,7 @@ struct ColumnMappingSheet: View {
     self.schema = schema
     self.sampleRows = sampleRows
     self.initialMapping = initialMapping
+    self.parentSize = parentSize
     self.onConfirm = onConfirm
     self.onCancel = onCancel
 
@@ -85,11 +90,90 @@ struct ColumnMappingSheet: View {
     !allRequiredMapped || hasDuplicateAssignments
   }
 
+  private var maxSheetWidth: CGFloat {
+    guard let parentSize, parentSize.width > 0 else { return Self.defaultSheetWidth }
+    return parentSize.width * Self.maxParentRatio
+  }
+
+  private var maxSheetHeight: CGFloat {
+    guard let parentSize, parentSize.height > 0 else { return Self.defaultSheetHeight }
+    return parentSize.height * Self.maxParentRatio
+  }
+
+  private var maxTableViewportWidth: CGFloat {
+    max(1, maxSheetWidth - Self.contentHorizontalPadding)
+  }
+
+  private var maxTableViewportHeight: CGFloat {
+    max(1, maxSheetHeight - measuredChromeSize.height)
+  }
+
+  private var needsHorizontalScroll: Bool {
+    measuredTableSize.width > maxTableViewportWidth
+  }
+
+  private var needsVerticalScroll: Bool {
+    measuredTableSize.height + horizontalScrollbarHeight > maxTableViewportHeight
+  }
+
+  private var horizontalScrollbarHeight: CGFloat {
+    needsHorizontalScroll ? Self.scrollbarClearance : 0
+  }
+
+  private var tableViewportWidth: CGFloat? {
+    guard measuredTableSize.width > 0 else { return nil }
+    return min(measuredTableSize.width, maxTableViewportWidth)
+  }
+
+  private var tableViewportHeight: CGFloat? {
+    guard measuredTableSize.height > 0, measuredChromeSize.height > 0 else { return nil }
+    return min(measuredTableSize.height + horizontalScrollbarHeight, maxTableViewportHeight)
+  }
+
+  private var sheetWidth: CGFloat? {
+    guard let tableViewportWidth else { return nil }
+    return min(
+      max(measuredChromeSize.width, tableViewportWidth + Self.contentHorizontalPadding),
+      maxSheetWidth)
+  }
+
+  private var sheetHeight: CGFloat? {
+    guard let tableViewportHeight, measuredChromeSize.height > 0 else { return nil }
+    return min(measuredChromeSize.height + tableViewportHeight, maxSheetHeight)
+  }
+
   // MARK: - Body
 
   var body: some View {
-    NavigationStack {
+    sheetContent(table: csvTable)
+      .frame(
+        width: sheetWidth,
+        height: sheetHeight,
+        alignment: .topLeading
+      )
+      .frame(
+        maxWidth: maxSheetWidth,
+        maxHeight: maxSheetHeight,
+        alignment: .topLeading
+      )
+      .background(chromeMeasurement)
+      .background(tableMeasurement)
+      .onPreferenceChange(ChromeSizePreferenceKey.self) { size in
+        measuredChromeSize = size
+      }
+      .onPreferenceChange(CSVTableSizePreferenceKey.self) { size in
+        measuredTableSize = size
+      }
+  }
+
+  private func sheetContent(table: some View) -> some View {
+    VStack(spacing: 0) {
       VStack(alignment: .leading, spacing: 12) {
+        Text(String(localized: "Map CSV Columns", table: "Import"))
+          .font(.headline)
+
+        Divider()
+
         Text(
           String(
             localized:
@@ -98,90 +182,141 @@ struct ColumnMappingSheet: View {
         )
         .font(.callout)
         .foregroundStyle(.secondary)
-
-        csvTable
-
+        table
         statusBar
       }
       .padding()
-      .frame(minWidth: 560, idealWidth: 640)
-      .navigationTitle(
-        String(localized: "Map CSV Columns", table: "Import")
-      )
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button(String(localized: "Cancel", table: "Import")) {
-            onCancel()
-          }
+
+      Divider()
+
+      HStack {
+        Spacer()
+        Button(String(localized: "Cancel", table: "Import")) {
+          onCancel()
         }
-        ToolbarItem(placement: .confirmationAction) {
-          Button(String(localized: "Confirm", table: "Import")) {
-            confirmMapping()
-          }
-          .buttonStyle(.borderedProminent)
-          .disabled(isConfirmDisabled)
+        Button(String(localized: "Confirm", table: "Import")) {
+          confirmMapping()
         }
+        .buttonStyle(.borderedProminent)
+        .disabled(isConfirmDisabled)
       }
+      .padding()
     }
+  }
+
+  private var chromeMeasurement: some View {
+    sheetContent(table: Color.clear.frame(width: 0, height: 0))
+      .fixedSize()
+      .hidden()
+      .accessibilityHidden(true)
+      .allowsHitTesting(false)
+      .readSize(key: ChromeSizePreferenceKey.self)
   }
 
   // MARK: - CSV Table
 
+  @ViewBuilder
   private var csvTable: some View {
-    ScrollView(.horizontal) {
-      Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
-        // Row 0: Pickers — compute duplicateColumns once per render, not per cell
-        let dupes = duplicateColumns
-        GridRow {
-          ForEach(Array(rawHeaders.enumerated()), id: \.offset) { index, _ in
-            pickerCell(at: index, duplicates: dupes)
-          }
+    if needsHorizontalScroll || needsVerticalScroll {
+      ScrollView(scrollAxes) {
+        csvGrid
+          .fixedSize()
+      }
+      .frame(
+        width: tableViewportWidth,
+        height: tableViewportHeight,
+        alignment: .topLeading
+      )
+      .layoutPriority(1)
+    } else {
+      csvGrid
+        .fixedSize()
+        .frame(
+          width: tableViewportWidth,
+          height: tableViewportHeight,
+          alignment: .topLeading
+        )
+        .layoutPriority(1)
+    }
+  }
+
+  private var scrollAxes: Axis.Set {
+    switch (needsHorizontalScroll, needsVerticalScroll) {
+    case (true, true):
+      return [.horizontal, .vertical]
+
+    case (true, false):
+      return .horizontal
+
+    case (false, true):
+      return .vertical
+
+    case (false, false):
+      return []
+    }
+  }
+
+  private var tableMeasurement: some View {
+    csvGrid
+      .fixedSize()
+      .hidden()
+      .accessibilityHidden(true)
+      .allowsHitTesting(false)
+      .readSize(key: CSVTableSizePreferenceKey.self)
+  }
+
+  private var csvGrid: some View {
+    Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
+      // Row 0: Pickers — compute duplicateColumns once per render, not per cell
+      let dupes = duplicateColumns
+      GridRow {
+        ForEach(Array(rawHeaders.enumerated()), id: \.offset) { index, _ in
+          pickerCell(at: index, duplicates: dupes)
         }
+      }
 
-        Divider()
-          .gridCellColumns(rawHeaders.count)
+      Divider()
+        .gridCellColumns(rawHeaders.count)
 
-        // Row 1: CSV headers
+      // Row 1: CSV headers
+      GridRow {
+        ForEach(Array(rawHeaders.enumerated()), id: \.offset) { _, header in
+          Text(header)
+            .font(.caption)
+            .fontWeight(.semibold)
+            .foregroundStyle(.secondary)
+            .frame(minWidth: 100, alignment: .leading)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+        }
+      }
+
+      Divider()
+        .gridCellColumns(rawHeaders.count)
+
+      // Data rows
+      ForEach(Array(sampleRows.enumerated()), id: \.offset) { _, row in
         GridRow {
-          ForEach(Array(rawHeaders.enumerated()), id: \.offset) { _, header in
-            Text(header)
+          ForEach(Array(row.enumerated()), id: \.offset) { _, value in
+            Text(value)
               .font(.caption)
-              .fontWeight(.semibold)
               .foregroundStyle(.secondary)
+              .lineLimit(1)
               .frame(minWidth: 100, alignment: .leading)
               .padding(.horizontal, 8)
-              .padding(.vertical, 4)
+              .padding(.vertical, 2)
           }
-        }
-
-        Divider()
-          .gridCellColumns(rawHeaders.count)
-
-        // Data rows
-        ForEach(Array(sampleRows.enumerated()), id: \.offset) { _, row in
-          GridRow {
-            ForEach(Array(row.enumerated()), id: \.offset) { _, value in
-              Text(value)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+          // Pad if row has fewer fields than headers
+          if row.count < rawHeaders.count {
+            ForEach(row.count..<rawHeaders.count, id: \.self) { _ in
+              Text("")
                 .frame(minWidth: 100, alignment: .leading)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
             }
-            // Pad if row has fewer fields than headers
-            if row.count < rawHeaders.count {
-              ForEach(row.count..<rawHeaders.count, id: \.self) { _ in
-                Text("")
-                  .frame(minWidth: 100, alignment: .leading)
-                  .padding(.horizontal, 8)
-                  .padding(.vertical, 2)
-              }
-            }
           }
         }
       }
-      .padding(.bottom, 8)
     }
   }
 
@@ -263,5 +398,46 @@ struct ColumnMappingSheet: View {
     let mapping = CSVColumnMapping(
       schema: schema, columnMap: columnMap, rawHeaders: rawHeaders)
     onConfirm(mapping)
+  }
+}
+
+extension ColumnMappingSheet {
+  private static let maxParentRatio: CGFloat = 0.8
+  private static let defaultSheetWidth: CGFloat = 640
+  private static let defaultSheetHeight: CGFloat = 520
+  private static let contentHorizontalPadding: CGFloat = 32
+  private static let scrollbarClearance: CGFloat = 24
+}
+
+private struct CSVTableSizePreferenceKey: PreferenceKey {
+  static let defaultValue: CGSize = .zero
+
+  static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+    let next = nextValue()
+    value = CGSize(
+      width: max(value.width, next.width),
+      height: max(value.height, next.height))
+  }
+}
+
+private struct ChromeSizePreferenceKey: PreferenceKey {
+  static let defaultValue: CGSize = .zero
+
+  static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+    let next = nextValue()
+    value = CGSize(
+      width: max(value.width, next.width),
+      height: max(value.height, next.height))
+  }
+}
+
+extension View {
+  fileprivate func readSize<Key: PreferenceKey>(key: Key.Type) -> some View
+  where Key.Value == CGSize {
+    background(
+      GeometryReader { proxy in
+        Color.clear.preference(key: key, value: proxy.size)
+      }
+    )
   }
 }

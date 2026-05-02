@@ -346,7 +346,7 @@ final class BulkEntryViewModel {
     case .needsUserMapping(let rawHeaders, let partialMap):
       pendingCashFlowCSVData = data
       pendingCashFlowRawHeaders = rawHeaders
-      pendingCashFlowSampleRows = CSVParsingService.extractSampleRows(from: data)
+      pendingCashFlowSampleRows = CSVParsingService.extractSampleRows(from: data, count: nil)
       pendingCashFlowPartialMapping = partialMap
       showCashFlowColumnMappingSheet = true
     }
@@ -479,7 +479,7 @@ final class BulkEntryViewModel {
       pendingCSVData = data
       pendingCSVPlatform = platform
       pendingRawHeaders = rawHeaders
-      pendingSampleRows = CSVParsingService.extractSampleRows(from: data)
+      pendingSampleRows = CSVParsingService.extractSampleRows(from: data, count: nil)
       pendingPartialMapping = partialMap
       showColumnMappingSheet = true
     }

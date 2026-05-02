@@ -57,108 +57,113 @@ struct BulkEntryView: View {
   }
 
   var body: some View {
-    VStack(spacing: 0) {
-      BulkEntryToolbar(
-        viewModel: viewModel,
-        onSave: { handleSave() })
-      Divider()
-      BulkEntryContentArea(
-        viewModel: viewModel,
-        cachedCategoryNames: $cachedCategoryNames,
-        csvImportTarget: $csvImportTarget)
-    }
-    .onAppear {
-      loadCachedCategoryNames()
-    }
-    .fileImporter(
-      isPresented: showCSVFileImporter,
-      allowedContentTypes: [.commaSeparatedText, .plainText]
-    ) { result in
-      let target = csvImportTarget
-      csvImportTarget = nil
-      guard let target, let url = try? result.get() else { return }
-      if url.startAccessingSecurityScopedResource() {
-        defer { url.stopAccessingSecurityScopedResource() }
-        guard let data = try? Data(contentsOf: url) else { return }
-        switch target {
-        case .asset(let platform):
-          viewModel.loadCSVForMapping(data: data, forPlatform: platform)
-          if !viewModel.showColumnMappingSheet {
-            showImportResultAlert(for: viewModel.lastImportResult?.formattedResult())
-            viewModel.lastImportResult = nil
-          }
+    GeometryReader { geometry in
+      VStack(spacing: 0) {
+        BulkEntryToolbar(
+          viewModel: viewModel,
+          onSave: { handleSave() })
+        Divider()
+        BulkEntryContentArea(
+          viewModel: viewModel,
+          cachedCategoryNames: $cachedCategoryNames,
+          csvImportTarget: $csvImportTarget)
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .onAppear {
+        loadCachedCategoryNames()
+      }
+      .fileImporter(
+        isPresented: showCSVFileImporter,
+        allowedContentTypes: [.commaSeparatedText, .plainText]
+      ) { result in
+        let target = csvImportTarget
+        csvImportTarget = nil
+        guard let target, let url = try? result.get() else { return }
+        if url.startAccessingSecurityScopedResource() {
+          defer { url.stopAccessingSecurityScopedResource() }
+          guard let data = try? Data(contentsOf: url) else { return }
+          switch target {
+          case .asset(let platform):
+            viewModel.loadCSVForMapping(data: data, forPlatform: platform)
+            if !viewModel.showColumnMappingSheet {
+              showImportResultAlert(for: viewModel.lastImportResult?.formattedResult())
+              viewModel.lastImportResult = nil
+            }
 
-        case .cashFlow:
-          viewModel.loadCashFlowCSVForMapping(data: data)
-          if !viewModel.showCashFlowColumnMappingSheet {
-            showImportResultAlert(
-              for: viewModel.lastCashFlowImportResult?.formattedResult())
-            viewModel.lastCashFlowImportResult = nil
+          case .cashFlow:
+            viewModel.loadCashFlowCSVForMapping(data: data)
+            if !viewModel.showCashFlowColumnMappingSheet {
+              showImportResultAlert(
+                for: viewModel.lastCashFlowImportResult?.formattedResult())
+              viewModel.lastCashFlowImportResult = nil
+            }
           }
         }
       }
-    }
-    .sheet(isPresented: $viewModel.showColumnMappingSheet) {
-      ColumnMappingSheet(
-        rawHeaders: viewModel.pendingRawHeaders,
-        schema: .assetWithoutPlatform,
-        sampleRows: viewModel.pendingSampleRows,
-        initialMapping: viewModel.pendingPartialMapping,
-        onConfirm: { mapping in
-          _ = viewModel.confirmColumnMapping(mapping)
-          showImportResultAlert(for: viewModel.lastImportResult?.formattedResult())
-          viewModel.lastImportResult = nil
-        },
-        onCancel: {
-          viewModel.showColumnMappingSheet = false
-        }
-      )
-    }
-    .sheet(isPresented: $viewModel.showCashFlowColumnMappingSheet) {
-      ColumnMappingSheet(
-        rawHeaders: viewModel.pendingCashFlowRawHeaders,
-        schema: .cashFlow,
-        sampleRows: viewModel.pendingCashFlowSampleRows,
-        initialMapping: viewModel.pendingCashFlowPartialMapping,
-        onConfirm: { mapping in
-          _ = viewModel.confirmCashFlowColumnMapping(mapping)
-          showImportResultAlert(
-            for: viewModel.lastCashFlowImportResult?.formattedResult())
-          viewModel.lastCashFlowImportResult = nil
-        },
-        onCancel: {
-          viewModel.showCashFlowColumnMappingSheet = false
-        }
-      )
-    }
-    .alert(
-      String(
-        localized:
-          "\(zeroPendingCount) assets will be saved with a value of 0. Continue?",
-        table: "Snapshot"),
-      isPresented: $showZeroPendingConfirmation
-    ) {
-      Button("Continue") { performSave() }
-      Button("Cancel", role: .cancel) {}
-    } message: {
-      Text(
+      .sheet(isPresented: $viewModel.showColumnMappingSheet) {
+        ColumnMappingSheet(
+          rawHeaders: viewModel.pendingRawHeaders,
+          schema: .assetWithoutPlatform,
+          sampleRows: viewModel.pendingSampleRows,
+          initialMapping: viewModel.pendingPartialMapping,
+          parentSize: geometry.size,
+          onConfirm: { mapping in
+            _ = viewModel.confirmColumnMapping(mapping)
+            showImportResultAlert(for: viewModel.lastImportResult?.formattedResult())
+            viewModel.lastImportResult = nil
+          },
+          onCancel: {
+            viewModel.showColumnMappingSheet = false
+          }
+        )
+      }
+      .sheet(isPresented: $viewModel.showCashFlowColumnMappingSheet) {
+        ColumnMappingSheet(
+          rawHeaders: viewModel.pendingCashFlowRawHeaders,
+          schema: .cashFlow,
+          sampleRows: viewModel.pendingCashFlowSampleRows,
+          initialMapping: viewModel.pendingCashFlowPartialMapping,
+          parentSize: geometry.size,
+          onConfirm: { mapping in
+            _ = viewModel.confirmCashFlowColumnMapping(mapping)
+            showImportResultAlert(
+              for: viewModel.lastCashFlowImportResult?.formattedResult())
+            viewModel.lastCashFlowImportResult = nil
+          },
+          onCancel: {
+            viewModel.showCashFlowColumnMappingSheet = false
+          }
+        )
+      }
+      .alert(
         String(
           localized:
-            "You can update these values later in the snapshot detail view.",
-          table: "Snapshot"))
-    }
-    .alert(
-      String(localized: "Unable to Save Snapshot", table: "Snapshot"),
-      isPresented: $showError
-    ) {
-      Button("OK") {}
-    } message: {
-      Text(errorMessage)
-    }
-    .alert(importResultTitle, isPresented: $showImportResult) {
-      Button("OK") {}
-    } message: {
-      Text(importResultMessage)
+            "\(zeroPendingCount) assets will be saved with a value of 0. Continue?",
+          table: "Snapshot"),
+        isPresented: $showZeroPendingConfirmation
+      ) {
+        Button("Continue") { performSave() }
+        Button("Cancel", role: .cancel) {}
+      } message: {
+        Text(
+          String(
+            localized:
+              "You can update these values later in the snapshot detail view.",
+            table: "Snapshot"))
+      }
+      .alert(
+        String(localized: "Unable to Save Snapshot", table: "Snapshot"),
+        isPresented: $showError
+      ) {
+        Button("OK") {}
+      } message: {
+        Text(errorMessage)
+      }
+      .alert(importResultTitle, isPresented: $showImportResult) {
+        Button("OK") {}
+      } message: {
+        Text(importResultMessage)
+      }
     }
   }
 
