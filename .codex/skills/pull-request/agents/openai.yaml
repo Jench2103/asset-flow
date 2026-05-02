@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pull Request Description"
+  short_description: "Draft PR_DESCRIPTION.md from branch changes"
+  default_prompt: "Use $pull-request to draft a PR description for the current branch."

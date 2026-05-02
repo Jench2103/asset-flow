@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run AssetFlow Tests"
+  short_description: "Run Swift Testing suites and inspect output"
+  default_prompt: "Use $test to run the AssetFlow unit tests and summarize the result."

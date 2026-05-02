@@ -84,12 +84,15 @@ AssetFlow/
 +-- Documentation/              # Design documents (this folder)
 +-- mkdocs/                     # Documentation site source (Material for MkDocs)
 +-- overrides/                  # Material for MkDocs theme overrides
++-- .codex/                     # Codex agent instructions, review agents, and project-local skills
++-- .claude/                    # Claude Code commands, agents, settings, and skills
 +-- .gitignore                  # Git ignore rules
 +-- .swiftlint.yml              # SwiftLint configuration
 +-- .swift-format               # swift-format configuration
 +-- .editorconfig               # Editor settings
 +-- .pre-commit-config.yaml     # Pre-commit hooks
-+-- CLAUDE.md                   # AI assistant instructions
++-- AGENTS.md                   # Codex instructions entrypoint
++-- CLAUDE.md                   # Claude Code instructions entrypoint
 +-- README.md                   # Project overview
 ```
 
@@ -205,6 +208,8 @@ uv run pre-commit run --all-files
 ```bash
 git commit -m "feat(import): Add CSV parsing for asset import"
 ```
+
+Codex agents can use the project-local `$commit` skill to inspect staged changes and create a conventional commit message. The `$pull-request` skill writes `PR_DESCRIPTION.md` from the current branch diff against a target branch.
 
 ______________________________________________________________________
 
