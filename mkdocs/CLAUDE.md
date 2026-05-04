@@ -36,6 +36,12 @@ INFO - mkdocs_static_i18n: Language 'zh-TW' is not supported by lunr.js, not set
 
 Silencing it would require `reconfigure_search: false`, which also disables the plugin's cross-language search-index dedup — a worse tradeoff. When adding a locale whose primary language *is* in lunr (e.g., `zh-CN`, `ja-JP`), add the language code (`zh`, `ja`) to `plugins.search.lang` manually.
 
+## Build Hooks
+
+Custom MkDocs hooks live in `mkdocs/hooks/`, registered under `hooks:` in `mkdocs.yml` and excluded from the site output via `exclude_docs: hooks/`.
+
+- `mkdocs/hooks/include_revision_date.py` — for pages that consist only of an `{% include-markdown "<path>" %}` directive (e.g., `mkdocs/en/user-guide/changelog.md` pulls in the repo-root `CHANGELOG.md`), this hook re-runs `mkdocs-git-revision-date-localized-plugin` against the included file so the "Last update" / "Created" footer reflects the real source history instead of the rarely-touched include stub.
+
 ## Theme Overrides
 
 Material for MkDocs theme overrides live in `overrides/` (at the repo root, outside `docs_dir`). Config: `theme.custom_dir` in `mkdocs.yml`.

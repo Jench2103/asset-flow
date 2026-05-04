@@ -8,6 +8,7 @@ exclude_docs: |
   CLAUDE.md
   AGENTS.md
   README.md
+  hooks/
 
 theme:
   name: material
@@ -123,6 +124,9 @@ nav:
       - FAQ: user-guide/faq.md
       - Troubleshooting: user-guide/troubleshooting.md
       - Changelog: user-guide/changelog.md
+
+hooks:
+  - mkdocs/hooks/include_revision_date.py
 
 copyright: Copyright &copy; 2025-2026 Jen-Chien Chang
 
