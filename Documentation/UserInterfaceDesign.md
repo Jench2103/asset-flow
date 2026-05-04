@@ -179,6 +179,7 @@ ______________________________________________________________________
 - Each row: Asset Name, Platform, Category, Latest Value
 - Latest value comes from the most recent snapshot
 - Assets with no snapshot values show "\\u{2014}" for value
+- A toolbar **Hide Stale Assets** toggle button (`eye.slash` icon, rendered with `.toggleStyle(.button)`) hides assets with no value in the latest snapshot. Default ON, persisted via `SettingsService.hideStaleAssets`. The button highlights while the filter is active. When the filter hides every asset, the list shows an "All Assets Are Stale" empty state instead of the default "No Assets" message.
 
 **Asset detail view**:
 
@@ -196,7 +197,7 @@ ______________________________________________________________________
 
 - **AssetListView** (`AssetFlow/Views/AssetListView.swift`): Uses `AssetListViewModel` with `@State`. Segmented control binds to `viewModel.groupingMode`. List sections iterate over `viewModel.groups`. Context menu on rows provides delete action for eligible assets.
 - **AssetDetailView** (`AssetFlow/Views/AssetDetailView.swift`): Uses `AssetDetailViewModel` with `@State`. Form with `.grouped` style. Platform picker is provided by `PlatformPickerField`. Value history section shows a `ChartTimeRangeSelector` and an interactive 250pt line chart (`ChartConstants.standardChartHeight`) with hover tooltips via `.onContinuousHoverWhenUnlocked`. When the asset currency differs from the display currency, a `showConvertedChart` toggle button appears next to the range selector; activating it switches the chart to show values converted to the display currency (in green) and adds a "Converted Value" column to the value history table. Delete confirmation dialog before deletion. Value history table supports inline editing: double-click a market value or right-click and choose "Edit Value" to open a popover for editing the value in place.
-- **AssetListViewModel** (`AssetFlow/ViewModels/AssetListViewModel.swift`): Groups assets by platform or category. Computes latest values from the most recent snapshot using a bounded latest-snapshot fetch. "(No Platform)" and "(Uncategorized)" groups always sorted last.
+- **AssetListViewModel** (`AssetFlow/ViewModels/AssetListViewModel.swift`): Groups assets by platform or category. Computes latest values from the most recent snapshot using a bounded latest-snapshot fetch. "(No Platform)" and "(Uncategorized)" groups always sorted last. Reads `SettingsService.hideStaleAssets` inside `withObservationTracking` so toggling the filter automatically reloads. `hasHiddenStaleAssets` is true when the filter dropped at least one asset; the View uses it to swap the empty-state message.
 - **AssetDetailViewModel** (`AssetFlow/ViewModels/AssetDetailViewModel.swift`): Editable fields (`editedName`, `editedPlatform`, `editedCategory`) initialized from asset. `save()` validates normalized identity uniqueness. `loadValueHistory()` returns direct SAVs sorted chronologically. `editAssetValue(_:newValue:)` mutates the `SnapshotAssetValue` market value and refreshes the history.
 
 ______________________________________________________________________

@@ -127,6 +127,30 @@ struct SettingsServiceTests {
     #expect(service2.defaultPlatform == "")
   }
 
+  // MARK: - Hide Stale Assets
+
+  @Test("hideStaleAssets defaults to true when storage is empty")
+  func hideStaleAssets_defaultsToTrueWhenUnset() {
+    let service = SettingsService.createForTesting()
+    #expect(service.hideStaleAssets == true)
+  }
+
+  @Test("hideStaleAssets persists across instances sharing the same storage")
+  func hideStaleAssets_persistsAcrossInstances() {
+    let suiteName = "com.assetflow.testing.\(UUID().uuidString)"
+    guard let userDefaults = UserDefaults(suiteName: suiteName) else {
+      Issue.record("Failed to create UserDefaults suite for testing")
+      return
+    }
+    defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+    let writer = SettingsService.createForTesting(userDefaults: userDefaults)
+    writer.hideStaleAssets = false
+
+    let reader = SettingsService.createForTesting(userDefaults: userDefaults)
+    #expect(reader.hideStaleAssets == false)
+  }
+
   // MARK: - DateFormatStyle
 
   @Test("DateFormatStyle has 4 cases with stable raw values")

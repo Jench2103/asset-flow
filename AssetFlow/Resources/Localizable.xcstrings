@@ -400,6 +400,26 @@
         }
       }
     },
+    "All assets are missing from the latest snapshot. Toggle “Hide Stale Assets” off to see them." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有資產皆未出現在最新的快照中。將「隱藏停滯資產」關閉即可查看。"
+          }
+        }
+      }
+    },
+    "All Assets Are Stale" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有資產均已停滯"
+          }
+        }
+      }
+    },
     "All data is stored locally on your Mac.\nExchange rates are fetched from cdn.jsdelivr.net.\nNo personal data is collected or transmitted." : {
       "localizations" : {
         "zh-Hant" : {
@@ -1732,6 +1752,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "成長率是所選期間內投資組合價值的簡單百分比變化，包含存款和提款的影響。與報酬率不同，它不排除現金流對績效的影響。"
+          }
+        }
+      }
+    },
+    "Hide Stale Assets" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隱藏停滯資產"
           }
         }
       }

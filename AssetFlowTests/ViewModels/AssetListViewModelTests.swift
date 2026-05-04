@@ -56,6 +56,18 @@ struct AssetListViewModelTests {
     groups.flatMap { $0.assets }
   }
 
+  /// Builds a view model with an isolated `SettingsService`. Defaults to
+  /// `hideStaleAssets = false` so legacy tests focused on grouping/listing
+  /// see every asset regardless of snapshot membership.
+  private func makeViewModel(
+    context: ModelContext,
+    hideStaleAssets: Bool = false
+  ) -> AssetListViewModel {
+    let settings = SettingsService.createForTesting()
+    settings.hideStaleAssets = hideStaleAssets
+    return AssetListViewModel(modelContext: context, settingsService: settings)
+  }
+
   // MARK: - Listing
 
   @Test("Lists all assets across groups")
@@ -70,7 +82,7 @@ struct AssetListViewModelTests {
     context.insert(assetB)
     context.insert(assetC)
 
-    let viewModel = AssetListViewModel(modelContext: context)
+    let viewModel = makeViewModel(context: context)
     viewModel.loadAssets()
 
     let totalAssets = allAssets(in: viewModel.groups)
@@ -91,7 +103,7 @@ struct AssetListViewModelTests {
     context.insert(assetB)
     context.insert(assetC)
 
-    let viewModel = AssetListViewModel(modelContext: context)
+    let viewModel = makeViewModel(context: context)
     viewModel.groupingMode = .byPlatform
     viewModel.loadAssets()
 
@@ -125,7 +137,7 @@ struct AssetListViewModelTests {
     context.insert(assetA)
     context.insert(assetB)
 
-    let viewModel = AssetListViewModel(modelContext: context)
+    let viewModel = makeViewModel(context: context)
     viewModel.groupingMode = .byCategory
     viewModel.loadAssets()
 
@@ -146,7 +158,7 @@ struct AssetListViewModelTests {
     context.insert(assetA)
     context.insert(assetB)
 
-    let viewModel = AssetListViewModel(modelContext: context)
+    let viewModel = makeViewModel(context: context)
     viewModel.groupingMode = .byPlatform
     viewModel.loadAssets()
 
@@ -175,7 +187,7 @@ struct AssetListViewModelTests {
     context.insert(assetA)
     context.insert(assetB)
 
-    let viewModel = AssetListViewModel(modelContext: context)
+    let viewModel = makeViewModel(context: context)
     viewModel.groupingMode = .byCategory
     viewModel.loadAssets()
 
@@ -209,7 +221,7 @@ struct AssetListViewModelTests {
     sav2.asset = asset
     context.insert(sav2)
 
-    let viewModel = AssetListViewModel(modelContext: context)
+    let viewModel = makeViewModel(context: context)
     viewModel.loadAssets()
 
     let rows = allAssets(in: viewModel.groups)
@@ -225,7 +237,7 @@ struct AssetListViewModelTests {
     let asset = Asset(name: "NewAsset", platform: "")
     context.insert(asset)
 
-    let viewModel = AssetListViewModel(modelContext: context)
+    let viewModel = makeViewModel(context: context)
     viewModel.loadAssets()
 
     let rows = allAssets(in: viewModel.groups)
@@ -243,7 +255,7 @@ struct AssetListViewModelTests {
     let asset = Asset(name: "Deletable", platform: "")
     context.insert(asset)
 
-    let viewModel = AssetListViewModel(modelContext: context)
+    let viewModel = makeViewModel(context: context)
     try viewModel.deleteAsset(asset)
 
     let descriptor = FetchDescriptor<Asset>()
@@ -262,7 +274,7 @@ struct AssetListViewModelTests {
       name: "AAPL", platform: "Firstrade", marketValue: 15000,
       snapshot: snap, context: context)
 
-    let viewModel = AssetListViewModel(modelContext: context)
+    let viewModel = makeViewModel(context: context)
 
     #expect(throws: AssetError.self) {
       try viewModel.deleteAsset(asset)
@@ -287,7 +299,7 @@ struct AssetListViewModelTests {
       context.insert(sav)
     }
 
-    let viewModel = AssetListViewModel(modelContext: context)
+    let viewModel = makeViewModel(context: context)
 
     do {
       try viewModel.deleteAsset(asset)
@@ -320,7 +332,7 @@ struct AssetListViewModelTests {
     sav2.asset = asset
     context.insert(sav2)
 
-    let viewModel = AssetListViewModel(modelContext: context)
+    let viewModel = makeViewModel(context: context)
 
     do {
       try viewModel.deleteAsset(asset)
@@ -338,9 +350,100 @@ struct AssetListViewModelTests {
     let container = TestDataManager.createInMemoryContainer()
     let context = container.mainContext
 
-    let viewModel = AssetListViewModel(modelContext: context)
+    let viewModel = makeViewModel(context: context)
     viewModel.loadAssets()
 
     #expect(viewModel.groups.isEmpty)
+  }
+
+  // MARK: - Hide Stale Assets Filter
+
+  @Test("Filter hides assets missing from the latest snapshot when enabled")
+  func loadAssets_filtersStaleAssets_whenHideEnabled() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let snap = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
+    context.insert(snap)
+    let (active, _) = createAssetWithValue(
+      name: "AAPL", platform: "Firstrade", marketValue: 1000,
+      snapshot: snap, context: context)
+    let stale = Asset(name: "OLD", platform: "Firstrade")
+    context.insert(stale)
+
+    let settings = SettingsService.createForTesting()
+    settings.hideStaleAssets = true
+    let viewModel = AssetListViewModel(modelContext: context, settingsService: settings)
+    viewModel.loadAssets()
+
+    let visible = allAssets(in: viewModel.groups)
+    #expect(visible.count == 1)
+    #expect(visible.first?.asset.id == active.id)
+    #expect(viewModel.hasHiddenStaleAssets == true)
+  }
+
+  @Test("Filter shows all assets when disabled")
+  func loadAssets_includesStaleAssets_whenHideDisabled() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let snap = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
+    context.insert(snap)
+    createAssetWithValue(
+      name: "AAPL", platform: "Firstrade", marketValue: 1000,
+      snapshot: snap, context: context)
+    let stale = Asset(name: "OLD", platform: "Firstrade")
+    context.insert(stale)
+
+    let settings = SettingsService.createForTesting()
+    settings.hideStaleAssets = false
+    let viewModel = AssetListViewModel(modelContext: context, settingsService: settings)
+    viewModel.loadAssets()
+
+    let visible = allAssets(in: viewModel.groups)
+    #expect(visible.count == 2)
+    #expect(viewModel.hasHiddenStaleAssets == false)
+  }
+
+  @Test("hasHiddenStaleAssets stays false when no asset is stale even with filter on")
+  func loadAssets_hasHiddenStaleAssetsFalseWhenNoStale() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let snap = Snapshot(date: makeDate(year: 2025, month: 1, day: 1))
+    context.insert(snap)
+    createAssetWithValue(
+      name: "AAPL", platform: "Firstrade", marketValue: 1000,
+      snapshot: snap, context: context)
+    createAssetWithValue(
+      name: "BTC", platform: "Binance", marketValue: 2000,
+      snapshot: snap, context: context)
+
+    let settings = SettingsService.createForTesting()
+    settings.hideStaleAssets = true
+    let viewModel = AssetListViewModel(modelContext: context, settingsService: settings)
+    viewModel.loadAssets()
+
+    #expect(allAssets(in: viewModel.groups).count == 2)
+    #expect(viewModel.hasHiddenStaleAssets == false)
+  }
+
+  @Test("Groups empty and hasHiddenStaleAssets true when every asset is stale and filter on")
+  func loadAssets_emptyVisibleGroupsWhenAllStaleAndHidden() throws {
+    let container = TestDataManager.createInMemoryContainer()
+    let context = container.mainContext
+
+    let staleA = Asset(name: "OLD-A", platform: "Firstrade")
+    let staleB = Asset(name: "OLD-B", platform: "Binance")
+    context.insert(staleA)
+    context.insert(staleB)
+
+    let settings = SettingsService.createForTesting()
+    settings.hideStaleAssets = true
+    let viewModel = AssetListViewModel(modelContext: context, settingsService: settings)
+    viewModel.loadAssets()
+
+    #expect(viewModel.groups.isEmpty)
+    #expect(viewModel.hasHiddenStaleAssets == true)
   }
 }

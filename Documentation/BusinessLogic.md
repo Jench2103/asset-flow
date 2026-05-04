@@ -397,6 +397,12 @@ An asset can be deleted when it has **no SnapshotAssetValue records** in any sna
 
 When an asset has snapshot associations, the delete action is disabled with explanatory text. Deletion is permanent and requires confirmation.
 
+### Stale Assets and the Hide Filter
+
+An asset is considered **stale** when it has **no value in the latest snapshot** (its `latestValue` lookup is `nil`). Assets typically become stale after the user closes a position: the asset still has SnapshotAssetValue records in older snapshots, but the most recent snapshot no longer references it.
+
+The Asset list provides a **Hide Stale Assets** filter (toolbar Filter menu) to remove these rows from the list. The filter is **enabled by default** so the list focuses on the user's current portfolio. The user's choice is persisted in `UserDefaults` under `Constants.UserDefaultsKeys.hideStaleAssets` via `SettingsService.hideStaleAssets`, so it survives view switches and app relaunches. The filter is purely presentational — it does not delete data and does not affect any other view (Dashboard, Snapshots, Categories, Platforms, Rebalancing).
+
 ______________________________________________________________________
 
 ## Snapshot Lifecycle

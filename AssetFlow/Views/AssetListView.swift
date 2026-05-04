@@ -56,6 +56,29 @@ struct AssetListView: View {
         .helpWhenUnlocked("Group assets by platform or category")
         .accessibilityIdentifier("Grouping Picker")
       }
+      ToolbarItem(placement: .automatic) {
+        Toggle(
+          isOn: Binding(
+            get: { SettingsService.shared.hideStaleAssets },
+            set: { newValue in
+              withAnimation(AnimationConstants.standard) {
+                SettingsService.shared.hideStaleAssets = newValue
+              }
+            }
+          )
+        ) {
+          ViewThatFits(in: .horizontal) {
+            Label("Hide Stale Assets", systemImage: "eye.slash")
+              .labelStyle(.titleAndIcon)
+            Label("Hide Stale Assets", systemImage: "eye.slash")
+              .labelStyle(.iconOnly)
+          }
+        }
+        .toggleStyle(.button)
+        .disabled(isAppLocked)
+        .helpWhenUnlocked("Hide Stale Assets")
+        .accessibilityIdentifier("Hide Stale Assets Toggle")
+      }
     }
     .onAppear {
       viewModel.loadAssets()
@@ -150,11 +173,22 @@ struct AssetListView: View {
 
   // MARK: - Empty State
 
+  @ViewBuilder
   private var emptyState: some View {
-    ContentUnavailableView {
-      Label("No Assets", systemImage: "tray")
-    } description: {
-      Text("No assets yet. Assets are created automatically when you import CSV data.")
+    if viewModel.hasHiddenStaleAssets {
+      ContentUnavailableView {
+        Label("All Assets Are Stale", systemImage: "line.3.horizontal.decrease.circle")
+      } description: {
+        Text(
+          "All assets are missing from the latest snapshot. Toggle “Hide Stale Assets” off to see them."
+        )
+      }
+    } else {
+      ContentUnavailableView {
+        Label("No Assets", systemImage: "tray")
+      } description: {
+        Text("No assets yet. Assets are created automatically when you import CSV data.")
+      }
     }
   }
 

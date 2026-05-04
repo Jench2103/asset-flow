@@ -49,6 +49,7 @@ enum Constants {
     static let defaultDateFormat = DateFormatStyle.abbreviated
     static let defaultPlatform = ""
     static let defaultAppLockEnabled = false
+    static let defaultHideStaleAssets = true
   }
 
   enum UserDefaultsKeys {
@@ -59,6 +60,7 @@ enum Constants {
     static let appSwitchTimeout = "appSwitchTimeout"
     static let screenLockTimeout = "screenLockTimeout"
     static let platformOrder = "platformOrder"
+    static let hideStaleAssets = "hideStaleAssets"
   }
 
   enum Parsing {

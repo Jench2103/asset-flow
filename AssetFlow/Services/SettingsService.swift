@@ -59,6 +59,14 @@ class SettingsService {
     }
   }
 
+  /// Whether to hide stale assets (assets missing from the latest snapshot)
+  /// in the asset list.
+  var hideStaleAssets: Bool {
+    didSet {
+      userDefaults.set(hideStaleAssets, forKey: Constants.UserDefaultsKeys.hideStaleAssets)
+    }
+  }
+
   private init(userDefaults: UserDefaults = .standard) {
     self.userDefaults = userDefaults
 
@@ -81,6 +89,10 @@ class SettingsService {
     self.platformOrder =
       userDefaults.stringArray(forKey: Constants.UserDefaultsKeys.platformOrder)
       ?? []
+
+    self.hideStaleAssets =
+      (userDefaults.object(forKey: Constants.UserDefaultsKeys.hideStaleAssets) as? Bool)
+      ?? Constants.DefaultValues.defaultHideStaleAssets
   }
 
   /// Creates an isolated instance for testing purposes
@@ -94,5 +106,13 @@ class SettingsService {
       preconditionFailure("Failed to create UserDefaults suite for testing")
     }
     return SettingsService(userDefaults: testDefaults)
+  }
+
+  /// Creates an instance backed by the supplied `UserDefaults` for testing.
+  ///
+  /// Useful for verifying persistence behavior across multiple instances
+  /// sharing the same backing store.
+  static func createForTesting(userDefaults: UserDefaults) -> SettingsService {
+    SettingsService(userDefaults: userDefaults)
   }
 }

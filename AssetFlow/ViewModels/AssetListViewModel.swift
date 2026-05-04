@@ -45,12 +45,19 @@ struct AssetGroup {
 @MainActor
 final class AssetListViewModel {
   private let modelContext: ModelContext
+  private let settingsService: SettingsService
 
   var groupingMode: AssetGroupingMode = .byPlatform
   var groups: [AssetGroup] = []
 
-  init(modelContext: ModelContext) {
+  /// Whether the most recent load hid at least one stale asset due to the
+  /// "Hide Stale Assets" filter. Drives the empty-state messaging in
+  /// `AssetListView` so users know assets are filtered, not absent.
+  var hasHiddenStaleAssets: Bool = false
+
+  init(modelContext: ModelContext, settingsService: SettingsService? = nil) {
     self.modelContext = modelContext
+    self.settingsService = settingsService ?? .shared
   }
 
   // MARK: - Loading
@@ -77,15 +84,20 @@ final class AssetListViewModel {
       latestSnapshot: SnapshotSummaryService.fetchLatestSnapshot(modelContext: modelContext))
 
     // Build row data for each asset
-    let rowDataList = allAssets.map { asset in
+    let allRows = allAssets.map { asset in
       AssetRowData(
         asset: asset,
         latestValue: latestValueLookup[asset.id]
       )
     }
 
+    // Apply the "Hide Stale Assets" filter — stale = no value in the latest snapshot.
+    let hideStale = settingsService.hideStaleAssets
+    let visibleRows = hideStale ? allRows.filter { $0.latestValue != nil } : allRows
+    hasHiddenStaleAssets = hideStale && visibleRows.count < allRows.count
+
     // Group and sort
-    groups = buildGroups(from: rowDataList)
+    groups = buildGroups(from: visibleRows)
   }
 
   // MARK: - Deletion

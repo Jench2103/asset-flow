@@ -20,6 +20,14 @@ Right-click an asset for a context menu. The **Delete** option is only available
 
 ![Asset list](../../assets/images/asset-list.png)
 
+### Hiding stale assets
+
+The toolbar includes a **Hide Stale Assets** toggle button (eye-with-slash icon). When it's active (the default), assets that are missing from your most recent snapshot are hidden, keeping the list focused on your current portfolio. Click the button to bring closed positions and assets you no longer hold back into view. Your choice is remembered across app launches and when you switch to other views.
+
+!!! note
+
+    A "stale" asset is one with no value in the latest snapshot. Its row would otherwise show an em dash (—) where the value normally appears.
+
 ## Asset Detail
 
 Select an asset to see its full detail on the right side.
