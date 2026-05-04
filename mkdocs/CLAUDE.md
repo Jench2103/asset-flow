@@ -24,6 +24,18 @@ Uses `mkdocs-static-i18n` with folder-based layout. English: `mkdocs/en/`. Chine
 
 To add a language: create the folder, add the locale to `mkdocs.yml > plugins > i18n > languages`.
 
+### Non-Latin headings and search
+
+`mkdocs.yml` configures the `toc` extension with `pymdownx.slugs.slugify` (`case: lower`, `percent_encode: true`) so non-Latin headings (e.g., Chinese) produce stable percent-encoded anchor IDs that match `[text](page.md#編碼後的錨點)` links. Without this, Python-Markdown's default slugify strips non-ASCII characters and headings collapse to numeric IDs (`_1`, `_2`, …), breaking cross-page anchor links.
+
+`plugins.search.lang` is set to `[en, zh]` so lunr loads `lunr.zh.min.js` for Chinese tokenization. The `mkdocs-static-i18n` plugin can't auto-map locale `zh-TW` → lunr language `zh`, so on every build you'll see this informational message — leave it as-is:
+
+```
+INFO - mkdocs_static_i18n: Language 'zh-TW' is not supported by lunr.js, not setting it in the 'plugins.search.lang' option
+```
+
+Silencing it would require `reconfigure_search: false`, which also disables the plugin's cross-language search-index dedup — a worse tradeoff. When adding a locale whose primary language *is* in lunr (e.g., `zh-CN`, `ja-JP`), add the language code (`zh`, `ja`) to `plugins.search.lang` manually.
+
 ## Theme Overrides
 
 Material for MkDocs theme overrides live in `overrides/` (at the repo root, outside `docs_dir`). Config: `theme.custom_dir` in `mkdocs.yml`.

@@ -71,7 +71,18 @@ The site uses [mkdocs-static-i18n](https://github.com/ultrabug/mkdocs-static-i18
 
 1. Create a new folder under `mkdocs/` (e.g., `mkdocs/zh-TW/`) mirroring the `en/` structure.
 1. Add the locale to `mkdocs.yml` under `plugins > i18n > languages`.
+1. If the language is supported by [lunr.js](https://lunrjs.com/) but the locale code isn't (e.g., `zh-TW` → `zh`), add the language code to `plugins > search > lang` so search uses the correct tokenizer.
 1. Translate the content. Screenshots in `assets/images/` are shared across all languages.
+
+### Note on the `lunr.js` build message
+
+When building the site, `mkdocs-static-i18n` emits an informational message for any locale not directly recognized by lunr.js:
+
+```
+INFO - mkdocs_static_i18n: Language 'zh-TW' is not supported by lunr.js, not setting it in the 'plugins.search.lang' option
+```
+
+This is expected and harmless. The plugin's auto-detector compares the literal locale string (e.g., `zh-TW`) against lunr's supported languages and can't fall back to the parent language code (`zh`). We've already mapped this manually via `plugins.search.lang: [en, zh]` in `mkdocs.yml`, so Chinese tokenization works correctly. Silencing the message would require disabling the plugin's `reconfigure_search` step, which also turns off cross-language search-index deduplication.
 
 ## Versioning
 
