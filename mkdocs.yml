@@ -63,6 +63,33 @@ plugins:
         - locale: zh-TW
           name: 中文（台灣）
           build: true
+          nav_translations:
+            Home: 首頁
+            User Guide: 使用指南
+            Getting Started: 開始使用
+            Quick Start: 快速入門
+            Guide: 功能說明
+            Dashboard: 儀表板
+            Performance Metrics: 績效指標
+            Snapshots: 快照
+            Bulk Entry: 批次輸入
+            Assets: 資產
+            Categories: 類別
+            Platforms: 平台
+            Cash Flows: 現金流
+            Rebalancing: 再平衡
+            Import CSV: 匯入 CSV
+            Settings: 設定
+            Preferences: 偏好設定
+            Security: 安全性
+            Backup & Restore: 備份與還原
+            Reference: 參考
+            CSV Format: CSV 格式
+            Currencies & Exchange Rates: 幣別與匯率
+            Keyboard Shortcuts: 鍵盤快速鍵
+            FAQ: 常見問題
+            Troubleshooting: 疑難排解
+            Changelog: 版本紀錄
   - git-revision-date-localized:
       enable_creation_date: true
       type: date
