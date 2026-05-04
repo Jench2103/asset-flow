@@ -18,6 +18,12 @@ uv run mike serve              # Preview all deployed versions locally
 
 Two navbar tabs: **Home** (project landing page) and **User Guide** (all user-facing docs). Each tab has its own sidebar. Future tabs (e.g., Developer Guide) can be added as top-level nav entries in `mkdocs.yml`.
 
+## README Sync
+
+The repo-root `README.md` and the mkdocs home page (`mkdocs/en/index.md`) share two pieces of copy: the **Overview** description paragraph and the **Why AssetFlow?** section (intro line + bullets). When revising either, update both surfaces so they stay in sync. Treat the mkdocs version as the source of truth — the docs site is the primary user-facing surface; the README's role here is to give GitHub visitors the same pitch.
+
+Only the English copy is mirrored to the README. The Chinese version (`mkdocs/zh-TW/index.md`) is updated separately whenever the pitch wording changes.
+
 ## i18n
 
 Uses `mkdocs-static-i18n` with folder-based layout. English: `mkdocs/en/`. Chinese (Taiwanese): `mkdocs/zh-TW/` (mirrors `en/` structure). Screenshots in `mkdocs/assets/images/` are shared across languages.
