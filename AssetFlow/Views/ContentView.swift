@@ -233,12 +233,7 @@ struct ContentView: View {
         }
       }
     }
-    .scrollContentBackground(.hidden)
-    .background {
-      Color(nsColor: .windowBackgroundColor)
-        .brightness(0.03)
-        .ignoresSafeArea()
-    }
+    .legacySidebarBackground()
     .tint(Color.accentColor.opacity(0.9))
   }
 
@@ -565,5 +560,25 @@ struct ContentView: View {
     sectionHistory.append(section)
     historyIndex = sectionHistory.count - 1
     selectedSection = section
+  }
+}
+
+// MARK: - Legacy Sidebar Background
+
+extension View {
+  /// Brightened flat background for macOS 15; macOS 26+ uses Liquid Glass.
+  @ViewBuilder
+  fileprivate func legacySidebarBackground() -> some View {
+    if #unavailable(macOS 26) {
+      self
+        .scrollContentBackground(.hidden)
+        .background {
+          Color(nsColor: .windowBackgroundColor)
+            .brightness(0.03)
+            .ignoresSafeArea()
+        }
+    } else {
+      self
+    }
   }
 }
