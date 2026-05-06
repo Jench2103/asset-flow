@@ -10,19 +10,19 @@
       
       
       
-        <link rel="canonical" href="https://Jench2103.github.io/asset-flow/latest/user-guide/settings/backup-restore/">
+        <link rel="canonical" href="https://Jench2103.github.io/asset-flow/latest/user-guide/settings/notifications/">
       
       
-        <link rel="prev" href="../notifications/">
+        <link rel="prev" href="../security/">
       
       
-        <link rel="next" href="../../reference/csv-format/">
+        <link rel="next" href="../backup-restore/">
       
       
         
           <link rel="alternate" href="./" hreflang="en">
         
-          <link rel="alternate" href="../../../zh-TW/user-guide/settings/backup-restore/" hreflang="zh-TW">
+          <link rel="alternate" href="../../../zh-TW/user-guide/settings/notifications/" hreflang="zh-TW">
         
       
       
@@ -31,7 +31,7 @@
     
     
       
-        <title>Backup & Restore - AssetFlow</title>
+        <title>Notifications - AssetFlow</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#backup--restore" class="md-skip">
+        <a href="#notifications" class="md-skip">
           Skip to content
         </a>
       
@@ -119,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Backup & Restore
+              Notifications
             
           </span>
         </div>
@@ -188,7 +188,7 @@
             
               
             
-            <a href="../../../zh-TW/user-guide/settings/backup-restore/" hreflang="zh-TW" class="md-select__link">
+            <a href="../../../zh-TW/user-guide/settings/notifications/" hreflang="zh-TW" class="md-select__link">
               中文（台灣）
             </a>
           </li>
@@ -1072,34 +1072,6 @@
                 
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../notifications/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Notifications
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
     
   
   
@@ -1119,7 +1091,7 @@
   <span class="md-ellipsis">
     
   
-    Backup & Restore
+    Notifications
   
 
     
@@ -1137,7 +1109,7 @@
   <span class="md-ellipsis">
     
   
-    Backup & Restore
+    Notifications
   
 
     
@@ -1163,10 +1135,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#creating-a-backup" class="md-nav__link">
+  <a href="#enabling-snapshot-reminders" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Creating a Backup
+        Enabling Snapshot Reminders
       
     </span>
   </a>
@@ -1174,10 +1146,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#whats-included" class="md-nav__link">
+  <a href="#choosing-a-cadence" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What's Included
+        Choosing a Cadence
       
     </span>
   </a>
@@ -1185,10 +1157,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#restoring-from-backup" class="md-nav__link">
+  <a href="#what-the-reminder-looks-like" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Restoring from Backup
+        What the Reminder Looks Like
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#snoozing-or-disabling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Snoozing or Disabling
       
     </span>
   </a>
@@ -1210,6 +1193,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backup-restore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backup & Restore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1498,10 +1509,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#creating-a-backup" class="md-nav__link">
+  <a href="#enabling-snapshot-reminders" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Creating a Backup
+        Enabling Snapshot Reminders
       
     </span>
   </a>
@@ -1509,10 +1520,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#whats-included" class="md-nav__link">
+  <a href="#choosing-a-cadence" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What's Included
+        Choosing a Cadence
       
     </span>
   </a>
@@ -1520,10 +1531,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#restoring-from-backup" class="md-nav__link">
+  <a href="#what-the-reminder-looks-like" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Restoring from Backup
+        What the Reminder Looks Like
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#snoozing-or-disabling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Snoozing or Disabling
       
     </span>
   </a>
@@ -1627,45 +1649,79 @@
   
 
 
-<h1 id="backup--restore">Backup &amp; Restore<a class="headerlink" href="#backup--restore" title="Permanent link">&para;</a></h1>
-<p>Protect your portfolio data by regularly creating backups. AssetFlow exports all your data to a single ZIP file that can be restored at any time.</p>
-<h2 id="creating-a-backup">Creating a Backup<a class="headerlink" href="#creating-a-backup" title="Permanent link">&para;</a></h2>
+<h1 id="notifications">Notifications<a class="headerlink" href="#notifications" title="Permanent link">&para;</a></h1>
+<p>AssetFlow can send periodic local reminders so you don't forget to capture a fresh snapshot. Reminders are off by default — you opt in from Settings, and you can change the cadence or turn them off again at any time.</p>
+<h2 id="enabling-snapshot-reminders">Enabling Snapshot Reminders<a class="headerlink" href="#enabling-snapshot-reminders" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Open <strong>Settings</strong> (<span class="keys"><kbd class="key-command">Cmd</kbd><span>+</span><kbd class="key-comma">,</kbd></span>) and go to the <strong>Data Management</strong> section.</li>
-<li>Click <strong>Export Backup</strong>.</li>
-<li>Choose a location and filename in the save dialog.</li>
-<li>A ZIP file is created containing all your portfolio data.</li>
+<li>Open <strong>Settings</strong> (<span class="keys"><kbd class="key-command">Cmd</kbd><span>+</span><kbd class="key-comma">,</kbd></span>) and go to the <strong>Notifications</strong> section.</li>
+<li>Toggle <strong>Snapshot Reminders</strong> on.</li>
+<li>macOS will ask for permission to send notifications the first time you enable this. Click <strong>Allow</strong> in the system prompt.</li>
 </ol>
-<h2 id="whats-included">What's Included<a class="headerlink" href="#whats-included" title="Permanent link">&para;</a></h2>
-<p>A backup file contains everything in your portfolio:</p>
+<p><img alt="Notifications settings" src="../../../assets/images/settings-notifications.png" /></p>
+<p>If you previously denied notifications for AssetFlow in <strong>System Settings → Notifications</strong>, the toggle will revert and a "Notifications Disabled" alert will appear with an <strong>Open System Settings</strong> button. Enable notifications for AssetFlow there, then return to AssetFlow and try the toggle again.</p>
+<h2 id="choosing-a-cadence">Choosing a Cadence<a class="headerlink" href="#choosing-a-cadence" title="Permanent link">&para;</a></h2>
+<p>Once enabled, pick how often you want to be reminded:</p>
+<table>
+<thead>
+<tr>
+<th>Frequency</th>
+<th>Configuration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Daily</strong></td>
+<td>Choose a time of day</td>
+</tr>
+<tr>
+<td><strong>Weekly</strong></td>
+<td>Choose a day of the week and a time</td>
+</tr>
+<tr>
+<td><strong>Every 2 Weeks</strong></td>
+<td>Choose a day of the week and a time</td>
+</tr>
+<tr>
+<td><strong>Monthly</strong></td>
+<td>Choose a day of the month (1–28) and a time</td>
+</tr>
+<tr>
+<td><strong>Custom Interval</strong></td>
+<td>Choose any stride from 2 to 365 days, plus a time</td>
+</tr>
+</tbody>
+</table>
+<p>The day-of-month picker stops at 28 so the reminder fires consistently every month — no gaps in February or surprise jumps to the last day.</p>
+<p>The Custom Interval mode is useful for cadences that don't line up with weekdays or month boundaries — for example, capturing a snapshot every 10 days. The first reminder fires at the next time-of-day after you save the setting, then every N days afterward.</p>
+<p><img alt="Notifications custom interval" src="../../../assets/images/settings-notifications-custom-interval.png" /></p>
+<h2 id="what-the-reminder-looks-like">What the Reminder Looks Like<a class="headerlink" href="#what-the-reminder-looks-like" title="Permanent link">&para;</a></h2>
+<p>When the reminder fires, you'll see a banner titled <strong>AssetFlow Reminder</strong> with the message <em>"Time to add a new portfolio snapshot."</em> The banner contains no financial data, so it's safe to show on the lock screen.</p>
+<p>The banner offers two actions:</p>
 <ul>
-<li>All snapshots and their asset values</li>
-<li>All assets, categories, and platforms</li>
-<li>All cash flow operations</li>
-<li>Exchange rate data</li>
-<li>App settings</li>
+<li><strong>Click the banner</strong> — brings AssetFlow to the front and opens the New Snapshot sheet on the Snapshots screen, so you can pick the date and creation mode (empty, copy from latest, or bulk entry).</li>
+<li><strong>Remind Tomorrow</strong> — schedules a one-shot reminder 24 hours later without disturbing the recurring schedule.</li>
 </ul>
-<h2 id="restoring-from-backup">Restoring from Backup<a class="headerlink" href="#restoring-from-backup" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Open <strong>Settings</strong> (<span class="keys"><kbd class="key-command">Cmd</kbd><span>+</span><kbd class="key-comma">,</kbd></span>) and go to the <strong>Data Management</strong> section.</li>
-<li>Click <strong>Restore from Backup</strong>.</li>
-<li>Select a backup ZIP file.</li>
-<li>Confirm the restore — this replaces all current data.</li>
-<li>After restore, exchange rates are automatically re-fetched for all snapshots.</li>
-</ol>
-<p><img alt="Data Management in Settings" src="../../../assets/images/settings-security.png" /></p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Restoring from a backup replaces <strong>ALL</strong> current data. This action cannot be undone. Make sure to export a backup of your current data first if you want to keep it.</p>
-</div>
+<p>After the banner auto-dismisses, the reminder remains in macOS <strong>Notification Center</strong> until you clear it.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>Create regular backups, especially before major changes to your portfolio data. Store backups in a safe location like an external drive or cloud storage.</p>
+<p>If you want banners to stay on screen until you click them (rather than auto-dismissing after a few seconds), open <strong>System Settings → Notifications → AssetFlow</strong> and switch the alert style from <strong>Banners</strong> to <strong>Alerts</strong>. macOS controls this preference per app, so AssetFlow can't change it for you.</p>
+</div>
+<h2 id="snoozing-or-disabling">Snoozing or Disabling<a class="headerlink" href="#snoozing-or-disabling" title="Permanent link">&para;</a></h2>
+<ul>
+<li>To snooze just the next firing, click <strong>Remind Tomorrow</strong> on the banner.</li>
+<li>To pause reminders entirely, toggle <strong>Snapshot Reminders</strong> off in Settings. Any pending reminders are cleared immediately.</li>
+<li>To change the cadence, just adjust the pickers — AssetFlow re-applies the schedule automatically.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Reminders are scheduled by macOS itself, so they fire even when AssetFlow is closed. The schedule survives quitting the app, restarting your Mac, and putting it to sleep.</p>
 </div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../preferences/">Preferences</a>: Customize display and import settings</li>
 <li><a href="../security/">Security</a>: Protect your data with app lock and authentication</li>
+<li><a href="../../guide/snapshots/">Snapshots</a>: How to create and manage snapshots</li>
+<li><a href="../../guide/bulk-entry/">Bulk Entry</a>: Enter values for multiple assets at once</li>
 </ul>
 
 
@@ -1689,7 +1745,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 15, 2026 01:29:48 UTC">March 15, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="May 6, 2026 05:19:53 UTC">May 6, 2026</span>
   </span>
 
     
@@ -1699,7 +1755,7 @@
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 15, 2026 01:29:48 UTC">March 15, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="May 6, 2026 05:19:53 UTC">May 6, 2026</span>
   </span>
 
     
@@ -1736,7 +1792,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../notifications/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Notifications">
+          <a href="../security/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Security">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1746,20 +1802,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Notifications
+                Security
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../reference/csv-format/" class="md-footer__link md-footer__link--next" aria-label="Next: CSV Format">
+          <a href="../backup-restore/" class="md-footer__link md-footer__link--next" aria-label="Next: Backup &amp; Restore">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                CSV Format
+                Backup & Restore
               </div>
             </div>
             <div class="md-footer__button md-icon">
