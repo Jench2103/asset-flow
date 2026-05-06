@@ -92,3 +92,4 @@
 - [現金流](cash-flows.md)：為每筆快照記錄存入與提領
 - [資產](assets.md)：管理你的個別投資標的
 - [匯入 CSV](import-csv.md)：從試算表批次匯入快照資料
+- [通知](../settings/notifications.md)：設定定期提醒來建立新的快照

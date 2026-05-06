@@ -654,6 +654,50 @@ Optional app-level authentication to protect against casual physical access. Use
 
 ______________________________________________________________________
 
+## Snapshot Reminder Notifications
+
+Opt-in periodic local notifications that nudge the user to capture a new snapshot. Owned by `SnapshotReminderService` and configured from Settings.
+
+### Cadence
+
+1. **Daily** — one repeating `UNCalendarNotificationTrigger` matching `(hour, minute)`. Identifier: `snapshotReminder.daily`.
+1. **Weekly** — one repeating trigger matching `(hour, minute, weekday)` where `weekday` follows the `Calendar` convention (Sunday = 1). Identifier: `snapshotReminder.weekly`.
+1. **Every 2 Weeks (bi-weekly)** — eight non-repeating triggers, two weeks apart starting from the next `(weekday, hour, minute)` strictly after the current moment. The schedule is re-extended on each app launch (and whenever the user touches reminder settings) because `UNCalendarNotificationTrigger` cannot express bi-weekly natively. Identifiers: `snapshotReminder.biweekly.0` … `.7` (~16 weeks of headroom; well under Apple's 64-pending-request cap).
+1. **Monthly** — one repeating trigger matching `(hour, minute, day)`. The Settings UI caps `day` at 1–28 to keep behavior consistent across all months. Identifier: `snapshotReminder.monthly`.
+1. **Custom Interval** — eight non-repeating triggers, `intervalDays` apart, starting from the next `(hour, minute)` strictly after the current moment (no weekday anchor). Same windowing rationale as bi-weekly. The Settings UI offers a Stepper from 2 to 365 days. Identifiers: `snapshotReminder.interval.0` … `.7`.
+
+### Scheduling lifecycle
+
+- `reschedule(config:)` is **idempotent**: it removes any pending request whose identifier starts with `snapshotReminder.` and then registers the new ones. Non-AssetFlow requests in the notification center are untouched.
+- Authorization is checked before scheduling: new requests are skipped when status is anything other than `.authorized` or `.provisional`. Cancellation still happens regardless, so disabling the toggle clears the schedule even if authorization was revoked at the OS level.
+- App launch re-applies the schedule (`AssetFlowApp.task`) so bi-weekly windows stay populated and any drift is corrected.
+
+### Snooze (Remind Tomorrow)
+
+- The reminder banner exposes a single action `snooze` with title **Remind Tomorrow**, registered on the `snapshotReminder` `UNNotificationCategory`.
+- Tapping the action triggers `SnapshotReminderService.snooze()`, which schedules a one-shot `UNTimeIntervalNotificationTrigger` 24 hours out (identifier prefix `snapshotReminder.snooze.<UUID>`). The recurring schedule is left intact.
+
+### Notification interaction routing
+
+- The default tap (or any non-snooze action) calls `AppRouter.shared.requestNewSnapshot()`, which sets a fresh UUID token. `ContentView` observes the token (both via `.onChange` for warm starts and `.onAppear` for cold launches), switches the sidebar to **Snapshots**, opens the **New Snapshot** sheet so the user can pick the date and the creation mode (empty / copy-from-latest / bulk entry), and clears the token via `consumeNewSnapshotRequest()`.
+- The `UNUserNotificationCenterDelegate` is installed in `AppDelegate.applicationDidFinishLaunching(_:)` (via `@NSApplicationDelegateAdaptor`), not from a `WindowGroup .task`. Setting it during launch satisfies Apple's documented requirement and avoids dropping cold-launch responses.
+
+### Defaults
+
+- Toggle: off (opt-in). Settings requests `UNNotificationCenter` authorization at the moment the toggle is turned on, never at app launch.
+- Default config: weekly, Sunday at 09:00 (used until the user customizes).
+
+### Persistence
+
+- `snapshotReminderEnabled: Bool` — stored in UserDefaults.
+- `snapshotReminderConfig` — JSON-encoded `Data` blob in UserDefaults so the schema can evolve without colliding with typed accessors. Corrupt blobs fall back to the default config.
+
+### Body content
+
+- Title: "AssetFlow Reminder". Body: "Time to add a new portfolio snapshot." Both are localized (English + Traditional Chinese). The body intentionally contains **no financial data**, so reminders are safe to display on the lock screen without involving `AuthenticationService`.
+
+______________________________________________________________________
+
 ## References
 
 ### Financial Concepts

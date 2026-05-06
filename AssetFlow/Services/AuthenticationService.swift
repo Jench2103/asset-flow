@@ -17,7 +17,6 @@
 
 import Foundation
 import LocalAuthentication
-import SwiftUI
 
 /// User-selectable timeout before the app re-locks after going to background.
 ///
@@ -215,9 +214,12 @@ class AuthenticationService {
         localizedReason: reason
       )
       if success {
-        withAnimation(.easeOut(duration: 0.2)) {
-          isLocked = false
-        }
+        // Plain @Observable mutation — the unlock fade is animated
+        // declaratively by the parent ZStack's `.animation(_:value:)` in
+        // `AssetFlowApp`. Wrapping the mutation in `withAnimation` would
+        // suppress env-derived `.onChange` observers (e.g. the
+        // notification-tap drain in `ContentView`).
+        isLocked = false
         lastUnlockDate = Date()
         authWasCancelled = false
       } else {

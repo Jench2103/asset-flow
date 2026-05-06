@@ -92,3 +92,4 @@ To delete a snapshot, scroll to the **Danger Zone** at the bottom of the snapsho
 - [Cash Flows](cash-flows.md): Record deposits and withdrawals for each snapshot
 - [Assets](assets.md): Manage your individual investments
 - [Import CSV](import-csv.md): Bulk-import snapshot data from a spreadsheet
+- [Notifications](../settings/notifications.md): Set up periodic reminders to capture new snapshots

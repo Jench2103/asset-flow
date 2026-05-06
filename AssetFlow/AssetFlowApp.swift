@@ -21,6 +21,11 @@ import SwiftUI
 
 @main
 struct AssetFlowApp: App {
+  // Installs the UNUserNotificationCenterDelegate inside
+  // applicationDidFinishLaunching so cold-launch notification responses are
+  // delivered reliably (running this from a WindowGroup .task is too late).
+  @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
   let sharedModelContainer: ModelContainer
 
   init() {
@@ -83,9 +88,21 @@ struct AssetFlowApp: App {
             .transition(.opacity)
         }
       }
+      .animation(.easeOut(duration: 0.2), value: authService.isLocked)
       .environment(\.isAppLocked, authService.isLocked)
       .onAppear {
         authService.lockOnLaunchIfNeeded()
+      }
+      .task {
+        // Delegate + category registration happen in `AppDelegate` before
+        // launch finishes. Here we top up the schedule without rebuilding
+        // it: a full reschedule would shift the phase of windowed cadences
+        // (e.g., turning a 14-day bi-weekly gap into 7 days the day after a
+        // reminder fires).
+        if SettingsService.shared.snapshotReminderEnabled {
+          await SnapshotReminderService.shared.topUpScheduleIfNeeded(
+            config: SettingsService.shared.snapshotReminderConfig)
+        }
       }
       // ── App Activation Lifecycle ──
       .onReceive(
@@ -206,6 +223,7 @@ struct AssetFlowApp: App {
             .transition(.opacity)
         }
       }
+      .animation(.easeOut(duration: 0.2), value: authService.isLocked)
       .environment(\.isAppLocked, authService.isLocked)
     }
     .modelContainer(sharedModelContainer)

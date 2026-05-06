@@ -435,6 +435,15 @@ Accessible via menu bar (AssetFlow > Settings) or Cmd+,.
    - **When Locked or Sleeping** picker (shown only when toggle is on): Configures re-lock timeout for screen lock / sleep events — Immediately, After 1 Minute, After 5 Minutes, After 15 Minutes, Never.
    - **Auto-disable**: When both pickers are set to "Never", the Require Authentication toggle is automatically turned off.
    - **Footer text**: Three variants based on state — when disabled: explains what enabling does; when enabled with Touch ID: explains the two trigger conditions, "Never" option, and auth methods; when enabled without Touch ID: same but notes system password only.
+1. **Notifications**:
+   - **Snapshot Reminders** toggle: Enables/disables periodic local notifications that nudge the user to capture a new portfolio snapshot. Off by default. Toggling on requests the macOS notification authorization prompt at that moment; if the user has denied notifications in System Settings, the toggle reverts and a "Notifications Disabled" alert offers an **Open System Settings** deep link.
+   - **Frequency** picker (shown when toggle is on): Daily / Weekly / Every 2 Weeks / Monthly / Custom Interval.
+   - **Day of Week** picker (Weekly or Every 2 Weeks): Localized weekday names from `Calendar.standaloneWeekdaySymbols`.
+   - **Day of Month** picker (Monthly): 1–28 only, to keep behavior consistent across all months.
+   - **Repeat every N days** stepper (Custom Interval): Range 2 to 365.
+   - **Time** picker: `DatePicker` with `.hourAndMinute` only.
+   - **Footer text**: Three variants — Monthly explains the 1–28 cap; Custom Interval explains the every-N-days cadence and that the first firing is at the next time-of-day after save; other cadences explain that reminders contain no financial data.
+   - **Notification UX**: Body is a generic, non-sensitive line ("Time to add a new portfolio snapshot."), so reminders are safe to display on the lock screen. Tapping the banner brings AssetFlow forward, switches the sidebar to **Snapshots**, and opens the **New Snapshot** sheet so the user can pick the date and the creation mode (empty / copy from latest / bulk entry). The banner exposes a **Remind Tomorrow** action button that schedules a one-shot reminder 24 hours later without disturbing the recurring schedule.
 1. **Data Management**:
    - **Export Backup**: Exports all data to ZIP archive. User selects save location. Default filename: `AssetFlow-Backup-YYYY-MM-DD.zip`.
    - **Restore from Backup**: Imports backup archive. Confirmation: "Restoring from backup will replace ALL existing data. This cannot be undone. Continue?" Validates file integrity (CSV presence, headers, foreign key references). On failure, shows detailed error. On success, reloads all views.

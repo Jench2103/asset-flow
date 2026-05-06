@@ -65,4 +65,5 @@ The app automatically attempts to unlock when it becomes active, so in many case
 ## See also
 
 - [Preferences](preferences.md): Customize display and import settings
+- [Notifications](notifications.md): Configure periodic snapshot reminders
 - [Backup & Restore](backup-restore.md): Protect your data with regular backups

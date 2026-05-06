@@ -37,5 +37,6 @@ The About section shows:
 ## See also
 
 - [Security](security.md): Protect your data with app lock and authentication
+- [Notifications](notifications.md): Configure periodic snapshot reminders
 - [Backup & Restore](backup-restore.md): Export and import your portfolio data
 - [Currencies & Exchange Rates](../reference/currencies.md): How multi-currency support works

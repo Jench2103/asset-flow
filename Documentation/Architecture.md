@@ -192,6 +192,10 @@ See [DataModel.md](DataModel.md) for detailed model documentation.
 
 1. **SnapshotSummaryService** (`@MainActor enum`): Provides bounded snapshot fetch helpers (latest, latest prior, date lookup, sorted history) and one-pass converted snapshot summaries containing total value, asset count, category totals, and platform totals. ViewModels use this to avoid repeated full-table fetches and duplicate aggregate traversal logic.
 
+1. **SnapshotReminderService** (`@Observable @MainActor` `NSObject` subclass with `static let shared` singleton): Owns the `UNUserNotificationCenter` interaction for opt-in periodic snapshot reminders. Schedules `UNCalendarNotificationTrigger` requests for daily/weekly/monthly cadences and a windowed sequence of non-repeating triggers for bi-weekly. Conforms to `UNUserNotificationCenterDelegate` (via `nonisolated` extension methods) to surface foreground banners and route the **Remind Tomorrow** action to a one-shot snooze. Tests inject a fake `UNUserNotificationCenterProtocol` for isolation; the production conformance lives in `UNUserNotificationCenterProtocol.swift`.
+
+1. **AppRouter** (`@Observable @MainActor` singleton): Lightweight in-process signal bus. `SnapshotReminderService` calls `requestNewSnapshot()` when the user taps a reminder; `ContentView` observes the UUID-token property (via both `.onChange` for warm starts and `.onAppear` for cold launches), switches the sidebar to **Snapshots**, opens the New Snapshot sheet (so the user can choose date + creation mode), and clears the token. UUID tokens (rather than booleans) ensure `.onChange` fires for back-to-back requests.
+
 **Duplicate Detection**: AssetFlow handles duplicate detection in two layers:
 
 - **CSV-internal duplicates**: Detected by `CSVParsingService` during parsing (same name+platform within file, or same description within cash flow CSV)

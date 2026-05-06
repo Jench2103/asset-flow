@@ -41,6 +41,27 @@
         }
       }
     },
+    "AssetFlow can't show reminders because notifications are turned off in System Settings. Enable them and return to AssetFlow to try again." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "因為通知已在「系統設定」中關閉，AssetFlow 無法顯示提醒。請開啟通知後返回 AssetFlow 再試一次。"
+          }
+        }
+      }
+    },
+    "AssetFlow will remind you to capture a new snapshot at the cadence you choose. Reminders contain no financial data." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AssetFlow 會依據您選擇的頻率提醒您建立新的快照。提醒內容不含任何財務資料。"
+          }
+        }
+      }
+    },
     "Authentication failed. Try again." : {
       "localizations" : {
         "zh-Hant" : {
@@ -101,6 +122,36 @@
         }
       }
     },
+    "Custom Interval" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自訂間隔"
+          }
+        }
+      }
+    },
+    "Daily" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每天"
+          }
+        }
+      }
+    },
+    "Every 2 Weeks" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每 2 週"
+          }
+        }
+      }
+    },
     "Immediately" : {
       "localizations" : {
         "zh-Hant" : {
@@ -117,6 +168,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "詳細"
+          }
+        }
+      }
+    },
+    "Monthly" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每月"
           }
         }
       }
@@ -141,12 +202,44 @@
         }
       }
     },
+    "Reminders fire every %lld days at the time you set, starting at the next time of day after this setting is saved." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒會於您設定的時間每隔 %lld 天觸發一次，首次於設定儲存後的下一個指定時間點發出。"
+          }
+        }
+      }
+    },
+    "Reminders fire on the chosen day of each month at the time you set. Only days 1–28 are offered to keep behavior consistent across all months." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒會在您選擇的每月日期與時間發出。為使所有月份的行為一致，僅提供 1 至 28 日可選。"
+          }
+        }
+      }
+    },
     "Unlock AssetFlow to access your portfolio data" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "解鎖 AssetFlow 以存取您的投資組合資料"
+          }
+        }
+      }
+    },
+    "Weekly" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每週"
           }
         }
       }

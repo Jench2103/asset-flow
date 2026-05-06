@@ -37,5 +37,6 @@
 ## 另請參閱
 
 - [安全性](security.md)：使用應用程式鎖定與驗證保護你的資料
+- [通知](notifications.md)：設定定期的快照提醒
 - [備份與還原](backup-restore.md)：匯出與匯入你的投資組合資料
 - [幣別與匯率](../reference/currencies.md)：多幣別支援的運作方式

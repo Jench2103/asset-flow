@@ -15,6 +15,7 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
+import AppKit
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
@@ -59,6 +60,7 @@ struct SettingsView: View {
       dateFormatSection
       importDefaultsSection
       securitySection
+      notificationsSection
       dataManagementSection
       aboutSection
     }
@@ -76,6 +78,23 @@ struct SettingsView: View {
       Button("OK") {}
     } message: {
       Text(resultMessage)
+    }
+    .alert(
+      "Notifications Disabled",
+      isPresented: $viewModel.showAuthorizationDeniedAlert
+    ) {
+      Button("Open System Settings") {
+        if let url = URL(
+          string: "x-apple.systempreferences:com.apple.preference.notifications")
+        {
+          NSWorkspace.shared.open(url)
+        }
+      }
+      Button("OK", role: .cancel) {}
+    } message: {
+      Text(
+        "AssetFlow can't show reminders because notifications are turned off in System Settings. Enable them and return to AssetFlow to try again.",
+        tableName: "Settings")
     }
     .confirmationDialog(
       "Restore from Backup",
@@ -197,6 +216,141 @@ struct SettingsView: View {
         )
       }
     }
+  }
+
+  // MARK: - Notifications Section
+
+  private var notificationsSection: some View {
+    Section {
+      Toggle(
+        "Snapshot Reminders",
+        isOn: Binding(
+          get: { viewModel.isReminderEnabled },
+          set: { newValue in
+            withAnimation(AnimationConstants.standard) {
+              viewModel.isReminderEnabled = newValue
+            }
+          }
+        )
+      )
+      .accessibilityIdentifier("Snapshot Reminders Toggle")
+
+      if viewModel.isReminderEnabled {
+        Picker(
+          "Frequency",
+          selection: $viewModel.reminderFrequency
+        ) {
+          ForEach(SnapshotReminderConfig.Frequency.allCases, id: \.self) { freq in
+            Text(freq.localizedName).tag(freq)
+          }
+        }
+        .accessibilityIdentifier("Reminder Frequency Picker")
+        .transition(.opacity)
+
+        if viewModel.reminderFrequency == .weekly
+          || viewModel.reminderFrequency == .biweekly
+        {
+          Picker("Day of Week", selection: $viewModel.reminderWeekday) {
+            ForEach(1...7, id: \.self) { day in
+              Text(weekdayName(for: day)).tag(day)
+            }
+          }
+          .accessibilityIdentifier("Reminder Weekday Picker")
+          .transition(.opacity)
+        }
+
+        if viewModel.reminderFrequency == .monthly {
+          Picker("Day of Month", selection: $viewModel.reminderDayOfMonth) {
+            ForEach(1...28, id: \.self) { day in
+              Text("\(day)").tag(day)
+            }
+          }
+          .accessibilityIdentifier("Reminder Day of Month Picker")
+          .transition(.opacity)
+        }
+
+        if viewModel.reminderFrequency == .interval {
+          intervalDaysRow
+            .transition(.opacity)
+        }
+
+        DatePicker(
+          "Time",
+          selection: $viewModel.reminderTime,
+          displayedComponents: .hourAndMinute
+        )
+        .accessibilityIdentifier("Reminder Time Picker")
+        .transition(.opacity)
+      }
+    } header: {
+      Text("Notifications")
+    } footer: {
+      notificationsFooter
+    }
+  }
+
+  /// Custom-interval row: title on the left, a tight `TextField`+`Stepper` pair
+  /// on the right, then a "days" suffix. Solves two UX problems with the
+  /// previous Stepper-with-embedded-text design: (1) the number is now
+  /// adjacent to the +/- buttons, not buried in the middle of a sentence;
+  /// and (2) users can type "90" directly instead of clicking +/- 80 times.
+  private var intervalDaysRow: some View {
+    let range = SnapshotReminderConfig.intervalDaysRange
+    let clampedBinding = Binding<Int>(
+      get: { viewModel.reminderIntervalDays },
+      set: { viewModel.reminderIntervalDays = min(range.upperBound, max(range.lowerBound, $0)) }
+    )
+    // Plain HStack rather than `LabeledContent` so the title vertically
+    // centers with the row (the default `firstTextBaseline` alignment of
+    // `LabeledContent` makes the title visually float up against a tall
+    // `roundedBorder` TextField). `.controlSize(.small)` is scoped to just
+    // the Stepper so the field and "days" suffix keep their default size.
+    return HStack {
+      Text("Repeat every")
+      Spacer()
+      TextField("", value: clampedBinding, format: .number)
+        .textFieldStyle(.roundedBorder)
+        .multilineTextAlignment(.trailing)
+        .frame(width: 56)
+        .monospacedDigit()
+        .accessibilityIdentifier("Reminder Interval Days Field")
+
+      Stepper("", value: clampedBinding, in: range)
+        .labelsHidden()
+        .controlSize(.small)
+        .accessibilityIdentifier("Reminder Interval Days Stepper")
+
+      Text("days")
+        .foregroundStyle(.secondary)
+    }
+  }
+
+  private var notificationsFooter: some View {
+    Text(notificationsFooterKey, tableName: "Settings")
+  }
+
+  private var notificationsFooterKey: LocalizedStringKey {
+    let generic: LocalizedStringKey =
+      "AssetFlow will remind you to capture a new snapshot at the cadence you choose. Reminders contain no financial data."
+    guard viewModel.isReminderEnabled else { return generic }
+    switch viewModel.reminderFrequency {
+    case .monthly:
+      return
+        "Reminders fire on the chosen day of each month at the time you set. Only days 1–28 are offered to keep behavior consistent across all months."
+
+    case .interval:
+      return
+        "Reminders fire every \(viewModel.reminderIntervalDays) days at the time you set, starting at the next time of day after this setting is saved."
+
+    case .daily, .weekly, .biweekly:
+      return generic
+    }
+  }
+
+  private func weekdayName(for weekday: Int) -> String {
+    let symbols = Calendar.current.standaloneWeekdaySymbols
+    let index = max(0, min(symbols.count - 1, weekday - 1))
+    return symbols[index]
   }
 
   // MARK: - Data Management Section

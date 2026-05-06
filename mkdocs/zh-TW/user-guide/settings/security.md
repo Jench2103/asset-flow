@@ -65,4 +65,5 @@ Mac 螢幕鎖定或進入睡眠後，多快自動鎖定。
 ## 另請參閱
 
 - [偏好設定](preferences.md)：自訂顯示與匯入設定
+- [通知](notifications.md)：設定定期的快照提醒
 - [備份與還原](backup-restore.md)：定期備份保護你的資料

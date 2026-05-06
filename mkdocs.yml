@@ -83,6 +83,7 @@ plugins:
             Settings: 設定
             Preferences: 偏好設定
             Security: 安全性
+            Notifications: 通知
             Backup & Restore: 備份與還原
             Reference: 參考
             CSV Format: CSV 格式
@@ -116,6 +117,7 @@ nav:
       - Settings:
           - Preferences: user-guide/settings/preferences.md
           - Security: user-guide/settings/security.md
+          - Notifications: user-guide/settings/notifications.md
           - Backup & Restore: user-guide/settings/backup-restore.md
       - Reference:
           - CSV Format: user-guide/reference/csv-format.md

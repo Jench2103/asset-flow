@@ -50,6 +50,8 @@ enum Constants {
     static let defaultPlatform = ""
     static let defaultAppLockEnabled = false
     static let defaultHideStaleAssets = true
+    static let defaultSnapshotReminderEnabled = false
+    static let defaultSnapshotReminderConfig = SnapshotReminderConfig.default
   }
 
   enum UserDefaultsKeys {
@@ -61,6 +63,8 @@ enum Constants {
     static let screenLockTimeout = "screenLockTimeout"
     static let platformOrder = "platformOrder"
     static let hideStaleAssets = "hideStaleAssets"
+    static let snapshotReminderEnabled = "snapshotReminderEnabled"
+    static let snapshotReminderConfig = "snapshotReminderConfig"
   }
 
   enum Parsing {

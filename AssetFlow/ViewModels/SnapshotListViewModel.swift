@@ -149,12 +149,20 @@ class SnapshotListViewModel {
   ///
   /// Wraps the load in `withObservationTracking` so that any `@Observable`/`@Model`
   /// property change (e.g. currency, asset values) automatically triggers a reload.
+  ///
+  /// The recursive reload from `onChange` re-fetches via `modelContext` instead
+  /// of capturing the caller-supplied `snapshots` array — `[Snapshot]?` is not
+  /// `Sendable` (SwiftData `@Model` classes aren't), so capturing it in a
+  /// `@Sendable` `Task` closure is rejected under Swift 6 strict concurrency.
+  /// Collection-membership changes are observed separately by the view's
+  /// `@Query` + `.onChange(of: snapshots)` (see `AssetFlow/CLAUDE.md`), so
+  ///  re-fetching here is equivalent.
   func loadRowData(snapshots: [Snapshot]? = nil) {
     withObservationTracking {
       performLoadRowData(snapshots: snapshots)
     } onChange: { [weak self] in
       Task { @MainActor [weak self] in
-        self?.loadRowData(snapshots: snapshots)
+        self?.loadRowData()
       }
     }
   }

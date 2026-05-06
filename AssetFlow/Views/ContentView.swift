@@ -196,6 +196,20 @@ struct ContentView: View {
         importViewModel?.reset()
       }
     }
+    .onChange(of: AppRouter.shared.pendingNewSnapshotToken) { _, _ in
+      handleReminderNewSnapshotRequest()
+    }
+    .onChange(of: isAppLocked) { _, locked in
+      // Drain a parked notification tap once the user authenticates.
+      guard !locked else { return }
+      handleReminderNewSnapshotRequest()
+    }
+    .onAppear {
+      // Cold-launch path: the notification response can land before
+      // ContentView mounts and arms its `.onChange`. Pick up any token that
+      // was set while the view wasn't observing.
+      handleReminderNewSnapshotRequest()
+    }
     .onAppear {
       if importViewModel == nil {
         importViewModel = ImportViewModel(modelContext: modelContext)
@@ -446,6 +460,23 @@ struct ContentView: View {
   }
 
   /// Navigates to the import section, checking for unsaved changes if already there.
+  /// Routes a snapshot-reminder tap (or any `AppRouter.requestNewSnapshot()`
+  /// signal) to the **New Snapshot** sheet so the user can pick the date and
+  /// the creation mode (empty, copy from latest, or bulk entry).
+  ///
+  /// `AppRouter.shouldRouteNewSnapshotNow` enforces both that a token exists
+  /// *and* that the app is unlocked. While locked the request stays parked
+  /// and is replayed from `.onChange(of: isAppLocked)` after authentication —
+  /// otherwise the sheet would render above the lock overlay.
+  private func handleReminderNewSnapshotRequest() {
+    guard AppRouter.shared.shouldRouteNewSnapshotNow(isLocked: isAppLocked) else {
+      return
+    }
+    pushHistory(.snapshots)
+    showNewSnapshotSheet = true
+    AppRouter.shared.consumeNewSnapshotRequest()
+  }
+
   private func navigateToImport() {
     // If already on import with unsaved changes, offer to discard and restart
     if selectedSection == .importCSV,

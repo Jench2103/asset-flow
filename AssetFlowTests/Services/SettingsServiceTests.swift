@@ -151,6 +151,77 @@ struct SettingsServiceTests {
     #expect(reader.hideStaleAssets == false)
   }
 
+  // MARK: - Snapshot Reminder
+
+  @Test("Default snapshotReminderEnabled is false")
+  func snapshotReminderEnabled_defaultsFalse() {
+    let service = SettingsService.createForTesting()
+    #expect(service.snapshotReminderEnabled == false)
+  }
+
+  @Test("Default snapshotReminderConfig matches SnapshotReminderConfig.default")
+  func snapshotReminderConfig_defaultMatches() {
+    let service = SettingsService.createForTesting()
+    #expect(service.snapshotReminderConfig == SnapshotReminderConfig.default)
+  }
+
+  @Test("snapshotReminderEnabled persists across instances sharing storage")
+  func snapshotReminderEnabled_persists() {
+    let suiteName = "com.assetflow.testing.\(UUID().uuidString)"
+    guard let userDefaults = UserDefaults(suiteName: suiteName) else {
+      Issue.record("Failed to create UserDefaults suite for testing")
+      return
+    }
+    defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+    let writer = SettingsService.createForTesting(userDefaults: userDefaults)
+    writer.snapshotReminderEnabled = true
+
+    let reader = SettingsService.createForTesting(userDefaults: userDefaults)
+    #expect(reader.snapshotReminderEnabled == true)
+  }
+
+  @Test("snapshotReminderConfig round-trips across instances sharing storage")
+  func snapshotReminderConfig_persists() {
+    let suiteName = "com.assetflow.testing.\(UUID().uuidString)"
+    guard let userDefaults = UserDefaults(suiteName: suiteName) else {
+      Issue.record("Failed to create UserDefaults suite for testing")
+      return
+    }
+    defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+    let writer = SettingsService.createForTesting(userDefaults: userDefaults)
+    let custom = SnapshotReminderConfig(
+      frequency: .biweekly,
+      weekday: 5,
+      dayOfMonth: 10,
+      hour: 14,
+      minute: 45,
+      intervalDays: 12
+    )
+    writer.snapshotReminderConfig = custom
+
+    let reader = SettingsService.createForTesting(userDefaults: userDefaults)
+    #expect(reader.snapshotReminderConfig == custom)
+  }
+
+  @Test("Corrupt snapshotReminderConfig data falls back to default without crashing")
+  func snapshotReminderConfig_corruptDataFallsBack() {
+    let suiteName = "com.assetflow.testing.\(UUID().uuidString)"
+    guard let userDefaults = UserDefaults(suiteName: suiteName) else {
+      Issue.record("Failed to create UserDefaults suite for testing")
+      return
+    }
+    defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+    userDefaults.set(
+      Data([0xFF, 0xFE, 0xFD]),
+      forKey: Constants.UserDefaultsKeys.snapshotReminderConfig)
+
+    let service = SettingsService.createForTesting(userDefaults: userDefaults)
+    #expect(service.snapshotReminderConfig == SnapshotReminderConfig.default)
+  }
+
   // MARK: - DateFormatStyle
 
   @Test("DateFormatStyle has 4 cases with stable raw values")

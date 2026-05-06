@@ -396,10 +396,13 @@ SettingsService is an `@Observable @MainActor class` with a shared singleton and
 class SettingsService {
     static let shared = SettingsService()
 
-    var mainCurrency: String       // Default: "USD"
-    var dateFormat: DateFormatStyle // Default: .abbreviated
-    var defaultPlatform: String    // Default: ""
-    var platformOrder: [String]    // Default: []
+    var mainCurrency: String                   // Default: "USD"
+    var dateFormat: DateFormatStyle            // Default: .abbreviated
+    var defaultPlatform: String                // Default: ""
+    var platformOrder: [String]                // Default: []
+    var hideStaleAssets: Bool                  // Default: true
+    var snapshotReminderEnabled: Bool          // Default: false
+    var snapshotReminderConfig: SnapshotReminderConfig  // Default: weekly Sunday 09:00
 
     static func createForTesting() -> SettingsService
 }
@@ -415,6 +418,88 @@ self.selectedCurrency = service.mainCurrency
 ```
 
 Changes are applied immediately via `didSet` and persisted to UserDefaults.
+
+______________________________________________________________________
+
+### SnapshotReminderService
+
+**Purpose**: Schedule and cancel local "remember to take a snapshot" notifications via the system `UNUserNotificationCenter`.
+
+`SnapshotReminderService` is an `@Observable @MainActor` `NSObject` subclass with a shared singleton and support for test isolation. Production code accesses `.shared`; tests inject a fake `UNUserNotificationCenterProtocol` via `createForTesting(center:)`. The class conforms to `UNUserNotificationCenterDelegate` in an extension whose methods are `nonisolated` (the delegate protocol does not promise main-actor isolation; each delegate method hops back into MainActor for the body).
+
+```swift
+@Observable
+@MainActor
+final class SnapshotReminderService: NSObject {
+    static let shared: SnapshotReminderService
+
+    static let categoryIdentifier: String       // "snapshotReminder"
+    static let snoozeActionIdentifier: String   // "snooze"
+    static let identifierPrefix: String         // "snapshotReminder."
+
+    static func createForTesting(center: any UNUserNotificationCenterProtocol) -> SnapshotReminderService
+
+    func registerCategories()
+    func authorizationStatus() async -> UNAuthorizationStatus
+    func requestAuthorization() async -> UNAuthorizationStatus
+    func reschedule(config: SnapshotReminderConfig?) async
+    func snooze(by hours: Int = 24) async
+
+    /// Pure scheduling math, exercised in isolation by unit tests.
+    static func makeRequests(
+        for config: SnapshotReminderConfig,
+        content: UNNotificationContent,
+        from referenceDate: Date,
+        calendar: Calendar
+    ) -> [UNNotificationRequest]
+}
+```
+
+**`UNUserNotificationCenterProtocol`** is the seam used for testability. It exposes only the methods the service calls (`authorizationStatus`, `requestAuthorization`, `setNotificationCategories`, `add`, `pendingNotificationRequests`, `removePendingNotificationRequests`, `setDelegate`). The production conformance is `extension UNUserNotificationCenter: UNUserNotificationCenterProtocol` and pulls `notificationSettings().authorizationStatus` for the narrowed accessor.
+
+**`SnapshotReminderConfig`** is the persisted user-facing cadence:
+
+```swift
+struct SnapshotReminderConfig: Codable, Equatable, Sendable {
+    enum Frequency: String, Codable, CaseIterable, Sendable {
+        case daily, weekly, biweekly, monthly, interval
+    }
+    var frequency: Frequency
+    var weekday: Int       // 1...7, Sunday=1 (Calendar convention)
+    var dayOfMonth: Int    // 1...28 (UI cap, Monthly only)
+    var hour: Int          // 0...23
+    var minute: Int        // 0...59
+    var intervalDays: Int  // 2...365 (UI cap, Custom Interval only)
+    static let `default`: SnapshotReminderConfig
+}
+```
+
+`reschedule(config:)` is **idempotent** — it removes existing requests with `identifierPrefix` and re-registers a fresh set. The recurring schedule survives app quit; the app re-applies the schedule on each launch (`AssetFlowApp`'s root `.task`).
+
+See `Documentation/BusinessLogic.md` for the full cadence rules (including the bi-weekly windowing pattern) and `SecurityAndPrivacy.md` for the privacy treatment of notification body content.
+
+______________________________________________________________________
+
+### AppRouter
+
+**Purpose**: In-process signal bus that lets `SnapshotReminderService` ask the SwiftUI root to open the New Snapshot dialog.
+
+```swift
+@Observable
+@MainActor
+final class AppRouter {
+    static let shared: AppRouter
+    static func createForTesting() -> AppRouter
+
+    private(set) var pendingNewSnapshotToken: UUID?
+    func requestNewSnapshot()           // sets a fresh UUID
+    func consumeNewSnapshotRequest()    // clears the token to nil
+}
+```
+
+`ContentView` observes `pendingNewSnapshotToken` via `.onChange` (warm starts) and re-checks it from `.onAppear` (cold launches, where the token can be set before the view mounts). On a non-nil token it switches the sidebar to `.snapshots`, opens the New Snapshot sheet so the user picks date + creation mode, then consumes the token. Using a UUID rather than a `Bool` ensures back-to-back requests fire `.onChange` both times.
+
+The `UNUserNotificationCenter.delegate` (which calls `requestNewSnapshot()`) is installed in `AppDelegate.applicationDidFinishLaunching(_:)` via `@NSApplicationDelegateAdaptor`, not from a `WindowGroup .task`, so cold-launch responses are delivered reliably per Apple's documented requirement.
 
 ______________________________________________________________________
 

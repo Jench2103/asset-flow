@@ -18,6 +18,7 @@
 import Foundation
 import LocalAuthentication
 import Testing
+import UserNotifications
 
 @testable import AssetFlow
 
@@ -285,6 +286,149 @@ struct SettingsViewModelTests {
 
     let (viewModel2, _) = createViewModelWithAuth(canEvaluate: false)
     #expect(viewModel2.canUseBiometrics == false)
+  }
+
+  // MARK: - Snapshot Reminder
+
+  private func makeReminderHarness(
+    storedEnabled: Bool = false,
+    storedConfig: SnapshotReminderConfig? = nil,
+    authorization: UNAuthorizationStatus = .authorized
+  ) -> (
+    viewModel: SettingsViewModel,
+    settingsService: SettingsService,
+    reminderService: SnapshotReminderService,
+    center: FakeNotificationCenter
+  ) {
+    let settingsService = SettingsService.createForTesting()
+    settingsService.snapshotReminderEnabled = storedEnabled
+    settingsService.snapshotReminderConfig = storedConfig ?? .default
+    let center = FakeNotificationCenter()
+    center.stubbedAuthorizationStatus = authorization
+    let reminderService = SnapshotReminderService.createForTesting(center: center)
+    let viewModel = SettingsViewModel(
+      settingsService: settingsService,
+      reminderService: reminderService
+    )
+    return (viewModel, settingsService, reminderService, center)
+  }
+
+  @Test("Reminder bindings initialize from stored config")
+  func reminderInitializesFromStoredConfig() {
+    let custom = SnapshotReminderConfig(
+      frequency: .biweekly,
+      weekday: 3, dayOfMonth: 7, hour: 17, minute: 30, intervalDays: 21)
+    let harness = makeReminderHarness(storedEnabled: true, storedConfig: custom)
+    #expect(harness.viewModel.isReminderEnabled == true)
+    #expect(harness.viewModel.reminderFrequency == .biweekly)
+    #expect(harness.viewModel.reminderWeekday == 3)
+    #expect(harness.viewModel.reminderDayOfMonth == 7)
+    #expect(harness.viewModel.reminderIntervalDays == 21)
+    let components = Calendar.current.dateComponents(
+      [.hour, .minute], from: harness.viewModel.reminderTime)
+    #expect(components.hour == 17)
+    #expect(components.minute == 30)
+  }
+
+  @Test("Toggling reminder on with .authorized persists and reschedules")
+  func reminderToggleOnAuthorized() async {
+    let harness = makeReminderHarness(authorization: .authorized)
+
+    harness.viewModel.isReminderEnabled = true
+    await harness.viewModel.reminderTask?.value
+
+    #expect(harness.settingsService.snapshotReminderEnabled == true)
+    #expect(harness.center.addedRequests.count >= 1)
+    #expect(harness.center.requestAuthorizationCallCount == 0)
+  }
+
+  @Test("Toggling reminder on with .notDetermined requests authorization, then schedules")
+  func reminderToggleOnNotDeterminedThenAuthorized() async {
+    let harness = makeReminderHarness(authorization: .notDetermined)
+    harness.center.stubbedRequestAuthorizationResult = true
+
+    harness.viewModel.isReminderEnabled = true
+    await harness.viewModel.reminderTask?.value
+
+    #expect(harness.center.requestAuthorizationCallCount == 1)
+    #expect(harness.settingsService.snapshotReminderEnabled == true)
+  }
+
+  @Test("Toggling reminder on with .denied reverts and surfaces alert")
+  func reminderToggleOnDenied() async {
+    let harness = makeReminderHarness(authorization: .denied)
+
+    harness.viewModel.isReminderEnabled = true
+    await harness.viewModel.reminderTask?.value
+
+    #expect(harness.viewModel.isReminderEnabled == false)
+    #expect(harness.viewModel.showAuthorizationDeniedAlert == true)
+    #expect(harness.settingsService.snapshotReminderEnabled == false)
+    #expect(harness.center.addedRequests.isEmpty)
+  }
+
+  @Test("Toggling reminder off persists false and cancels schedule")
+  func reminderToggleOff() async {
+    let harness = makeReminderHarness(
+      storedEnabled: true, authorization: .authorized)
+    // Pre-load a recurring request so we can observe its removal.
+    harness.center.pending = [
+      UNNotificationRequest(
+        identifier: "snapshotReminder.weekly",
+        content: UNNotificationContent(),
+        trigger: nil)
+    ]
+
+    harness.viewModel.isReminderEnabled = false
+    await harness.viewModel.reminderTask?.value
+
+    #expect(harness.settingsService.snapshotReminderEnabled == false)
+    #expect(harness.center.addedRequests.isEmpty)
+    let removed = Set(harness.center.removedIdentifiers.flatMap { $0 })
+    #expect(removed.contains("snapshotReminder.weekly"))
+  }
+
+  @Test("Changing frequency while enabled persists and reschedules")
+  func reminderFrequencyChangePersistsAndReschedules() async {
+    let harness = makeReminderHarness(
+      storedEnabled: true, authorization: .authorized)
+
+    harness.viewModel.reminderFrequency = .monthly
+    await harness.viewModel.reminderTask?.value
+
+    #expect(harness.settingsService.snapshotReminderConfig.frequency == .monthly)
+    #expect(harness.center.addedRequests.count >= 1)
+  }
+
+  @Test("Changing reminderIntervalDays while enabled persists and reschedules")
+  func reminderIntervalChangePersistsAndReschedules() async {
+    let harness = makeReminderHarness(
+      storedEnabled: true,
+      storedConfig: SnapshotReminderConfig(
+        frequency: .interval,
+        weekday: 1, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10),
+      authorization: .authorized)
+
+    harness.viewModel.reminderIntervalDays = 21
+    await harness.viewModel.reminderTask?.value
+
+    #expect(harness.settingsService.snapshotReminderConfig.intervalDays == 21)
+    #expect(harness.center.addedRequests.count >= 1)
+  }
+
+  @Test("Changing reminderTime extracts hour and minute and persists")
+  func reminderTimeExtractsHourMinute() async {
+    let harness = makeReminderHarness(
+      storedEnabled: true, authorization: .authorized)
+    let target =
+      Calendar.current.date(
+        bySettingHour: 7, minute: 45, second: 0, of: Date()) ?? Date()
+
+    harness.viewModel.reminderTime = target
+    await harness.viewModel.reminderTask?.value
+
+    #expect(harness.settingsService.snapshotReminderConfig.hour == 7)
+    #expect(harness.settingsService.snapshotReminderConfig.minute == 45)
   }
 
   @Test("Disabling app lock syncs to AuthenticationService and unlocks")

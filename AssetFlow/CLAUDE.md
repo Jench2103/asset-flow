@@ -52,8 +52,11 @@ Stateless enums or classes with no direct SwiftData dependency:
 - **CSVParsingService** -- `enum`, parses asset/cash flow CSV with intra-CSV duplicate detection (cross-snapshot dedup is handled by `ImportViewModel`)
 - **RebalancingCalculator** -- `enum`, rebalancing adjustment amounts (buy/sell)
 - **BackupService** -- `@MainActor enum`, ZIP backup via `/usr/bin/ditto`
-- **SettingsService** -- `@Observable @MainActor class`, app-wide settings (currency, date format, default platform)
+- **SettingsService** -- `@Observable @MainActor class`, app-wide settings (currency, date format, default platform, snapshot reminder cadence)
 - **AuthenticationService** -- `@Observable @MainActor class` singleton, app lock via LocalAuthentication (Touch ID, Apple Watch, system password)
+- **SnapshotReminderService** -- `@Observable @MainActor class` singleton (NSObject + `UNUserNotificationCenterDelegate`), schedules opt-in periodic snapshot reminder notifications via `UNUserNotificationCenter`. Notification body contains no financial data. See `Documentation/BusinessLogic.md` for cadence rules.
+- **AppRouter** -- `@Observable @MainActor` singleton, in-process signal bus that routes a notification tap to the New Snapshot sheet (UUID-token pattern observed by `ContentView` via both `.onChange` and `.onAppear` to cover warm and cold launches)
+- **AppDelegate** -- `@MainActor NSApplicationDelegate` adapted via `@NSApplicationDelegateAdaptor`. Its only job is `applicationDidFinishLaunching` registering `UNUserNotificationCenter.delegate = SnapshotReminderService.shared` and calling `registerCategories()`. Doing this from a `WindowGroup .task` is too late and drops cold-launch responses.
 - **CurrencyService** -- `@Observable @MainActor class` singleton (`static let shared`), currency data with UserDefaults caching
 - **ExchangeRateService** -- `final class` (`@unchecked Sendable`), fetches rates from cdn.jsdelivr.net, batch-fetches missing rates on launch and after restore, graceful degradation when offline
 - **CurrencyConversionService** -- `enum`, stateless currency conversion using ExchangeRate data, returns unconverted values when rates unavailable

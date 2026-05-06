@@ -67,6 +67,28 @@ class SettingsService {
     }
   }
 
+  /// Whether snapshot reminder notifications are enabled.
+  var snapshotReminderEnabled: Bool {
+    didSet {
+      userDefaults.set(
+        snapshotReminderEnabled,
+        forKey: Constants.UserDefaultsKeys.snapshotReminderEnabled)
+    }
+  }
+
+  /// User-configured cadence for snapshot reminder notifications.
+  ///
+  /// Persisted as a JSON-encoded `Data` blob so the schema can evolve
+  /// independently of UserDefaults' typed accessors.
+  var snapshotReminderConfig: SnapshotReminderConfig {
+    didSet {
+      if let data = try? JSONEncoder().encode(snapshotReminderConfig) {
+        userDefaults.set(
+          data, forKey: Constants.UserDefaultsKeys.snapshotReminderConfig)
+      }
+    }
+  }
+
   private init(userDefaults: UserDefaults = .standard) {
     self.userDefaults = userDefaults
 
@@ -93,6 +115,21 @@ class SettingsService {
     self.hideStaleAssets =
       (userDefaults.object(forKey: Constants.UserDefaultsKeys.hideStaleAssets) as? Bool)
       ?? Constants.DefaultValues.defaultHideStaleAssets
+
+    self.snapshotReminderEnabled =
+      (userDefaults.object(forKey: Constants.UserDefaultsKeys.snapshotReminderEnabled)
+        as? Bool)
+      ?? Constants.DefaultValues.defaultSnapshotReminderEnabled
+
+    if let data = userDefaults.data(
+      forKey: Constants.UserDefaultsKeys.snapshotReminderConfig),
+      let decoded = try? JSONDecoder().decode(
+        SnapshotReminderConfig.self, from: data)
+    {
+      self.snapshotReminderConfig = decoded
+    } else {
+      self.snapshotReminderConfig = Constants.DefaultValues.defaultSnapshotReminderConfig
+    }
   }
 
   /// Creates an isolated instance for testing purposes

@@ -259,6 +259,17 @@ Accessible via menu bar (AssetFlow > Settings) or keyboard shortcut (Cmd+,).
      - User selects save location via standard macOS save dialog. Default filename: `AssetFlow-Backup-YYYY-MM-DD.zip`.
    - **Restore from Backup** — Imports a previously exported backup archive. Confirmation required: "Restoring from backup will replace ALL existing data. This cannot be undone. Continue?" Validates file integrity: checks that all expected CSV files are present and parseable with correct column headers, **and that all foreign key references are valid across files** (e.g., every assetID in `snapshot_asset_values.csv` exists in `assets.csv`, every snapshotID exists in `snapshots.csv`, every categoryID references an existing Category or is null). If validation fails, the restore is rejected with a detailed error listing all violations. No data is modified. On success, reloads all views.
 
+1. **Notifications** — Opt-in periodic local reminders to capture a new snapshot.
+
+   - **Snapshot Reminders** toggle — off by default. Enabling it presents the macOS notification authorization prompt; if the user has previously denied notifications in System Settings, the toggle reverts and a "Notifications Disabled" alert offers an **Open System Settings** deep link. Disabling cancels all pending reminders.
+   - **Frequency** — Daily / Weekly / Every 2 Weeks / Monthly / Custom Interval.
+   - **Day of Week** (Weekly or Every 2 Weeks) — localized weekday selector (Sunday … Saturday).
+   - **Day of Month** (Monthly) — 1–28 only, to keep behavior consistent across all months. Users who want a "month-end" reminder set day 28.
+   - **Repeat every N days** (Custom Interval) — Stepper from 2 to 365 days; the first firing is at the next configured time-of-day after the setting is saved, then every N days afterwards.
+   - **Time** — hour and minute (system 12/24-hour preference).
+   - **Notification body** — a fixed, generic line ("Time to add a new portfolio snapshot.") containing **no financial data**. Tapping the banner brings AssetFlow forward, switches the sidebar to **Snapshots**, and opens the New Snapshot sheet so the user can pick the date and creation mode (empty / copy-from-latest / bulk entry). The banner exposes a **Remind Tomorrow** action that schedules a one-shot reminder 24 hours later without disturbing the recurring schedule.
+   - **Implementation notes** — implemented with `UNUserNotificationCenter` and `UNCalendarNotificationTrigger`. Bi-weekly and Custom Interval are windowed (eight non-repeating triggers refreshed on each app launch). Configuration is persisted in UserDefaults. Cadence rules and identifier conventions are detailed in `BusinessLogic.md`.
+
 1. **App Lock** — Protects portfolio data behind device authentication.
 
    - **Enable App Lock** toggle — when enabled, the app displays a lock screen (opaque overlay) that requires authentication before any content is visible.
