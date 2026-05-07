@@ -201,9 +201,25 @@ final class SettingsViewModel {
     }
   }
 
-  /// Set when the user tries to enable reminders but the OS reports
-  /// authorization as denied. The view binds this to an alert.
-  var showAuthorizationDeniedAlert: Bool = false
+  /// Cause of the most recent failure to enable snapshot reminders, or `nil`
+  /// when no alert should be shown. The view binds this to one of two alerts:
+  /// the user-denied case (link to System Settings) or the registration-
+  /// failure case (suggest moving the app to /Applications, then offer a
+  /// GitHub issue path).
+  var authorizationFailureKind: AuthorizationFailureKind?
+
+  /// Why the snapshot-reminder toggle could not be turned on.
+  enum AuthorizationFailureKind: Sendable {
+    /// The OS reports `.denied` and the user has previously authorized
+    /// AssetFlow notifications, so an entry exists in System Settings →
+    /// Notifications and they can re-enable it there.
+    case deniedInSystemSettings
+    /// The OS refused to register the bundle, or the user denied the very
+    /// first authorization prompt. There is nothing actionable in System
+    /// Settings; instead, ask the user to verify the app's location and
+    /// offer a GitHub-issue path.
+    case registrationFailure
+  }
 
   /// Task handle for in-flight reminder operations, exposed for testability.
   private(set) var reminderTask: Task<Void, Never>?
@@ -248,15 +264,28 @@ final class SettingsViewModel {
         }
         switch status {
         case .authorized, .provisional:
+          // Sticky flag — record the first successful authorization so a
+          // later `.denied` can be attributed to a System Settings change
+          // rather than a never-registered bundle.
+          settingsService.hasNotificationsBeenAuthorized = true
           settingsService.snapshotReminderEnabled = true
           await reminderService.reschedule(
             config: settingsService.snapshotReminderConfig)
 
         default:
-          // Authorization not granted: revert and surface alert.
           isReminderEnabled = false
           settingsService.snapshotReminderEnabled = false
-          showAuthorizationDeniedAlert = true
+          if status == .denied
+            && settingsService.hasNotificationsBeenAuthorized
+          {
+            authorizationFailureKind = .deniedInSystemSettings
+          } else {
+            // .denied without prior auth (the OS never registered the
+            // bundle, or the user denied the very first prompt) or any
+            // unexpected status. Nothing in System Settings to point them
+            // to; offer a "move to Applications + report on GitHub" path.
+            authorizationFailureKind = .registrationFailure
+          }
         }
       } else {
         settingsService.snapshotReminderEnabled = false

@@ -354,17 +354,54 @@ struct SettingsViewModelTests {
     #expect(harness.settingsService.snapshotReminderEnabled == true)
   }
 
-  @Test("Toggling reminder on with .denied reverts and surfaces alert")
-  func reminderToggleOnDenied() async {
+  @Test(
+    """
+    Denied without prior authorization → registration-failure alert \
+    (the OS likely never registered the bundle, so System Settings has no \
+    entry to toggle)
+    """)
+  func reminderToggleOnDeniedFirstTime_isRegistrationFailure() async {
     let harness = makeReminderHarness(authorization: .denied)
+    // Default: hasNotificationsBeenAuthorized == false
 
     harness.viewModel.isReminderEnabled = true
     await harness.viewModel.reminderTask?.value
 
     #expect(harness.viewModel.isReminderEnabled == false)
-    #expect(harness.viewModel.showAuthorizationDeniedAlert == true)
+    #expect(harness.viewModel.authorizationFailureKind == .registrationFailure)
     #expect(harness.settingsService.snapshotReminderEnabled == false)
     #expect(harness.center.addedRequests.isEmpty)
+  }
+
+  @Test(
+    """
+    Denied with prior authorization → System-Settings alert \
+    (the user previously authorized then disabled in System Settings)
+    """)
+  func reminderToggleOnDeniedAfterPriorAuth_isDeniedInSystemSettings() async {
+    let harness = makeReminderHarness(authorization: .denied)
+    harness.settingsService.hasNotificationsBeenAuthorized = true
+
+    harness.viewModel.isReminderEnabled = true
+    await harness.viewModel.reminderTask?.value
+
+    #expect(harness.viewModel.isReminderEnabled == false)
+    #expect(
+      harness.viewModel.authorizationFailureKind == .deniedInSystemSettings)
+    #expect(harness.settingsService.snapshotReminderEnabled == false)
+    #expect(harness.center.addedRequests.isEmpty)
+  }
+
+  @Test("Successful authorization records the fact in settings")
+  func reminderToggleOnAuthorized_recordsAuthorizationHistory() async {
+    let harness = makeReminderHarness(authorization: .authorized)
+    #expect(harness.settingsService.hasNotificationsBeenAuthorized == false)
+
+    harness.viewModel.isReminderEnabled = true
+    await harness.viewModel.reminderTask?.value
+
+    #expect(harness.settingsService.hasNotificationsBeenAuthorized == true)
+    #expect(harness.viewModel.authorizationFailureKind == nil)
   }
 
   @Test("Toggling reminder off persists false and cancels schedule")

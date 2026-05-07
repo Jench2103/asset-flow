@@ -691,6 +691,14 @@ Opt-in periodic local notifications that nudge the user to capture a new snapsho
 
 - `snapshotReminderEnabled: Bool` — stored in UserDefaults.
 - `snapshotReminderConfig` — JSON-encoded `Data` blob in UserDefaults so the schema can evolve without colliding with typed accessors. Corrupt blobs fall back to the default config.
+- `hasNotificationsBeenAuthorized: Bool` — sticky flag set the first time the OS reports `.authorized`/`.provisional`. Used to disambiguate two failure modes when re-enabling fails (see *Failure modes* below). Never reset by the app.
+
+### Failure modes
+
+When the user toggles **Snapshot Reminders** on but the OS does not authorize, the alert text depends on `hasNotificationsBeenAuthorized`:
+
+- **Denied with prior authorization** (`hasNotificationsBeenAuthorized == true` and status `.denied`): the user previously granted permission and has since disabled it in System Settings → Notifications. Alert offers an **Open System Settings** deep link.
+- **Registration failure** (otherwise — `.denied` without prior auth, `.notDetermined` after a request that produced no prompt, or any unexpected status): there is nothing actionable in System Settings because no entry exists. Alert asks the user to verify AssetFlow is in `/Applications` and offers a **Report on GitHub** path. This case typically means the OS refused to register the bundle (sandboxed app launched from a transient location, missing/mismatched code signature, etc.).
 
 ### Body content
 

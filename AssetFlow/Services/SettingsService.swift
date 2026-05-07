@@ -67,6 +67,21 @@ class SettingsService {
     }
   }
 
+  /// Whether the user has ever successfully authorized AssetFlow notifications.
+  ///
+  /// Used to distinguish two failure modes when re-enabling reminders fails:
+  /// a real "user disabled it in System Settings" denial (this flag is `true`)
+  /// versus a registration failure where the OS never recorded an entry
+  /// (this flag is `false`). The flag is sticky — once set to true it remains
+  /// true across reinstalls of the same UserDefaults suite.
+  var hasNotificationsBeenAuthorized: Bool {
+    didSet {
+      userDefaults.set(
+        hasNotificationsBeenAuthorized,
+        forKey: Constants.UserDefaultsKeys.hasNotificationsBeenAuthorized)
+    }
+  }
+
   /// Whether snapshot reminder notifications are enabled.
   var snapshotReminderEnabled: Bool {
     didSet {
@@ -130,6 +145,11 @@ class SettingsService {
     } else {
       self.snapshotReminderConfig = Constants.DefaultValues.defaultSnapshotReminderConfig
     }
+
+    self.hasNotificationsBeenAuthorized =
+      (userDefaults.object(
+        forKey: Constants.UserDefaultsKeys.hasNotificationsBeenAuthorized)
+        as? Bool) ?? false
   }
 
   /// Creates an isolated instance for testing purposes

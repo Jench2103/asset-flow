@@ -205,6 +205,28 @@ struct SettingsServiceTests {
     #expect(reader.snapshotReminderConfig == custom)
   }
 
+  @Test("hasNotificationsBeenAuthorized defaults to false")
+  func hasNotificationsBeenAuthorized_defaultsFalse() {
+    let service = SettingsService.createForTesting()
+    #expect(service.hasNotificationsBeenAuthorized == false)
+  }
+
+  @Test("hasNotificationsBeenAuthorized persists across instances sharing storage")
+  func hasNotificationsBeenAuthorized_persists() {
+    let suiteName = "com.assetflow.testing.\(UUID().uuidString)"
+    guard let userDefaults = UserDefaults(suiteName: suiteName) else {
+      Issue.record("Failed to create UserDefaults suite for testing")
+      return
+    }
+    defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+    let writer = SettingsService.createForTesting(userDefaults: userDefaults)
+    writer.hasNotificationsBeenAuthorized = true
+
+    let reader = SettingsService.createForTesting(userDefaults: userDefaults)
+    #expect(reader.hasNotificationsBeenAuthorized == true)
+  }
+
   @Test("Corrupt snapshotReminderConfig data falls back to default without crashing")
   func snapshotReminderConfig_corruptDataFallsBack() {
     let suiteName = "com.assetflow.testing.\(UUID().uuidString)"

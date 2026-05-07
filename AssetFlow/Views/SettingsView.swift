@@ -81,7 +81,16 @@ struct SettingsView: View {
     }
     .alert(
       "Notifications Disabled",
-      isPresented: $viewModel.showAuthorizationDeniedAlert
+      isPresented: Binding(
+        get: { viewModel.authorizationFailureKind == .deniedInSystemSettings },
+        set: { presented in
+          if !presented
+            && viewModel.authorizationFailureKind == .deniedInSystemSettings
+          {
+            viewModel.authorizationFailureKind = nil
+          }
+        }
+      )
     ) {
       Button("Open System Settings") {
         if let url = URL(
@@ -94,6 +103,28 @@ struct SettingsView: View {
     } message: {
       Text(
         "AssetFlow can't show reminders because notifications are turned off in System Settings. Enable them and return to AssetFlow to try again.",
+        tableName: "Settings")
+    }
+    .alert(
+      "Couldn't Enable Notifications",
+      isPresented: Binding(
+        get: { viewModel.authorizationFailureKind == .registrationFailure },
+        set: { presented in
+          if !presented
+            && viewModel.authorizationFailureKind == .registrationFailure
+          {
+            viewModel.authorizationFailureKind = nil
+          }
+        }
+      )
+    ) {
+      Button("Report on GitHub") {
+        NSWorkspace.shared.open(Constants.AppInfo.issuesURL)
+      }
+      Button("OK", role: .cancel) {}
+    } message: {
+      Text(
+        "AssetFlow couldn't enable snapshot reminders on this Mac. Make sure AssetFlow is in your Applications folder and try again. If the problem persists, please report it on GitHub or contact the developer.",
         tableName: "Settings")
     }
     .confirmationDialog(

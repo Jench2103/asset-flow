@@ -51,6 +51,16 @@
         }
       }
     },
+    "AssetFlow couldn't enable snapshot reminders on this Mac. Make sure AssetFlow is in your Applications folder and try again. If the problem persists, please report it on GitHub or contact the developer." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AssetFlow 無法在這台 Mac 啟用快照提醒。請確認 AssetFlow 已存放在「應用程式」資料夾中，然後再試一次。如果問題仍然存在，請在 GitHub 上回報，或聯絡開發者。"
+          }
+        }
+      }
+    },
     "AssetFlow will remind you to capture a new snapshot at the cadence you choose. Reminders contain no financial data." : {
       "extractionState" : "stale",
       "localizations" : {
