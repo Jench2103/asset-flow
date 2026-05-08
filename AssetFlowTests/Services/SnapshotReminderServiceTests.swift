@@ -28,7 +28,7 @@ struct SnapshotReminderServiceTests {
   // MARK: - Helpers
 
   private static var gregorian: Calendar {
-    // UTC keeps the bi-weekly test free of DST surprises (where consecutive
+    // UTC keeps bi-weekly tests free of DST surprises (where consecutive
     // 14-day strides drift by ±1h around DST transitions).
     var cal = Calendar(identifier: .gregorian)
     cal.timeZone = TimeZone(identifier: "UTC")!
@@ -55,36 +55,115 @@ struct SnapshotReminderServiceTests {
     return content
   }
 
-  // MARK: - makeRequests: Daily
+  /// Builds a harness with a fresh `SettingsService`, fake center, and
+  /// service. Tests mutate `harness.center.stubbedAuthorizationStatus`
+  /// before exercising the manager, then assert the reconcile invariant via
+  /// ``Self.assertInvariant(_:)``.
+  @MainActor
+  private struct Harness {
+    let center: FakeNotificationCenter
+    let settings: SettingsService
+    let service: SnapshotReminderService
+  }
+
+  private static func makeHarness(
+    enabled: Bool = false,
+    config: SnapshotReminderConfig = .default,
+    authorization: UNAuthorizationStatus = .authorized,
+    architectureVersion: Int = SnapshotReminderService.currentArchitectureVersion,
+    activeSnoozes: [Date] = [],
+    hasNotificationsBeenAuthorized: Bool = false
+  ) -> Harness {
+    let settings = SettingsService.createForTesting()
+    settings.snapshotReminderEnabled = enabled
+    settings.snapshotReminderConfig = config
+    settings.notificationsArchitectureVersion = architectureVersion
+    settings.activeSnoozes = activeSnoozes
+    settings.hasNotificationsBeenAuthorized = hasNotificationsBeenAuthorized
+    let center = FakeNotificationCenter()
+    center.stubbedAuthorizationStatus = authorization
+    let service = SnapshotReminderService.createForTesting(
+      center: center, settings: settings)
+    return Harness(center: center, settings: settings, service: service)
+  }
+
+  /// The reconcile invariant — after every mutator, this must hold:
+  ///
+  /// pending requests in our namespace =
+  ///   makeRecurringRequests(for: settings.config) when enabled+authorized
+  ///   ∪ one snooze per future Date in settings.activeSnoozes
+  ///   (else empty)
+  ///
+  /// Counts only — identifiers contain UUIDs we don't compare exactly.
+  private static func assertInvariant(
+    _ harness: Harness,
+    sourceLocation: SourceLocation = #_sourceLocation
+  ) {
+    let recurring = harness.center.pending.filter {
+      $0.identifier.hasPrefix(SnapshotReminderService.identifierPrefix)
+        && !$0.identifier.hasPrefix(
+          SnapshotReminderService.snoozeIdentifierPrefix)
+    }
+    let snoozes = harness.center.pending.filter {
+      $0.identifier.hasPrefix(SnapshotReminderService.snoozeIdentifierPrefix)
+    }
+
+    let isEffectivelyEnabled =
+      harness.settings.snapshotReminderEnabled
+      && (harness.center.stubbedAuthorizationStatus == .authorized
+        || harness.center.stubbedAuthorizationStatus == .provisional)
+
+    if !isEffectivelyEnabled {
+      #expect(recurring.isEmpty, sourceLocation: sourceLocation)
+      #expect(snoozes.isEmpty, sourceLocation: sourceLocation)
+      return
+    }
+
+    let expectedRecurringCount = SnapshotReminderService.makeRecurringRequests(
+      for: harness.settings.snapshotReminderConfig,
+      content: UNMutableNotificationContent(),
+      from: Date(),
+      calendar: .current
+    ).count
+    let now = Date()
+    let expectedSnoozeCount =
+      harness.settings.activeSnoozes.filter { $0 > now }.count
+
+    #expect(recurring.count == expectedRecurringCount, sourceLocation: sourceLocation)
+    #expect(snoozes.count == expectedSnoozeCount, sourceLocation: sourceLocation)
+  }
+
+  // MARK: - makeRecurringRequests: Daily
 
   @Test("Daily config produces one repeating calendar trigger with hour and minute set")
-  func makeRequestsDaily() throws {
+  func dailyProducesRepeatingTrigger() throws {
     let config = SnapshotReminderConfig(
       frequency: .daily,
-      weekday: 1, dayOfMonth: 1, hour: 9, minute: 30, intervalDays: 10)
-    let requests = SnapshotReminderService.makeRequests(
+      weekday: 1, dayOfMonth: 1, hour: 8, minute: 30, intervalDays: 10)
+
+    let requests = SnapshotReminderService.makeRecurringRequests(
       for: config, content: Self.sampleContent,
       from: Self.referenceDate, calendar: Self.gregorian)
 
     #expect(requests.count == 1)
     let request = try #require(requests.first)
-    #expect(request.identifier.hasPrefix(SnapshotReminderService.identifierPrefix))
     let trigger = try #require(request.trigger as? UNCalendarNotificationTrigger)
     #expect(trigger.repeats == true)
-    #expect(trigger.dateComponents.hour == 9)
+    #expect(trigger.dateComponents.hour == 8)
     #expect(trigger.dateComponents.minute == 30)
     #expect(trigger.dateComponents.weekday == nil)
     #expect(trigger.dateComponents.day == nil)
   }
 
-  // MARK: - makeRequests: Weekly
+  // MARK: - makeRecurringRequests: Weekly
 
   @Test("Weekly config produces one repeating calendar trigger with weekday set")
-  func makeRequestsWeekly() throws {
+  func weeklyProducesRepeatingTriggerWithWeekday() throws {
     let config = SnapshotReminderConfig(
       frequency: .weekly,
-      weekday: 4, dayOfMonth: 1, hour: 18, minute: 15, intervalDays: 10)
-    let requests = SnapshotReminderService.makeRequests(
+      weekday: 4, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10)
+
+    let requests = SnapshotReminderService.makeRecurringRequests(
       for: config, content: Self.sampleContent,
       from: Self.referenceDate, calendar: Self.gregorian)
 
@@ -92,20 +171,20 @@ struct SnapshotReminderServiceTests {
     let request = try #require(requests.first)
     let trigger = try #require(request.trigger as? UNCalendarNotificationTrigger)
     #expect(trigger.repeats == true)
-    #expect(trigger.dateComponents.hour == 18)
-    #expect(trigger.dateComponents.minute == 15)
     #expect(trigger.dateComponents.weekday == 4)
-    #expect(trigger.dateComponents.day == nil)
+    #expect(trigger.dateComponents.hour == 9)
+    #expect(trigger.dateComponents.minute == 0)
   }
 
-  // MARK: - makeRequests: Monthly
+  // MARK: - makeRecurringRequests: Monthly
 
   @Test("Monthly config produces one repeating calendar trigger with day set")
-  func makeRequestsMonthly() throws {
+  func monthlyProducesRepeatingTriggerWithDay() throws {
     let config = SnapshotReminderConfig(
       frequency: .monthly,
-      weekday: 1, dayOfMonth: 15, hour: 7, minute: 0, intervalDays: 10)
-    let requests = SnapshotReminderService.makeRequests(
+      weekday: 1, dayOfMonth: 15, hour: 18, minute: 45, intervalDays: 10)
+
+    let requests = SnapshotReminderService.makeRecurringRequests(
       for: config, content: Self.sampleContent,
       from: Self.referenceDate, calendar: Self.gregorian)
 
@@ -113,45 +192,40 @@ struct SnapshotReminderServiceTests {
     let request = try #require(requests.first)
     let trigger = try #require(request.trigger as? UNCalendarNotificationTrigger)
     #expect(trigger.repeats == true)
-    #expect(trigger.dateComponents.hour == 7)
-    #expect(trigger.dateComponents.minute == 0)
     #expect(trigger.dateComponents.day == 15)
-    #expect(trigger.dateComponents.weekday == nil)
+    #expect(trigger.dateComponents.hour == 18)
+    #expect(trigger.dateComponents.minute == 45)
   }
 
-  // MARK: - makeRequests: Bi-weekly
+  // MARK: - makeRecurringRequests: Bi-weekly
 
   @Test("Bi-weekly config produces eight non-repeating triggers, 14 days apart")
-  func makeRequestsBiweekly() throws {
+  func biweeklyProducesEightWindowedTriggers() throws {
     let config = SnapshotReminderConfig(
       frequency: .biweekly,
-      weekday: 2, dayOfMonth: 1, hour: 10, minute: 0, intervalDays: 10)
-    let requests = SnapshotReminderService.makeRequests(
+      weekday: 2, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10)
+
+    let requests = SnapshotReminderService.makeRecurringRequests(
       for: config, content: Self.sampleContent,
       from: Self.referenceDate, calendar: Self.gregorian)
 
     #expect(requests.count == 8)
+
+    // Each trigger is non-repeating
     for request in requests {
-      #expect(request.identifier.hasPrefix(SnapshotReminderService.identifierPrefix))
       let trigger = try #require(request.trigger as? UNCalendarNotificationTrigger)
       #expect(trigger.repeats == false)
-      #expect(trigger.dateComponents.hour == 10)
-      #expect(trigger.dateComponents.minute == 0)
     }
 
-    // Consecutive firings should be exactly 14 days apart. Reconstruct
-    // the firing dates from the trigger components (independent of system
-    // wall-clock, unlike `nextTriggerDate()` which is nil for past dates).
-    let firingDates: [Date] = requests.compactMap { request in
-      guard
-        let trigger = request.trigger as? UNCalendarNotificationTrigger
-      else { return nil }
-      return Self.gregorian.date(from: trigger.dateComponents)
-    }
-    #expect(firingDates.count == 8)
-    for index in firingDates.indices.dropFirst() {
-      let gap = firingDates[index].timeIntervalSince(firingDates[index - 1])
-      #expect(abs(gap - 14 * 86_400) < 3_600)  // within 1h tolerance for DST
+    // Slots are 14 days apart
+    let dates = requests.compactMap {
+      ($0.trigger as? UNCalendarNotificationTrigger)?.dateComponents
+    }.compactMap(Self.gregorian.date(from:))
+    #expect(dates.count == 8)
+    let sorted = dates.sorted()
+    for index in 1..<sorted.count {
+      let interval = sorted[index].timeIntervalSince(sorted[index - 1])
+      #expect(abs(interval - 14 * 86_400) < 60)
     }
   }
 
@@ -159,44 +233,38 @@ struct SnapshotReminderServiceTests {
   func biweeklyIdentifiersUnique() {
     let config = SnapshotReminderConfig(
       frequency: .biweekly,
-      weekday: 2, dayOfMonth: 1, hour: 10, minute: 0, intervalDays: 10)
-    let requests = SnapshotReminderService.makeRequests(
+      weekday: 2, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10)
+
+    let requests = SnapshotReminderService.makeRecurringRequests(
       for: config, content: Self.sampleContent,
       from: Self.referenceDate, calendar: Self.gregorian)
+
     let identifiers = Set(requests.map(\.identifier))
     #expect(identifiers.count == requests.count)
   }
 
-  // MARK: - makeRequests: Custom interval
+  // MARK: - makeRecurringRequests: Interval
 
   @Test("Interval config produces eight non-repeating triggers, intervalDays apart")
-  func makeRequestsInterval() throws {
+  func intervalProducesEightWindowedTriggers() throws {
     let config = SnapshotReminderConfig(
       frequency: .interval,
-      weekday: 1, dayOfMonth: 1, hour: 8, minute: 0, intervalDays: 10)
-    let requests = SnapshotReminderService.makeRequests(
+      weekday: 1, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10)
+
+    let requests = SnapshotReminderService.makeRecurringRequests(
       for: config, content: Self.sampleContent,
       from: Self.referenceDate, calendar: Self.gregorian)
 
     #expect(requests.count == 8)
-    for request in requests {
-      #expect(request.identifier.hasPrefix("\(SnapshotReminderService.identifierPrefix)interval."))
-      let trigger = try #require(request.trigger as? UNCalendarNotificationTrigger)
-      #expect(trigger.repeats == false)
-      #expect(trigger.dateComponents.hour == 8)
-      #expect(trigger.dateComponents.minute == 0)
-    }
 
-    let firingDates: [Date] = requests.compactMap { request in
-      guard
-        let trigger = request.trigger as? UNCalendarNotificationTrigger
-      else { return nil }
-      return Self.gregorian.date(from: trigger.dateComponents)
-    }
-    #expect(firingDates.count == 8)
-    for index in firingDates.indices.dropFirst() {
-      let gap = firingDates[index].timeIntervalSince(firingDates[index - 1])
-      #expect(abs(gap - 10 * 86_400) < 3_600)
+    let dates = requests.compactMap {
+      ($0.trigger as? UNCalendarNotificationTrigger)?.dateComponents
+    }.compactMap(Self.gregorian.date(from:))
+    #expect(dates.count == 8)
+    let sorted = dates.sorted()
+    for index in 1..<sorted.count {
+      let interval = sorted[index].timeIntervalSince(sorted[index - 1])
+      #expect(abs(interval - 10 * 86_400) < 60)
     }
   }
 
@@ -204,10 +272,12 @@ struct SnapshotReminderServiceTests {
   func intervalIdentifiersUnique() {
     let config = SnapshotReminderConfig(
       frequency: .interval,
-      weekday: 1, dayOfMonth: 1, hour: 8, minute: 0, intervalDays: 7)
-    let requests = SnapshotReminderService.makeRequests(
+      weekday: 1, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 7)
+
+    let requests = SnapshotReminderService.makeRecurringRequests(
       for: config, content: Self.sampleContent,
       from: Self.referenceDate, calendar: Self.gregorian)
+
     let identifiers = Set(requests.map(\.identifier))
     #expect(identifiers.count == requests.count)
   }
@@ -215,9 +285,12 @@ struct SnapshotReminderServiceTests {
   // MARK: - Content propagation
 
   @Test("Content title, body, and category propagate into every request")
-  func makeRequestsPreservesContent() throws {
-    let config = SnapshotReminderConfig.default
-    let requests = SnapshotReminderService.makeRequests(
+  func contentPropagates() throws {
+    let config = SnapshotReminderConfig(
+      frequency: .daily,
+      weekday: 1, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10)
+
+    let requests = SnapshotReminderService.makeRecurringRequests(
       for: config, content: Self.sampleContent,
       from: Self.referenceDate, calendar: Self.gregorian)
 
@@ -227,320 +300,368 @@ struct SnapshotReminderServiceTests {
     #expect(request.content.categoryIdentifier == SnapshotReminderService.categoryIdentifier)
   }
 
-  // MARK: - registerCategories
+  // MARK: - Categories + Authorization
 
   @Test("registerCategories registers exactly one category with a snooze action")
   func registerCategoriesInstallsSnooze() {
-    let center = FakeNotificationCenter()
-    let service = SnapshotReminderService.createForTesting(center: center)
+    let harness = Self.makeHarness()
+    harness.service.registerCategories()
 
-    service.registerCategories()
-
-    #expect(center.setCategoriesCallCount == 1)
-    #expect(center.lastCategories?.count == 1)
-    let category = center.lastCategories?.first
+    #expect(harness.center.setCategoriesCallCount == 1)
+    #expect(harness.center.lastCategories?.count == 1)
+    let category = harness.center.lastCategories?.first
     #expect(category?.identifier == SnapshotReminderService.categoryIdentifier)
     let actionIDs = (category?.actions ?? []).map(\.identifier)
     #expect(actionIDs.contains(SnapshotReminderService.snoozeActionIdentifier))
   }
 
-  // MARK: - authorizationStatus
-
   @Test("authorizationStatus returns the underlying center's status")
   func authorizationStatusForwarded() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    let service = SnapshotReminderService.createForTesting(center: center)
-
-    let status = await service.authorizationStatus()
-
+    let harness = Self.makeHarness(authorization: .authorized)
+    let status = await harness.service.authorizationStatus()
     #expect(status == .authorized)
   }
 
-  // MARK: - reschedule
+  // MARK: - setEnabled — happy path
 
-  @Test("reschedule removes only snapshotReminder-prefixed pending requests")
-  func rescheduleRemovesOnlyPrefixed() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    center.pending = [
-      Self.makePending(identifier: "snapshotReminder.daily"),
-      Self.makePending(identifier: "snapshotReminder.weekly"),
-      Self.makePending(identifier: "exchangeRateRefresh"),
-    ]
-    let service = SnapshotReminderService.createForTesting(center: center)
+  @Test("setEnabled(true) when authorized: schedules and the invariant holds")
+  func setEnabledTrue_whenAuthorized_schedules() async {
+    let harness = Self.makeHarness(authorization: .authorized)
 
-    await service.reschedule(
-      config: SnapshotReminderConfig(
-        frequency: .weekly,
-        weekday: 1, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10))
+    let result = await harness.service.setEnabled(true)
 
-    let removedFlat = Set(center.removedIdentifiers.flatMap { $0 })
-    #expect(removedFlat.contains("snapshotReminder.daily"))
-    #expect(removedFlat.contains("snapshotReminder.weekly"))
-    #expect(!removedFlat.contains("exchangeRateRefresh"))
+    #expect(result == .authorized)
+    #expect(harness.settings.snapshotReminderEnabled == true)
+    #expect(harness.settings.hasNotificationsBeenAuthorized == true)
+    Self.assertInvariant(harness)
   }
 
-  @Test("reschedule with a weekly config adds one new request")
-  func rescheduleWeeklyAdds() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    let service = SnapshotReminderService.createForTesting(center: center)
+  @Test("setEnabled(true) when notDetermined: requests authorization")
+  func setEnabledTrue_whenNotDetermined_requestsAuth() async {
+    let harness = Self.makeHarness(authorization: .notDetermined)
+    harness.center.stubbedRequestAuthorizationResult = true
 
-    await service.reschedule(
-      config: SnapshotReminderConfig(
-        frequency: .weekly,
-        weekday: 3, dayOfMonth: 1, hour: 11, minute: 0, intervalDays: 10))
+    let result = await harness.service.setEnabled(true)
 
-    #expect(center.addedRequests.count == 1)
-    let added = center.addedRequests.first
-    #expect(added?.identifier == "\(SnapshotReminderService.identifierPrefix)weekly")
+    #expect(harness.center.requestAuthorizationCallCount == 1)
+    #expect(result == .authorized)
+    #expect(harness.settings.snapshotReminderEnabled == true)
+    Self.assertInvariant(harness)
   }
 
-  @Test("reschedule with nil config removes existing requests and adds none")
-  func rescheduleNilCancels() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    center.pending = [
-      Self.makePending(identifier: "snapshotReminder.daily"),
-      Self.makePending(identifier: "snapshotReminder.biweekly.0"),
-    ]
-    let service = SnapshotReminderService.createForTesting(center: center)
+  @Test(
+    """
+    setEnabled(true) when denied without prior auth: reverts intent and \
+    returns .registrationFailure
+    """)
+  func setEnabledTrue_deniedFirstTime_isRegistrationFailure() async {
+    let harness = Self.makeHarness(authorization: .denied)
 
-    await service.reschedule(config: nil)
+    let result = await harness.service.setEnabled(true)
 
-    let removedFlat = Set(center.removedIdentifiers.flatMap { $0 })
-    #expect(removedFlat.contains("snapshotReminder.daily"))
-    #expect(removedFlat.contains("snapshotReminder.biweekly.0"))
-    #expect(center.addedRequests.isEmpty)
+    #expect(result == .registrationFailure)
+    #expect(harness.settings.snapshotReminderEnabled == false)
+    Self.assertInvariant(harness)
   }
 
-  @Test("reschedule is a no-op on add when authorization is denied")
-  func rescheduleSkippedWhenDenied() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .denied
-    let service = SnapshotReminderService.createForTesting(center: center)
+  @Test(
+    """
+    setEnabled(true) when denied with prior auth: reverts intent and returns \
+    .deniedInSystemSettings
+    """)
+  func setEnabledTrue_deniedAfterPriorAuth_isDeniedInSystemSettings() async {
+    let harness = Self.makeHarness(
+      authorization: .denied, hasNotificationsBeenAuthorized: true)
 
-    await service.reschedule(config: SnapshotReminderConfig.default)
+    let result = await harness.service.setEnabled(true)
 
-    #expect(center.addedRequests.isEmpty)
+    #expect(result == .deniedInSystemSettings)
+    #expect(harness.settings.snapshotReminderEnabled == false)
+    Self.assertInvariant(harness)
   }
 
-  @Test("reschedule(config:) preserves a pending one-shot snooze")
-  func rescheduleKeepsSnooze() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    let snoozeID = "\(SnapshotReminderService.snoozeIdentifierPrefix)abc-123"
-    center.pending = [
-      Self.makePending(identifier: "snapshotReminder.weekly"),
-      Self.makePending(identifier: snoozeID),
-    ]
-    let service = SnapshotReminderService.createForTesting(center: center)
+  @Test("setEnabled(false) wipes pending and clears activeSnoozes")
+  func setEnabledFalse_wipesAndClearsSnoozes() async {
+    let harness = Self.makeHarness(
+      enabled: true,
+      authorization: .authorized,
+      activeSnoozes: [Date().addingTimeInterval(3_600)])
+    // Establish a baseline schedule first.
+    _ = await harness.service.setEnabled(true)
+    #expect(!harness.center.pending.isEmpty)
 
-    await service.reschedule(
-      config: SnapshotReminderConfig(
-        frequency: .weekly,
-        weekday: 2, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10))
+    let result = await harness.service.setEnabled(false)
 
-    let removedFlat = Set(center.removedIdentifiers.flatMap { $0 })
-    #expect(removedFlat.contains("snapshotReminder.weekly"))
-    #expect(!removedFlat.contains(snoozeID))
+    #expect(result == .authorized)  // disable always succeeds
+    #expect(harness.settings.snapshotReminderEnabled == false)
+    #expect(harness.settings.activeSnoozes.isEmpty)
+    Self.assertInvariant(harness)
   }
 
-  @Test("reschedule(config: nil) also removes pending snoozes")
-  func rescheduleNilRemovesSnooze() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    let snoozeID = "\(SnapshotReminderService.snoozeIdentifierPrefix)xyz-789"
-    center.pending = [
-      Self.makePending(identifier: "snapshotReminder.daily"),
-      Self.makePending(identifier: snoozeID),
-    ]
-    let service = SnapshotReminderService.createForTesting(center: center)
+  // MARK: - updateConfig
 
-    await service.reschedule(config: nil)
+  @Test("updateConfig changes the cadence and the invariant holds")
+  func updateConfig_switchesCadence() async {
+    let harness = Self.makeHarness(authorization: .authorized)
+    _ = await harness.service.setEnabled(true)
+    Self.assertInvariant(harness)
 
-    let removedFlat = Set(center.removedIdentifiers.flatMap { $0 })
-    #expect(removedFlat.contains("snapshotReminder.daily"))
-    #expect(removedFlat.contains(snoozeID))
+    await harness.service.updateConfig { $0.frequency = .biweekly }
+
+    #expect(harness.settings.snapshotReminderConfig.frequency == .biweekly)
+    Self.assertInvariant(harness)
+    // Bi-weekly produces 8 windowed slots
+    let recurringCount = harness.center.pending.filter {
+      $0.identifier.hasPrefix(SnapshotReminderService.identifierPrefix)
+        && !$0.identifier.hasPrefix(
+          SnapshotReminderService.snoozeIdentifierPrefix)
+    }.count
+    #expect(recurringCount == 8)
   }
 
-  // MARK: - snooze
+  @Test("updateConfig with a no-op transform is idempotent and reconciles")
+  func updateConfig_noop_isIdempotent() async {
+    let harness = Self.makeHarness(authorization: .authorized)
+    _ = await harness.service.setEnabled(true)
+    let baseline = harness.center.pending.count
 
-  @Test("snooze adds exactly one one-shot time-interval trigger 24 hours out")
-  func snoozeAdds24hOneShot() async throws {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    let service = SnapshotReminderService.createForTesting(center: center)
+    await harness.service.updateConfig { _ in }
 
-    await service.snooze()
-
-    #expect(center.addedRequests.count == 1)
-    let request = try #require(center.addedRequests.first)
-    let trigger = try #require(request.trigger as? UNTimeIntervalNotificationTrigger)
-    #expect(trigger.repeats == false)
-    #expect(trigger.timeInterval == 24 * 3_600)
-    #expect(request.identifier.hasPrefix(SnapshotReminderService.snoozeIdentifierPrefix))
+    #expect(harness.center.pending.count == baseline)
+    Self.assertInvariant(harness)
   }
 
-  @Test("snooze does not touch existing recurring requests")
-  func snoozePreservesExisting() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    center.pending = [Self.makePending(identifier: "snapshotReminder.weekly")]
-    let service = SnapshotReminderService.createForTesting(center: center)
+  // MARK: - recordSnooze
 
-    await service.snooze()
+  @Test("recordSnooze appends to activeSnoozes and reconciles a snooze in pending")
+  func recordSnooze_appearsInPending() async {
+    let harness = Self.makeHarness(authorization: .authorized)
+    _ = await harness.service.setEnabled(true)
 
-    #expect(center.removedIdentifiers.isEmpty)
-  }
+    await harness.service.recordSnooze()
 
-  // MARK: - topUpScheduleIfNeeded
-
-  @Test("topUp adds the recurring trigger when missing for daily/weekly/monthly")
-  func topUpAddsMissingRecurring() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    let service = SnapshotReminderService.createForTesting(center: center)
-
-    let config = SnapshotReminderConfig(
-      frequency: .weekly,
-      weekday: 2, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10)
-    await service.topUpScheduleIfNeeded(config: config)
-
-    #expect(center.addedRequests.count == 1)
-    #expect(center.addedRequests.first?.identifier == "snapshotReminder.weekly")
-  }
-
-  @Test("topUp is a no-op when the recurring trigger is already pending")
-  func topUpRecurringNoop() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    center.pending = [Self.makePending(identifier: "snapshotReminder.weekly")]
-    let service = SnapshotReminderService.createForTesting(center: center)
-
-    let config = SnapshotReminderConfig(
-      frequency: .weekly,
-      weekday: 2, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10)
-    await service.topUpScheduleIfNeeded(config: config)
-
-    #expect(center.addedRequests.isEmpty)
-    #expect(center.removedIdentifiers.isEmpty)
-  }
-
-  @Test("topUp is a no-op when 8 future bi-weekly slots are already pending")
-  func topUpWindowedNoopWhenFull() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    center.pending = Self.makeFutureBiweeklySlots(count: 8)
-    let service = SnapshotReminderService.createForTesting(center: center)
-
-    let config = SnapshotReminderConfig(
-      frequency: .biweekly,
-      weekday: 2, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10)
-    await service.topUpScheduleIfNeeded(config: config)
-
-    #expect(center.addedRequests.isEmpty)
-    #expect(center.removedIdentifiers.isEmpty)
-  }
-
-  @Test("topUp tops the bi-weekly window up to 8 from a partial schedule")
-  func topUpPartialWindow() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    center.pending = Self.makeFutureBiweeklySlots(count: 3)
-    let service = SnapshotReminderService.createForTesting(center: center)
-
-    let config = SnapshotReminderConfig(
-      frequency: .biweekly,
-      weekday: 2, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10)
-    await service.topUpScheduleIfNeeded(config: config)
-
-    #expect(center.addedRequests.count == 5)
-    #expect(center.removedIdentifiers.isEmpty)
-  }
-
-  @Test("topUp continues bi-weekly phase from the latest existing slot")
-  func topUpPreservesPhase() async throws {
-    let calendar = Self.gregorian
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .authorized
-    // Single existing future slot 14 days out from a known anchor.
-    let lastExistingComponents = DateComponents(
-      timeZone: TimeZone(identifier: "UTC"),
-      year: 2099, month: 1, day: 14, hour: 9, minute: 0)
-    let trigger = UNCalendarNotificationTrigger(
-      dateMatching: lastExistingComponents, repeats: false)
-    let existing = UNNotificationRequest(
-      identifier: "snapshotReminder.biweekly.existing",
-      content: UNMutableNotificationContent(),
-      trigger: trigger)
-    center.pending = [existing]
-    let service = SnapshotReminderService.createForTesting(center: center)
-
-    let config = SnapshotReminderConfig(
-      frequency: .biweekly,
-      weekday: 2, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10)
-    await service.topUpScheduleIfNeeded(config: config)
-
-    #expect(center.addedRequests.count == 7)
-    let firstNewTrigger = try #require(
-      center.addedRequests.first?.trigger as? UNCalendarNotificationTrigger)
-    let firstNewDate = try #require(
-      calendar.date(from: firstNewTrigger.dateComponents))
-    let lastExistingDate = try #require(calendar.date(from: lastExistingComponents))
-    let gap = firstNewDate.timeIntervalSince(lastExistingDate)
-    // The first newly-added slot should be exactly 14 days after the last
-    // existing one (phase preserved). DST not applicable in UTC.
-    #expect(abs(gap - 14 * 86_400) < 60)
-  }
-
-  @Test("topUp returns without scheduling when authorization is denied")
-  func topUpSkippedWhenDenied() async {
-    let center = FakeNotificationCenter()
-    center.stubbedAuthorizationStatus = .denied
-    let service = SnapshotReminderService.createForTesting(center: center)
-
-    let config = SnapshotReminderConfig(
-      frequency: .weekly,
-      weekday: 1, dayOfMonth: 1, hour: 9, minute: 0, intervalDays: 10)
-    await service.topUpScheduleIfNeeded(config: config)
-
-    #expect(center.addedRequests.isEmpty)
-  }
-
-  // MARK: - Test helpers
-
-  private static func makePending(identifier: String) -> UNNotificationRequest {
-    let content = UNMutableNotificationContent()
-    let trigger = UNTimeIntervalNotificationTrigger(
-      timeInterval: 60, repeats: false)
-    return UNNotificationRequest(
-      identifier: identifier, content: content, trigger: trigger)
-  }
-
-  /// Builds `count` future-dated bi-weekly slots in UTC starting from a
-  /// far-future anchor so they're guaranteed to be > now regardless of when
-  /// the test runs.
-  private static func makeFutureBiweeklySlots(count: Int) -> [UNNotificationRequest] {
-    let calendar = Self.gregorian
-    let anchor = DateComponents(
-      timeZone: TimeZone(identifier: "UTC"),
-      year: 2099, month: 1, day: 5, hour: 9, minute: 0)
-    guard let anchorDate = calendar.date(from: anchor) else { return [] }
-    return (0..<count).map { offset in
-      let date =
-        calendar.date(byAdding: .day, value: 14 * offset, to: anchorDate)
-        ?? anchorDate
-      let components = calendar.dateComponents(
-        [.year, .month, .day, .hour, .minute], from: date)
-      let trigger = UNCalendarNotificationTrigger(
-        dateMatching: components, repeats: false)
-      return UNNotificationRequest(
-        identifier: "snapshotReminder.biweekly.existing-\(offset)",
-        content: UNMutableNotificationContent(),
-        trigger: trigger)
+    #expect(harness.settings.activeSnoozes.count == 1)
+    let snoozesInPending = harness.center.pending.filter {
+      $0.identifier.hasPrefix(SnapshotReminderService.snoozeIdentifierPrefix)
     }
+    #expect(snoozesInPending.count == 1)
+    Self.assertInvariant(harness)
+  }
+
+  @Test(
+    """
+    Snooze survives an updateConfig (regression: snoozes used to depend on \
+    being preserved by a filter predicate during reschedule; now they're \
+    backed by `settings.activeSnoozes` and re-added by reconcile)
+    """)
+  func snooze_survivesConfigChange() async {
+    let harness = Self.makeHarness(authorization: .authorized)
+    _ = await harness.service.setEnabled(true)
+    await harness.service.recordSnooze()
+    let snoozesBefore = harness.center.pending.filter {
+      $0.identifier.hasPrefix(SnapshotReminderService.snoozeIdentifierPrefix)
+    }.count
+    #expect(snoozesBefore == 1)
+
+    await harness.service.updateConfig { $0.frequency = .monthly }
+
+    let snoozesAfter = harness.center.pending.filter {
+      $0.identifier.hasPrefix(SnapshotReminderService.snoozeIdentifierPrefix)
+    }.count
+    #expect(snoozesAfter == 1)
+    #expect(harness.settings.activeSnoozes.count == 1)
+    Self.assertInvariant(harness)
+  }
+
+  @Test("Snoozes are cleared when the user disables")
+  func snooze_clearedOnDisable() async {
+    let harness = Self.makeHarness(authorization: .authorized)
+    _ = await harness.service.setEnabled(true)
+    await harness.service.recordSnooze()
+    #expect(harness.settings.activeSnoozes.count == 1)
+
+    _ = await harness.service.setEnabled(false)
+
+    #expect(harness.settings.activeSnoozes.isEmpty)
+    let snoozesInPending = harness.center.pending.filter {
+      $0.identifier.hasPrefix(SnapshotReminderService.snoozeIdentifierPrefix)
+    }
+    #expect(snoozesInPending.isEmpty)
+    Self.assertInvariant(harness)
+  }
+
+  @Test("Multiple snoozes accumulate in pending (one per recordSnooze call)")
+  func snooze_multipleAccumulate() async {
+    let harness = Self.makeHarness(authorization: .authorized)
+    _ = await harness.service.setEnabled(true)
+
+    await harness.service.recordSnooze()
+    await harness.service.recordSnooze()
+    await harness.service.recordSnooze()
+
+    #expect(harness.settings.activeSnoozes.count == 3)
+    let snoozesInPending = harness.center.pending.filter {
+      $0.identifier.hasPrefix(SnapshotReminderService.snoozeIdentifierPrefix)
+    }
+    #expect(snoozesInPending.count == 3)
+    Self.assertInvariant(harness)
+  }
+
+  @Test("Expired snoozes are dropped on reconcile")
+  func expiredSnoozes_droppedOnReconcile() async {
+    let pastDate = Date().addingTimeInterval(-3_600)
+    let futureDate = Date().addingTimeInterval(3_600)
+    let harness = Self.makeHarness(
+      enabled: true,
+      authorization: .authorized,
+      activeSnoozes: [pastDate, futureDate])
+
+    await harness.service.reconcileOnLaunch()
+
+    #expect(harness.settings.activeSnoozes.count == 1)
+    #expect(harness.settings.activeSnoozes.first == futureDate)
+    Self.assertInvariant(harness)
+  }
+
+  // MARK: - reconcileOnLaunch — migration
+
+  @Test(
+    """
+    First-launch migration (architectureVersion 0 → 1) wipes the entire \
+    namespace, including legacy identifiers the current code wouldn't \
+    recognize, and clears any uncoupled activeSnoozes
+    """)
+  func migration_v0ToCurrent_wipesNamespaceAndSnoozes() async {
+    let harness = Self.makeHarness(
+      enabled: false, authorization: .authorized, architectureVersion: 0)
+    let recurringTrigger = UNCalendarNotificationTrigger(
+      dateMatching: DateComponents(hour: 9, minute: 0, weekday: 1),
+      repeats: true)
+    harness.center.pending = [
+      UNNotificationRequest(
+        identifier: "snapshotReminder.weekly",
+        content: UNMutableNotificationContent(),
+        trigger: recurringTrigger),
+      UNNotificationRequest(
+        identifier: "snapshotReminder.legacy.UUID-orphan",
+        content: UNMutableNotificationContent(),
+        trigger: recurringTrigger),
+      UNNotificationRequest(
+        identifier: "snapshotReminder.snooze.OLD",
+        content: UNMutableNotificationContent(),
+        trigger: recurringTrigger),
+      // Out-of-namespace request must survive.
+      UNNotificationRequest(
+        identifier: "exchangeRateRefresh",
+        content: UNMutableNotificationContent(),
+        trigger: recurringTrigger),
+    ]
+    harness.settings.activeSnoozes = [Date().addingTimeInterval(3_600)]
+
+    await harness.service.reconcileOnLaunch()
+
+    let identifiers = Set(harness.center.pending.map(\.identifier))
+    #expect(!identifiers.contains("snapshotReminder.weekly"))
+    #expect(!identifiers.contains("snapshotReminder.legacy.UUID-orphan"))
+    #expect(!identifiers.contains("snapshotReminder.snooze.OLD"))
+    #expect(identifiers.contains("exchangeRateRefresh"))
+    #expect(harness.settings.activeSnoozes.isEmpty)
+    #expect(
+      harness.settings.notificationsArchitectureVersion
+        == SnapshotReminderService.currentArchitectureVersion)
+    Self.assertInvariant(harness)
+  }
+
+  @Test("reconcileOnLaunch is a no-op (no migration) when version is current")
+  func reconcileOnLaunch_noMigration_whenCurrentVersion() async {
+    let harness = Self.makeHarness(
+      enabled: true, authorization: .authorized,
+      architectureVersion: SnapshotReminderService.currentArchitectureVersion)
+    _ = await harness.service.setEnabled(true)
+    let baselineCount = harness.center.pending.count
+
+    await harness.service.reconcileOnLaunch()
+
+    // Pending matches the post-reconcile invariant; no orphan migration ran.
+    #expect(harness.center.pending.count == baselineCount)
+    Self.assertInvariant(harness)
+  }
+
+  // MARK: - reconcileOnLaunch — drift recovery
+
+  @Test(
+    """
+    reconcileOnLaunch heals drift between settings (disabled) and pending \
+    (stale entries left over from a crash mid-disable)
+    """)
+  func reconcileOnLaunch_disabled_wipesDriftedPending() async {
+    let harness = Self.makeHarness(
+      enabled: false, authorization: .authorized)
+    let recurringTrigger = UNCalendarNotificationTrigger(
+      dateMatching: DateComponents(hour: 9, minute: 0, weekday: 1),
+      repeats: true)
+    harness.center.pending = [
+      UNNotificationRequest(
+        identifier: "snapshotReminder.weekly",
+        content: UNMutableNotificationContent(),
+        trigger: recurringTrigger)
+    ]
+
+    await harness.service.reconcileOnLaunch()
+
+    let ours = harness.center.pending.filter {
+      $0.identifier.hasPrefix(SnapshotReminderService.identifierPrefix)
+    }
+    #expect(ours.isEmpty)
+    Self.assertInvariant(harness)
+  }
+
+  @Test(
+    """
+    reconcileOnLaunch enabled+authorized: rebuilds desired schedule even if \
+    pending was empty (post-crash recovery, fresh install drift)
+    """)
+  func reconcileOnLaunch_enabled_rebuildsMissingSchedule() async {
+    let harness = Self.makeHarness(enabled: true, authorization: .authorized)
+    #expect(harness.center.pending.isEmpty)
+
+    await harness.service.reconcileOnLaunch()
+
+    let ours = harness.center.pending.filter {
+      $0.identifier.hasPrefix(SnapshotReminderService.identifierPrefix)
+        && !$0.identifier.hasPrefix(
+          SnapshotReminderService.snoozeIdentifierPrefix)
+    }
+    #expect(!ours.isEmpty)
+    Self.assertInvariant(harness)
+  }
+
+  // MARK: - Serialization
+
+  @Test(
+    """
+    Rapid-fire mutations (enable → updateConfig → disable) end in the \
+    correct final state with no leak — the serial reconcile queue makes \
+    intermediate state unobservable to the system
+    """)
+  func serialQueue_finalStateIsLatestIntent() async {
+    let harness = Self.makeHarness(authorization: .authorized)
+
+    async let a: SnapshotReminderService.AuthorizationResult =
+      harness.service.setEnabled(true)
+    async let b: Void = harness.service.updateConfig { $0.frequency = .biweekly }
+    async let c: SnapshotReminderService.AuthorizationResult =
+      harness.service.setEnabled(false)
+
+    _ = await (a, b, c)
+
+    #expect(harness.settings.snapshotReminderEnabled == false)
+    #expect(harness.settings.activeSnoozes.isEmpty)
+    let ours = harness.center.pending.filter {
+      $0.identifier.hasPrefix(SnapshotReminderService.identifierPrefix)
+    }
+    #expect(ours.isEmpty)
+    Self.assertInvariant(harness)
   }
 }
 
@@ -559,20 +680,40 @@ final class FakeNotificationCenter: UNUserNotificationCenterProtocol {
   var removedIdentifiers: [[String]] = []
   var requestAuthorizationCallCount = 0
 
+  /// When `true`, `requestAuthorization` suspends on a continuation until
+  /// the test calls ``resolveAuthorizationPrompt(grant:)``. Lets tests
+  /// reproduce the macOS prompt's real timing.
+  var suspendOnRequestAuthorization: Bool = false
+  private(set) var requestAuthorizationContinuation: CheckedContinuation<Bool, Error>?
+
   func authorizationStatus() async -> UNAuthorizationStatus {
     stubbedAuthorizationStatus
   }
 
   func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool {
     requestAuthorizationCallCount += 1
-    // Mimic the OS: after the user responds to the prompt, the canonical
-    // status moves out of `.notDetermined`.
+    if suspendOnRequestAuthorization {
+      return try await withCheckedThrowingContinuation { continuation in
+        self.requestAuthorizationContinuation = continuation
+      }
+    }
     if stubbedAuthorizationStatus == .notDetermined {
       stubbedAuthorizationStatus =
-        stubbedRequestAuthorizationResult
-        ? .authorized : .denied
+        stubbedRequestAuthorizationResult ? .authorized : .denied
     }
     return stubbedRequestAuthorizationResult
+  }
+
+  /// Resolves a pending suspended `requestAuthorization` call. Mirrors the
+  /// macOS prompt: updates `stubbedAuthorizationStatus` based on the user's
+  /// choice before resuming the continuation.
+  func resolveAuthorizationPrompt(grant: Bool) {
+    guard let continuation = requestAuthorizationContinuation else { return }
+    requestAuthorizationContinuation = nil
+    if stubbedAuthorizationStatus == .notDetermined {
+      stubbedAuthorizationStatus = grant ? .authorized : .denied
+    }
+    continuation.resume(returning: grant)
   }
 
   func setNotificationCategories(_ categories: Set<UNNotificationCategory>) {

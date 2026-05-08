@@ -211,6 +211,75 @@ struct SettingsServiceTests {
     #expect(service.hasNotificationsBeenAuthorized == false)
   }
 
+  // MARK: - Active Snoozes
+
+  @Test("activeSnoozes defaults to empty")
+  func activeSnoozes_defaultsEmpty() {
+    let service = SettingsService.createForTesting()
+    #expect(service.activeSnoozes.isEmpty)
+  }
+
+  @Test("activeSnoozes round-trips across instances sharing storage")
+  func activeSnoozes_persists() {
+    let suiteName = "com.assetflow.testing.\(UUID().uuidString)"
+    guard let userDefaults = UserDefaults(suiteName: suiteName) else {
+      Issue.record("Failed to create UserDefaults suite for testing")
+      return
+    }
+    defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+    let writer = SettingsService.createForTesting(userDefaults: userDefaults)
+    let dates = [
+      Date(timeIntervalSince1970: 2_000_000_000),
+      Date(timeIntervalSince1970: 2_000_086_400),
+    ]
+    writer.activeSnoozes = dates
+
+    let reader = SettingsService.createForTesting(userDefaults: userDefaults)
+    #expect(reader.activeSnoozes == dates)
+  }
+
+  @Test("Corrupt activeSnoozes data falls back to empty without crashing")
+  func activeSnoozes_corruptDataFallsBack() {
+    let suiteName = "com.assetflow.testing.\(UUID().uuidString)"
+    guard let userDefaults = UserDefaults(suiteName: suiteName) else {
+      Issue.record("Failed to create UserDefaults suite for testing")
+      return
+    }
+    defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+    userDefaults.set(
+      Data([0x01, 0x02, 0x03]),
+      forKey: Constants.UserDefaultsKeys.activeSnoozes)
+
+    let service = SettingsService.createForTesting(userDefaults: userDefaults)
+    #expect(service.activeSnoozes.isEmpty)
+  }
+
+  // MARK: - Notifications Architecture Version
+
+  @Test("notificationsArchitectureVersion defaults to 0")
+  func notificationsArchitectureVersion_defaultsZero() {
+    let service = SettingsService.createForTesting()
+    #expect(service.notificationsArchitectureVersion == 0)
+  }
+
+  @Test("notificationsArchitectureVersion persists across instances")
+  func notificationsArchitectureVersion_persists() {
+    let suiteName = "com.assetflow.testing.\(UUID().uuidString)"
+    guard let userDefaults = UserDefaults(suiteName: suiteName) else {
+      Issue.record("Failed to create UserDefaults suite for testing")
+      return
+    }
+    defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+    let writer = SettingsService.createForTesting(userDefaults: userDefaults)
+    writer.notificationsArchitectureVersion = 1
+
+    let reader = SettingsService.createForTesting(userDefaults: userDefaults)
+    #expect(reader.notificationsArchitectureVersion == 1)
+  }
+
   @Test("hasNotificationsBeenAuthorized persists across instances sharing storage")
   func hasNotificationsBeenAuthorized_persists() {
     let suiteName = "com.assetflow.testing.\(UUID().uuidString)"

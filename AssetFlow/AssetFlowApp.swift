@@ -94,15 +94,9 @@ struct AssetFlowApp: App {
         authService.lockOnLaunchIfNeeded()
       }
       .task {
-        // Delegate + category registration happen in `AppDelegate` before
-        // launch finishes. Here we top up the schedule without rebuilding
-        // it: a full reschedule would shift the phase of windowed cadences
-        // (e.g., turning a 14-day bi-weekly gap into 7 days the day after a
-        // reminder fires).
-        if SettingsService.shared.snapshotReminderEnabled {
-          await SnapshotReminderService.shared.topUpScheduleIfNeeded(
-            config: SettingsService.shared.snapshotReminderConfig)
-        }
+        // Delegate + category registration happen earlier in `AppDelegate`
+        // — running them from here is too late to route cold-launch taps.
+        await SnapshotReminderService.shared.reconcileOnLaunch()
       }
       // ── App Activation Lifecycle ──
       .onReceive(

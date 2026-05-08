@@ -692,6 +692,14 @@ Opt-in periodic local notifications that nudge the user to capture a new snapsho
 - `snapshotReminderEnabled: Bool` — stored in UserDefaults.
 - `snapshotReminderConfig` — JSON-encoded `Data` blob in UserDefaults so the schema can evolve without colliding with typed accessors. Corrupt blobs fall back to the default config.
 - `hasNotificationsBeenAuthorized: Bool` — sticky flag set the first time the OS reports `.authorized`/`.provisional`. Used to disambiguate two failure modes when re-enabling fails (see *Failure modes* below). Never reset by the app.
+- `activeSnoozes: [Date]` — JSON-encoded list of future fire-dates for "Remind Tomorrow" snoozes. Backs the snooze entries that `reconcile` re-adds to `usernoted`. Cleared when the user disables reminders (snoozes belong to the active session).
+- `notificationsArchitectureVersion: Int` — on-disk schema version. Bumped when the identifier scheme or storage layout changes; gates a one-shot namespace wipe on first launch under newer code.
+
+### Architecture: reconciliation
+
+State changes go through `SnapshotReminderService` which implements a **reconciliation pattern**: every mutator (`setEnabled`, `updateConfig`, `recordSnooze`) updates `SettingsService` and enqueues a private `reconcile()` call onto a strict serial Task chain. After every mutator returns, `usernoted` exactly matches `SettingsService` desired state — `reconcile()` wipes the entire `snapshotReminder.*` namespace and rebuilds it from the desired config plus active snoozes. Cancellation correctness reduces to that one invariant; selective-cancellation filter logic is gone.
+
+`reconcileOnLaunch` runs at every app launch (via `WindowGroup.task`). It performs any pending architecture migration (full namespace wipe if `notificationsArchitectureVersion` is older than current), then reconciles. This self-heals any drift between persisted state and `usernoted` — orphan notifications from prior dev iterations, partial saves, or unexpected OS state.
 
 ### Failure modes
 

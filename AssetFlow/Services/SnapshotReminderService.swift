@@ -18,40 +18,58 @@
 import Foundation
 import UserNotifications
 
-/// Schedules and cancels local "remember to take a snapshot" notifications via
-/// `UNUserNotificationCenter`.
-///
-/// The service owns notification authorization, category registration, and the
-/// pending-request lifecycle. All scheduling math is in the pure `makeRequests`
-/// function, which is exercised in isolation by unit tests. Reschedule is
-/// idempotent: existing requests sharing the `identifierPrefix` are removed
-/// before any new ones are added.
+/// Reconciliation manager for snapshot reminder notifications. Every
+/// mutation routes through `reconcile()`, whose contract is: after it
+/// returns, pending requests in the `snapshotReminder.*` namespace equal
+/// `makeRecurringRequests(for: settings.snapshotReminderConfig)` plus one
+/// snooze request per future `Date` in `settings.activeSnoozes`, or are
+/// empty when disabled or unauthorized. See `Documentation/Architecture.md`.
 @Observable
 @MainActor
 final class SnapshotReminderService: NSObject {
   static let shared: SnapshotReminderService = .init(
-    center: UNUserNotificationCenter.current()
-  )
+    center: UNUserNotificationCenter.current(),
+    settings: SettingsService.shared)
 
   static let categoryIdentifier = "snapshotReminder"
   static let snoozeActionIdentifier = "snooze"
   static let identifierPrefix = "snapshotReminder."
   static let snoozeIdentifierPrefix = "snapshotReminder.snooze."
 
-  private let center: any UNUserNotificationCenterProtocol
+  /// Bumped when the on-disk identifier scheme or storage layout changes;
+  /// gates the migration in `reconcileOnLaunch`.
+  static let currentArchitectureVersion = 1
 
-  private init(center: any UNUserNotificationCenterProtocol) {
+  private let center: any UNUserNotificationCenterProtocol
+  private let settings: SettingsService
+
+  /// Holds only the latest enqueued task; each new task awaits it before
+  /// running, so reconciles never interleave.
+  private var serialQueue: Task<Void, Never> = Task {}
+
+  private init(
+    center: any UNUserNotificationCenterProtocol,
+    settings: SettingsService
+  ) {
     self.center = center
+    self.settings = settings
     super.init()
   }
 
-  static func createForTesting(center: any UNUserNotificationCenterProtocol)
-    -> SnapshotReminderService
-  {
-    SnapshotReminderService(center: center)
+  static func createForTesting(
+    center: any UNUserNotificationCenterProtocol,
+    settings: SettingsService
+  ) -> SnapshotReminderService {
+    SnapshotReminderService(center: center, settings: settings)
   }
 
-  // MARK: - Public surface
+  // MARK: - Public API
+
+  enum AuthorizationResult: Sendable, Equatable {
+    case authorized
+    case deniedInSystemSettings
+    case registrationFailure
+  }
 
   /// Registers the `snapshotReminder` notification category (with the
   /// "Remind Tomorrow" action). Safe to call multiple times.
@@ -73,190 +91,123 @@ final class SnapshotReminderService: NSObject {
     await center.authorizationStatus()
   }
 
-  /// Prompts the user for authorization (if not yet determined) and returns
-  /// the resulting status. Returns the existing status when the request itself
-  /// throws (e.g. user already decided).
-  func requestAuthorization() async -> UNAuthorizationStatus {
-    do {
-      _ = try await center.requestAuthorization(options: [.alert, .sound])
-    } catch {
-      // The center reports the canonical status regardless; ignore.
+  func setEnabled(_ enabled: Bool) async -> AuthorizationResult {
+    if !enabled {
+      settings.snapshotReminderEnabled = false
+      // Snoozes belong to the active session; clearing them on disable
+      // prevents a later re-enable from surfacing forgotten snoozes.
+      settings.activeSnoozes = []
+      await reconcile()
+      return .authorized
     }
-    return await center.authorizationStatus()
+
+    var status = await center.authorizationStatus()
+    if status == .notDetermined {
+      _ = try? await center.requestAuthorization(options: [.alert, .sound])
+      status = await center.authorizationStatus()
+    }
+
+    if status == .authorized || status == .provisional {
+      // Sticky flag — recorded even when we bail below, since the
+      // authorization itself is still a fact.
+      settings.hasNotificationsBeenAuthorized = true
+
+      // OS prompt is a real suspension point. If the user toggled OFF
+      // mid-prompt the calling task is cancelled; the explicit OFF must win.
+      guard !Task.isCancelled else { return .authorized }
+
+      settings.snapshotReminderEnabled = true
+      await reconcile()
+      return .authorized
+    }
+
+    guard !Task.isCancelled else { return .registrationFailure }
+
+    settings.snapshotReminderEnabled = false
+    await reconcile()
+    if status == .denied && settings.hasNotificationsBeenAuthorized {
+      return .deniedInSystemSettings
+    }
+    return .registrationFailure
   }
 
-  /// Cancels any existing snapshot-reminder requests and, if `config` is
-  /// non-nil and notifications are authorized, schedules the new ones.
-  /// Idempotent — safe to call repeatedly without producing duplicates.
-  func reschedule(config: SnapshotReminderConfig?) async {
+  func updateConfig(
+    _ transform: (inout SnapshotReminderConfig) -> Void
+  ) async {
+    var config = settings.snapshotReminderConfig
+    transform(&config)
+    settings.snapshotReminderConfig = config
+    await reconcile()
+  }
+
+  func recordSnooze(hoursFromNow: Int = 24) async {
+    let fireAt = Date().addingTimeInterval(TimeInterval(hoursFromNow) * 3_600)
+    var snoozes = settings.activeSnoozes
+    snoozes.append(fireAt)
+    settings.activeSnoozes = snoozes
+    await reconcile()
+  }
+
+  func reconcileOnLaunch() async {
+    if settings.notificationsArchitectureVersion < Self.currentArchitectureVersion {
+      // Drop session-scoped state (snoozes scheduled by older code without
+      // UserDefaults backing); reconcile sweeps `usernoted` itself.
+      settings.activeSnoozes = []
+      settings.notificationsArchitectureVersion =
+        Self.currentArchitectureVersion
+    }
+    await reconcile()
+  }
+
+  /// Public so callers that already persisted state synchronously (e.g.
+  /// the ViewModel's debounced edit path) can request a rebuild without
+  /// a redundant mutator round-trip.
+  func reconcile() async {
+    let prior = serialQueue
+    let task = Task { [weak self] in
+      await prior.value
+      await self?.performReconcile()
+    }
+    serialQueue = task
+    await task.value
+  }
+
+  // MARK: - Private: reconciliation
+
+  private func performReconcile() async {
+    let now = Date()
+    let active = settings.activeSnoozes.filter { $0 > now }
+    if active.count != settings.activeSnoozes.count {
+      settings.activeSnoozes = active
+    }
+
     let pending = await center.pendingNotificationRequests()
-    // Wipe snoozes only when the user is fully disabling reminders. A
-    // recurring-schedule reschedule (config != nil) preserves any pending
-    // "Remind Tomorrow" snooze the user explicitly opted into.
-    let toRemove =
+    let ours =
       pending
       .map(\.identifier)
-      .filter {
-        guard $0.hasPrefix(Self.identifierPrefix) else { return false }
-        if config != nil, $0.hasPrefix(Self.snoozeIdentifierPrefix) {
-          return false
-        }
-        return true
-      }
-    if !toRemove.isEmpty {
-      center.removePendingNotificationRequests(withIdentifiers: toRemove)
+      .filter { $0.hasPrefix(Self.identifierPrefix) }
+    if !ours.isEmpty {
+      center.removePendingNotificationRequests(withIdentifiers: ours)
     }
 
-    guard let config else { return }
+    guard settings.snapshotReminderEnabled else { return }
+
     let status = await center.authorizationStatus()
     guard status == .authorized || status == .provisional else { return }
-
-    let requests = Self.makeRequests(
-      for: config,
-      content: makeContent(),
-      from: Date(),
-      calendar: .current)
-
-    for request in requests {
-      do {
-        try await center.add(request)
-      } catch {
-        // Logged to console only — keep the rest of the schedule intact.
-      }
-    }
-  }
-
-  /// One-shot reminder N hours from now. Does not touch the recurring
-  /// schedule.
-  func snooze(by hours: Int = 24) async {
-    let trigger = UNTimeIntervalNotificationTrigger(
-      timeInterval: TimeInterval(hours) * 3_600,
-      repeats: false)
-    let identifier = "\(Self.snoozeIdentifierPrefix)\(UUID().uuidString)"
-    let request = UNNotificationRequest(
-      identifier: identifier,
-      content: makeContent(),
-      trigger: trigger)
-    do {
-      try await center.add(request)
-    } catch {
-      // ignored — best-effort
-    }
-  }
-
-  /// Phase-preserving launch refresh.
-  ///
-  /// Unlike `reschedule`, this never replaces an in-phase schedule. For
-  /// daily/weekly/monthly cadences it ensures the single repeating trigger is
-  /// present. For windowed cadences (biweekly, custom interval) it counts
-  /// future pending slots and only extends the window from the latest existing
-  /// slot when fewer than ``windowTargetCount`` remain. Crucially, this means
-  /// opening the app one day after a bi-weekly Monday reminder fires no
-  /// longer collapses the next gap from 14 days to 7.
-  func topUpScheduleIfNeeded(config: SnapshotReminderConfig) async {
-    let status = await center.authorizationStatus()
-    guard status == .authorized || status == .provisional else { return }
-
-    let pending = await center.pendingNotificationRequests()
-    let recurring = pending.filter {
-      $0.identifier.hasPrefix(Self.identifierPrefix)
-        && !$0.identifier.hasPrefix(Self.snoozeIdentifierPrefix)
-    }
-
-    switch config.frequency {
-    case .daily, .weekly, .monthly:
-      let expectedID = Self.recurringIdentifier(for: config.frequency)
-      guard !recurring.contains(where: { $0.identifier == expectedID }) else {
-        return
-      }
-      // Schedule fresh — `reschedule` is safe here because there are no
-      // in-phase requests to disturb.
-      await reschedule(config: config)
-
-    case .biweekly, .interval:
-      await topUpWindowedSchedule(config: config, existing: recurring)
-    }
-  }
-
-  /// Number of future windowed slots we aim to keep pending. Eight slots gives
-  /// ~16 weeks of bi-weekly headroom and ~8×N days for custom intervals.
-  private static let windowTargetCount = 8
-
-  private func topUpWindowedSchedule(
-    config: SnapshotReminderConfig,
-    existing: [UNNotificationRequest]
-  ) async {
-    let now = Date()
-    let calendar = Calendar.current
-    let intervalDays =
-      config.frequency == .biweekly ? 14 : max(1, config.intervalDays)
-    let prefix = "\(Self.identifierPrefix)\(config.frequency.rawValue)."
-    let myFrequencyExisting = existing.filter {
-      $0.identifier.hasPrefix(prefix)
-    }
-
-    let futureFireDates: [Date] =
-      myFrequencyExisting
-      .compactMap { request -> Date? in
-        guard
-          let trigger = request.trigger as? UNCalendarNotificationTrigger,
-          let date = calendar.date(from: trigger.dateComponents),
-          date > now
-        else { return nil }
-        return date
-      }
-      .sorted()
-
-    let needToAdd = Self.windowTargetCount - futureFireDates.count
-    guard needToAdd > 0 else { return }
-
-    let firstNewSlot: Date
-    if let lastExisting = futureFireDates.last {
-      // Continue the existing schedule's phase.
-      firstNewSlot =
-        calendar.date(byAdding: .day, value: intervalDays, to: lastExisting) ?? now
-    } else {
-      // No in-phase anchor available; start from the next matching time.
-      var matching = DateComponents()
-      matching.hour = config.hour
-      matching.minute = config.minute
-      if config.frequency == .biweekly {
-        matching.weekday = config.weekday
-      }
-      firstNewSlot =
-        calendar.nextDate(
-          after: now,
-          matching: matching,
-          matchingPolicy: .nextTimePreservingSmallerComponents) ?? now
-    }
 
     let content = makeContent()
-    for offset in 0..<needToAdd {
-      guard
-        let fireDate = calendar.date(
-          byAdding: .day, value: intervalDays * offset, to: firstNewSlot)
-      else { continue }
-      var components = calendar.dateComponents(
-        [.year, .month, .day, .hour, .minute], from: fireDate)
-      components.hour = config.hour
-      components.minute = config.minute
-      let trigger = UNCalendarNotificationTrigger(
-        dateMatching: components, repeats: false)
-      let identifier = "\(prefix)\(UUID().uuidString)"
-      let request = UNNotificationRequest(
-        identifier: identifier, content: content, trigger: trigger)
-      do {
-        try await center.add(request)
-      } catch {
-        // ignored — best-effort
-      }
+    for request in Self.makeRecurringRequests(
+      for: settings.snapshotReminderConfig,
+      content: content,
+      from: now,
+      calendar: .current)
+    {
+      try? await center.add(request)
     }
-  }
-
-  private static func recurringIdentifier(
-    for frequency: SnapshotReminderConfig.Frequency
-  ) -> String {
-    "\(identifierPrefix)\(frequency.rawValue)"
+    for fireAt in active {
+      try? await center.add(
+        Self.makeSnoozeRequest(fireAt: fireAt, content: content, from: now))
+    }
   }
 
   // MARK: - Content
@@ -270,14 +221,11 @@ final class SnapshotReminderService: NSObject {
     return content
   }
 
-  // MARK: - Scheduling math
+  // MARK: - Pure scheduling math
 
-  /// Builds the pending notification requests for the given configuration.
-  ///
-  /// Pure function — given the same inputs, always produces the same outputs.
-  /// Identifiers are namespaced with `identifierPrefix` so they can be removed
-  /// selectively without affecting unrelated notifications.
-  static func makeRequests(
+  /// Pure function — same inputs always produce the same outputs.
+  /// Identifiers are namespaced under `identifierPrefix`.
+  static func makeRecurringRequests(
     for config: SnapshotReminderConfig,
     content: UNNotificationContent,
     from referenceDate: Date,
@@ -292,7 +240,7 @@ final class SnapshotReminderService: NSObject {
         dateMatching: components, repeats: true)
       return [
         UNNotificationRequest(
-          identifier: "\(identifierPrefix)daily",
+          identifier: recurringIdentifier(for: .daily),
           content: content,
           trigger: trigger)
       ]
@@ -306,7 +254,7 @@ final class SnapshotReminderService: NSObject {
         dateMatching: components, repeats: true)
       return [
         UNNotificationRequest(
-          identifier: "\(identifierPrefix)weekly",
+          identifier: recurringIdentifier(for: .weekly),
           content: content,
           trigger: trigger)
       ]
@@ -320,7 +268,7 @@ final class SnapshotReminderService: NSObject {
         dateMatching: components, repeats: true)
       return [
         UNNotificationRequest(
-          identifier: "\(identifierPrefix)monthly",
+          identifier: recurringIdentifier(for: .monthly),
           content: content,
           trigger: trigger)
       ]
@@ -347,13 +295,18 @@ final class SnapshotReminderService: NSObject {
     }
   }
 
-  /// Schedules a windowed sequence of 8 non-repeating triggers spaced
-  /// `intervalDays` apart starting from the first firing strictly after
-  /// `referenceDate`. Used by frequencies that cannot be expressed as a single
-  /// repeating `UNCalendarNotificationTrigger` (bi-weekly, custom interval).
-  ///
-  /// The schedule is re-extended on each app launch and whenever the user
-  /// touches reminder settings; `reschedule(config:)` is idempotent.
+  /// Single source of truth for the recurring-cadence identifier shape.
+  /// Used by both `makeRecurringRequests` and tests.
+  static func recurringIdentifier(
+    for frequency: SnapshotReminderConfig.Frequency
+  ) -> String {
+    "\(identifierPrefix)\(frequency.rawValue)"
+  }
+
+  /// Used for cadences that can't be expressed as a single repeating
+  /// `UNCalendarNotificationTrigger` (bi-weekly, custom interval): emits
+  /// 8 non-repeating triggers spaced `intervalDays` apart starting from
+  /// the first firing strictly after `referenceDate`.
   private static func makeWindowedRequests(
     intervalDays: Int,
     anchorWeekday: Int?,
@@ -400,16 +353,27 @@ final class SnapshotReminderService: NSObject {
     }
     return requests
   }
+
+  static func makeSnoozeRequest(
+    fireAt: Date,
+    content: UNNotificationContent,
+    from referenceDate: Date
+  ) -> UNNotificationRequest {
+    let interval = max(1, fireAt.timeIntervalSince(referenceDate))
+    let trigger = UNTimeIntervalNotificationTrigger(
+      timeInterval: interval, repeats: false)
+    let identifier = "\(snoozeIdentifierPrefix)\(UUID().uuidString)"
+    return UNNotificationRequest(
+      identifier: identifier, content: content, trigger: trigger)
+  }
 }
 
 // MARK: - UNUserNotificationCenterDelegate
 
 extension SnapshotReminderService: UNUserNotificationCenterDelegate {
   /// Show the banner even when AssetFlow is foregrounded, and keep the
-  /// reminder in Notification Center so the user can still find it after the
-  /// banner auto-dismisses. Background-delivered reminders are added to
-  /// Notification Center by the system regardless of these options;
-  /// foreground delivery is the only case `.list` matters for.
+  /// reminder in Notification Center so the user can still find it after
+  /// the banner auto-dismisses.
   nonisolated func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification
@@ -418,9 +382,8 @@ extension SnapshotReminderService: UNUserNotificationCenterDelegate {
   }
 
   /// Routes a notification interaction:
-  /// - the **Remind Tomorrow** action → reschedule a one-shot 24h out;
-  /// - the default tap (or any unknown action) → ask the app to open the
-  ///   New Snapshot dialog via `AppRouter`.
+  /// - the **Remind Tomorrow** action → `recordSnooze()`;
+  /// - the default tap (or any unknown action) → `AppRouter.requestNewSnapshot()`.
   nonisolated func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     didReceive response: UNNotificationResponse
@@ -430,7 +393,7 @@ extension SnapshotReminderService: UNUserNotificationCenterDelegate {
       guard let self else { return }
       switch actionID {
       case Self.snoozeActionIdentifier:
-        Task { [weak self] in await self?.snooze() }
+        Task { [weak self] in await self?.recordSnooze() }
 
       default:
         AppRouter.shared.requestNewSnapshot()

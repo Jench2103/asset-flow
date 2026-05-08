@@ -305,7 +305,10 @@ struct SettingsViewModelTests {
     settingsService.snapshotReminderConfig = storedConfig ?? .default
     let center = FakeNotificationCenter()
     center.stubbedAuthorizationStatus = authorization
-    let reminderService = SnapshotReminderService.createForTesting(center: center)
+    settingsService.notificationsArchitectureVersion =
+      SnapshotReminderService.currentArchitectureVersion
+    let reminderService = SnapshotReminderService.createForTesting(
+      center: center, settings: settingsService)
     let viewModel = SettingsViewModel(
       settingsService: settingsService,
       reminderService: reminderService
@@ -451,6 +454,81 @@ struct SettingsViewModelTests {
 
     #expect(harness.settingsService.snapshotReminderConfig.intervalDays == 21)
     #expect(harness.center.addedRequests.count >= 1)
+  }
+
+  @Test(
+    """
+    Toggling OFF while the OS auth prompt is suspended must beat a late \
+    .authorized resumption (regression: cancellation set Task.isCancelled \
+    but the late switch case didn't check it before persisting and \
+    rescheduling)
+    """)
+  func reminderToggleOffDuringAuthPromptDoesNotLeak() async throws {
+    let harness = makeReminderHarness(authorization: .notDetermined)
+    harness.center.suspendOnRequestAuthorization = true
+    harness.center.stubbedRequestAuthorizationResult = true
+
+    // 1. Toggle ON → ON task starts, eventually suspends inside
+    //    `requestAuthorization` waiting for the OS prompt response.
+    harness.viewModel.isReminderEnabled = true
+    let onTask = harness.viewModel.reminderTask
+
+    // Wait until the ON task has reached the continuation suspension point.
+    var attempts = 0
+    while harness.center.requestAuthorizationContinuation == nil
+      && attempts < 100
+    {
+      await Task.yield()
+      attempts += 1
+    }
+    try #require(harness.center.requestAuthorizationContinuation != nil)
+
+    // 2. Toggle OFF → cancels the ON task and runs the OFF task to
+    //    completion (the OFF task wipes pending and persists false).
+    harness.viewModel.isReminderEnabled = false
+    await harness.viewModel.reminderTask?.value
+    #expect(harness.settingsService.snapshotReminderEnabled == false)
+    #expect(harness.center.pending.isEmpty)
+
+    // 3. The user finally taps "Allow". The ON task resumes with .authorized.
+    harness.center.resolveAuthorizationPrompt(grant: true)
+    await onTask?.value
+
+    // The fix: cancellation guard prevents the late .authorized branch from
+    // re-introducing the schedule the OFF task just wiped.
+    #expect(harness.settingsService.snapshotReminderEnabled == false)
+    #expect(harness.center.pending.isEmpty)
+  }
+
+  @Test(
+    """
+    Disabling within the debounce window cancels the in-flight reschedule \
+    (regression: leaked task used to wake after 150 ms and re-schedule \
+    notifications the user had just turned off)
+    """)
+  func reminderDisableCancelsInFlightDebouncedReschedule() async {
+    let harness = makeReminderHarness(
+      storedEnabled: true, authorization: .authorized)
+
+    // 1. Edit a setting → starts a 150 ms-debounced reschedule task.
+    let newTime =
+      Calendar.current.date(
+        bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
+    harness.viewModel.reminderTime = newTime
+    let debouncedTask = harness.viewModel.reminderTask
+
+    // 2. Disable before the debounce window elapses. The disable path
+    //    must cancel the in-flight task; otherwise it later wakes up and
+    //    re-introduces the schedule the user just turned off.
+    harness.viewModel.isReminderEnabled = false
+
+    // Wait for both tasks. If the debounce task is properly cancelled it
+    // returns early on Task.isCancelled and never calls reschedule.
+    await debouncedTask?.value
+    await harness.viewModel.reminderTask?.value
+
+    #expect(harness.settingsService.snapshotReminderEnabled == false)
+    #expect(harness.center.pending.isEmpty)
   }
 
   @Test("Changing reminderTime extracts hour and minute and persists")

@@ -177,6 +177,7 @@ ______________________________________________________________________
 
 - Opt-in only. Off by default. Authorization is requested via `UNUserNotificationCenter.requestAuthorization` only when the user enables the toggle in Settings — never at app launch.
 - A sticky `hasNotificationsBeenAuthorized: Bool` flag is recorded in UserDefaults the first time the OS reports `.authorized`/`.provisional`. It exists solely to tailor the failure-mode alert (System Settings vs. registration failure) and is never transmitted off the device.
+- `activeSnoozes: [Date]` (JSON-encoded in UserDefaults) lists future fire-dates for "Remind Tomorrow" snoozes. Each entry is just a timestamp — no notification body, no financial data. The list is cleared when the user disables reminders. Stored on-device only; never transmitted.
 - Notification body is a fixed, generic line ("Time to add a new portfolio snapshot.") localized in English and Traditional Chinese. The reminder contains **no portfolio totals, asset names, currencies, or any other financial data** and is therefore safe to surface on the macOS lock screen.
 - Notification scheduling and delivery happen entirely on-device via the system `UserNotifications` framework. No notification content is sent over the network and no remote push (APNs) infrastructure is used by this feature.
 

@@ -201,25 +201,11 @@ final class SettingsViewModel {
     }
   }
 
-  /// Cause of the most recent failure to enable snapshot reminders, or `nil`
-  /// when no alert should be shown. The view binds this to one of two alerts:
-  /// the user-denied case (link to System Settings) or the registration-
-  /// failure case (suggest moving the app to /Applications, then offer a
-  /// GitHub issue path).
-  var authorizationFailureKind: AuthorizationFailureKind?
-
-  /// Why the snapshot-reminder toggle could not be turned on.
-  enum AuthorizationFailureKind: Sendable {
-    /// The OS reports `.denied` and the user has previously authorized
-    /// AssetFlow notifications, so an entry exists in System Settings →
-    /// Notifications and they can re-enable it there.
-    case deniedInSystemSettings
-    /// The OS refused to register the bundle, or the user denied the very
-    /// first authorization prompt. There is nothing actionable in System
-    /// Settings; instead, ask the user to verify the app's location and
-    /// offer a GitHub-issue path.
-    case registrationFailure
-  }
+  /// Cause of the most recent failure to enable snapshot reminders, or
+  /// `nil` (or `.authorized`) when no alert should be shown. Bound by the
+  /// view to two alerts: the user-denied case (link to System Settings)
+  /// and the registration-failure case (suggest /Applications + GitHub).
+  var authorizationFailureKind: SnapshotReminderService.AuthorizationResult?
 
   /// Task handle for in-flight reminder operations, exposed for testability.
   private(set) var reminderTask: Task<Void, Never>?
@@ -255,71 +241,35 @@ final class SettingsViewModel {
   // MARK: - Reminder helpers
 
   private func handleReminderToggleChange(newValue: Bool) {
+    reminderTask?.cancel()
     reminderTask = Task { [weak self] in
       guard let self else { return }
-      if newValue {
-        var status = await reminderService.authorizationStatus()
-        if status == .notDetermined {
-          status = await reminderService.requestAuthorization()
-        }
-        switch status {
-        case .authorized, .provisional:
-          // Sticky flag — record the first successful authorization so a
-          // later `.denied` can be attributed to a System Settings change
-          // rather than a never-registered bundle.
-          settingsService.hasNotificationsBeenAuthorized = true
-          settingsService.snapshotReminderEnabled = true
-          await reminderService.reschedule(
-            config: settingsService.snapshotReminderConfig)
-
-        default:
-          isReminderEnabled = false
-          settingsService.snapshotReminderEnabled = false
-          if status == .denied
-            && settingsService.hasNotificationsBeenAuthorized
-          {
-            authorizationFailureKind = .deniedInSystemSettings
-          } else {
-            // .denied without prior auth (the OS never registered the
-            // bundle, or the user denied the very first prompt) or any
-            // unexpected status. Nothing in System Settings to point them
-            // to; offer a "move to Applications + report on GitHub" path.
-            authorizationFailureKind = .registrationFailure
-          }
-        }
-      } else {
-        settingsService.snapshotReminderEnabled = false
-        await reminderService.reschedule(config: nil)
+      let result = await reminderService.setEnabled(newValue)
+      let persisted = settingsService.snapshotReminderEnabled
+      if isReminderEnabled != persisted {
+        isReminderEnabled = persisted
       }
+      authorizationFailureKind = result == .authorized ? nil : result
     }
   }
 
-  /// Mutates `settingsService.snapshotReminderConfig` in place via `transform`,
-  /// then triggers a (debounced) reschedule. Centralizes the persist + reload
-  /// pattern so each property `didSet` is one line.
+  /// Persists the config change synchronously, then debounces (150 ms) a
+  /// reconcile through the manager's serial queue. The debounce coalesces
+  /// a burst of edits — e.g., while the user is dragging a Stepper.
   private func updateReminderConfig(
     _ transform: (inout SnapshotReminderConfig) -> Void
   ) {
     var config = settingsService.snapshotReminderConfig
     transform(&config)
     settingsService.snapshotReminderConfig = config
-    scheduleReminderRefresh()
-  }
 
-  /// Schedules a reminder reschedule, coalescing rapid edits (e.g. dragging a
-  /// `Stepper` or holding a `Picker` open). Each call cancels the prior
-  /// pending task; only the most recent change actually runs `reschedule`.
-  private func scheduleReminderRefresh() {
     guard isReminderEnabled else { return }
+
     reminderTask?.cancel()
     reminderTask = Task { [weak self] in
-      // Small debounce window so a burst of didSets coalesces into one
-      // reschedule. Cancellation here is silent — Task.sleep throws on
-      // cancellation and we treat that as "a newer change superseded us".
       try? await Task.sleep(for: .milliseconds(150))
       guard !Task.isCancelled, let self else { return }
-      await reminderService.reschedule(
-        config: settingsService.snapshotReminderConfig)
+      await reminderService.reconcile()
     }
   }
 

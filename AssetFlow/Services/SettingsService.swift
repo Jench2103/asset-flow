@@ -104,6 +104,31 @@ class SettingsService {
     }
   }
 
+  /// Future-dated snoozes the user has scheduled via the "Remind Tomorrow"
+  /// notification action. Stored as data (not as `usernoted` requests
+  /// directly) so they survive recurring-schedule reconciles. Cleared when
+  /// the user disables reminders. JSON-encoded for forward-compatibility
+  /// with potential per-snooze metadata.
+  var activeSnoozes: [Date] {
+    didSet {
+      if let data = try? JSONEncoder().encode(activeSnoozes) {
+        userDefaults.set(
+          data, forKey: Constants.UserDefaultsKeys.activeSnoozes)
+      }
+    }
+  }
+
+  /// On-disk schema version for the notification architecture. Bumped when
+  /// the identifier scheme or storage layout changes; gates one-shot
+  /// migrations on first launch under newer code.
+  var notificationsArchitectureVersion: Int {
+    didSet {
+      userDefaults.set(
+        notificationsArchitectureVersion,
+        forKey: Constants.UserDefaultsKeys.notificationsArchitectureVersion)
+    }
+  }
+
   private init(userDefaults: UserDefaults = .standard) {
     self.userDefaults = userDefaults
 
@@ -150,6 +175,20 @@ class SettingsService {
       (userDefaults.object(
         forKey: Constants.UserDefaultsKeys.hasNotificationsBeenAuthorized)
         as? Bool) ?? false
+
+    if let data = userDefaults.data(
+      forKey: Constants.UserDefaultsKeys.activeSnoozes),
+      let decoded = try? JSONDecoder().decode([Date].self, from: data)
+    {
+      self.activeSnoozes = decoded
+    } else {
+      self.activeSnoozes = []
+    }
+
+    self.notificationsArchitectureVersion =
+      (userDefaults.object(
+        forKey: Constants.UserDefaultsKeys.notificationsArchitectureVersion)
+        as? Int) ?? 0
   }
 
   /// Creates an isolated instance for testing purposes

@@ -66,6 +66,8 @@ enum Constants {
     static let snapshotReminderEnabled = "snapshotReminderEnabled"
     static let snapshotReminderConfig = "snapshotReminderConfig"
     static let hasNotificationsBeenAuthorized = "hasNotificationsBeenAuthorized"
+    static let activeSnoozes = "activeSnoozes"
+    static let notificationsArchitectureVersion = "notificationsArchitectureVersion"
   }
 
   enum Parsing {

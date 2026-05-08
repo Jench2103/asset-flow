@@ -425,7 +425,9 @@ ______________________________________________________________________
 
 **Purpose**: Schedule and cancel local "remember to take a snapshot" notifications via the system `UNUserNotificationCenter`.
 
-`SnapshotReminderService` is an `@Observable @MainActor` `NSObject` subclass with a shared singleton and support for test isolation. Production code accesses `.shared`; tests inject a fake `UNUserNotificationCenterProtocol` via `createForTesting(center:)`. The class conforms to `UNUserNotificationCenterDelegate` in an extension whose methods are `nonisolated` (the delegate protocol does not promise main-actor isolation; each delegate method hops back into MainActor for the body).
+`SnapshotReminderService` is an `@Observable @MainActor` `NSObject` subclass implementing a **reconciliation pattern**: every state mutation goes through one of three public mutators which update `SettingsService` and enqueue a private `reconcile()` call onto a strict serial Task chain. After every mutator returns, the set of pending notification requests in `usernoted` whose identifier starts with `snapshotReminder.` exactly equals the desired schedule (`makeRecurringRequests(for: settings.snapshotReminderConfig)`) plus one snooze request per future `Date` in `settings.activeSnoozes`, or is empty when disabled or unauthorized.
+
+The class conforms to `UNUserNotificationCenterDelegate` in a `nonisolated` extension; each delegate method hops back into `MainActor` for the body.
 
 ```swift
 @Observable
@@ -433,20 +435,51 @@ ______________________________________________________________________
 final class SnapshotReminderService: NSObject {
     static let shared: SnapshotReminderService
 
-    static let categoryIdentifier: String       // "snapshotReminder"
-    static let snoozeActionIdentifier: String   // "snooze"
-    static let identifierPrefix: String         // "snapshotReminder."
+    static let categoryIdentifier: String        // "snapshotReminder"
+    static let snoozeActionIdentifier: String    // "snooze"
+    static let identifierPrefix: String          // "snapshotReminder." (namespace)
+    static let snoozeIdentifierPrefix: String    // "snapshotReminder.snooze."
+    static let currentArchitectureVersion: Int   // bumped when on-disk layout changes
 
-    static func createForTesting(center: any UNUserNotificationCenterProtocol) -> SnapshotReminderService
+    static func createForTesting(
+        center: any UNUserNotificationCenterProtocol,
+        settings: SettingsService
+    ) -> SnapshotReminderService
 
+    enum AuthorizationResult: Sendable, Equatable {
+        case authorized
+        case deniedInSystemSettings
+        case registrationFailure
+    }
+
+    /// Sets enable intent and reconciles. When enabling, performs the OS
+    /// authorization flow first; on failure reverts intent and returns
+    /// the failure kind for the UI to surface.
+    func setEnabled(_ enabled: Bool) async -> AuthorizationResult
+
+    /// Mutates `settings.snapshotReminderConfig` and reconciles. Idempotent
+    /// on no-op transforms.
+    func updateConfig(_ transform: (inout SnapshotReminderConfig) -> Void) async
+
+    /// Appends a one-shot snooze N hours from now to `settings.activeSnoozes`
+    /// and reconciles. The snooze survives recurring-schedule reconciles
+    /// (UserDefaults-backed) but is cleared when the user disables.
+    func recordSnooze(hoursFromNow: Int = 24) async
+
+    /// Reconcile entry point for `WindowGroup.task`. Runs the one-shot
+    /// architecture migration if needed, then reconciles to align
+    /// `usernoted` with `SettingsService` desired state — self-healing
+    /// any drift on every launch.
+    func reconcileOnLaunch() async
+
+    /// Idempotent. Public for AppDelegate.
     func registerCategories()
-    func authorizationStatus() async -> UNAuthorizationStatus
-    func requestAuthorization() async -> UNAuthorizationStatus
-    func reschedule(config: SnapshotReminderConfig?) async
-    func snooze(by hours: Int = 24) async
 
-    /// Pure scheduling math, exercised in isolation by unit tests.
-    static func makeRequests(
+    /// Forwarded from the underlying center.
+    func authorizationStatus() async -> UNAuthorizationStatus
+
+    /// Pure scheduling math; exercised in isolation by unit tests.
+    static func makeRecurringRequests(
         for config: SnapshotReminderConfig,
         content: UNNotificationContent,
         from referenceDate: Date,
@@ -454,6 +487,8 @@ final class SnapshotReminderService: NSObject {
     ) -> [UNNotificationRequest]
 }
 ```
+
+The previously-public `reschedule(config:)`, `snooze(by:)`, `topUpScheduleIfNeeded(config:)`, and instance `requestAuthorization()` are gone — they were implementation details of the selective-cancellation approach. All cancellation correctness now reduces to the `reconcile()` invariant; the spec lives in `docs/superpowers/specs/2026-05-07-snapshot-reminder-reconciliation-design.md`.
 
 **`UNUserNotificationCenterProtocol`** is the seam used for testability. It exposes only the methods the service calls (`authorizationStatus`, `requestAuthorization`, `setNotificationCategories`, `add`, `pendingNotificationRequests`, `removePendingNotificationRequests`, `setDelegate`). The production conformance is `extension UNUserNotificationCenter: UNUserNotificationCenterProtocol` and pulls `notificationSettings().authorizationStatus` for the narrowed accessor.
 
