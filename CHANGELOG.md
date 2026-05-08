@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.6.0](https://github.com/Jench2103/asset-flow/compare/v0.5.0...v0.6.0) (2026-05-08)
+
+
+### Features
+
+* **asset-list:** add Hide Stale Assets toggle ([0c7b0ca](https://github.com/Jench2103/asset-flow/commit/0c7b0ca0f99b3c38a5250d163943a4184e1dcea9))
+* **bulk-entry:** size CSV mapping preview to content ([5c97ca9](https://github.com/Jench2103/asset-flow/commit/5c97ca9c188d9991c4b3db6d09f0564ff58c7209))
+* **sidebar:** adopt system Liquid Glass background on macOS 26+ ([37d46be](https://github.com/Jench2103/asset-flow/commit/37d46be86257384f0b03db9bcd231486cd79569f))
+
+
+### Bug Fixes
+
+* **bulk-entry:** left-align text-categorical column headers ([146decc](https://github.com/Jench2103/asset-flow/commit/146decccf1113d8ae20b45982e20781b3d43d697))
+* **bulk-entry:** paint updated-row tint as a contiguous strip ([4456875](https://github.com/Jench2103/asset-flow/commit/44568759d671e02394b9bd76ee54c963a3696def))
+* **docs:** support Chinese anchors and search in zh-TW pages ([e0daf34](https://github.com/Jench2103/asset-flow/commit/e0daf34e75131dac7b763738741bab8c39a4e1b3))
+* **docs:** track included file's git history for include-only pages ([ff225a6](https://github.com/Jench2103/asset-flow/commit/ff225a69636b9b73bdc506176df42b2f17cfb2d4))
+* **settings:** set initial settings window size ([7847236](https://github.com/Jench2103/asset-flow/commit/7847236070f9121a963017f21c07b358dc509fcb))
+
+
+### Performance Improvements
+
+* **viewmodels:** share snapshot summary aggregation ([9f56f0a](https://github.com/Jench2103/asset-flow/commit/9f56f0a6c0d97636c5083f3daf37c4d043543337))
+
 ## [0.5.0](https://github.com/Jench2103/asset-flow/compare/v0.4.1...v0.5.0) (2026-04-18)
 
 ### Features
